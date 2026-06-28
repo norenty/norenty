@@ -1,12 +1,15 @@
-"""Norenty Telegram Bot — 2A.1: conexión + vincular chófer."""
+"""Norenty Telegram Bot — 2A.1+: flujo con botones, confirmación y navegación."""
 
 import os
 import logging
+from urllib.parse import quote_plus
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     CallbackQueryHandler,
+    MessageHandler,
+    filters,
     ContextTypes,
 )
 from .db import supabase
@@ -17,8 +20,113 @@ logger = logging.getLogger("norenty.bot")
 TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 
 
+def nav_buttons(hito):
+    """Genera botones de navegación (Google Maps + Waze) para un hito."""
+    buttons = []
+    lat, lon = hito.get("lat"), hito.get("lon")
+    direccion = hito.get("direccion", "")
+
+    if lat and lon:
+        gmaps = f"https://www.google.com/maps/dir/?api=1&destination={lat},{lon}"
+        waze = f"https://waze.com/ul?ll={lat},{lon}&navigate=yes"
+    elif direccion:
+        gmaps = f"https://www.google.com/maps/dir/?api=1&destination={quote_plus(direccion)}"
+        waze = f"https://waze.com/ul?q={quote_plus(direccion)}&navigate=yes"
+    else:
+        return buttons
+
+    buttons.append([
+        InlineKeyboardButton("Google Maps", url=gmaps),
+        InlineKeyboardButton("Waze", url=waze),
+    ])
+
+    if hito.get("link_extra"):
+        buttons.append([
+            InlineKeyboardButton("Parking / punto especial", url=hito["link_extra"]),
+        ])
+
+    return buttons
+
+
+def build_hito_message(hito, orden_actual, total_hitos):
+    """Construye el mensaje de un hito con toda la info relevante."""
+    tipo = "RECOGIDA" if hito["tipo"] == "recogida" else "ENTREGA"
+    direccion = hito.get("direccion", "sin dirección")
+
+    texto = f"📍 Hito {orden_actual}/{total_hitos} — {tipo}\n"
+    texto += f"📫 {direccion}\n"
+
+    if hito.get("ventana_inicio") or hito.get("ventana_fin"):
+        inicio = hito.get("ventana_inicio", "?")
+        fin = hito.get("ventana_fin", "?")
+        texto += f"🕐 Ventana: {inicio} – {fin}\n"
+
+    if hito.get("notas"):
+        texto += f"📝 {hito['notas']}\n"
+
+    return texto
+
+
+async def send_next_hito(chat_id, chofer_id, bot):
+    """Busca el siguiente hito pendiente y lo envía al chófer."""
+    viajes_r = (
+        supabase.table("viaje")
+        .select("id, referencia")
+        .eq("chofer_id", chofer_id)
+        .eq("estado", "en_curso")
+        .execute()
+    )
+
+    if not viajes_r.data:
+        await bot.send_message(chat_id=chat_id, text="No tienes ningún viaje activo.")
+        return
+
+    viaje = viajes_r.data[0]
+    ref = viaje.get("referencia") or viaje["id"][:8]
+
+    hitos_r = (
+        supabase.table("hito")
+        .select("*")
+        .eq("viaje_id", viaje["id"])
+        .order("orden")
+        .execute()
+    )
+
+    hitos = hitos_r.data or []
+    total = len(hitos)
+    completados = sum(1 for h in hitos if h["estado"] == "completado")
+    pendiente = next((h for h in hitos if h["estado"] in ("pendiente", "en_curso")), None)
+
+    if not pendiente:
+        supabase.table("viaje").update({"estado": "completado"}).eq("id", viaje["id"]).execute()
+        supabase.table("ejecucion_evento").insert({
+            "viaje_id": viaje["id"],
+            "chofer_id": chofer_id,
+            "tipo_evento": "viaje_completado",
+        }).execute()
+        await bot.send_message(
+            chat_id=chat_id,
+            text=f"Viaje {ref} completado — {total}/{total} hitos.\n\nBuen trabajo.",
+        )
+        return
+
+    texto = f"Viaje {ref} — {completados}/{total} hitos\n\n"
+    texto += build_hito_message(pendiente, pendiente["orden"], total)
+    texto += "\nPulsa cuando llegues al punto."
+
+    buttons = nav_buttons(pendiente)
+    buttons.append([
+        InlineKeyboardButton("He llegado", callback_data=f"pre_llegada:{pendiente['id']}")
+    ])
+
+    await bot.send_message(
+        chat_id=chat_id,
+        text=texto,
+        reply_markup=InlineKeyboardMarkup(buttons),
+    )
+
+
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Vincula el chat_id de Telegram con un chófer en la BD."""
     chat_id = str(update.effective_chat.id)
     args = ctx.args
 
@@ -31,7 +139,6 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     codigo = args[0]
-
     result = supabase.table("chofer").select("*").eq("id", codigo).execute()
 
     if not result.data:
@@ -52,83 +159,61 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     supabase.table("chofer").update({"chat_id": chat_id}).eq("id", codigo).execute()
 
-    idioma = chofer.get("idioma", "es")
     nombre = chofer.get("nombre", "chófer")
+    idioma = chofer.get("idioma", "es").upper()
 
     await update.message.reply_text(
-        f"Vinculado correctamente, {nombre}.\n"
-        f"Idioma: {idioma.upper()}\n\n"
-        "Recibirás tus viajes por aquí. Cuando tengas uno activo, "
-        "te iré guiando paso a paso."
+        f"Vinculado correctamente, {nombre}.\nIdioma: {idioma}"
     )
+
     logger.info("Chofer %s vinculado al chat %s", codigo, chat_id)
+    await send_next_hito(chat_id, chofer["id"], ctx.bot)
 
 
 async def cmd_estado(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Muestra el viaje activo del chófer (si tiene)."""
     chat_id = str(update.effective_chat.id)
+    chofer_r = supabase.table("chofer").select("id").eq("chat_id", chat_id).execute()
 
-    chofer_r = supabase.table("chofer").select("id, nombre").eq("chat_id", chat_id).execute()
     if not chofer_r.data:
-        await update.message.reply_text(
-            "No estás vinculado. Usa /start TU_CODIGO primero."
-        )
+        await update.message.reply_text("No estás vinculado. Usa /start TU_CODIGO primero.")
         return
 
-    chofer = chofer_r.data[0]
-
-    viajes_r = (
-        supabase.table("viaje")
-        .select("id, referencia, estado")
-        .eq("chofer_id", chofer["id"])
-        .eq("estado", "en_curso")
-        .execute()
-    )
-
-    if not viajes_r.data:
-        await update.message.reply_text("No tienes ningún viaje activo ahora mismo.")
-        return
-
-    viaje = viajes_r.data[0]
-    ref = viaje.get("referencia") or viaje["id"][:8]
-
-    hitos_r = (
-        supabase.table("hito")
-        .select("id, orden, tipo, direccion, estado")
-        .eq("viaje_id", viaje["id"])
-        .order("orden")
-        .execute()
-    )
-
-    hitos = hitos_r.data or []
-    completados = sum(1 for h in hitos if h["estado"] == "completado")
-    pendiente = next((h for h in hitos if h["estado"] in ("pendiente", "en_curso")), None)
-
-    texto = f"Viaje {ref} — {completados}/{len(hitos)} hitos\n\n"
-    if pendiente:
-        texto += (
-            f"Siguiente: {pendiente['tipo'].upper()} · {pendiente.get('direccion', 'sin dirección')}\n"
-            f"Pulsa el botón cuando llegues."
-        )
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("He llegado", callback_data=f"llegada:{pendiente['id']}")]
-        ])
-        await update.message.reply_text(texto, reply_markup=keyboard)
-    else:
-        texto += "Todos los hitos completados."
-        await update.message.reply_text(texto)
+    await send_next_hito(chat_id, chofer_r.data[0]["id"], ctx.bot)
 
 
-async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Registra la llegada del chófer a un hito."""
+async def cb_pre_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Paso 1: pide confirmación antes de registrar la llegada."""
     query = update.callback_query
     await query.answer()
 
-    data = query.data
-    if not data.startswith("llegada:"):
+    hito_id = query.data.split(":")[1]
+
+    hito_r = supabase.table("hito").select("direccion, tipo").eq("id", hito_id).execute()
+    if not hito_r.data:
+        await query.edit_message_text("Error: hito no encontrado.")
         return
 
-    hito_id = data.split(":")[1]
+    hito = hito_r.data[0]
+    tipo = "recogida" if hito["tipo"] == "recogida" else "entrega"
+    direccion = hito.get("direccion", "destino")
+
+    await query.edit_message_text(
+        text=f"¿Confirmas que has llegado a la {tipo} en {direccion}?",
+        reply_markup=InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("Sí, confirmo", callback_data=f"llegada:{hito_id}"),
+                InlineKeyboardButton("No, cancelar", callback_data="cancelar"),
+            ]
+        ]),
+    )
+
+
+async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Paso 2: registra la llegada confirmada."""
+    query = update.callback_query
+    await query.answer()
+
+    hito_id = query.data.split(":")[1]
     chat_id = str(query.message.chat_id)
 
     chofer_r = supabase.table("chofer").select("id").eq("chat_id", chat_id).execute()
@@ -138,7 +223,7 @@ async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     chofer_id = chofer_r.data[0]["id"]
 
-    hito_r = supabase.table("hito").select("*, viaje_id").eq("id", hito_id).execute()
+    hito_r = supabase.table("hito").select("*").eq("id", hito_id).execute()
     if not hito_r.data:
         await query.edit_message_text("Error: hito no encontrado.")
         return
@@ -146,7 +231,6 @@ async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     hito = hito_r.data[0]
 
     supabase.table("hito").update({"estado": "en_curso"}).eq("id", hito_id).execute()
-
     supabase.table("ejecucion_evento").insert({
         "viaje_id": hito["viaje_id"],
         "hito_id": hito_id,
@@ -173,14 +257,31 @@ async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         }).execute()
 
         await query.edit_message_text(
-            f"Recogida completada en {hito.get('direccion', 'origen')}.\n\n"
-            "Usa /estado para ver el siguiente hito."
+            f"Recogida completada en {hito.get('direccion', 'origen')}."
         )
+        await send_next_hito(chat_id, chofer_id, ctx.bot)
+
+
+async def cb_cancelar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Cancela la confirmación de llegada y vuelve a mostrar el hito."""
+    query = update.callback_query
+    await query.answer()
+    chat_id = str(query.message.chat_id)
+
+    chofer_r = supabase.table("chofer").select("id").eq("chat_id", chat_id).execute()
+    if not chofer_r.data:
+        await query.edit_message_text("Error: no estás vinculado.")
+        return
+
+    await query.edit_message_text("Cancelado. Pulsa cuando llegues de verdad.")
+    await send_next_hito(chat_id, chofer_r.data[0]["id"], ctx.bot)
 
 
 def create_bot_app():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("estado", cmd_estado))
+    app.add_handler(CallbackQueryHandler(cb_pre_llegada, pattern=r"^pre_llegada:"))
     app.add_handler(CallbackQueryHandler(cb_llegada, pattern=r"^llegada:"))
+    app.add_handler(CallbackQueryHandler(cb_cancelar, pattern=r"^cancelar$"))
     return app
