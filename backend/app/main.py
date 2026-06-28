@@ -1,15 +1,17 @@
-"""Norenty API — Milestone 0.
-
-Esqueleto mínimo de FastAPI. Solo un endpoint de salud para comprobar
-que el backend arranca. Sin lógica de negocio todavía.
-"""
+"""Norenty API — Milestone 1."""
 
 from fastapi import FastAPI
+from .db import supabase
 
-app = FastAPI(title="Norenty API", version="0.0.1")
+app = FastAPI(title="Norenty API", version="0.1.0")
 
 
 @app.get("/health")
 def health():
-    """Comprueba que el backend está vivo."""
     return {"status": "ok"}
+
+
+@app.get("/db/health")
+def db_health():
+    result = supabase.table("empresa").select("id").limit(1).execute()
+    return {"status": "ok", "db_connected": True, "rows": len(result.data)}
