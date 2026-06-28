@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  /* --- Norenty brand --- */
+  --color-brand: #4F46E5;
+  --color-brand-light: #6366F1;
+  --color-brand-dark: #3730A3;
+  --color-accent: #06B6D4;
+
+  /* --- Semantic (semáforo) --- */
+  --color-estado-planificado: #64748B;
+  --color-estado-en-curso: #2563EB;
+  --color-estado-ok: #16A34A;
+  --color-estado-riesgo: #F59E0B;
+  --color-estado-incidencia: #DC2626;
+
+  /* --- Surfaces --- */
+  --color-surface: #FFFFFF;
+  --color-surface-alt: #F8FAFC;
+  --color-border: #E2E8F0;
+  --color-border-strong: #CBD5E1;
+
+  /* --- Text --- */
+  --color-ink: #0F172A;
+  --color-ink-secondary: #475569;
+  --color-ink-muted: #94A3B8;
+
+  /* --- Radius --- */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* --- Fonts --- */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background: var(--color-surface-alt);
+}
