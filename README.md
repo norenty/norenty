@@ -1,4 +1,4 @@
-# Lexenty
+# Norenty
 
 Capa de "aseguramiento de ejecución" para empresas de transporte de flota propia.
 El contexto completo del proyecto está en [`CLAUDE.md`](./CLAUDE.md).
@@ -35,7 +35,7 @@ npm install
 npm run dev
 ```
 
-Comprobación: abrir http://localhost:3000 → debe verse la página "Lexenty — dashboard (vacío)".
+Comprobación: abrir http://localhost:3000 → debe verse la página "Norenty — dashboard (vacío)".
 
 ## Configuración
 

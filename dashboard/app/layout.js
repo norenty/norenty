@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Lexenty — Dashboard",
+  title: "Norenty — Dashboard",
   description: "Aseguramiento de ejecución para flotas",
 };
 

@@ -1,4 +1,4 @@
-Lexenty — Contexto del proyecto
+Norenty — Contexto del proyecto
 Qué construimos
 Una capa de "aseguramiento de ejecución" para empresas de transporte de flota propia. Un agente que habla con el chófer en su idioma por Telegram (y por voz), confirma cada hito del viaje, EXIGE foto del albarán (POD) antes de cerrar, lo registra todo, y avisa al gestor si algo se sale del plan. NO planifica rutas. El chófer es el sensor.
 Alcance de V1 (y lo que NO entra)

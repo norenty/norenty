@@ -1,5 +1,5 @@
 -- ============================================================
--- Lexenty — Milestone 1: esquema inicial de la base de datos
+-- Norenty — Milestone 1: esquema inicial de la base de datos
 -- Ejecutar en: Supabase -> SQL Editor -> New query -> pegar -> Run
 -- Es idempotente: puede ejecutarse varias veces (borra y recrea).
 -- ============================================================
