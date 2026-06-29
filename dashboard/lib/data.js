@@ -84,3 +84,62 @@ export async function getViaje(id) {
     valoraciones: valoraciones || [],
   };
 }
+
+export async function getDefaultEmpresaId() {
+  const { data } = await supabase
+    .from("empresa")
+    .select("id")
+    .order("created_at")
+    .limit(1)
+    .single();
+  return data?.id || null;
+}
+
+export async function getChoferes() {
+  const { data } = await supabase
+    .from("chofer")
+    .select("id, nombre, idioma, chat_id")
+    .order("created_at", { ascending: false });
+  return data || [];
+}
+
+export async function createChofer({ nombre, idioma }) {
+  const empresa_id = await getDefaultEmpresaId();
+  const { data, error } = await supabase
+    .from("chofer")
+    .insert({ nombre, idioma: idioma || "es", empresa_id })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function createViaje({ referencia, choferId, hitos }) {
+  const empresa_id = await getDefaultEmpresaId();
+  const { data: viaje, error } = await supabase
+    .from("viaje")
+    .insert({
+      referencia: referencia || null,
+      chofer_id: choferId || null,
+      empresa_id,
+      estado: "planificado",
+    })
+    .select()
+    .single();
+  if (error) throw error;
+
+  const validos = (hitos || []).filter((h) => h.direccion || h.tipo);
+  if (validos.length) {
+    const rows = validos.map((h, i) => ({
+      viaje_id: viaje.id,
+      orden: i + 1,
+      tipo: h.tipo,
+      direccion: h.direccion || null,
+      ventana_inicio: h.ventana_inicio || null,
+      ventana_fin: h.ventana_fin || null,
+      estado: "pendiente",
+    }));
+    await supabase.from("hito").insert(rows);
+  }
+  return viaje;
+}

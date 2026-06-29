@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { getViajes } from "../lib/data";
 import MetricCard from "./components/MetricCard";
 import KanbanColumn from "./components/KanbanColumn";
@@ -60,6 +61,16 @@ export default function OperacionPage() {
 
   return (
     <div>
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-xl font-medium text-ink">Operación</h1>
+        <Link
+          href="/viajes/nuevo"
+          className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium no-underline"
+        >
+          <Plus size={16} /> Nuevo viaje
+        </Link>
+      </div>
+
       <div className="grid grid-cols-4 gap-3 mb-5">
         <MetricCard label="Viajes" value={trips.length} />
         <MetricCard
