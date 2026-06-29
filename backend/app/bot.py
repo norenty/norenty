@@ -1,7 +1,8 @@
-"""Norenty Telegram Bot — 2A.1+: flujo con botones, confirmación y navegación."""
+"""Norenty Telegram Bot — 2A.1–2A.3: botones, navegación, recepción de POD."""
 
 import os
 import logging
+import uuid
 from urllib.parse import quote_plus
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -277,6 +278,98 @@ async def cb_cancelar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await send_next_hito(chat_id, chofer_r.data[0]["id"], ctx.bot)
 
 
+async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Recibe foto del albarán, la sube a Storage y registra el POD."""
+    chat_id = str(update.effective_chat.id)
+
+    chofer_r = supabase.table("chofer").select("id").eq("chat_id", chat_id).execute()
+    if not chofer_r.data:
+        await update.message.reply_text("No estás vinculado. Usa /start TU_CODIGO primero.")
+        return
+
+    chofer_id = chofer_r.data[0]["id"]
+
+    viajes_r = (
+        supabase.table("viaje")
+        .select("id, referencia")
+        .eq("chofer_id", chofer_id)
+        .eq("estado", "en_curso")
+        .execute()
+    )
+    if not viajes_r.data:
+        await update.message.reply_text("No tienes ningún viaje activo.")
+        return
+
+    viaje = viajes_r.data[0]
+
+    hito_r = (
+        supabase.table("hito")
+        .select("*")
+        .eq("viaje_id", viaje["id"])
+        .eq("estado", "en_curso")
+        .eq("tipo", "entrega")
+        .execute()
+    )
+    if not hito_r.data:
+        await update.message.reply_text(
+            "No hay ninguna entrega esperando albarán.\n"
+            "Usa /estado para ver tu siguiente hito."
+        )
+        return
+
+    hito = hito_r.data[0]
+
+    await update.message.reply_text("Recibida. Subiendo foto...")
+
+    photo = update.message.photo[-1]
+    file = await ctx.bot.get_file(photo.file_id)
+    file_bytes = await file.download_as_bytearray()
+
+    file_name = f"{viaje['id']}/{hito['id']}/{uuid.uuid4()}.jpg"
+
+    supabase.storage.from_("pods").upload(
+        path=file_name,
+        file=bytes(file_bytes),
+        file_options={"content-type": "image/jpeg"},
+    )
+
+    foto_url = f"{os.environ['SUPABASE_URL']}/storage/v1/object/public/pods/{file_name}"
+
+    supabase.table("pod").insert({
+        "hito_id": hito["id"],
+        "viaje_id": viaje["id"],
+        "foto_url": foto_url,
+        "estado_validacion": "pendiente",
+    }).execute()
+
+    supabase.table("hito").update({"estado": "completado"}).eq("id", hito["id"]).execute()
+
+    supabase.table("ejecucion_evento").insert({
+        "viaje_id": viaje["id"],
+        "hito_id": hito["id"],
+        "chofer_id": chofer_id,
+        "tipo_evento": "pod_subido",
+        "datos": {"foto_url": foto_url},
+    }).execute()
+
+    supabase.table("ejecucion_evento").insert({
+        "viaje_id": viaje["id"],
+        "hito_id": hito["id"],
+        "chofer_id": chofer_id,
+        "tipo_evento": "salida",
+    }).execute()
+
+    logger.info("POD subido: hito %s, url %s", hito["id"], foto_url)
+
+    ref = viaje.get("referencia") or viaje["id"][:8]
+    await update.message.reply_text(
+        f"Albarán recibido para {hito.get('direccion', 'entrega')}.\n"
+        f"Entrega completada."
+    )
+
+    await send_next_hito(chat_id, chofer_id, ctx.bot)
+
+
 def create_bot_app():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))
@@ -284,4 +377,5 @@ def create_bot_app():
     app.add_handler(CallbackQueryHandler(cb_pre_llegada, pattern=r"^pre_llegada:"))
     app.add_handler(CallbackQueryHandler(cb_llegada, pattern=r"^llegada:"))
     app.add_handler(CallbackQueryHandler(cb_cancelar, pattern=r"^cancelar$"))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     return app
