@@ -1,4 +1,5 @@
 import "./globals.css";
+import AuthGuard from "./components/AuthGuard";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 
@@ -11,11 +12,13 @@ export default function RootLayout({ children }) {
   return (
     <html lang="es">
       <body className="h-screen flex overflow-hidden">
-        <Sidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <Topbar />
-          <main className="flex-1 overflow-y-auto p-5">{children}</main>
-        </div>
+        <AuthGuard>
+          <Sidebar />
+          <div className="flex-1 flex flex-col min-w-0">
+            <Topbar />
+            <main className="flex-1 overflow-y-auto p-5">{children}</main>
+          </div>
+        </AuthGuard>
       </body>
     </html>
   );
