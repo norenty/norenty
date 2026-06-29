@@ -17,6 +17,7 @@ export default function VehiculosPage() {
   const [form, setForm] = useState({ matricula: "", tipo: "tractora", marca: "", modelo: "" });
   const [guardando, setGuardando] = useState(false);
   const [filtro, setFiltro] = useState("todos");
+  const [error, setError] = useState(null);
 
   async function load() {
     const { data } = await supabase
@@ -32,7 +33,8 @@ export default function VehiculosPage() {
     const mat = form.matricula.trim().toUpperCase();
     if (!mat) return;
     const dup = vehiculos.find((v) => v.matricula === mat);
-    if (dup) { alert(`Ya existe un vehículo con matrícula "${mat}"`); return; }
+    setError(null);
+    if (dup) { setError(`Ya existe un vehículo con matrícula "${mat}"`); return; }
     setGuardando(true);
     const empresa_id = await getDefaultEmpresaId();
     const { error } = await supabase.from("vehiculo").insert({
@@ -42,7 +44,7 @@ export default function VehiculosPage() {
       modelo: form.modelo.trim() || null,
       empresa_id,
     });
-    if (error) { alert(error.message); } else {
+    if (error) { setError(error.message); } else {
       setForm({ matricula: "", tipo: "tractora", marca: "", modelo: "" });
     }
     setGuardando(false);
@@ -65,6 +67,13 @@ export default function VehiculosPage() {
         Gestiona tractoras, remolques y otros vehículos de la flota.
       </p>
 
+      {error && (
+        <div className="mb-4 text-xs px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-estado-incidencia flex items-center justify-between">
+          {error}
+          <button onClick={() => setError(null)} className="text-ink-muted ml-2">✕</button>
+        </div>
+      )}
+
       <form onSubmit={añadir} className="bg-surface border border-border rounded-xl p-4 mb-6 flex items-end gap-3 flex-wrap">
         <div>
           <label className="block text-xs text-ink-secondary mb-1">Matrícula</label>
@@ -72,6 +81,7 @@ export default function VehiculosPage() {
             value={form.matricula}
             onChange={(e) => setForm({ ...form, matricula: e.target.value })}
             placeholder="1234 ABC"
+            maxLength={15}
             className="text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand w-32"
           />
         </div>

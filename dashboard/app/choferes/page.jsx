@@ -13,6 +13,7 @@ export default function ChoferesPage() {
   const [idioma, setIdioma] = useState("es");
   const [guardando, setGuardando] = useState(false);
   const [copiado, setCopiado] = useState(null);
+  const [error, setError] = useState(null);
 
   function load() {
     getChoferes().then(setChoferes);
@@ -22,15 +23,16 @@ export default function ChoferesPage() {
   async function añadir(e) {
     e.preventDefault();
     if (!nombre.trim()) return;
+    setError(null);
     const dup = choferes.find((c) => c.nombre.toLowerCase() === nombre.trim().toLowerCase());
-    if (dup) { alert(`Ya existe un chófer con el nombre "${dup.nombre}"`); return; }
+    if (dup) { setError(`Ya existe un chófer con el nombre "${dup.nombre}"`); return; }
     setGuardando(true);
     try {
       await createChofer({ nombre: nombre.trim(), idioma });
       setNombre("");
       setIdioma("es");
     } catch (err) {
-      alert(err.message);
+      setError(err.message);
     }
     setGuardando(false);
     load();
@@ -49,6 +51,13 @@ export default function ChoferesPage() {
         Da de alta chóferes y comparte su enlace de vinculación con Telegram.
       </p>
 
+      {error && (
+        <div className="mb-4 text-xs px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-estado-incidencia flex items-center justify-between">
+          {error}
+          <button onClick={() => setError(null)} className="text-ink-muted ml-2">✕</button>
+        </div>
+      )}
+
       <form
         onSubmit={añadir}
         className="bg-surface border border-border rounded-xl p-4 mb-6 flex items-end gap-3"
@@ -59,6 +68,7 @@ export default function ChoferesPage() {
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             placeholder="Nombre del chófer"
+            maxLength={100}
             className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
           />
         </div>

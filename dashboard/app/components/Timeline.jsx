@@ -47,9 +47,10 @@ export default function Timeline({ eventos }) {
   return (
     <div className="flex flex-col">
       {eventos.map((ev, i) => {
-        const cfg = eventoConfig[ev.tipo_evento] || {
+        const tipoEvento = ev.tipo || ev.tipo_evento;
+        const cfg = eventoConfig[tipoEvento] || {
           icon: Circle,
-          label: ev.tipo_evento,
+          label: tipoEvento || "Evento",
           color: "text-ink-muted",
         };
         const Icon = cfg.icon;
@@ -68,9 +69,9 @@ export default function Timeline({ eventos }) {
               <div className="font-mono text-xs text-ink-muted">
                 {formatHora(ev.ocurrido_en)}
               </div>
-              {ev.datos?.direccion && (
+              {(ev.detalle || ev.datos?.direccion) && (
                 <div className="text-xs text-ink-secondary mt-0.5">
-                  {ev.datos.direccion}
+                  {ev.detalle || ev.datos?.direccion}
                 </div>
               )}
             </div>

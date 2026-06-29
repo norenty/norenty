@@ -1,4 +1,4 @@
-"""Norenty Telegram Bot — 2A.1–2A.3: botones, navegación, recepción de POD."""
+"""Norenty Telegram Bot — operación de hitos, POD, y alertas al gestor."""
 
 import os
 import logging
@@ -21,8 +21,71 @@ logger = logging.getLogger("norenty.bot")
 TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 
 
+def get_chofer_by_chat(chat_id):
+    r = supabase.table("chofer").select("id, nombre, empresa_id").eq("chat_id", str(chat_id)).execute()
+    return r.data[0] if r.data else None
+
+
+def verificar_hito_pertenece_a_chofer(hito_id, chofer_id):
+    """Verifica que el hito pertenece a un viaje asignado a este chófer."""
+    r = (
+        supabase.table("hito")
+        .select("*, viaje!inner(id, chofer_id, estado, referencia)")
+        .eq("id", hito_id)
+        .execute()
+    )
+    if not r.data:
+        return None, "Hito no encontrado."
+    hito = r.data[0]
+    viaje = hito.get("viaje")
+    if not viaje or viaje.get("chofer_id") != chofer_id:
+        return None, "Este hito no pertenece a tu viaje."
+    if viaje.get("estado") not in ("en_curso", "planificado"):
+        return None, "Este viaje ya no está activo."
+    return hito, None
+
+
+async def alertar_gestor(empresa_id, viaje_id, tipo, descripcion):
+    """Crea una incidencia y notifica a los gestores de la empresa por Telegram."""
+    supabase.table("incidencia").insert({
+        "viaje_id": viaje_id,
+        "tipo": tipo,
+        "descripcion": descripcion,
+        "estado": "abierta",
+    }).execute()
+
+    gestores_r = supabase.table("gestor").select("telegram_chat_id").eq("empresa_id", empresa_id).execute()
+    for g in (gestores_r.data or []):
+        chat = g.get("telegram_chat_id")
+        if chat:
+            try:
+                from telegram import Bot
+                bot = Bot(token=TOKEN)
+                viaje_r = supabase.table("viaje").select("referencia").eq("id", viaje_id).execute()
+                ref = viaje_r.data[0]["referencia"] if viaje_r.data else viaje_id[:8]
+                await bot.send_message(
+                    chat_id=chat,
+                    text=f"⚠️ ALERTA — {tipo.replace('_', ' ').upper()}\n\nViaje: {ref}\n{descripcion}",
+                )
+            except Exception as e:
+                logger.error("Error notificando gestor %s: %s", chat, e)
+
+
+async def notificar_gestor_evento(empresa_id, viaje_id, mensaje):
+    """Envía notificación informativa (no incidencia) a los gestores."""
+    gestores_r = supabase.table("gestor").select("telegram_chat_id").eq("empresa_id", empresa_id).execute()
+    for g in (gestores_r.data or []):
+        chat = g.get("telegram_chat_id")
+        if chat:
+            try:
+                from telegram import Bot
+                bot = Bot(token=TOKEN)
+                await bot.send_message(chat_id=chat, text=mensaje)
+            except Exception as e:
+                logger.error("Error notificando gestor %s: %s", chat, e)
+
+
 def nav_buttons(hito):
-    """Genera botones de navegación (Google Maps + Waze) para un hito."""
     buttons = []
     lat, lon = hito.get("lat"), hito.get("lon")
     direccion = hito.get("direccion", "")
@@ -50,7 +113,6 @@ def nav_buttons(hito):
 
 
 def build_hito_message(hito, orden_actual, total_hitos):
-    """Construye el mensaje de un hito con toda la info relevante."""
     tipo = "RECOGIDA" if hito["tipo"] == "recogida" else "ENTREGA"
     direccion = hito.get("direccion", "sin dirección")
 
@@ -69,7 +131,6 @@ def build_hito_message(hito, orden_actual, total_hitos):
 
 
 async def send_next_hito(chat_id, chofer_id, bot):
-    """Busca el siguiente hito pendiente y lo envía al chófer."""
     viajes_r = (
         supabase.table("viaje")
         .select("id, referencia")
@@ -103,8 +164,17 @@ async def send_next_hito(chat_id, chofer_id, bot):
         supabase.table("ejecucion_evento").insert({
             "viaje_id": viaje["id"],
             "chofer_id": chofer_id,
-            "tipo_evento": "viaje_completado",
+            "tipo": "viaje_completado",
         }).execute()
+
+        chofer = get_chofer_by_chat(chat_id)
+        if chofer:
+            await notificar_gestor_evento(
+                chofer["empresa_id"],
+                viaje["id"],
+                f"✅ Viaje {ref} completado — {total}/{total} hitos. Chófer: {chofer['nombre']}",
+            )
+
         await bot.send_message(
             chat_id=chat_id,
             text=f"Viaje {ref} completado — {total}/{total} hitos.\n\nBuen trabajo.",
@@ -140,6 +210,11 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     codigo = args[0]
+
+    if len(codigo) != 36:
+        await update.message.reply_text("Código no válido. Debe ser el UUID que te dio tu gestor.")
+        return
+
     result = supabase.table("chofer").select("*").eq("id", codigo).execute()
 
     if not result.data:
@@ -173,28 +248,32 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_estado(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     chat_id = str(update.effective_chat.id)
-    chofer_r = supabase.table("chofer").select("id").eq("chat_id", chat_id).execute()
+    chofer = get_chofer_by_chat(chat_id)
 
-    if not chofer_r.data:
+    if not chofer:
         await update.message.reply_text("No estás vinculado. Usa /start TU_CODIGO primero.")
         return
 
-    await send_next_hito(chat_id, chofer_r.data[0]["id"], ctx.bot)
+    await send_next_hito(chat_id, chofer["id"], ctx.bot)
 
 
 async def cb_pre_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Paso 1: pide confirmación antes de registrar la llegada."""
     query = update.callback_query
     await query.answer()
 
     hito_id = query.data.split(":")[1]
+    chat_id = str(query.message.chat_id)
 
-    hito_r = supabase.table("hito").select("direccion, tipo").eq("id", hito_id).execute()
-    if not hito_r.data:
-        await query.edit_message_text("Error: hito no encontrado.")
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
+        await query.edit_message_text("Error: no estás vinculado.")
         return
 
-    hito = hito_r.data[0]
+    hito, error = verificar_hito_pertenece_a_chofer(hito_id, chofer["id"])
+    if error:
+        await query.edit_message_text(error)
+        return
+
     tipo = "recogida" if hito["tipo"] == "recogida" else "entrega"
     direccion = hito.get("direccion", "destino")
 
@@ -210,35 +289,49 @@ async def cb_pre_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Paso 2: registra la llegada confirmada."""
     query = update.callback_query
     await query.answer()
 
     hito_id = query.data.split(":")[1]
     chat_id = str(query.message.chat_id)
 
-    chofer_r = supabase.table("chofer").select("id").eq("chat_id", chat_id).execute()
-    if not chofer_r.data:
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
         await query.edit_message_text("Error: no estás vinculado.")
         return
 
-    chofer_id = chofer_r.data[0]["id"]
-
-    hito_r = supabase.table("hito").select("*").eq("id", hito_id).execute()
-    if not hito_r.data:
-        await query.edit_message_text("Error: hito no encontrado.")
+    hito, error = verificar_hito_pertenece_a_chofer(hito_id, chofer["id"])
+    if error:
+        await query.edit_message_text(error)
         return
 
-    hito = hito_r.data[0]
+    chofer_id = chofer["id"]
+    viaje = hito["viaje"]
 
     supabase.table("hito").update({"estado": "en_curso"}).eq("id", hito_id).execute()
     supabase.table("ejecucion_evento").insert({
-        "viaje_id": hito["viaje_id"],
+        "viaje_id": viaje["id"],
         "hito_id": hito_id,
         "chofer_id": chofer_id,
-        "tipo_evento": "llegada",
-        "datos": {"direccion": hito.get("direccion")},
+        "tipo": "llegada",
+        "detalle": hito.get("direccion"),
     }).execute()
+
+    # Comprobar si llegó fuera de ventana
+    if hito.get("ventana_fin"):
+        from datetime import datetime, timezone
+        try:
+            ventana_fin = datetime.fromisoformat(hito["ventana_fin"].replace("Z", "+00:00"))
+            if datetime.now(timezone.utc) > ventana_fin:
+                ref = viaje.get("referencia") or viaje["id"][:8]
+                await alertar_gestor(
+                    chofer["empresa_id"],
+                    viaje["id"],
+                    "fuera_de_ventana",
+                    f"Chófer {chofer['nombre']} llegó fuera de ventana al hito {hito['orden']} ({hito.get('direccion', '?')}) del viaje {ref}.",
+                )
+        except (ValueError, TypeError):
+            pass
 
     logger.info("Llegada registrada: hito %s, chofer %s", hito_id, chofer_id)
 
@@ -251,10 +344,10 @@ async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     else:
         supabase.table("hito").update({"estado": "completado"}).eq("id", hito_id).execute()
         supabase.table("ejecucion_evento").insert({
-            "viaje_id": hito["viaje_id"],
+            "viaje_id": viaje["id"],
             "hito_id": hito_id,
             "chofer_id": chofer_id,
-            "tipo_evento": "salida",
+            "tipo": "salida",
         }).execute()
 
         await query.edit_message_text(
@@ -264,30 +357,28 @@ async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def cb_cancelar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Cancela la confirmación de llegada y vuelve a mostrar el hito."""
     query = update.callback_query
     await query.answer()
     chat_id = str(query.message.chat_id)
 
-    chofer_r = supabase.table("chofer").select("id").eq("chat_id", chat_id).execute()
-    if not chofer_r.data:
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
         await query.edit_message_text("Error: no estás vinculado.")
         return
 
     await query.edit_message_text("Cancelado. Pulsa cuando llegues de verdad.")
-    await send_next_hito(chat_id, chofer_r.data[0]["id"], ctx.bot)
+    await send_next_hito(chat_id, chofer["id"], ctx.bot)
 
 
 async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Recibe foto del albarán, la sube a Storage y registra el POD."""
     chat_id = str(update.effective_chat.id)
 
-    chofer_r = supabase.table("chofer").select("id").eq("chat_id", chat_id).execute()
-    if not chofer_r.data:
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
         await update.message.reply_text("No estás vinculado. Usa /start TU_CODIGO primero.")
         return
 
-    chofer_id = chofer_r.data[0]["id"]
+    chofer_id = chofer["id"]
 
     viajes_r = (
         supabase.table("viaje")
@@ -325,7 +416,8 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     file = await ctx.bot.get_file(photo.file_id)
     file_bytes = await file.download_as_bytearray()
 
-    file_name = f"{viaje['id']}/{hito['id']}/{uuid.uuid4()}.jpg"
+    file_ext = "jpg"
+    file_name = f"{viaje['id']}/{hito['id']}/{uuid.uuid4()}.{file_ext}"
 
     supabase.storage.from_("pods").upload(
         path=file_name,
@@ -333,7 +425,7 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         file_options={"content-type": "image/jpeg"},
     )
 
-    foto_url = f"{os.environ['SUPABASE_URL']}/storage/v1/object/public/pods/{file_name}"
+    foto_url = supabase.storage.from_("pods").get_public_url(file_name)
 
     supabase.table("pod").insert({
         "hito_id": hito["id"],
@@ -348,18 +440,17 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "viaje_id": viaje["id"],
         "hito_id": hito["id"],
         "chofer_id": chofer_id,
-        "tipo_evento": "pod_subido",
-        "datos": {"foto_url": foto_url},
+        "tipo": "pod_subido",
     }).execute()
 
     supabase.table("ejecucion_evento").insert({
         "viaje_id": viaje["id"],
         "hito_id": hito["id"],
         "chofer_id": chofer_id,
-        "tipo_evento": "salida",
+        "tipo": "salida",
     }).execute()
 
-    logger.info("POD subido: hito %s, url %s", hito["id"], foto_url)
+    logger.info("POD subido: hito %s", hito["id"])
 
     ref = viaje.get("referencia") or viaje["id"][:8]
     await update.message.reply_text(
@@ -367,13 +458,58 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"Entrega completada."
     )
 
+    await notificar_gestor_evento(
+        chofer["empresa_id"],
+        viaje["id"],
+        f"📄 Albarán recibido — Viaje {ref}, hito {hito['orden']} ({hito.get('direccion', '?')}). Chófer: {chofer['nombre']}.",
+    )
+
     await send_next_hito(chat_id, chofer_id, ctx.bot)
+
+
+async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """El chófer puede reportar una incidencia: /incidencia texto libre"""
+    chat_id = str(update.effective_chat.id)
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
+        await update.message.reply_text("No estás vinculado. Usa /start TU_CODIGO primero.")
+        return
+
+    texto = " ".join(ctx.args) if ctx.args else ""
+    if not texto:
+        await update.message.reply_text("Escribe qué ha pasado: /incidencia avería en la rueda trasera")
+        return
+
+    viajes_r = (
+        supabase.table("viaje")
+        .select("id, referencia")
+        .eq("chofer_id", chofer["id"])
+        .eq("estado", "en_curso")
+        .execute()
+    )
+    if not viajes_r.data:
+        await update.message.reply_text("No tienes ningún viaje activo.")
+        return
+
+    viaje = viajes_r.data[0]
+    ref = viaje.get("referencia") or viaje["id"][:8]
+
+    await alertar_gestor(
+        chofer["empresa_id"],
+        viaje["id"],
+        "otro",
+        f"Reportado por chófer {chofer['nombre']}: {texto}",
+    )
+
+    await update.message.reply_text(f"Incidencia reportada para viaje {ref}. Tu gestor ha sido notificado.")
+    logger.info("Incidencia manual: chofer %s, viaje %s", chofer["id"], viaje["id"])
 
 
 def create_bot_app():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("estado", cmd_estado))
+    app.add_handler(CommandHandler("incidencia", cmd_incidencia))
     app.add_handler(CallbackQueryHandler(cb_pre_llegada, pattern=r"^pre_llegada:"))
     app.add_handler(CallbackQueryHandler(cb_llegada, pattern=r"^llegada:"))
     app.add_handler(CallbackQueryHandler(cb_cancelar, pattern=r"^cancelar$"))

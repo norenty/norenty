@@ -161,6 +161,7 @@ export default function NuevoViaje() {
               value={referencia}
               onChange={(e) => setReferenciaWrapped(e.target.value)}
               placeholder="VJ-2055"
+              maxLength={50}
               className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
             />
           </div>
@@ -259,6 +260,7 @@ export default function NuevoViaje() {
                     value={h.direccion}
                     onChange={(e) => actualizarHito(i, "direccion", e.target.value)}
                     placeholder="Dirección"
+                    maxLength={500}
                     className="flex-1 text-sm border border-border rounded-md px-3 py-1.5 focus:outline-none focus:border-brand"
                   />
                   {hitos.length > 1 && (

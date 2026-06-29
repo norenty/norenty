@@ -6,16 +6,15 @@ export function useRealtimeRefresh(tables, callback) {
   cbRef.current = callback;
 
   useEffect(() => {
-    const channel = supabase
-      .channel("dashboard-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "viaje" }, () => cbRef.current())
-      .on("postgres_changes", { event: "*", schema: "public", table: "hito" }, () => cbRef.current())
-      .on("postgres_changes", { event: "*", schema: "public", table: "ejecucion_evento" }, () => cbRef.current())
-      .on("postgres_changes", { event: "*", schema: "public", table: "incidencia" }, () => cbRef.current())
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+    let channel = supabase.channel("dashboard-" + tables.join("-"));
+    tables.forEach((table) => {
+      channel = channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table },
+        () => cbRef.current()
+      );
+    });
+    channel.subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [tables.join(",")]);
 }

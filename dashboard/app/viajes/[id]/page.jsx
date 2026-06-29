@@ -260,7 +260,9 @@ export default function ViajeDetalle() {
                   const ep = estadoPod[p.estado_validacion] || estadoPod.pendiente;
                   return (
                     <div key={p.id} className="bg-surface border border-border rounded-xl overflow-hidden">
-                      <img src={p.foto_url} alt="Albarán" className="w-full h-40 object-cover bg-surface-alt" />
+                      {p.foto_url && /^https?:\/\//.test(p.foto_url) && (
+                        <img src={p.foto_url} alt="Albarán" className="w-full h-40 object-cover bg-surface-alt" />
+                      )}
                       <div className="p-2 flex items-center gap-2">
                         <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${ep.color}`}>{ep.label}</span>
                         {p.estado_validacion === "pendiente" && (

@@ -29,16 +29,17 @@ export default function Topbar() {
     if (q.length < 2) { setResults([]); setOpen(false); return; }
 
     timer.current = setTimeout(async () => {
+      const escaped = q.replace(/%/g, "\\%").replace(/_/g, "\\_");
       const [viajes, choferes] = await Promise.all([
         supabase
           .from("viaje")
           .select("id, referencia, estado")
-          .or(`referencia.ilike.%${q}%`)
+          .ilike("referencia", `%${escaped}%`)
           .limit(5),
         supabase
           .from("chofer")
           .select("id, nombre")
-          .ilike("nombre", `%${q}%`)
+          .ilike("nombre", `%${escaped}%`)
           .limit(5),
       ]);
 

@@ -59,6 +59,15 @@ export default function ImportarPage() {
       choferMap[c.nombre.toLowerCase()] = c.id;
     });
 
+    const { data: allVehiculos } = await supabase
+      .from("vehiculo")
+      .select("id, matricula, tipo")
+      .eq("activo", true);
+    const vehMap = {};
+    (allVehiculos || []).forEach((v) => {
+      vehMap[v.matricula.toUpperCase()] = v;
+    });
+
     let ok = 0;
     let errores = [];
 
@@ -72,24 +81,14 @@ export default function ImportarPage() {
 
         let vehiculo_id = null;
         if (r.vehiculo_matricula) {
-          const { data: veh } = await supabase
-            .from("vehiculo")
-            .select("id")
-            .ilike("matricula", r.vehiculo_matricula)
-            .limit(1)
-            .single();
-          vehiculo_id = veh?.id || null;
+          const v = vehMap[r.vehiculo_matricula.toUpperCase()];
+          vehiculo_id = v?.id || null;
         }
 
         let remolque_id = null;
         if (r.remolque_matricula) {
-          const { data: rem } = await supabase
-            .from("vehiculo")
-            .select("id")
-            .ilike("matricula", r.remolque_matricula)
-            .limit(1)
-            .single();
-          remolque_id = rem?.id || null;
+          const v = vehMap[r.remolque_matricula.toUpperCase()];
+          remolque_id = v?.id || null;
         }
 
         const { data: viaje, error } = await supabase
@@ -130,7 +129,8 @@ export default function ImportarPage() {
         if (hitos.length) await supabase.from("hito").insert(hitos);
         ok++;
       } catch (err) {
-        errores.push({ fila: i + 1, ref: r.referencia, error: err.message });
+        const msg = err.message?.includes("violates") ? "Conflicto de datos (duplicado o referencia inválida)" : (err.message || "Error desconocido");
+        errores.push({ fila: i + 1, ref: r.referencia, error: msg });
       }
     }
 
