@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { getViajes } from "../lib/data";
+import { useRealtimeRefresh } from "../lib/realtime";
 import MetricCard from "./components/MetricCard";
 import KanbanColumn from "./components/KanbanColumn";
 import TripCard from "./components/TripCard";
@@ -23,12 +24,15 @@ export default function OperacionPage() {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  function refresh() {
     getViajes().then((data) => {
       setTrips(data);
       setLoading(false);
     });
-  }, []);
+  }
+
+  useEffect(() => { refresh(); }, []);
+  useRealtimeRefresh(["viaje", "hito", "ejecucion_evento", "incidencia"], refresh);
 
   const { planificados, enCurso, completados, incidencias } = classify(trips);
 

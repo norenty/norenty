@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { getChoferes, createViaje } from "../../../lib/data";
+import { supabase } from "../../../lib/supabase";
 
 function nuevoHito() {
   return { tipo: "entrega", direccion: "", ventana_inicio: "", ventana_fin: "" };
@@ -13,14 +14,44 @@ function nuevoHito() {
 export default function NuevoViaje() {
   const router = useRouter();
   const [choferes, setChoferes] = useState([]);
+  const [vehiculos, setVehiculos] = useState([]);
+  const [plantillas, setPlantillas] = useState([]);
   const [referencia, setReferencia] = useState("");
   const [choferId, setChoferId] = useState("");
+  const [vehiculoId, setVehiculoId] = useState("");
+  const [remolqueId, setRemolqueId] = useState("");
   const [hitos, setHitos] = useState([nuevoHito()]);
   const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
     getChoferes().then(setChoferes);
+    supabase
+      .from("vehiculo")
+      .select("id, matricula, tipo, marca, modelo")
+      .eq("activo", true)
+      .order("matricula")
+      .then(({ data }) => setVehiculos(data || []));
+    supabase
+      .from("plantilla_ruta")
+      .select("id, nombre")
+      .order("nombre")
+      .then(({ data }) => setPlantillas(data || []));
   }, []);
+
+  const tractoras = vehiculos.filter((v) => ["tractora", "rigido", "furgoneta"].includes(v.tipo));
+  const remolques = vehiculos.filter((v) => v.tipo === "remolque");
+
+  async function cargarPlantilla(plantillaId) {
+    if (!plantillaId) return;
+    const { data } = await supabase
+      .from("plantilla_hito")
+      .select("tipo, direccion")
+      .eq("plantilla_ruta_id", plantillaId)
+      .order("orden");
+    if (data?.length) {
+      setHitos(data.map((h) => ({ ...h, ventana_inicio: "", ventana_fin: "" })));
+    }
+  }
 
   function actualizarHito(i, campo, valor) {
     setHitos((hs) => hs.map((h, idx) => (idx === i ? { ...h, [campo]: valor } : h)));
@@ -38,6 +69,8 @@ export default function NuevoViaje() {
     const viaje = await createViaje({
       referencia: referencia.trim(),
       choferId: choferId || null,
+      vehiculoId: vehiculoId || null,
+      remolqueId: remolqueId || null,
       hitos: hitos.filter((h) => h.direccion.trim()),
     });
     router.push(`/viajes/${viaje.id}`);
@@ -56,9 +89,7 @@ export default function NuevoViaje() {
       <form onSubmit={guardar} className="flex flex-col gap-5">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-ink-secondary mb-1">
-              Referencia
-            </label>
+            <label className="block text-xs text-ink-secondary mb-1">Referencia</label>
             <input
               value={referencia}
               onChange={(e) => setReferencia(e.target.value)}
@@ -82,6 +113,55 @@ export default function NuevoViaje() {
             </select>
           </div>
         </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-ink-secondary mb-1">Vehículo</label>
+            <select
+              value={vehiculoId}
+              onChange={(e) => setVehiculoId(e.target.value)}
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+            >
+              <option value="">Sin asignar</option>
+              {tractoras.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.matricula} {v.marca && `· ${v.marca}`} {v.modelo || ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-ink-secondary mb-1">Remolque</label>
+            <select
+              value={remolqueId}
+              onChange={(e) => setRemolqueId(e.target.value)}
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+            >
+              <option value="">Sin remolque</option>
+              {remolques.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.matricula} {v.marca && `· ${v.marca}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {plantillas.length > 0 && (
+          <div>
+            <label className="block text-xs text-ink-secondary mb-1">Cargar desde plantilla</label>
+            <select
+              onChange={(e) => cargarPlantilla(e.target.value)}
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+              defaultValue=""
+            >
+              <option value="">— Hitos manuales —</option>
+              {plantillas.map((p) => (
+                <option key={p.id} value={p.id}>{p.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div>
           <div className="flex items-center justify-between mb-2">

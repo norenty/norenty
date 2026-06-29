@@ -33,6 +33,7 @@ export async function getViajes() {
       id: v.id,
       referencia: v.referencia || v.id.slice(0, 8),
       estado: v.estado,
+      created_at: v.created_at,
       chofer: v.chofer || { nombre: "Sin asignar", idioma: "" },
       hitosCompletados: completados,
       hitosTotal: total,
@@ -114,13 +115,15 @@ export async function createChofer({ nombre, idioma }) {
   return data;
 }
 
-export async function createViaje({ referencia, choferId, hitos }) {
+export async function createViaje({ referencia, choferId, vehiculoId, remolqueId, hitos }) {
   const empresa_id = await getDefaultEmpresaId();
   const { data: viaje, error } = await supabase
     .from("viaje")
     .insert({
       referencia: referencia || null,
       chofer_id: choferId || null,
+      vehiculo_id: vehiculoId || null,
+      remolque_id: remolqueId || null,
       empresa_id,
       estado: "planificado",
     })
