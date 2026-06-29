@@ -6,6 +6,19 @@ import Topbar from "./components/Topbar";
 export const metadata = {
   title: "Norenty — Dashboard",
   description: "Aseguramiento de ejecución para flotas",
+  icons: { icon: "/favicon.svg" },
+  themeColor: "#4F46E5",
+  openGraph: {
+    title: "Norenty",
+    description: "Aseguramiento de ejecución para flotas",
+    type: "website",
+  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({ children }) {
@@ -16,7 +29,7 @@ export default function RootLayout({ children }) {
           <Sidebar />
           <div className="flex-1 flex flex-col min-w-0">
             <Topbar />
-            <main className="flex-1 overflow-y-auto p-5">{children}</main>
+            <main className="flex-1 overflow-y-auto p-3 md:p-5">{children}</main>
           </div>
         </AuthGuard>
       </body>

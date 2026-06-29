@@ -75,7 +75,7 @@ export default function OperacionPage() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         <MetricCard label="Viajes" value={trips.length} />
         <MetricCard
           label="En curso"
@@ -95,7 +95,7 @@ export default function OperacionPage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="bg-surface-alt rounded-lg h-48 animate-pulse" />
           ))}
@@ -107,7 +107,7 @@ export default function OperacionPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {columnas.map((col) => (
             <KanbanColumn
               key={col.key}

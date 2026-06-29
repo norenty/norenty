@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Upload } from "lucide-react";
+import { Plus, Search, Upload, Download } from "lucide-react";
 import { getViajes } from "../../lib/data";
 
 const ESTADOS = [
@@ -33,6 +33,27 @@ export default function ViajesPage() {
     });
   }, []);
 
+  function exportarCSV() {
+    const header = "Referencia,Chófer,Estado,Hitos completados,Hitos total,Creado\n";
+    const rows = filtrados.map((v) =>
+      [
+        v.referencia,
+        v.chofer?.nombre || "Sin asignar",
+        v.estado,
+        v.hitosCompletados,
+        v.hitosTotal,
+        v.created_at ? new Date(v.created_at).toLocaleDateString("es-ES") : "",
+      ].map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")
+    ).join("\n");
+    const blob = new Blob(["﻿" + header + rows], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `viajes-norenty-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const filtrados = viajes.filter((v) => {
     if (filtroEstado !== "todos" && v.estado !== filtroEstado) return false;
     if (busqueda) {
@@ -51,6 +72,12 @@ export default function ViajesPage() {
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-medium text-ink">Viajes</h1>
         <div className="flex gap-2">
+          <button
+            onClick={exportarCSV}
+            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md border border-border text-ink-secondary hover:bg-surface-alt"
+          >
+            <Download size={16} /> Exportar
+          </button>
           <Link
             href="/importar"
             className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md border border-border text-ink-secondary no-underline hover:bg-surface-alt"
@@ -106,7 +133,7 @@ export default function ViajesPage() {
         </div>
       ) : (
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
-          <div className="grid grid-cols-[120px_1fr_100px_100px_80px] gap-2 px-4 py-2 bg-surface-alt border-b border-border text-xs font-medium text-ink-secondary">
+          <div className="hidden md:grid grid-cols-[120px_1fr_100px_100px_80px] gap-2 px-4 py-2 bg-surface-alt border-b border-border text-xs font-medium text-ink-secondary">
             <span>Referencia</span>
             <span>Chófer / Hito actual</span>
             <span>Progreso</span>
@@ -119,7 +146,7 @@ export default function ViajesPage() {
               <Link
                 key={v.id}
                 href={`/viajes/${v.id}`}
-                className="grid grid-cols-[120px_1fr_100px_100px_80px] gap-2 items-center px-4 py-3 border-b border-border last:border-0 no-underline hover:bg-surface-alt transition-colors"
+                className="flex flex-col md:grid md:grid-cols-[120px_1fr_100px_100px_80px] gap-1 md:gap-2 md:items-center px-4 py-3 border-b border-border last:border-0 no-underline hover:bg-surface-alt transition-colors"
               >
                 <span className="font-mono text-sm text-ink">{v.referencia}</span>
                 <div className="min-w-0">

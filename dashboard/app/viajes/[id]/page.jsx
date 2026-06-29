@@ -189,7 +189,7 @@ export default function ViajeDetalle() {
         </div>
       )}
 
-      <div className="grid grid-cols-[1fr_320px] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
         <div className="flex flex-col gap-6">
           <section>
             <h2 className="text-sm font-medium text-ink mb-3">Hitos del viaje</h2>
