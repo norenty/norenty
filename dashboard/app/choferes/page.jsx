@@ -22,10 +22,16 @@ export default function ChoferesPage() {
   async function añadir(e) {
     e.preventDefault();
     if (!nombre.trim()) return;
+    const dup = choferes.find((c) => c.nombre.toLowerCase() === nombre.trim().toLowerCase());
+    if (dup) { alert(`Ya existe un chófer con el nombre "${dup.nombre}"`); return; }
     setGuardando(true);
-    await createChofer({ nombre: nombre.trim(), idioma });
-    setNombre("");
-    setIdioma("es");
+    try {
+      await createChofer({ nombre: nombre.trim(), idioma });
+      setNombre("");
+      setIdioma("es");
+    } catch (err) {
+      alert(err.message);
+    }
     setGuardando(false);
     load();
   }

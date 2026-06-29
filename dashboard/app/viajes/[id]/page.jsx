@@ -4,9 +4,9 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, MapPin, Package, Clock, Truck, Edit3, Check, X,
+  ArrowLeft, MapPin, Package, Clock, Truck, Edit3, Check, X, AlertTriangle,
 } from "lucide-react";
-import { getViaje, getChoferes } from "../../../lib/data";
+import { getViaje, getChoferes, validarCambioEstado, validarAsignacion } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
 import Timeline from "../../components/Timeline";
@@ -43,6 +43,7 @@ export default function ViajeDetalle() {
   const [editandoChofer, setEditandoChofer] = useState(false);
   const [choferes, setChoferes] = useState([]);
   const [incidencias, setIncidencias] = useState([]);
+  const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
     const d = await getViaje(id);
@@ -67,13 +68,30 @@ export default function ViajeDetalle() {
   useRealtimeRefresh(["viaje", "hito", "ejecucion_evento"], load);
 
   async function cambiarEstado(nuevoEstado) {
+    setError(null);
+    const v = await validarCambioEstado(id, nuevoEstado);
+    if (!v.ok) {
+      setError(v.errores.join(". "));
+      setEditandoEstado(false);
+      return;
+    }
     await supabase.from("viaje").update({ estado: nuevoEstado }).eq("id", id);
     setEditandoEstado(false);
     load();
   }
 
-  async function cambiarChofer(choferId) {
-    await supabase.from("viaje").update({ chofer_id: choferId || null }).eq("id", id);
+  async function cambiarChofer(newChoferId) {
+    setError(null);
+    if (newChoferId) {
+      const v = await validarAsignacion({ choferId: newChoferId, excluirViajeId: id });
+      if (v.avisos.length > 0) {
+        if (!confirm(`Atención:\n\n${v.avisos.join("\n")}\n\n¿Asignar de todos modos?`)) {
+          setEditandoChofer(false);
+          return;
+        }
+      }
+    }
+    await supabase.from("viaje").update({ chofer_id: newChoferId || null }).eq("id", id);
     setEditandoChofer(false);
     load();
   }
@@ -162,6 +180,14 @@ export default function ViajeDetalle() {
           </span>
         )}
       </div>
+
+      {error && (
+        <div className="flex items-start gap-2 mb-4 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-xs text-estado-incidencia">
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+          {error}
+          <button onClick={() => setError(null)} className="ml-auto shrink-0"><X size={14} /></button>
+        </div>
+      )}
 
       <div className="grid grid-cols-[1fr_320px] gap-6">
         <div className="flex flex-col gap-6">

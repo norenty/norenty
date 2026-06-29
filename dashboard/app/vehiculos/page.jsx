@@ -29,17 +29,22 @@ export default function VehiculosPage() {
 
   async function añadir(e) {
     e.preventDefault();
-    if (!form.matricula.trim()) return;
+    const mat = form.matricula.trim().toUpperCase();
+    if (!mat) return;
+    const dup = vehiculos.find((v) => v.matricula === mat);
+    if (dup) { alert(`Ya existe un vehículo con matrícula "${mat}"`); return; }
     setGuardando(true);
     const empresa_id = await getDefaultEmpresaId();
-    await supabase.from("vehiculo").insert({
-      matricula: form.matricula.trim().toUpperCase(),
+    const { error } = await supabase.from("vehiculo").insert({
+      matricula: mat,
       tipo: form.tipo,
       marca: form.marca.trim() || null,
       modelo: form.modelo.trim() || null,
       empresa_id,
     });
-    setForm({ matricula: "", tipo: "tractora", marca: "", modelo: "" });
+    if (error) { alert(error.message); } else {
+      setForm({ matricula: "", tipo: "tractora", marca: "", modelo: "" });
+    }
     setGuardando(false);
     load();
   }

@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 
 const ALERTA_ESTADOS = ["abierta", "en_revision"];
+const ESTADOS_ACTIVOS = ["planificado", "en_curso"];
 
 export async function getViajes() {
   const { data: viajes, error } = await supabase
@@ -115,7 +116,127 @@ export async function createChofer({ nombre, idioma }) {
   return data;
 }
 
+// --- Validaciones de conflicto ---
+
+async function checkConflictoChofer(choferId, excluirViajeId) {
+  if (!choferId) return null;
+  let query = supabase
+    .from("viaje")
+    .select("id, referencia")
+    .eq("chofer_id", choferId)
+    .in("estado", ESTADOS_ACTIVOS);
+  if (excluirViajeId) query = query.neq("id", excluirViajeId);
+  const { data } = await query.limit(1).single();
+  if (data) {
+    return `Este chófer ya está asignado al viaje ${data.referencia || data.id.slice(0, 8)} (activo)`;
+  }
+  return null;
+}
+
+async function checkConflictoVehiculo(vehiculoId, excluirViajeId) {
+  if (!vehiculoId) return null;
+  let query = supabase
+    .from("viaje")
+    .select("id, referencia")
+    .eq("vehiculo_id", vehiculoId)
+    .in("estado", ESTADOS_ACTIVOS);
+  if (excluirViajeId) query = query.neq("id", excluirViajeId);
+  const { data } = await query.limit(1).single();
+  if (data) {
+    return `Este vehículo ya está asignado al viaje ${data.referencia || data.id.slice(0, 8)} (activo)`;
+  }
+  return null;
+}
+
+async function checkConflictoRemolque(remolqueId, excluirViajeId) {
+  if (!remolqueId) return null;
+  let query = supabase
+    .from("viaje")
+    .select("id, referencia")
+    .eq("remolque_id", remolqueId)
+    .in("estado", ESTADOS_ACTIVOS);
+  if (excluirViajeId) query = query.neq("id", excluirViajeId);
+  const { data } = await query.limit(1).single();
+  if (data) {
+    return `Este remolque ya está asignado al viaje ${data.referencia || data.id.slice(0, 8)} (activo)`;
+  }
+  return null;
+}
+
+async function checkReferenciaDuplicada(referencia, excluirViajeId) {
+  if (!referencia) return null;
+  let query = supabase
+    .from("viaje")
+    .select("id")
+    .eq("referencia", referencia);
+  if (excluirViajeId) query = query.neq("id", excluirViajeId);
+  const { data } = await query.limit(1).single();
+  if (data) return `Ya existe un viaje con referencia "${referencia}"`;
+  return null;
+}
+
+export async function validarAsignacion({ choferId, vehiculoId, remolqueId, referencia, excluirViajeId }) {
+  const avisos = [];
+  const errores = [];
+
+  const [confChofer, confVeh, confRem, confRef] = await Promise.all([
+    checkConflictoChofer(choferId, excluirViajeId),
+    checkConflictoVehiculo(vehiculoId, excluirViajeId),
+    checkConflictoRemolque(remolqueId, excluirViajeId),
+    checkReferenciaDuplicada(referencia, excluirViajeId),
+  ]);
+
+  if (confChofer) avisos.push(confChofer);
+  if (confVeh) avisos.push(confVeh);
+  if (confRem) avisos.push(confRem);
+  if (confRef) errores.push(confRef);
+
+  if (vehiculoId) {
+    const { data: veh } = await supabase.from("vehiculo").select("activo").eq("id", vehiculoId).single();
+    if (veh && !veh.activo) errores.push("El vehículo seleccionado está inactivo");
+  }
+  if (remolqueId) {
+    const { data: rem } = await supabase.from("vehiculo").select("activo").eq("id", remolqueId).single();
+    if (rem && !rem.activo) errores.push("El remolque seleccionado está inactivo");
+  }
+
+  return { avisos, errores, ok: errores.length === 0 };
+}
+
+export async function validarCambioEstado(viajeId, nuevoEstado) {
+  const errores = [];
+
+  if (nuevoEstado === "completado") {
+    const { data: hitos } = await supabase
+      .from("hito")
+      .select("id, estado")
+      .eq("viaje_id", viajeId);
+    const pendientes = (hitos || []).filter((h) => h.estado !== "completado");
+    if (pendientes.length > 0) {
+      errores.push(`Quedan ${pendientes.length} hito(s) sin completar`);
+    }
+  }
+
+  if (nuevoEstado === "en_curso") {
+    const { data: viaje } = await supabase
+      .from("viaje")
+      .select("chofer_id")
+      .eq("id", viajeId)
+      .single();
+    if (!viaje?.chofer_id) {
+      errores.push("No se puede poner en curso sin chófer asignado");
+    }
+  }
+
+  return { errores, ok: errores.length === 0 };
+}
+
 export async function createViaje({ referencia, choferId, vehiculoId, remolqueId, hitos }) {
+  const validacion = await validarAsignacion({ choferId, vehiculoId, remolqueId, referencia });
+  if (!validacion.ok) {
+    throw new Error(validacion.errores.join(". "));
+  }
+
   const empresa_id = await getDefaultEmpresaId();
   const { data: viaje, error } = await supabase
     .from("viaje")
@@ -144,5 +265,5 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
     }));
     await supabase.from("hito").insert(rows);
   }
-  return viaje;
+  return { viaje, avisos: validacion.avisos };
 }
