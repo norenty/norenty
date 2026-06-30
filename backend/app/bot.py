@@ -197,6 +197,38 @@ async def send_next_hito(chat_id, chofer_id, bot):
     )
 
 
+async def vincular_gestor(update: Update, gestor_id: str, chat_id: str):
+    """Vincula la cuenta de Telegram de un GESTOR (no chófer) para que reciba
+    alertas. Enlace generado en /ajustes del dashboard: t.me/Bot?start=gestor_<id>
+    """
+    result = supabase.table("gestor").select("*").eq("id", gestor_id).execute()
+
+    if not result.data:
+        await update.message.reply_text(
+            "No encuentro esa cuenta de gestor.\n"
+            "Genera el enlace de nuevo desde Ajustes en el dashboard."
+        )
+        return
+
+    gestor = result.data[0]
+
+    if gestor.get("telegram_chat_id") and gestor["telegram_chat_id"] != chat_id:
+        await update.message.reply_text(
+            "Esta cuenta de gestor ya está vinculada a otro Telegram.\n"
+            "Genera un enlace nuevo desde Ajustes si quieres cambiarlo."
+        )
+        return
+
+    supabase.table("gestor").update({"telegram_chat_id": chat_id}).eq("id", gestor_id).execute()
+
+    nombre = gestor.get("nombre", "gestor")
+    await update.message.reply_text(
+        f"Vinculado correctamente, {nombre}.\n"
+        "A partir de ahora recibirás aquí las alertas de incidencias, entregas y avisos de Norenty."
+    )
+    logger.info("Gestor %s vinculado al chat %s", gestor_id, chat_id)
+
+
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     chat_id = str(update.effective_chat.id)
     args = ctx.args
@@ -210,6 +242,10 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     codigo = args[0]
+
+    if codigo.startswith("gestor_"):
+        await vincular_gestor(update, codigo[len("gestor_"):], chat_id)
+        return
 
     if len(codigo) != 36:
         await update.message.reply_text("Código no válido. Debe ser el UUID que te dio tu gestor.")

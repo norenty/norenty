@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, User, Building2, Bell, Shield } from "lucide-react";
+import { Save, User, Building2, Bell, Shield, Send, Copy, Check } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getSession, signOut } from "../../lib/auth";
+
+const BOT = process.env.NEXT_PUBLIC_BOT_USERNAME;
 
 export default function AjustesPage() {
   const [user, setUser] = useState(null);
@@ -14,6 +16,7 @@ export default function AjustesPage() {
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState(null);
   const [newPassword, setNewPassword] = useState("");
+  const [copiado, setCopiado] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -72,6 +75,13 @@ export default function AjustesPage() {
       setNewPassword("");
     }
     setGuardando(false);
+  }
+
+  function copiarEnlaceTelegram() {
+    if (!gestor || !BOT) return;
+    navigator.clipboard.writeText(`https://t.me/${BOT}?start=gestor_${gestor.id}`);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
   }
 
   async function togglePref(key) {
@@ -142,6 +152,32 @@ export default function AjustesPage() {
             Cambiar
           </button>
         </div>
+      </section>
+
+      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Send size={18} className="text-brand" />
+          <h2 className="text-sm font-medium text-ink">Alertas por Telegram</h2>
+        </div>
+        {!gestor ? (
+          <p className="text-xs text-ink-muted">Cargando…</p>
+        ) : gestor.telegram_chat_id ? (
+          <p className="text-xs text-estado-ok">● Vinculado — recibirás aquí las alertas de incidencias y entregas.</p>
+        ) : BOT ? (
+          <div className="flex items-center gap-3">
+            <p className="flex-1 text-xs text-ink-secondary">
+              Sin vincular. Copia el enlace y ábrelo en Telegram para recibir alertas de incidencias y entregas en tiempo real.
+            </p>
+            <button
+              onClick={copiarEnlaceTelegram}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border text-ink-secondary hover:bg-surface-alt shrink-0"
+            >
+              {copiado ? <><Check size={14} /> Copiado</> : <><Copy size={14} /> Copiar enlace</>}
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-ink-muted">Bot no configurado (falta NEXT_PUBLIC_BOT_USERNAME).</p>
+        )}
       </section>
 
       <section className="bg-surface border border-border rounded-xl p-5 mb-4">

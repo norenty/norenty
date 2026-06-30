@@ -2,6 +2,9 @@
 viaje (vulnerabilidad real que se corrigió en la auditoría de seguridad),
 y que el flujo de mensajes/navegación se construya bien.
 """
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
 import pytest
 
 from app import bot
@@ -140,3 +143,58 @@ def test_build_hito_message_incluye_ventana():
 def test_build_hito_message_incluye_notas():
     msg = bot.build_hito_message({"tipo": "entrega", "direccion": "X", "notas": "Llamar al timbre 2B"}, 1, 1)
     assert "Llamar al timbre 2B" in msg
+
+
+# --- vincular_gestor: alta de Telegram del gestor (Fase 2) ---
+
+def fake_update():
+    return SimpleNamespace(message=SimpleNamespace(reply_text=AsyncMock()))
+
+
+@pytest.mark.asyncio
+async def test_vincular_gestor_no_encontrado(fake_db):
+    update = fake_update()
+    await bot.vincular_gestor(update, "gestor-inexistente", "chat-1")
+    texto = update.message.reply_text.call_args[0][0]
+    assert "No encuentro esa cuenta de gestor" in texto
+
+
+@pytest.mark.asyncio
+async def test_vincular_gestor_exito(fake_db):
+    fake_db.tables["gestor"] = [{"id": "g1", "nombre": "Ana", "telegram_chat_id": None}]
+    update = fake_update()
+    await bot.vincular_gestor(update, "g1", "chat-1")
+    texto = update.message.reply_text.call_args[0][0]
+    assert "Vinculado correctamente, Ana" in texto
+    assert fake_db.tables["gestor"][0]["telegram_chat_id"] == "chat-1"
+
+
+@pytest.mark.asyncio
+async def test_vincular_gestor_ya_vinculado_a_otro_chat(fake_db):
+    fake_db.tables["gestor"] = [{"id": "g1", "nombre": "Ana", "telegram_chat_id": "chat-VIEJO"}]
+    update = fake_update()
+    await bot.vincular_gestor(update, "g1", "chat-NUEVO")
+    texto = update.message.reply_text.call_args[0][0]
+    assert "ya está vinculada a otro Telegram" in texto
+    assert fake_db.tables["gestor"][0]["telegram_chat_id"] == "chat-VIEJO"  # no se sobreescribe
+
+
+@pytest.mark.asyncio
+async def test_vincular_gestor_revincular_mismo_chat_es_idempotente(fake_db):
+    fake_db.tables["gestor"] = [{"id": "g1", "nombre": "Ana", "telegram_chat_id": "chat-1"}]
+    update = fake_update()
+    await bot.vincular_gestor(update, "g1", "chat-1")
+    texto = update.message.reply_text.call_args[0][0]
+    assert "Vinculado correctamente, Ana" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_start_con_prefijo_gestor_enruta_correctamente(fake_db, monkeypatch):
+    fake_db.tables["gestor"] = [{"id": "g1", "nombre": "Ana", "telegram_chat_id": None}]
+    update = SimpleNamespace(
+        effective_chat=SimpleNamespace(id="chat-1"),
+        message=SimpleNamespace(reply_text=AsyncMock()),
+    )
+    ctx = SimpleNamespace(args=["gestor_g1"], bot=AsyncMock())
+    await bot.cmd_start(update, ctx)
+    assert fake_db.tables["gestor"][0]["telegram_chat_id"] == "chat-1"

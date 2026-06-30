@@ -35,7 +35,7 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 ## Fase 2 — Features
 
 ### Loop-safe (spec inequívoca)
-- [ ] `[LOOP]` **Vincular Telegram del gestor** — sin esto la feature de alertas no llega a nadie. Enlace de alta tipo `t.me/NorentyBot?start=gestor_<id>` + handler en el bot.
+- [x] **Vincular Telegram del gestor** (2026-06-30) — `t.me/NorentyBot?start=gestor_<id>` distingue de código de chófer por prefijo. Bot: `vincular_gestor()` con 5 tests (no encontrado, éxito, ya vinculado a otro chat, re-vincular mismo chat es idempotente, enrutado desde `cmd_start`). UI en Ajustes: sección "Alertas por Telegram" con copiar enlace, estado vinculado/sin vincular.
 - [ ] `[LOOP]` **Loading states + anti-doble-clic** en botones async (validar POD, cambiar estado incidencia).
 - [ ] `[LOOP]` **Localización real del bot** — textos por `chofer.idioma`, no hardcode español.
 - [ ] `[LOOP]` **Paginación** en notificaciones e incidencias.
