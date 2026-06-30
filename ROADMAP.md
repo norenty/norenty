@@ -36,11 +36,11 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ### Loop-safe (spec inequívoca)
 - [x] **Vincular Telegram del gestor** (2026-06-30) — `t.me/NorentyBot?start=gestor_<id>` distingue de código de chófer por prefijo. Bot: `vincular_gestor()` con 5 tests (no encontrado, éxito, ya vinculado a otro chat, re-vincular mismo chat es idempotente, enrutado desde `cmd_start`). UI en Ajustes: sección "Alertas por Telegram" con copiar enlace, estado vinculado/sin vincular.
-- [ ] `[LOOP]` **Loading states + anti-doble-clic** en botones async (validar POD, cambiar estado incidencia).
-- [ ] `[LOOP]` **Localización real del bot** — textos por `chofer.idioma`, no hardcode español.
-- [ ] `[LOOP]` **Paginación** en notificaciones e incidencias.
-- [ ] `[LOOP]` **Página detalle de chófer** (historial viajes, valoraciones, estado vinculación).
-- [ ] `[LOOP]` **Mantenimiento/averías de vehículo** — tabla + CRUD (ITV, revisiones, averías).
+- [x] `[LOOP]` **Loading states + anti-doble-clic** en botones async (validar POD, cambiar estado incidencia). (2026-06-30)
+- [x] `[LOOP]` **Localización real del bot** — TEXTOS dict 8 idiomas (es/en/ro/fr full, ar/it/pt/de=en stub) + helper `t(chofer, key)`. 33 tests. (2026-06-30)
+- [x] `[LOOP]` **Paginación** incidencias (20/página + Ver más) y viajes lista (50/página + Ver más con filtro servidor). (2026-06-30)
+- [x] `[LOOP]` **Página detalle de chófer** (`/choferes/[id]`): historial viajes paginado, valoraciones recientes, estado vinculación Telegram, copiar enlace. (2026-06-30)
+- [x] `[LOOP]` **Mantenimiento/averías de vehículo** — tabla `mantenimiento_vehiculo` con RLS + CRUD en `/vehiculos/[id]` (tipos: ITV/revisión/avería/reparación/otro, fecha, km, coste, estado pendiente/completado). (2026-06-30)
 
 ### Necesitan decisión (NO autónomo)
 - [ ] `[DECISIÓN]` **Panel analítica/KPIs** — qué métricas exactas y para quién.
