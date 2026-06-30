@@ -57,6 +57,30 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
+## Fase 4 — Features de valor (ABIERTA, loop-safe; specs cerradas con usuario 2026-06-30)
+
+Todos `[LOOP]`: sin coste por uso, sin deploy. Construir EN ORDEN. Cada ítem: implementar → `ci.ps1` verde → commit → marcar `[x]` + 1 línea en `PROGRESS.md`. Las migraciones nuevas se aplican vía MCP Supabase (`apply_migration`/`execute_sql`), se guarda el `.sql` en `backend/db/migrations/` y se registra en `schema_migrations` con su checksum.
+
+- [ ] `[LOOP]` **4.1 Botones de acción rápida en el bot** — Menú persistente (`ReplyKeyboardMarkup`) para el chófer con: "📍 Reportar incidencia", "📋 Mi viaje", "📞 Contactar gestor". "Reportar incidencia" enruta al flujo de `/incidencia` existente; "Mi viaje" muestra hito/estado actual (como `/estado`); "Contactar gestor" devuelve nombre/teléfono del gestor de la empresa del chófer (si no hay, mensaje "tu gestor aún no ha configurado contacto"). Textos con `t()`. Tests del enrutado. Sin tablas nuevas.
+
+- [ ] `[LOOP]` **4.2 Registro documental — base + viaje** — Migración `0012_documentos.sql`: tabla `documento(id uuid PK, empresa_id uuid FK empresa, ambito text CHECK in ('viaje','vehiculo','chofer'), entidad_id uuid NOT NULL, tipo text NOT NULL, fecha_emision date, fecha_caducidad date, archivo_url text, estado text DEFAULT 'vigente' CHECK in ('vigente','caducado','pendiente'), notas text, created_at timestamptz DEFAULT now())`, RLS `empresa_id = current_empresa_id()` (ALL, USING + WITH CHECK). Bucket privado nuevo `documentos` + policy storage por empresa (mismo patrón que `pods`: `(storage.foldername(name))[1] = current_empresa_id()::text`). Ruta de subida: `{empresa_id}/{ambito}/{entidad_id}/{uuid}.{ext}`. UI en `/viajes/[id]`: sección "Documentos" — subir (tipo CMR/albarán/ADR/otro, fechas, archivo), listar con enlace "ver/descargar" vía `createSignedUrl` (¡soporta PDF e imagen! no asumir `<img>`), borrar.
+
+- [ ] `[LOOP]` **4.3 Documentos de vehículo y chófer** — Reutiliza tabla `documento` y bucket. Extraer la UI de 4.2 a un componente reutilizable `DocumentosSection({ ambito, entidadId })`. En `/vehiculos/[id]`: ámbito 'vehiculo', tipos ITV/seguro/autorización de transporte/otro. En `/choferes/[id]`: ámbito 'chofer', tipos licencia/CAP/otro. Sin migración nueva.
+
+- [ ] `[LOOP]` **4.4 Alertas de caducidad + vista "por caducar"** — Página/sección `/documentos`: lista documentos con `fecha_caducidad` en los próximos 30 días o ya caducados, ordenados por urgencia, con enlace a su entidad. Badge "caduca pronto/caducado" en los detalles. Reutilizar el sistema de alertas al gestor existente (Telegram + in-app) para avisar de documentos por caducar. Sin coste.
+
+- [ ] `[LOOP]` **4.5 Vistas de métricas preset** — Página `/analitica` con selector entre 4 vistas, todo scoped por empresa: (1) **Puntualidad**: % entregas dentro de ventana, tendencia, peores rutas; (2) **Incidencias**: total + tasa, por tipo/chófer/vehículo; (3) **Rendimiento de chóferes**: viajes, valoración media, incidencias, % puntualidad; (4) **Flota**: utilización, ITV/mantenimiento próximos, averías recientes. Presentación: tarjetas numéricas + tablas + barras CSS simples (SIN librería de gráficos nueva). Funciones de agregación en `lib/data.js` con tests. (Selector de KPIs custom: diferido, fuera de scope.)
+
+- [ ] `[LOOP]` **4.6 Abstracción de la capa de mensajería** — Refactor de `bot.py`: separar la lógica de negocio de las llamadas concretas a la API de Telegram con una fina interfaz de transporte/notificador (enviar texto, enviar con botones, enviar foto), para que un adaptador WhatsApp sea factible luego sin reescribir. Tests existentes siguen verdes; NO cambia comportamiento. Sin tablas nuevas.
+
+### Production-gated — NO en el loop nocturno (coste por uso o deploy)
+- [ ] `[DECISIÓN]` **Notas de voz → transcripción (Whisper)** — la fontanería (capturar/guardar nota de voz) sería loop-safe, pero la transcripción cuesta dinero → requiere rate-limit + presupuesto ANTES. Es el 80/20 del agente de voz; primer candidato cuando haya presupuesto.
+- [ ] `[DECISIÓN]` **Agente de voz telefónico** — telefonía + STT/LLM/TTS en tiempo real; coste por minuto + producción.
+- [ ] `[DECISIÓN]` **Validación POD con visión LLM** — coste por imagen; a producción.
+- [ ] `[DECISIÓN]` **Adaptador WhatsApp** — Meta Business API, coste por conversación, la ventana de 24h rompe el push proactivo; decisión GTM. La abstracción (4.6) deja el terreno preparado.
+
+---
+
 ## Despliegue (POSPUESTO — no tocar sin confirmación explícita)
 
 GitHub → Vercel (dashboard) → Railway (backend) → dominio norenty.com vía Cloudflare.
