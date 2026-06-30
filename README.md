@@ -27,6 +27,19 @@ uvicorn app.main:app --reload
 
 Comprobación: abrir http://127.0.0.1:8000/health → debe responder `{"status": "ok"}`.
 
+#### Migraciones de base de datos
+
+```powershell
+cd backend
+python db/migrate.py --check   # lista pendientes sin aplicar nada
+python db/migrate.py           # aplica las pendientes en orden
+```
+
+Requiere `DATABASE_URL` (connection string de Postgres) en `.env`. Cada SQL nuevo
+va en `backend/db/migrations/NNNN_descripcion.sql`; el runner lleva el registro
+de lo aplicado en la tabla `schema_migrations`. No aplicar SQL ad-hoc por el
+MCP de Supabase salvo para inspección puntual.
+
 ### Dashboard (Next.js)
 
 ```powershell

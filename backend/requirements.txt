@@ -4,3 +4,4 @@ supabase
 python-dotenv
 python-telegram-bot
 sentry-sdk
+psycopg2-binary

@@ -50,10 +50,10 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ## Fase 3 — Hardening (pre-deploy)
 
-- [ ] `[LOOP]` **Bucket POD privado + URLs firmadas** — descubierto en Fase 1: el bucket `pods` es público, así que sirve fotos por URL directa sin pasar por RLS. Cualquiera con la URL exacta (aunque sea de otra empresa) puede verla. Arreglo: bucket privado + `createSignedUrl()` con expiración corta al renderizar cada `pod.foto_url`.
-- [ ] `[LOOP]` **Observabilidad**: error-tracking (Sentry o equivalente) en bot y dashboard.
+- [x] `[LOOP]` **Bucket POD privado + URLs firmadas** — descubierto en Fase 1: el bucket `pods` es público, así que sirve fotos por URL directa sin pasar por RLS. Cualquiera con la URL exacta (aunque sea de otra empresa) puede verla. Arreglo: bucket privado + `createSignedUrl()` con expiración corta al renderizar cada `pod.foto_url`. (2026-06-30: bucket privado, policy de storage RLS por empresa, ruta `{empresa_id}/{viaje_id}/{hito_id}/...`, componente `PodImage` con signed URL.)
+- [x] `[LOOP]` **Observabilidad**: error-tracking (Sentry o equivalente) en bot y dashboard. (2026-06-30: `sentry-sdk` en el bot y `@sentry/nextjs` en el dashboard, ambos opt-in vía `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN`, inertes si no hay DSN.)
 - [ ] `[DECISIÓN]` **Bot en modo webhook + supervisión de proceso** (hoy long-poll, single point of failure).
-- [ ] `[LOOP]` **Disciplina de migraciones**: runner ordenado y reproducible, no ad-hoc por MCP.
+- [x] `[LOOP]` **Disciplina de migraciones**: runner ordenado y reproducible, no ad-hoc por MCP. (2026-06-30: `backend/db/migrate.py`, tabla `schema_migrations` con checksum por archivo; las 0001-0011 ya aplicadas se registraron como backfill.)
 
 ---
 
