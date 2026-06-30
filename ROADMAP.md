@@ -21,10 +21,9 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
-## Fase 0 — Decisión de producto (HUMANO, bloqueante)
+## Fase 0 — Decisión de producto (CERRADA ✓)
 
-- [ ] `[DECISIÓN]` **Modelo de negocio**: ¿SaaS multi-cliente (muchas flotas) o herramienta interna para una sola flota? Determina tenancy, onboarding y billing.
-  - *Asunción por defecto hasta confirmación*: **datos multi-tenant correctos** (cada query scoped por `empresa_id`, RLS lo fuerza), pero **UI de gestión de organización diferida**. Es el default técnicamente correcto porque retrofitear tenancy más tarde es de las migraciones más dolorosas que existen.
+- [x] **Modelo de negocio: SaaS multi-cliente** (decidido 2026-06-30). Muchas flotas, cada una ve solo sus datos. Construir tenancy correcta desde ya: toda query scoped por `empresa_id`, RLS forzando aislamiento por empresa del gestor logueado. UI de gestión de organización (alta de nuevas empresas, invitaciones de gestores) se difiere — el modelo de datos por debajo ya debe ser correcto.
 
 ## Fase 1 — Fundaciones (GATE: no pasar a Fase 2 sin cerrar esto)
 
