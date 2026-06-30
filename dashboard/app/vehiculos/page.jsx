@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Plus, Truck } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getCurrentEmpresaId } from "../../lib/data";
@@ -148,17 +149,19 @@ export default function VehiculosPage() {
       <div className="flex flex-col gap-2">
         {filtrados.map((v) => (
           <div key={v.id} className={`bg-surface border border-border rounded-xl p-4 flex items-center gap-4 ${!v.activo ? "opacity-50" : ""}`}>
-            <div className="w-9 h-9 rounded-full bg-blue-50 text-estado-en-curso flex items-center justify-center">
-              <Truck size={18} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-ink font-mono">{v.matricula}</div>
-              <div className="text-xs text-ink-secondary">
-                {TIPOS.find((t) => t.value === v.tipo)?.label}
-                {v.marca && ` · ${v.marca}`}
-                {v.modelo && ` ${v.modelo}`}
+            <Link href={`/vehiculos/${v.id}`} className="flex items-center gap-3 flex-1 min-w-0 no-underline group">
+              <div className="w-9 h-9 rounded-full bg-blue-50 text-estado-en-curso flex items-center justify-center shrink-0">
+                <Truck size={18} />
               </div>
-            </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-ink font-mono group-hover:text-brand transition-colors">{v.matricula}</div>
+                <div className="text-xs text-ink-secondary">
+                  {TIPOS.find((t) => t.value === v.tipo)?.label}
+                  {v.marca && ` · ${v.marca}`}
+                  {v.modelo && ` ${v.modelo}`}
+                </div>
+              </div>
+            </Link>
             <button
               onClick={() => toggleActivo(v.id, v.activo)}
               disabled={procesandoId === v.id}

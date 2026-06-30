@@ -46,6 +46,58 @@ export async function getViajes() {
   });
 }
 
+const VIAJES_PAGE = 50;
+
+export async function getViajesLista({ offset = 0, estado = null } = {}) {
+  let query = supabase
+    .from("viaje")
+    .select("*, chofer(nombre, idioma), hito(id, estado, tipo, direccion, orden)")
+    .order("created_at", { ascending: false })
+    .range(offset, offset + VIAJES_PAGE);
+
+  if (estado) query = query.eq("estado", estado);
+
+  const { data: viajes, error } = await query;
+  if (error || !viajes) return { rows: [], hayMas: false };
+
+  const hayMas = viajes.length > VIAJES_PAGE;
+  const slice = hayMas ? viajes.slice(0, VIAJES_PAGE) : viajes;
+
+  const ids = slice.map((v) => v.id);
+  const { data: incidencias } = await supabase
+    .from("incidencia")
+    .select("viaje_id, estado, tipo")
+    .in("estado", ALERTA_ESTADOS)
+    .in("viaje_id", ids.length ? ids : ["__none__"]);
+
+  const incidenciaPorViaje = {};
+  (incidencias || []).forEach((i) => {
+    if (!incidenciaPorViaje[i.viaje_id]) incidenciaPorViaje[i.viaje_id] = i;
+  });
+
+  const rows = slice.map((v) => {
+    const hitos = v.hito || [];
+    const total = hitos.length;
+    const completados = hitos.filter((h) => h.estado === "completado").length;
+    const pendiente = [...hitos].sort((a, b) => a.orden - b.orden).find((h) => h.estado !== "completado");
+    return {
+      id: v.id,
+      referencia: v.referencia || v.id.slice(0, 8),
+      estado: v.estado,
+      created_at: v.created_at,
+      chofer: v.chofer || { nombre: "Sin asignar", idioma: "" },
+      hitosCompletados: completados,
+      hitosTotal: total,
+      hitoActual: pendiente
+        ? `${pendiente.tipo === "recogida" ? "Recogida" : "Entrega"} · ${pendiente.direccion || "—"}`
+        : null,
+      incidencia: incidenciaPorViaje[v.id] || null,
+    };
+  });
+
+  return { rows, hayMas };
+}
+
 export async function getViaje(id) {
   const { data: viaje } = await supabase
     .from("viaje")

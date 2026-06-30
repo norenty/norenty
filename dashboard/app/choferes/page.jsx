@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Copy, Check, UserPlus } from "lucide-react";
 import { getChoferes, createChofer } from "../../lib/data";
 
@@ -103,26 +104,27 @@ export default function ChoferesPage() {
               key={c.id}
               className="bg-surface border border-border rounded-xl p-4 flex items-center gap-4"
             >
-              <div className="w-9 h-9 rounded-full bg-blue-50 text-estado-en-curso flex items-center justify-center text-sm font-medium">
-                {c.nombre
-                  .split(" ")
-                  .map((w) => w[0])
-                  .join("")
-                  .slice(0, 2)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-ink">
-                  {c.nombre}
-                  <span className="font-mono text-xs ml-2 px-1.5 py-0.5 rounded-full bg-surface-alt text-ink-secondary">
-                    {c.idioma?.toUpperCase()}
-                  </span>
+              <Link
+                href={`/choferes/${c.id}`}
+                className="flex items-center gap-3 flex-1 min-w-0 no-underline group"
+              >
+                <div className="w-9 h-9 rounded-full bg-blue-50 text-estado-en-curso flex items-center justify-center text-sm font-medium shrink-0">
+                  {c.nombre.split(" ").map((w) => w[0]).join("").slice(0, 2)}
                 </div>
-                {c.chat_id ? (
-                  <span className="text-xs text-estado-ok">● Vinculado a Telegram</span>
-                ) : (
-                  <span className="text-xs text-ink-muted">○ Sin vincular</span>
-                )}
-              </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-ink group-hover:text-brand transition-colors">
+                    {c.nombre}
+                    <span className="font-mono text-xs ml-2 px-1.5 py-0.5 rounded-full bg-surface-alt text-ink-secondary">
+                      {c.idioma?.toUpperCase()}
+                    </span>
+                  </div>
+                  {c.chat_id ? (
+                    <span className="text-xs text-estado-ok">● Vinculado a Telegram</span>
+                  ) : (
+                    <span className="text-xs text-ink-muted">○ Sin vincular</span>
+                  )}
+                </div>
+              </Link>
 
               {!c.chat_id && link && (
                 <button

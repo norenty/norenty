@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Search, Upload, Download } from "lucide-react";
-import { getViajes } from "../../lib/data";
+import { Plus, Search, Upload, Download, ChevronDown } from "lucide-react";
+import { getViajesLista } from "../../lib/data";
 
 const ESTADOS = [
-  { key: "todos", label: "Todos" },
+  { key: null, label: "Todos" },
   { key: "planificado", label: "Planificado", c: "text-estado-planificado" },
   { key: "en_curso", label: "En curso", c: "text-estado-en-curso" },
   { key: "completado", label: "Completado", c: "text-estado-ok" },
@@ -23,15 +23,33 @@ const estadoLabel = {
 export default function ViajesPage() {
   const [viajes, setViajes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMas, setLoadingMas] = useState(false);
+  const [hayMas, setHayMas] = useState(false);
+  const [offset, setOffset] = useState(0);
   const [busqueda, setBusqueda] = useState("");
-  const [filtroEstado, setFiltroEstado] = useState("todos");
+  const [filtroEstado, setFiltroEstado] = useState(null);
+
+  const fetchPage = useCallback(async (estado, off, append = false) => {
+    const { rows, hayMas: mas } = await getViajesLista({ offset: off, estado });
+    setHayMas(mas);
+    setViajes((prev) => append ? [...prev, ...rows] : rows);
+  }, []);
 
   useEffect(() => {
-    getViajes().then((data) => {
-      setViajes(data);
-      setLoading(false);
-    });
-  }, []);
+    setLoading(true);
+    setOffset(0);
+    setViajes([]);
+    setBusqueda("");
+    fetchPage(filtroEstado, 0, false).finally(() => setLoading(false));
+  }, [filtroEstado]);
+
+  async function cargarMas() {
+    const nuevoOffset = offset + 50;
+    setOffset(nuevoOffset);
+    setLoadingMas(true);
+    await fetchPage(filtroEstado, nuevoOffset, true);
+    setLoadingMas(false);
+  }
 
   function exportarCSV() {
     const header = "Referencia,Chófer,Estado,Hitos completados,Hitos total,Creado\n";
@@ -54,18 +72,16 @@ export default function ViajesPage() {
     URL.revokeObjectURL(url);
   }
 
-  const filtrados = viajes.filter((v) => {
-    if (filtroEstado !== "todos" && v.estado !== filtroEstado) return false;
-    if (busqueda) {
-      const q = busqueda.toLowerCase();
-      return (
-        (v.referencia || "").toLowerCase().includes(q) ||
-        (v.chofer?.nombre || "").toLowerCase().includes(q) ||
-        (v.hitoActual || "").toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const filtrados = busqueda
+    ? viajes.filter((v) => {
+        const q = busqueda.toLowerCase();
+        return (
+          (v.referencia || "").toLowerCase().includes(q) ||
+          (v.chofer?.nombre || "").toLowerCase().includes(q) ||
+          (v.hitoActual || "").toLowerCase().includes(q)
+        );
+      })
+    : viajes;
 
   return (
     <div>
@@ -106,7 +122,7 @@ export default function ViajesPage() {
         <div className="flex gap-1">
           {ESTADOS.map((e) => (
             <button
-              key={e.key}
+              key={e.key ?? "todos"}
               onClick={() => setFiltroEstado(e.key)}
               className={`text-xs px-2.5 py-1.5 rounded-full border ${
                 filtroEstado === e.key
@@ -123,6 +139,7 @@ export default function ViajesPage() {
       <div className="text-xs text-ink-muted mb-2">
         {filtrados.length} viaje{filtrados.length !== 1 ? "s" : ""}
         {busqueda && ` para "${busqueda}"`}
+        {hayMas && !busqueda && " (hay más — usa «Ver más» abajo)"}
       </div>
 
       {loading ? (
@@ -132,55 +149,69 @@ export default function ViajesPage() {
           ))}
         </div>
       ) : (
-        <div className="bg-surface border border-border rounded-xl overflow-hidden">
-          <div className="hidden md:grid grid-cols-[120px_1fr_100px_100px_80px] gap-2 px-4 py-2 bg-surface-alt border-b border-border text-xs font-medium text-ink-secondary">
-            <span>Referencia</span>
-            <span>Chófer / Hito actual</span>
-            <span>Progreso</span>
-            <span>Creado</span>
-            <span className="text-right">Estado</span>
-          </div>
-          {filtrados.map((v) => {
-            const e = estadoLabel[v.estado] || estadoLabel.planificado;
-            return (
-              <Link
-                key={v.id}
-                href={`/viajes/${v.id}`}
-                className="flex flex-col md:grid md:grid-cols-[120px_1fr_100px_100px_80px] gap-1 md:gap-2 md:items-center px-4 py-3 border-b border-border last:border-0 no-underline hover:bg-surface-alt transition-colors"
-              >
-                <span className="font-mono text-sm text-ink">{v.referencia}</span>
-                <div className="min-w-0">
-                  <div className="text-sm text-ink truncate">{v.chofer?.nombre || "Sin asignar"}</div>
-                  {v.hitoActual && (
-                    <div className="text-xs text-ink-secondary truncate">{v.hitoActual}</div>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1.5 bg-surface-alt rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-brand rounded-full"
-                      style={{ width: v.hitosTotal ? `${(v.hitosCompletados / v.hitosTotal) * 100}%` : "0%" }}
-                    />
+        <>
+          <div className="bg-surface border border-border rounded-xl overflow-hidden">
+            <div className="hidden md:grid grid-cols-[120px_1fr_100px_100px_80px] gap-2 px-4 py-2 bg-surface-alt border-b border-border text-xs font-medium text-ink-secondary">
+              <span>Referencia</span>
+              <span>Chófer / Hito actual</span>
+              <span>Progreso</span>
+              <span>Creado</span>
+              <span className="text-right">Estado</span>
+            </div>
+            {filtrados.map((v) => {
+              const e = estadoLabel[v.estado] || estadoLabel.planificado;
+              return (
+                <Link
+                  key={v.id}
+                  href={`/viajes/${v.id}`}
+                  className="flex flex-col md:grid md:grid-cols-[120px_1fr_100px_100px_80px] gap-1 md:gap-2 md:items-center px-4 py-3 border-b border-border last:border-0 no-underline hover:bg-surface-alt transition-colors"
+                >
+                  <span className="font-mono text-sm text-ink">{v.referencia}</span>
+                  <div className="min-w-0">
+                    <div className="text-sm text-ink truncate">{v.chofer?.nombre || "Sin asignar"}</div>
+                    {v.hitoActual && (
+                      <div className="text-xs text-ink-secondary truncate">{v.hitoActual}</div>
+                    )}
                   </div>
-                  <span className="text-xs text-ink-muted">{v.hitosCompletados}/{v.hitosTotal}</span>
-                </div>
-                <span className="text-xs text-ink-muted">
-                  {v.created_at
-                    ? new Date(v.created_at).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })
-                    : "—"}
-                </span>
-                <span className={`text-xs font-medium text-right px-2 py-0.5 rounded-full ${e.bg} ${e.c}`}>
-                  {e.t}
-                </span>
-              </Link>
-            );
-          })}
-          {filtrados.length === 0 && (
-            <p className="text-sm text-ink-secondary p-4 text-center">
-              {busqueda ? `Sin resultados para "${busqueda}"` : "No hay viajes todavía."}
-            </p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-surface-alt rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-brand rounded-full"
+                        style={{ width: v.hitosTotal ? `${(v.hitosCompletados / v.hitosTotal) * 100}%` : "0%" }}
+                      />
+                    </div>
+                    <span className="text-xs text-ink-muted">{v.hitosCompletados}/{v.hitosTotal}</span>
+                  </div>
+                  <span className="text-xs text-ink-muted">
+                    {v.created_at
+                      ? new Date(v.created_at).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })
+                      : "—"}
+                  </span>
+                  <span className={`text-xs font-medium text-right px-2 py-0.5 rounded-full ${e.bg} ${e.c}`}>
+                    {e.t}
+                  </span>
+                </Link>
+              );
+            })}
+            {filtrados.length === 0 && (
+              <p className="text-sm text-ink-secondary p-4 text-center">
+                {busqueda ? `Sin resultados para "${busqueda}"` : "No hay viajes todavía."}
+              </p>
+            )}
+          </div>
+
+          {hayMas && !busqueda && (
+            <div className="mt-4 text-center">
+              <button
+                onClick={cargarMas}
+                disabled={loadingMas}
+                className="inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg border border-border text-ink-secondary hover:bg-surface-alt disabled:opacity-40"
+              >
+                {loadingMas ? "Cargando..." : <><ChevronDown size={14} /> Ver más viajes</>}
+              </button>
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
