@@ -25,6 +25,7 @@ export default function IncidenciasPage() {
   const [incidencias, setIncidencias] = useState([]);
   const [filtro, setFiltro] = useState("abiertas");
   const [loading, setLoading] = useState(true);
+  const [procesandoId, setProcesandoId] = useState(null);
 
   async function load() {
     let query = supabase
@@ -46,8 +47,14 @@ export default function IncidenciasPage() {
   useEffect(() => { setLoading(true); load(); }, [filtro]);
 
   async function cambiarEstado(id, nuevoEstado) {
-    await supabase.from("incidencia").update({ estado: nuevoEstado }).eq("id", id);
-    load();
+    if (procesandoId) return;
+    setProcesandoId(id);
+    try {
+      await supabase.from("incidencia").update({ estado: nuevoEstado }).eq("id", id);
+      await load();
+    } finally {
+      setProcesandoId(null);
+    }
   }
 
   return (
@@ -139,17 +146,19 @@ export default function IncidenciasPage() {
                     {inc.estado === "abierta" && (
                       <button
                         onClick={() => cambiarEstado(inc.id, "en_revision")}
-                        className="text-xs px-2.5 py-1.5 rounded-md border border-yellow-300 text-yellow-700 hover:bg-yellow-50"
+                        disabled={procesandoId === inc.id}
+                        className="text-xs px-2.5 py-1.5 rounded-md border border-yellow-300 text-yellow-700 hover:bg-yellow-50 disabled:opacity-40"
                       >
-                        Revisar
+                        {procesandoId === inc.id ? "…" : "Revisar"}
                       </button>
                     )}
                     {inc.estado !== "resuelta" && (
                       <button
                         onClick={() => cambiarEstado(inc.id, "resuelta")}
-                        className="text-xs px-2.5 py-1.5 rounded-md border border-estado-ok text-estado-ok hover:bg-green-50"
+                        disabled={procesandoId === inc.id}
+                        className="text-xs px-2.5 py-1.5 rounded-md border border-estado-ok text-estado-ok hover:bg-green-50 disabled:opacity-40"
                       >
-                        Resolver
+                        {procesandoId === inc.id ? "…" : "Resolver"}
                       </button>
                     )}
                   </div>

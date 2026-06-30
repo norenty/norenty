@@ -18,6 +18,7 @@ export default function VehiculosPage() {
   const [guardando, setGuardando] = useState(false);
   const [filtro, setFiltro] = useState("todos");
   const [error, setError] = useState(null);
+  const [procesandoId, setProcesandoId] = useState(null);
 
   async function load() {
     const { data } = await supabase
@@ -52,8 +53,14 @@ export default function VehiculosPage() {
   }
 
   async function toggleActivo(id, activo) {
-    await supabase.from("vehiculo").update({ activo: !activo }).eq("id", id);
-    load();
+    if (procesandoId) return;
+    setProcesandoId(id);
+    try {
+      await supabase.from("vehiculo").update({ activo: !activo }).eq("id", id);
+      await load();
+    } finally {
+      setProcesandoId(null);
+    }
   }
 
   const filtrados = filtro === "todos"
@@ -154,13 +161,14 @@ export default function VehiculosPage() {
             </div>
             <button
               onClick={() => toggleActivo(v.id, v.activo)}
-              className={`text-xs px-2.5 py-1 rounded-full border ${
+              disabled={procesandoId === v.id}
+              className={`text-xs px-2.5 py-1 rounded-full border disabled:opacity-40 ${
                 v.activo
                   ? "border-estado-ok text-estado-ok"
                   : "border-border text-ink-muted"
               }`}
             >
-              {v.activo ? "Activo" : "Inactivo"}
+              {procesandoId === v.id ? "…" : v.activo ? "Activo" : "Inactivo"}
             </button>
           </div>
         ))}

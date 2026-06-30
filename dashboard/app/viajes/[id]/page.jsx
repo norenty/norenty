@@ -44,6 +44,9 @@ export default function ViajeDetalle() {
   const [choferes, setChoferes] = useState([]);
   const [incidencias, setIncidencias] = useState([]);
   const [error, setError] = useState(null);
+  const [guardandoEstado, setGuardandoEstado] = useState(false);
+  const [guardandoChofer, setGuardandoChofer] = useState(false);
+  const [procesandoPod, setProcesandoPod] = useState(null);
 
   const load = useCallback(async () => {
     const d = await getViaje(id);
@@ -68,19 +71,26 @@ export default function ViajeDetalle() {
   useRealtimeRefresh(["viaje", "hito", "ejecucion_evento"], load);
 
   async function cambiarEstado(nuevoEstado) {
+    if (guardandoEstado) return;
     setError(null);
-    const v = await validarCambioEstado(id, nuevoEstado);
-    if (!v.ok) {
-      setError(v.errores.join(". "));
+    setGuardandoEstado(true);
+    try {
+      const v = await validarCambioEstado(id, nuevoEstado);
+      if (!v.ok) {
+        setError(v.errores.join(". "));
+        setEditandoEstado(false);
+        return;
+      }
+      await supabase.from("viaje").update({ estado: nuevoEstado }).eq("id", id);
       setEditandoEstado(false);
-      return;
+      await load();
+    } finally {
+      setGuardandoEstado(false);
     }
-    await supabase.from("viaje").update({ estado: nuevoEstado }).eq("id", id);
-    setEditandoEstado(false);
-    load();
   }
 
   async function cambiarChofer(newChoferId) {
+    if (guardandoChofer) return;
     setError(null);
     if (newChoferId) {
       const v = await validarAsignacion({ choferId: newChoferId, excluirViajeId: id });
@@ -91,9 +101,25 @@ export default function ViajeDetalle() {
         }
       }
     }
-    await supabase.from("viaje").update({ chofer_id: newChoferId || null }).eq("id", id);
-    setEditandoChofer(false);
-    load();
+    setGuardandoChofer(true);
+    try {
+      await supabase.from("viaje").update({ chofer_id: newChoferId || null }).eq("id", id);
+      setEditandoChofer(false);
+      await load();
+    } finally {
+      setGuardandoChofer(false);
+    }
+  }
+
+  async function validarPod(podId, estadoValidacion) {
+    if (procesandoPod) return;
+    setProcesandoPod(podId);
+    try {
+      await supabase.from("pod").update({ estado_validacion: estadoValidacion }).eq("id", podId);
+      await load();
+    } finally {
+      setProcesandoPod(null);
+    }
   }
 
   async function abrirEditChofer() {
@@ -124,12 +150,13 @@ export default function ViajeDetalle() {
               <button
                 key={key}
                 onClick={() => cambiarEstado(key)}
-                className={`text-xs px-2 py-1 rounded-full ${val.bg} ${val.c} hover:opacity-80`}
+                disabled={guardandoEstado}
+                className={`text-xs px-2 py-1 rounded-full ${val.bg} ${val.c} hover:opacity-80 disabled:opacity-40`}
               >
-                {val.t}
+                {guardandoEstado ? "…" : val.t}
               </button>
             ))}
-            <button onClick={() => setEditandoEstado(false)} className="p-1 text-ink-muted"><X size={14} /></button>
+            <button onClick={() => setEditandoEstado(false)} disabled={guardandoEstado} className="p-1 text-ink-muted disabled:opacity-40"><X size={14} /></button>
           </div>
         ) : (
           <button
@@ -147,14 +174,15 @@ export default function ViajeDetalle() {
             <select
               defaultValue={viaje.chofer?.id || ""}
               onChange={(e) => cambiarChofer(e.target.value)}
-              className="text-sm border border-border rounded-md px-2 py-1"
+              disabled={guardandoChofer}
+              className="text-sm border border-border rounded-md px-2 py-1 disabled:opacity-40"
             >
               <option value="">Sin asignar</option>
               {choferes.map((c) => (
                 <option key={c.id} value={c.id}>{c.nombre} ({c.idioma?.toUpperCase()})</option>
               ))}
             </select>
-            <button onClick={() => setEditandoChofer(false)} className="p-1 text-ink-muted"><X size={14} /></button>
+            <button onClick={() => setEditandoChofer(false)} disabled={guardandoChofer} className="p-1 text-ink-muted disabled:opacity-40"><X size={14} /></button>
           </div>
         ) : (
           <button onClick={abrirEditChofer} className="flex items-center gap-1 hover:text-ink">
@@ -268,14 +296,16 @@ export default function ViajeDetalle() {
                         {p.estado_validacion === "pendiente" && (
                           <div className="flex gap-1 ml-auto">
                             <button
-                              onClick={async () => { await supabase.from("pod").update({ estado_validacion: "valido" }).eq("id", p.id); load(); }}
-                              className="text-xs px-2 py-1 rounded border border-estado-ok text-estado-ok hover:bg-green-50"
+                              onClick={() => validarPod(p.id, "valido")}
+                              disabled={procesandoPod === p.id}
+                              className="text-xs px-2 py-1 rounded border border-estado-ok text-estado-ok hover:bg-green-50 disabled:opacity-40"
                             >
                               <Check size={12} />
                             </button>
                             <button
-                              onClick={async () => { await supabase.from("pod").update({ estado_validacion: "invalido" }).eq("id", p.id); load(); }}
-                              className="text-xs px-2 py-1 rounded border border-estado-incidencia text-estado-incidencia hover:bg-red-50"
+                              onClick={() => validarPod(p.id, "invalido")}
+                              disabled={procesandoPod === p.id}
+                              className="text-xs px-2 py-1 rounded border border-estado-incidencia text-estado-incidencia hover:bg-red-50 disabled:opacity-40"
                             >
                               <X size={12} />
                             </button>
