@@ -7,7 +7,6 @@ export const metadata = {
   title: "Norenty — Dashboard",
   description: "Aseguramiento de ejecución para flotas",
   icons: { icon: "/favicon.svg" },
-  themeColor: "#4F46E5",
   openGraph: {
     title: "Norenty",
     description: "Aseguramiento de ejecución para flotas",
@@ -19,6 +18,7 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  themeColor: "#4F46E5",
 };
 
 export default function RootLayout({ children }) {

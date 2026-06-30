@@ -28,11 +28,9 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 ## Fase 1 — Fundaciones (GATE: no pasar a Fase 2 sin cerrar esto)
 
 - [x] **Tenancy correcta** (2026-06-30) — `getDefaultEmpresaId()` eliminado, sustituido por `getCurrentEmpresaId()` (resuelve sesión→gestor→empresa). Signup ahora crea una empresa nueva por gestor (antes enganchaba a "la primera"). RLS real por empresa en 13 tablas vía `current_empresa_id()`. Pendiente conocido: bucket POD público sin URLs firmadas (añadido a Fase 3).
-- [ ] `[LOOP]` **Integridad auth→gestor→empresa**: onboarding real. Un gestor nuevo crea su propia empresa (o se une por invitación), no se engancha a la primera existente.
-- [ ] `[LOOP]` **Harness de tests** (define "verificado" = test pasa, no "200"):
-  - Backend: pytest sobre lógica del bot (hito-pertenece-a-chófer, flujo POD, alerta fuera-de-ventana).
-  - Dashboard: tests de `lib/data.js` (validaciones de conflicto de asignación, cambio de estado).
-- [ ] `[LOOP]` **CI local mínimo**: script que corre lint + tests + build y que el loop ejecuta antes de cada commit.
+- [x] **Integridad auth→gestor→empresa** (2026-06-30) — resuelto como parte del ítem de tenancy: signup crea empresa propia, sin invitaciones todavía (diferido, no bloqueante).
+- [x] **Harness de tests** (2026-06-30) — 16 tests pytest (backend: `verificar_hito_pertenece_a_chofer` incl. caso de seguridad, `get_chofer_by_chat`, `nav_buttons`, `build_hito_message`, con `tests/fakes.py` fake de Supabase) + 18 tests vitest (dashboard: `validarAsignacion`, `validarCambioEstado`, `getCurrentEmpresaId`, con mock de query builder en memoria en `data.test.js`). 34/34 verde.
+- [x] **CI local mínimo** (2026-06-30) — `ci.ps1` en la raíz: pytest + vitest + `next build`. Exit code 0/1. El loop debe correrlo antes de cada commit de "trabajo terminado".
 
 ## Fase 2 — Features
 
