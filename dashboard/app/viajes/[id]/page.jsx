@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   ArrowLeft, MapPin, Package, Clock, Truck, Edit3, Check, X, AlertTriangle,
 } from "lucide-react";
+import PodImage from "../../components/PodImage";
 import { getViaje, getChoferes, validarCambioEstado, validarAsignacion } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
@@ -288,8 +289,8 @@ export default function ViajeDetalle() {
                   const ep = estadoPod[p.estado_validacion] || estadoPod.pendiente;
                   return (
                     <div key={p.id} className="bg-surface border border-border rounded-xl overflow-hidden">
-                      {p.foto_url && /^https?:\/\//.test(p.foto_url) && (
-                        <img src={p.foto_url} alt="Albarán" className="w-full h-40 object-cover bg-surface-alt" />
+                      {p.foto_url && (
+                        <PodImage path={p.foto_url} className="w-full h-40" />
                       )}
                       <div className="p-2 flex items-center gap-2">
                         <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${ep.color}`}>{ep.label}</span>

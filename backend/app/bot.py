@@ -550,21 +550,20 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     file = await ctx.bot.get_file(photo.file_id)
     file_bytes = await file.download_as_bytearray()
 
-    file_ext = "jpg"
-    file_name = f"{viaje['id']}/{hito['id']}/{uuid.uuid4()}.{file_ext}"
+    # Ruta: {empresa_id}/{viaje_id}/{hito_id}/{uuid}.jpg
+    # empresa_id como primer segmento permite RLS de storage empresa-scoped.
+    file_path = f"{chofer['empresa_id']}/{viaje['id']}/{hito['id']}/{uuid.uuid4()}.jpg"
 
     supabase.storage.from_("pods").upload(
-        path=file_name,
+        path=file_path,
         file=bytes(file_bytes),
         file_options={"content-type": "image/jpeg"},
     )
 
-    foto_url = supabase.storage.from_("pods").get_public_url(file_name)
-
     supabase.table("pod").insert({
         "hito_id": hito["id"],
         "viaje_id": viaje["id"],
-        "foto_url": foto_url,
+        "foto_url": file_path,
         "estado_validacion": "pendiente",
     }).execute()
 
