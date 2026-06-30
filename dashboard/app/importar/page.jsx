@@ -5,7 +5,7 @@ import { Upload, FileSpreadsheet, Check, AlertCircle, ArrowRight, ArrowLeft } fr
 import Link from "next/link";
 import { parseFile, CAMPOS_VIAJE, autoMapColumns } from "../../lib/importar";
 import { supabase } from "../../lib/supabase";
-import { getDefaultEmpresaId, getChoferes } from "../../lib/data";
+import { getCurrentEmpresaId, getChoferes } from "../../lib/data";
 
 const PASOS = ["Subir archivo", "Mapear columnas", "Vista previa", "Resultado"];
 
@@ -52,7 +52,7 @@ export default function ImportarPage() {
   async function ejecutarImport() {
     setLoading(true);
     const mapped = getMappedRows();
-    const empresa_id = await getDefaultEmpresaId();
+    const empresa_id = await getCurrentEmpresaId();
     const choferes = await getChoferes();
     const choferMap = {};
     choferes.forEach((c) => {

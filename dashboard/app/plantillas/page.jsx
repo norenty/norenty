@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Copy, Route } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { getDefaultEmpresaId } from "../../lib/data";
+import { getCurrentEmpresaId } from "../../lib/data";
 
 function nuevoHito() {
   return { tipo: "entrega", direccion: "" };
@@ -45,7 +45,7 @@ export default function PlantillasPage() {
     e.preventDefault();
     if (!nombre.trim()) return;
     setGuardando(true);
-    const empresa_id = await getDefaultEmpresaId();
+    const empresa_id = await getCurrentEmpresaId();
     const { data: plantilla } = await supabase
       .from("plantilla_ruta")
       .insert({ nombre: nombre.trim(), empresa_id })
@@ -73,7 +73,7 @@ export default function PlantillasPage() {
     const hitosPlantilla = detalles[plantillaId];
     if (!hitosPlantilla) return;
 
-    const empresa_id = await getDefaultEmpresaId();
+    const empresa_id = await getCurrentEmpresaId();
     const p = plantillas.find((x) => x.id === plantillaId);
     const { data: viaje } = await supabase
       .from("viaje")

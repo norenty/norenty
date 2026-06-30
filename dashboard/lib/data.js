@@ -87,14 +87,25 @@ export async function getViaje(id) {
   };
 }
 
-export async function getDefaultEmpresaId() {
-  const { data } = await supabase
-    .from("empresa")
-    .select("id")
-    .order("created_at")
-    .limit(1)
+/**
+ * Empresa del gestor actualmente logueado (multi-tenant: cada gestor pertenece
+ * a una empresa, nunca "la primera que haya"). Lanza si no hay sesión o el
+ * gestor no tiene empresa asociada — eso es un estado roto, no algo a ocultar.
+ */
+export async function getCurrentEmpresaId() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("No hay sesión activa");
+
+  const { data: gestor, error } = await supabase
+    .from("gestor")
+    .select("empresa_id")
+    .eq("auth_user_id", session.user.id)
     .single();
-  return data?.id || null;
+
+  if (error || !gestor?.empresa_id) {
+    throw new Error("Tu cuenta no tiene una empresa asociada. Contacta con soporte.");
+  }
+  return gestor.empresa_id;
 }
 
 export async function getChoferes() {
@@ -106,7 +117,7 @@ export async function getChoferes() {
 }
 
 export async function createChofer({ nombre, idioma }) {
-  const empresa_id = await getDefaultEmpresaId();
+  const empresa_id = await getCurrentEmpresaId();
   const { data, error } = await supabase
     .from("chofer")
     .insert({ nombre, idioma: idioma || "es", empresa_id })
@@ -237,7 +248,7 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
     throw new Error(validacion.errores.join(". "));
   }
 
-  const empresa_id = await getDefaultEmpresaId();
+  const empresa_id = await getCurrentEmpresaId();
   const { data: viaje, error } = await supabase
     .from("viaje")
     .insert({

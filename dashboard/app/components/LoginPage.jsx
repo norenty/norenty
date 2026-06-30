@@ -7,6 +7,7 @@ import { signIn, signUp, resetPassword } from "../../lib/auth";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [empresaNombre, setEmpresaNombre] = useState("");
   const [modo, setModo] = useState("login");
   const [error, setError] = useState(null);
   const [mensaje, setMensaje] = useState(null);
@@ -21,8 +22,8 @@ export default function LoginPage() {
       if (modo === "login") {
         await signIn(email, password);
       } else if (modo === "registro") {
-        await signUp(email, password);
-        setMensaje("Cuenta creada. Revisa tu email para confirmarla.");
+        await signUp(email, password, empresaNombre);
+        setMensaje("Cuenta y empresa creadas. Revisa tu email para confirmarla.");
       } else if (modo === "reset") {
         await resetPassword(email);
         setMensaje("Email de recuperación enviado. Revisa tu bandeja.");
@@ -74,6 +75,21 @@ export default function LoginPage() {
               className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
             />
           </div>
+
+          {modo === "registro" && (
+            <div>
+              <label className="block text-xs text-ink-secondary mb-1">Nombre de tu empresa</label>
+              <input
+                type="text"
+                value={empresaNombre}
+                onChange={(e) => setEmpresaNombre(e.target.value)}
+                required
+                maxLength={200}
+                placeholder="Transportes Ejemplo S.L."
+                className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+              />
+            </div>
+          )}
 
           {modo !== "reset" && (
             <div>

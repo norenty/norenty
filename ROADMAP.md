@@ -27,7 +27,7 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ## Fase 1 — Fundaciones (GATE: no pasar a Fase 2 sin cerrar esto)
 
-- [ ] `[LOOP]` **Tenancy correcta**: eliminar el hack `getDefaultEmpresaId()`/"primera empresa". Toda query scoped por `empresa_id` del gestor logueado. RLS que compara `empresa_id` de cada fila contra la empresa del gestor (vía `gestor.auth_user_id` = `auth.uid()`).
+- [x] **Tenancy correcta** (2026-06-30) — `getDefaultEmpresaId()` eliminado, sustituido por `getCurrentEmpresaId()` (resuelve sesión→gestor→empresa). Signup ahora crea una empresa nueva por gestor (antes enganchaba a "la primera"). RLS real por empresa en 13 tablas vía `current_empresa_id()`. Pendiente conocido: bucket POD público sin URLs firmadas (añadido a Fase 3).
 - [ ] `[LOOP]` **Integridad auth→gestor→empresa**: onboarding real. Un gestor nuevo crea su propia empresa (o se une por invitación), no se engancha a la primera existente.
 - [ ] `[LOOP]` **Harness de tests** (define "verificado" = test pasa, no "200"):
   - Backend: pytest sobre lógica del bot (hito-pertenece-a-chófer, flujo POD, alerta fuera-de-ventana).
@@ -52,6 +52,7 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ## Fase 3 — Hardening (pre-deploy)
 
+- [ ] `[LOOP]` **Bucket POD privado + URLs firmadas** — descubierto en Fase 1: el bucket `pods` es público, así que sirve fotos por URL directa sin pasar por RLS. Cualquiera con la URL exacta (aunque sea de otra empresa) puede verla. Arreglo: bucket privado + `createSignedUrl()` con expiración corta al renderizar cada `pod.foto_url`.
 - [ ] `[LOOP]` **Observabilidad**: error-tracking (Sentry o equivalente) en bot y dashboard.
 - [ ] `[DECISIÓN]` **Bot en modo webhook + supervisión de proceso** (hoy long-poll, single point of failure).
 - [ ] `[LOOP]` **Disciplina de migraciones**: runner ordenado y reproducible, no ad-hoc por MCP.

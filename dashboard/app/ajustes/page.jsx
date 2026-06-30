@@ -20,15 +20,6 @@ export default function AjustesPage() {
       const session = await getSession();
       setUser(session?.user || null);
 
-      const { data: emp } = await supabase
-        .from("empresa")
-        .select("*")
-        .order("created_at")
-        .limit(1)
-        .single();
-      setEmpresa(emp);
-      setEmpresaNombre(emp?.nombre || "");
-
       if (session?.user) {
         const { data: g } = await supabase
           .from("gestor")
@@ -43,6 +34,14 @@ export default function AjustesPage() {
             notif_entregas: g.notif_entregas ?? true,
             notif_fuera_ventana: g.notif_fuera_ventana ?? false,
           });
+
+          const { data: emp } = await supabase
+            .from("empresa")
+            .select("*")
+            .eq("id", g.empresa_id)
+            .single();
+          setEmpresa(emp);
+          setEmpresaNombre(emp?.nombre || "");
         }
       }
     }

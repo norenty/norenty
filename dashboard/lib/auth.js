@@ -9,7 +9,16 @@ export async function signIn(email, password) {
   return data;
 }
 
-export async function signUp(email, password) {
+/**
+ * SaaS multi-cliente: cada registro nuevo crea su PROPIA empresa.
+ * No hay flujo de invitación todavía (Fase 2), así que de momento
+ * "registrarse" siempre significa "dar de alta una empresa nueva".
+ */
+export async function signUp(email, password, empresaNombre) {
+  if (!empresaNombre?.trim()) {
+    throw new Error("Indica el nombre de tu empresa");
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -25,21 +34,20 @@ export async function signUp(email, password) {
       .single();
 
     if (!existing) {
-      const { data: empresa } = await supabase
+      const { data: empresa, error: empresaError } = await supabase
         .from("empresa")
+        .insert({ nombre: empresaNombre.trim() })
         .select("id")
-        .order("created_at")
-        .limit(1)
         .single();
+      if (empresaError) throw empresaError;
 
-      if (empresa) {
-        await supabase.from("gestor").insert({
-          nombre: email.split("@")[0],
-          email,
-          empresa_id: empresa.id,
-          auth_user_id: data.user.id,
-        });
-      }
+      const { error: gestorError } = await supabase.from("gestor").insert({
+        nombre: email.split("@")[0],
+        email,
+        empresa_id: empresa.id,
+        auth_user_id: data.user.id,
+      });
+      if (gestorError) throw gestorError;
     }
   }
 
