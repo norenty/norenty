@@ -1,4 +1,16 @@
-"""Arranca el bot de Telegram en modo polling (desarrollo)."""
+"""Arranca el bot de Telegram.
+
+Modo por defecto: polling (desarrollo, no requiere endpoint público).
+Modo webhook: se activa solo si BOT_WEBHOOK_URL está definida en el entorno.
+Requiere además BOT_WEBHOOK_SECRET (token secreto que Telegram reenvía en cada
+petición, para verificar que el request viene de Telegram y no de un tercero
+que adivine la URL) y opcionalmente BOT_WEBHOOK_PORT (por defecto 8443) y
+BOT_LISTEN (por defecto 0.0.0.0).
+
+El modo webhook requiere un servidor con HTTPS público accesible por Telegram;
+hasta que eso exista (ver sección Despliegue en ROADMAP.md, pospuesta), este
+modo no se activa salvo que se configure explícitamente BOT_WEBHOOK_URL.
+"""
 
 import os
 import sys
@@ -12,6 +24,27 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 from app.bot import create_bot_app
 
 if __name__ == "__main__":
-    print("Norenty Bot arrancando en modo polling...")
+    webhook_url = os.environ.get("BOT_WEBHOOK_URL")
     bot_app = create_bot_app()
-    bot_app.run_polling(drop_pending_updates=True)
+
+    if webhook_url:
+        secret = os.environ.get("BOT_WEBHOOK_SECRET")
+        if not secret:
+            print("ERROR: BOT_WEBHOOK_URL definida pero falta BOT_WEBHOOK_SECRET.")
+            sys.exit(1)
+
+        port = int(os.environ.get("BOT_WEBHOOK_PORT", "8443"))
+        listen = os.environ.get("BOT_LISTEN", "0.0.0.0")
+
+        print(f"Norenty Bot arrancando en modo webhook ({webhook_url}) ...")
+        bot_app.run_webhook(
+            listen=listen,
+            port=port,
+            url_path=secret,
+            webhook_url=f"{webhook_url.rstrip('/')}/{secret}",
+            secret_token=secret,
+            drop_pending_updates=True,
+        )
+    else:
+        print("Norenty Bot arrancando en modo polling...")
+        bot_app.run_polling(drop_pending_updates=True)
