@@ -4,6 +4,16 @@ import os
 import logging
 import uuid
 from urllib.parse import quote_plus
+
+import sentry_sdk
+
+if _dsn := os.environ.get("SENTRY_DSN"):
+    sentry_sdk.init(
+        dsn=_dsn,
+        traces_sample_rate=0.1,
+        environment=os.environ.get("ENVIRONMENT", "production"),
+    )
+    logging.getLogger("norenty.bot").info("Sentry inicializado")
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
