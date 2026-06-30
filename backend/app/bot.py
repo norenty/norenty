@@ -20,6 +20,112 @@ logger = logging.getLogger("norenty.bot")
 
 TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 
+# --- i18n ---
+TEXTOS = {
+    "es": {
+        "sin_viaje_activo": "No tienes ningún viaje activo.",
+        "viaje_completado": "Viaje {ref} completado — {total}/{total} hitos.\n\nBuen trabajo.",
+        "pulsa_llegada": "Pulsa cuando llegues al punto.",
+        "btn_llegado": "He llegado",
+        "no_vinculado": "No estás vinculado. Usa /start TU_CODIGO primero.",
+        "hito_recogida": "RECOGIDA",
+        "hito_entrega": "ENTREGA",
+        "hito_sin_dir": "sin dirección",
+        "hito_ventana": "Ventana",
+        "confirmar_llegada": "¿Confirmas que has llegado a la {tipo} en {dir}?",
+        "btn_confirmar": "Sí, confirmo",
+        "btn_cancelar": "No, cancelar",
+        "cancelado": "Cancelado. Pulsa cuando llegues de verdad.",
+        "pedir_foto": "Llegada registrada en {dir}.\n\nAhora necesito la FOTO DEL ALBARÁN.\nMándame la foto por aquí.",
+        "recogida_ok": "Recogida completada en {dir}.",
+        "foto_subiendo": "Recibida. Subiendo foto...",
+        "sin_entrega_esperando": "No hay ninguna entrega esperando albarán.\nUsa /estado para ver tu siguiente hito.",
+        "pod_ok": "Albarán recibido para {dir}.\nEntrega completada.",
+        "incidencia_ayuda": "Escribe qué ha pasado: /incidencia avería en la rueda trasera",
+        "incidencia_ok": "Incidencia reportada para viaje {ref}. Tu gestor ha sido notificado.",
+    },
+    "en": {
+        "sin_viaje_activo": "You have no active trip.",
+        "viaje_completado": "Trip {ref} completed — {total}/{total} stops.\n\nWell done!",
+        "pulsa_llegada": "Tap when you arrive at the location.",
+        "btn_llegado": "I've arrived",
+        "no_vinculado": "You are not linked. Use /start YOUR_CODE first.",
+        "hito_recogida": "PICKUP",
+        "hito_entrega": "DELIVERY",
+        "hito_sin_dir": "no address",
+        "hito_ventana": "Window",
+        "confirmar_llegada": "Confirm arrival at {tipo} — {dir}?",
+        "btn_confirmar": "Yes, confirm",
+        "btn_cancelar": "No, cancel",
+        "cancelado": "Cancelled. Tap when you actually arrive.",
+        "pedir_foto": "Arrival recorded at {dir}.\n\nNow I need the PROOF OF DELIVERY PHOTO.\nSend me the photo here.",
+        "recogida_ok": "Pickup completed at {dir}.",
+        "foto_subiendo": "Received. Uploading...",
+        "sin_entrega_esperando": "No delivery is waiting for a proof of delivery.\nUse /estado to see your next stop.",
+        "pod_ok": "Proof of delivery received for {dir}.\nDelivery completed.",
+        "incidencia_ayuda": "Describe what happened: /incidencia flat tyre on rear wheel",
+        "incidencia_ok": "Incident reported for trip {ref}. Your manager has been notified.",
+    },
+    "ro": {
+        "sin_viaje_activo": "Nu ai nicio cursă activă.",
+        "viaje_completado": "Cursa {ref} finalizată — {total}/{total} opriri.\n\nBravo!",
+        "pulsa_llegada": "Apasă când ajungi la destinație.",
+        "btn_llegado": "Am ajuns",
+        "no_vinculado": "Nu ești conectat. Folosește /start CODUL_TĂU mai întâi.",
+        "hito_recogida": "RIDICARE",
+        "hito_entrega": "LIVRARE",
+        "hito_sin_dir": "fără adresă",
+        "hito_ventana": "Fereastră",
+        "confirmar_llegada": "Confirmi că ai ajuns la {tipo} în {dir}?",
+        "btn_confirmar": "Da, confirm",
+        "btn_cancelar": "Nu, anulează",
+        "cancelado": "Anulat. Apasă când ajungi cu adevărat.",
+        "pedir_foto": "Sosire înregistrată la {dir}.\n\nAcum am nevoie de FOTOGRAFIA DOCUMENTULUI.\nTrimite-mi fotografia aici.",
+        "recogida_ok": "Ridicare finalizată la {dir}.",
+        "foto_subiendo": "Primit. Se încarcă...",
+        "sin_entrega_esperando": "Nicio livrare nu așteaptă document.\nFolosește /estado pentru a vedea următoarea oprire.",
+        "pod_ok": "Document primit pentru {dir}.\nLivrare finalizată.",
+        "incidencia_ayuda": "Descrie ce s-a întâmplat: /incidencia pană la roata din spate",
+        "incidencia_ok": "Incident raportat pentru cursa {ref}. Managerul tău a fost notificat.",
+    },
+    "fr": {
+        "sin_viaje_activo": "Vous n'avez aucun trajet actif.",
+        "viaje_completado": "Trajet {ref} terminé — {total}/{total} arrêts.\n\nBravo !",
+        "pulsa_llegada": "Appuyez quand vous arrivez au point.",
+        "btn_llegado": "Je suis arrivé",
+        "no_vinculado": "Vous n'êtes pas connecté. Utilisez /start VOTRE_CODE d'abord.",
+        "hito_recogida": "ENLÈVEMENT",
+        "hito_entrega": "LIVRAISON",
+        "hito_sin_dir": "sans adresse",
+        "hito_ventana": "Fenêtre",
+        "confirmar_llegada": "Confirmez l'arrivée à {tipo} — {dir} ?",
+        "btn_confirmar": "Oui, confirmer",
+        "btn_cancelar": "Non, annuler",
+        "cancelado": "Annulé. Appuyez quand vous arrivez vraiment.",
+        "pedir_foto": "Arrivée enregistrée à {dir}.\n\nJ'ai besoin de la PHOTO DU BON DE LIVRAISON.\nEnvoyez-moi la photo ici.",
+        "recogida_ok": "Enlèvement terminé à {dir}.",
+        "foto_subiendo": "Reçu. Envoi en cours...",
+        "sin_entrega_esperando": "Aucune livraison n'attend de bon.\nUtilisez /estado pour voir votre prochain arrêt.",
+        "pod_ok": "Bon de livraison reçu pour {dir}.\nLivraison terminée.",
+        "incidencia_ayuda": "Décrivez ce qui s'est passé : /incidencia crevaison roue arrière",
+        "incidencia_ok": "Incident signalé pour le trajet {ref}. Votre responsable a été notifié.",
+    },
+}
+# Idiomas sin traduccion completa: usar ingles como fallback
+for _lang in ("ar", "it", "pt", "de"):
+    TEXTOS.setdefault(_lang, TEXTOS["en"])
+
+
+def t(chofer_or_idioma, key, **kwargs):
+    """Devuelve el texto localizado. Acepta un dict de chófer o un str de idioma."""
+    if isinstance(chofer_or_idioma, dict):
+        idioma = (chofer_or_idioma.get("idioma") or "es").lower()
+    else:
+        idioma = (chofer_or_idioma or "es").lower()
+    textos = TEXTOS.get(idioma, TEXTOS["es"])
+    msg = textos.get(key, TEXTOS["es"].get(key, key))
+    return msg.format(**kwargs) if kwargs else msg
+
 
 def get_chofer_by_chat(chat_id):
     r = supabase.table("chofer").select("id, nombre, empresa_id").eq("chat_id", str(chat_id)).execute()
@@ -112,9 +218,9 @@ def nav_buttons(hito):
     return buttons
 
 
-def build_hito_message(hito, orden_actual, total_hitos):
-    tipo = "RECOGIDA" if hito["tipo"] == "recogida" else "ENTREGA"
-    direccion = hito.get("direccion", "sin dirección")
+def build_hito_message(hito, orden_actual, total_hitos, idioma="es"):
+    tipo = t(idioma, "hito_recogida") if hito["tipo"] == "recogida" else t(idioma, "hito_entrega")
+    direccion = hito.get("direccion") or t(idioma, "hito_sin_dir")
 
     texto = f"📍 Hito {orden_actual}/{total_hitos} — {tipo}\n"
     texto += f"📫 {direccion}\n"
@@ -122,7 +228,7 @@ def build_hito_message(hito, orden_actual, total_hitos):
     if hito.get("ventana_inicio") or hito.get("ventana_fin"):
         inicio = hito.get("ventana_inicio", "?")
         fin = hito.get("ventana_fin", "?")
-        texto += f"🕐 Ventana: {inicio} – {fin}\n"
+        texto += f"🕐 {t(idioma, 'hito_ventana')}: {inicio} – {fin}\n"
 
     if hito.get("notas"):
         texto += f"📝 {hito['notas']}\n"
@@ -130,7 +236,8 @@ def build_hito_message(hito, orden_actual, total_hitos):
     return texto
 
 
-async def send_next_hito(chat_id, chofer_id, bot):
+async def send_next_hito(chat_id, chofer, bot):
+    chofer_id = chofer["id"]
     viajes_r = (
         supabase.table("viaje")
         .select("id, referencia")
@@ -140,7 +247,7 @@ async def send_next_hito(chat_id, chofer_id, bot):
     )
 
     if not viajes_r.data:
-        await bot.send_message(chat_id=chat_id, text="No tienes ningún viaje activo.")
+        await bot.send_message(chat_id=chat_id, text=t(chofer, "sin_viaje_activo"))
         return
 
     viaje = viajes_r.data[0]
@@ -167,27 +274,26 @@ async def send_next_hito(chat_id, chofer_id, bot):
             "tipo": "viaje_completado",
         }).execute()
 
-        chofer = get_chofer_by_chat(chat_id)
-        if chofer:
-            await notificar_gestor_evento(
-                chofer["empresa_id"],
-                viaje["id"],
-                f"✅ Viaje {ref} completado — {total}/{total} hitos. Chófer: {chofer['nombre']}",
-            )
+        await notificar_gestor_evento(
+            chofer["empresa_id"],
+            viaje["id"],
+            f"✅ Viaje {ref} completado — {total}/{total} hitos. Chófer: {chofer['nombre']}",
+        )
 
         await bot.send_message(
             chat_id=chat_id,
-            text=f"Viaje {ref} completado — {total}/{total} hitos.\n\nBuen trabajo.",
+            text=t(chofer, "viaje_completado", ref=ref, total=total),
         )
         return
 
+    idioma = chofer.get("idioma", "es")
     texto = f"Viaje {ref} — {completados}/{total} hitos\n\n"
-    texto += build_hito_message(pendiente, pendiente["orden"], total)
-    texto += "\nPulsa cuando llegues al punto."
+    texto += build_hito_message(pendiente, pendiente["orden"], total, idioma=idioma)
+    texto += f"\n{t(chofer, 'pulsa_llegada')}"
 
     buttons = nav_buttons(pendiente)
     buttons.append([
-        InlineKeyboardButton("He llegado", callback_data=f"pre_llegada:{pendiente['id']}")
+        InlineKeyboardButton(t(chofer, "btn_llegado"), callback_data=f"pre_llegada:{pendiente['id']}")
     ])
 
     await bot.send_message(
@@ -279,7 +385,7 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
 
     logger.info("Chofer %s vinculado al chat %s", codigo, chat_id)
-    await send_next_hito(chat_id, chofer["id"], ctx.bot)
+    await send_next_hito(chat_id, chofer, ctx.bot)
 
 
 async def cmd_estado(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -287,10 +393,10 @@ async def cmd_estado(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     chofer = get_chofer_by_chat(chat_id)
 
     if not chofer:
-        await update.message.reply_text("No estás vinculado. Usa /start TU_CODIGO primero.")
+        await update.message.reply_text(t("es", "no_vinculado"))
         return
 
-    await send_next_hito(chat_id, chofer["id"], ctx.bot)
+    await send_next_hito(chat_id, chofer, ctx.bot)
 
 
 async def cb_pre_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -302,7 +408,7 @@ async def cb_pre_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     chofer = get_chofer_by_chat(chat_id)
     if not chofer:
-        await query.edit_message_text("Error: no estás vinculado.")
+        await query.edit_message_text(t("es", "no_vinculado"))
         return
 
     hito, error = verificar_hito_pertenece_a_chofer(hito_id, chofer["id"])
@@ -310,15 +416,15 @@ async def cb_pre_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(error)
         return
 
-    tipo = "recogida" if hito["tipo"] == "recogida" else "entrega"
-    direccion = hito.get("direccion", "destino")
+    tipo_t = t(chofer, "hito_recogida").lower() if hito["tipo"] == "recogida" else t(chofer, "hito_entrega").lower()
+    direccion = hito.get("direccion", "?")
 
     await query.edit_message_text(
-        text=f"¿Confirmas que has llegado a la {tipo} en {direccion}?",
+        text=t(chofer, "confirmar_llegada", tipo=tipo_t, dir=direccion),
         reply_markup=InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("Sí, confirmo", callback_data=f"llegada:{hito_id}"),
-                InlineKeyboardButton("No, cancelar", callback_data="cancelar"),
+                InlineKeyboardButton(t(chofer, "btn_confirmar"), callback_data=f"llegada:{hito_id}"),
+                InlineKeyboardButton(t(chofer, "btn_cancelar"), callback_data="cancelar"),
             ]
         ]),
     )
@@ -333,7 +439,7 @@ async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     chofer = get_chofer_by_chat(chat_id)
     if not chofer:
-        await query.edit_message_text("Error: no estás vinculado.")
+        await query.edit_message_text(t("es", "no_vinculado"))
         return
 
     hito, error = verificar_hito_pertenece_a_chofer(hito_id, chofer["id"])
@@ -371,12 +477,9 @@ async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     logger.info("Llegada registrada: hito %s, chofer %s", hito_id, chofer_id)
 
+    dir_hito = hito.get("direccion", "?")
     if hito["tipo"] == "entrega":
-        await query.edit_message_text(
-            f"Llegada registrada en {hito.get('direccion', 'destino')}.\n\n"
-            "Ahora necesito la FOTO DEL ALBARÁN.\n"
-            "Mándame la foto por aquí."
-        )
+        await query.edit_message_text(t(chofer, "pedir_foto", dir=dir_hito))
     else:
         supabase.table("hito").update({"estado": "completado"}).eq("id", hito_id).execute()
         supabase.table("ejecucion_evento").insert({
@@ -386,10 +489,8 @@ async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             "tipo": "salida",
         }).execute()
 
-        await query.edit_message_text(
-            f"Recogida completada en {hito.get('direccion', 'origen')}."
-        )
-        await send_next_hito(chat_id, chofer_id, ctx.bot)
+        await query.edit_message_text(t(chofer, "recogida_ok", dir=dir_hito))
+        await send_next_hito(chat_id, chofer, ctx.bot)
 
 
 async def cb_cancelar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -399,11 +500,11 @@ async def cb_cancelar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     chofer = get_chofer_by_chat(chat_id)
     if not chofer:
-        await query.edit_message_text("Error: no estás vinculado.")
+        await query.edit_message_text(t("es", "no_vinculado"))
         return
 
-    await query.edit_message_text("Cancelado. Pulsa cuando llegues de verdad.")
-    await send_next_hito(chat_id, chofer["id"], ctx.bot)
+    await query.edit_message_text(t(chofer, "cancelado"))
+    await send_next_hito(chat_id, chofer, ctx.bot)
 
 
 async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -411,7 +512,7 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     chofer = get_chofer_by_chat(chat_id)
     if not chofer:
-        await update.message.reply_text("No estás vinculado. Usa /start TU_CODIGO primero.")
+        await update.message.reply_text(t("es", "no_vinculado"))
         return
 
     chofer_id = chofer["id"]
@@ -424,7 +525,7 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         .execute()
     )
     if not viajes_r.data:
-        await update.message.reply_text("No tienes ningún viaje activo.")
+        await update.message.reply_text(t(chofer, "sin_viaje_activo"))
         return
 
     viaje = viajes_r.data[0]
@@ -438,15 +539,12 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         .execute()
     )
     if not hito_r.data:
-        await update.message.reply_text(
-            "No hay ninguna entrega esperando albarán.\n"
-            "Usa /estado para ver tu siguiente hito."
-        )
+        await update.message.reply_text(t(chofer, "sin_entrega_esperando"))
         return
 
     hito = hito_r.data[0]
 
-    await update.message.reply_text("Recibida. Subiendo foto...")
+    await update.message.reply_text(t(chofer, "foto_subiendo"))
 
     photo = update.message.photo[-1]
     file = await ctx.bot.get_file(photo.file_id)
@@ -489,18 +587,16 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     logger.info("POD subido: hito %s", hito["id"])
 
     ref = viaje.get("referencia") or viaje["id"][:8]
-    await update.message.reply_text(
-        f"Albarán recibido para {hito.get('direccion', 'entrega')}.\n"
-        f"Entrega completada."
-    )
+    dir_hito = hito.get("direccion", "?")
+    await update.message.reply_text(t(chofer, "pod_ok", dir=dir_hito))
 
     await notificar_gestor_evento(
         chofer["empresa_id"],
         viaje["id"],
-        f"📄 Albarán recibido — Viaje {ref}, hito {hito['orden']} ({hito.get('direccion', '?')}). Chófer: {chofer['nombre']}.",
+        f"📄 Albarán recibido — Viaje {ref}, hito {hito['orden']} ({dir_hito}). Chófer: {chofer['nombre']}.",
     )
 
-    await send_next_hito(chat_id, chofer_id, ctx.bot)
+    await send_next_hito(chat_id, chofer, ctx.bot)
 
 
 async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -508,12 +604,12 @@ async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     chat_id = str(update.effective_chat.id)
     chofer = get_chofer_by_chat(chat_id)
     if not chofer:
-        await update.message.reply_text("No estás vinculado. Usa /start TU_CODIGO primero.")
+        await update.message.reply_text(t("es", "no_vinculado"))
         return
 
     texto = " ".join(ctx.args) if ctx.args else ""
     if not texto:
-        await update.message.reply_text("Escribe qué ha pasado: /incidencia avería en la rueda trasera")
+        await update.message.reply_text(t(chofer, "incidencia_ayuda"))
         return
 
     viajes_r = (
@@ -524,7 +620,7 @@ async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         .execute()
     )
     if not viajes_r.data:
-        await update.message.reply_text("No tienes ningún viaje activo.")
+        await update.message.reply_text(t(chofer, "sin_viaje_activo"))
         return
 
     viaje = viajes_r.data[0]
@@ -537,7 +633,7 @@ async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"Reportado por chófer {chofer['nombre']}: {texto}",
     )
 
-    await update.message.reply_text(f"Incidencia reportada para viaje {ref}. Tu gestor ha sido notificado.")
+    await update.message.reply_text(t(chofer, "incidencia_ok", ref=ref))
     logger.info("Incidencia manual: chofer %s, viaje %s", chofer["id"], viaje["id"])
 
 

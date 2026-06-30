@@ -145,6 +145,70 @@ def test_build_hito_message_incluye_notas():
     assert "Llamar al timbre 2B" in msg
 
 
+# --- t(): helper de localización ---
+
+def test_t_espanol_por_defecto():
+    assert bot.t("es", "btn_llegado") == "He llegado"
+
+
+def test_t_ingles():
+    assert bot.t("en", "btn_llegado") == "I've arrived"
+
+
+def test_t_rumano():
+    assert bot.t("ro", "btn_llegado") == "Am ajuns"
+
+
+def test_t_frances():
+    assert bot.t("fr", "btn_llegado") == "Je suis arrivé"
+
+
+def test_t_idioma_desconocido_usa_espanol_como_fallback():
+    # Idioma totalmente desconocido -> fallback al español (idioma base del producto)
+    resultado = bot.t("zz", "btn_llegado")
+    assert resultado == bot.t("es", "btn_llegado")
+
+
+def test_t_acepta_dict_chofer():
+    chofer = {"idioma": "ro", "nombre": "Ion"}
+    assert bot.t(chofer, "btn_llegado") == "Am ajuns"
+
+
+def test_t_chofer_sin_idioma_usa_espanol():
+    chofer = {"nombre": "Mario"}  # sin campo idioma
+    assert bot.t(chofer, "btn_llegado") == "He llegado"
+
+
+def test_t_con_kwargs_sustituye_valores():
+    msg = bot.t("es", "viaje_completado", ref="VJ-001", total=3)
+    assert "VJ-001" in msg
+    assert "3" in msg
+
+
+def test_t_clave_inexistente_devuelve_fallback_espanol():
+    # Si en 'en' falta una clave pero existe en 'es', devuelve el de 'es'
+    resultado = bot.t("en", "incidencia_ok", ref="X")
+    assert "X" in resultado
+
+
+# --- build_hito_message con idioma ---
+
+def test_build_hito_message_en_ingles():
+    msg = bot.build_hito_message({"tipo": "recogida", "direccion": "London Dock"}, 1, 2, idioma="en")
+    assert "PICKUP" in msg
+    assert "London Dock" in msg
+
+
+def test_build_hito_message_en_rumano():
+    msg = bot.build_hito_message({"tipo": "entrega", "direccion": "Strada Mare"}, 2, 3, idioma="ro")
+    assert "LIVRARE" in msg
+
+
+def test_build_hito_message_sin_idioma_usa_espanol():
+    msg = bot.build_hito_message({"tipo": "recogida", "direccion": "X"}, 1, 1)
+    assert "RECOGIDA" in msg
+
+
 # --- vincular_gestor: alta de Telegram del gestor (Fase 2) ---
 
 def fake_update():
