@@ -18,6 +18,24 @@ def fake_db(monkeypatch):
     return fake
 
 
+class FakeTransporte:
+    """Captura los envíos en vez de llamar a Telegram de verdad; sirve para
+    verificar alertar_gestor/notificar_gestor_evento sin red y sin acoplar
+    el test a la implementación de Telegram (la interfaz Transporte, Fase 4.6)."""
+    def __init__(self):
+        self.enviados = []
+
+    async def enviar_texto(self, chat_id, texto):
+        self.enviados.append((chat_id, texto))
+
+
+@pytest.fixture
+def fake_transporte(monkeypatch):
+    fake = FakeTransporte()
+    monkeypatch.setattr(bot, "transporte_gestor", fake)
+    return fake
+
+
 # --- verificar_hito_pertenece_a_chofer: la pieza de seguridad ---
 
 def test_hito_no_encontrado(fake_db):
@@ -342,3 +360,42 @@ async def test_handle_menu_texto_texto_desconocido_no_responde(fake_db):
     ctx = SimpleNamespace(bot=AsyncMock())
     await bot.handle_menu_texto(update, ctx)
     update.message.reply_text.assert_not_called()
+
+
+# --- Transporte: abstracción de mensajería al gestor (Fase 4.6) ---
+
+@pytest.mark.asyncio
+async def test_alertar_gestor_crea_incidencia_y_usa_el_transporte(fake_db, fake_transporte):
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": "chat-1"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "referencia": "VJ-1"}]
+
+    await bot.alertar_gestor("e1", "v1", "averia", "Rueda pinchada")
+
+    assert fake_db.tables["incidencia"][0]["tipo"] == "averia"
+    assert len(fake_transporte.enviados) == 1
+    chat, texto = fake_transporte.enviados[0]
+    assert chat == "chat-1"
+    assert "VJ-1" in texto
+    assert "AVERIA" in texto or "AVERÍA" in texto
+
+
+@pytest.mark.asyncio
+async def test_alertar_gestor_no_envia_a_gestores_sin_telegram(fake_db, fake_transporte):
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": None}]
+    fake_db.tables["viaje"] = [{"id": "v1", "referencia": "VJ-1"}]
+
+    await bot.alertar_gestor("e1", "v1", "otro", "texto")
+
+    assert fake_transporte.enviados == []
+
+
+@pytest.mark.asyncio
+async def test_notificar_gestor_evento_usa_el_transporte(fake_db, fake_transporte):
+    fake_db.tables["gestor"] = [
+        {"id": "g1", "empresa_id": "e1", "telegram_chat_id": "chat-1"},
+        {"id": "g2", "empresa_id": "e1", "telegram_chat_id": "chat-2"},
+    ]
+
+    await bot.notificar_gestor_evento("e1", "v1", "Mensaje de prueba")
+
+    assert fake_transporte.enviados == [("chat-1", "Mensaje de prueba"), ("chat-2", "Mensaje de prueba")]

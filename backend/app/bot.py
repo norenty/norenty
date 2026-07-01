@@ -172,6 +172,31 @@ def get_chofer_by_chat(chat_id):
     return r.data[0] if r.data else None
 
 
+class Transporte:
+    """Interfaz mínima de envío de mensajes al GESTOR (no al chófer, cuyo flujo
+    usa botones interactivos propios de Telegram — callback_query, reply
+    keyboard — y no se abstrae aquí). Aislar este envío detrás de una interfaz
+    permite en el futuro añadir un TransporteWhatsApp sin tocar la lógica de
+    negocio de alertar_gestor/notificar_gestor_evento.
+    """
+
+    async def enviar_texto(self, chat_id, texto):
+        raise NotImplementedError
+
+
+class TransporteTelegram(Transporte):
+    def __init__(self, token):
+        self._token = token
+
+    async def enviar_texto(self, chat_id, texto):
+        from telegram import Bot
+        bot = Bot(token=self._token)
+        await bot.send_message(chat_id=chat_id, text=texto)
+
+
+transporte_gestor = TransporteTelegram(TOKEN)
+
+
 def verificar_hito_pertenece_a_chofer(hito_id, chofer_id):
     """Verifica que el hito pertenece a un viaje asignado a este chófer."""
     r = (
@@ -205,13 +230,11 @@ async def alertar_gestor(empresa_id, viaje_id, tipo, descripcion):
         chat = g.get("telegram_chat_id")
         if chat:
             try:
-                from telegram import Bot
-                bot = Bot(token=TOKEN)
                 viaje_r = supabase.table("viaje").select("referencia").eq("id", viaje_id).execute()
                 ref = viaje_r.data[0]["referencia"] if viaje_r.data else viaje_id[:8]
-                await bot.send_message(
-                    chat_id=chat,
-                    text=f"⚠️ ALERTA — {tipo.replace('_', ' ').upper()}\n\nViaje: {ref}\n{descripcion}",
+                await transporte_gestor.enviar_texto(
+                    chat,
+                    f"⚠️ ALERTA — {tipo.replace('_', ' ').upper()}\n\nViaje: {ref}\n{descripcion}",
                 )
             except Exception as e:
                 logger.error("Error notificando gestor %s: %s", chat, e)
@@ -224,9 +247,7 @@ async def notificar_gestor_evento(empresa_id, viaje_id, mensaje):
         chat = g.get("telegram_chat_id")
         if chat:
             try:
-                from telegram import Bot
-                bot = Bot(token=TOKEN)
-                await bot.send_message(chat_id=chat, text=mensaje)
+                await transporte_gestor.enviar_texto(chat, mensaje)
             except Exception as e:
                 logger.error("Error notificando gestor %s: %s", chat, e)
 
