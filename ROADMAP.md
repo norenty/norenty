@@ -93,6 +93,36 @@ Todos `[LOOP]`: sin coste por uso, sin deploy. Construir EN ORDEN. Cada ítem: i
 
 ---
 
+## Fase 5 — Discovery & aprendizajes de mercado (ABIERTA, 2026-07-01)
+
+Detalle completo de cada conversación en `DISCOVERY.md` (git-trackeado, se amplía tras cada
+entrevista). Esta sección solo recoge las implicaciones de producto que salen de ahí.
+
+Contexto: conversación con un gestor de tráfico real (~30 camiones). Pendiente: dueño, gerente,
+y un segundo gestor sin relación personal con el fundador (para contrastar sesgo de apertura).
+
+- [ ] `[LOOP]` **5.1 Informe de nómina auto-derivado (noches fuera + km por chófer)** — El gestor
+  reporta hacerlo a mano cada mes; Norenty ya tiene el dato subyacente (timestamps de hitos por
+  viaje). Spec a cerrar antes de que el loop lo ejecute (falta una decisión de modelo de datos):
+  necesita (a) un concepto de "base"/domicilio de la empresa o del chófer para calcular noches
+  fuera de verdad (¿cuándo un viaje cuenta como "noche fuera"? ¿cruza medianoche sin volver a la
+  base?), (b) km por viaje — o bien sumando distancias entre hitos consecutivos (ya hay lat/lon
+  para el mapa, se puede aproximar con Haversine sin llamar a ninguna API de routing), o bien un
+  campo manual de cuentakilómetros que el chófer reporte por el bot. **NO empezar a construir
+  sin cerrar esta decisión de modelo de datos con el usuario primero** — es la típica spec que
+  parece simple y no lo es hasta que se define qué cuenta como "noche fuera".
+- [ ] `[DECISIÓN]` **Voice-to-text en el bot (chófer habla, gestor recibe texto)** — mismo ítem
+  que "Notas de voz → transcripción (Whisper)" de la sección production-gated de Fase 4, ahora
+  reforzado por el insight del gestor: prioridad #1 cuando haya presupuesto para transcripción,
+  por delante del agente de voz telefónico completo.
+- [ ] `[DECISIÓN]` **Cálculo de viabilidad/margen de un viaje** (¿comercial se columpió en precio
+  o coste?) — requiere datos de coste que no existen hoy (precio del viaje, coste combustible,
+  tarifas). NO construir hasta tener ese modelo de datos; candidato v2/v3, no v1.
+- [ ] `[DECISIÓN]` **Asignación automática de rutas (dispatch)** — confirmado como North Star,
+  no como punto de partida. Mantener asignación manual (ya existe) hasta tener volumen de datos.
+
+---
+
 ## Despliegue (POSPUESTO — no tocar sin confirmación explícita)
 
 GitHub → Vercel (dashboard) → Railway (backend) → dominio norenty.com vía Cloudflare.
