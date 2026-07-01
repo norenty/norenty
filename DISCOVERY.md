@@ -104,6 +104,54 @@ herramienta percibida como amenaza. No generalizar este nivel de apertura.
 
 ---
 
+## Investigación regulatoria y de fuentes de datos — 2026-07-01
+
+Origen: el gestor cuenta que planifican las rutas a **75 km/h de media**, añadiendo las **paradas
+legales cada X horas** y usando **su mapa de parkings seguros**. Se investiga qué dice la ley y si
+las fuentes de datos existen o hay que construirlas. Principio acordado con el usuario: para lo
+difícil (routing, mapas, tráfico) **recurrir a terceros**, no reimplementar.
+
+### Tiempos de conducción y descanso — Reglamento (CE) 561/2006
+Fuente: EUR-Lex + Ministerio de Transportes (España). Límites a modelar:
+- **Pausa:** tras 4,5 h de conducción → 45 min ininterrumpidos (o fraccionada 15 + 30).
+- **Conducción diaria:** 9 h (ampliable a 10 h, máx. 2 veces/semana).
+- **Conducción semanal:** 56 h. **Bisemanal:** 90 h en 2 semanas consecutivas.
+- **Descanso diario:** 11 h (reducible a 9 h, máx. 3 veces entre descansos semanales).
+- **Descanso semanal:** 45 h (reducible a 24 h).
+
+**Implicación de producto:** el ETA de una ruta larga NO es km/velocidad — hay que insertar las
+paradas obligatorias. Es lo que el gestor hace a mano → ítem 5.3 en ROADMAP (construible sobre la
+DURACIÓN que ya da OSRM). La pausa de 45 min/4,5 h y el descanso diario de 11 h son los que más
+mueven el ETA.
+
+### Velocidad de planificación (75 km/h)
+No es ley, es heurístico. Contexto: camiones >3,5 t con limitador obligatorio a 90 km/h (Directiva
+92/6/CEE), 80 en convencional. 75 de media absorbe urbano/tráfico/repechos. **Implicación:**
+parámetro configurable por empresa, default 75 (`VELOCIDAD_PLANIFICACION_KMH`).
+
+### Parkings seguros — ¿existe la fuente? SÍ, y es gratis
+- **Oficial y abierta:** European Access Point for Truck Parking Data — formato DATEX II, dataset
+  "ETPA" en data.europa.eu, base regulatoria Reglamento delegado 885/2013. Cubre sobre todo
+  corredores TEN-T; la calidad/cobertura la mantiene cada Estado miembro (no garantiza todo España).
+- **Certificación SSTPA:** 4 niveles Bronze/Silver/Gold/Platinum (estándar de "parking seguro").
+- **Comercial:** Truck Parking Europe y similares (más cobertura + app).
+
+**Implicación de producto:** NO tiene que aportarlo la empresa (hay dataset público), PERO la empresa
+del gestor ya tiene su mapa curado propio (activo). Diseño: soportar ambos — importar la lista propia
++ enriquecer con el dataset EU. → ítem 5.4 en ROADMAP (`[DECISIÓN]`: parsear DATEX II tiene coste;
+la parte "importar lista propia" sería loop-safe por separado).
+
+### Routing de terceros
+- **OSRM** (ya en uso): gratis, self-host, da distancia + duración. Suficiente para km (5.2) y
+  ETA-con-paradas (5.3).
+- **HERE:** estándar del sector, *truck-aware* (altura/peso/ADR/restricciones + tráfico). De pago;
+  salto de calidad cuando haya presupuesto.
+- **Google Directions / Waze:** buenos con tráfico pero NO truck-aware.
+- **Regla:** la lógica de negocio (paradas legales, margen, noches fuera) se queda como capa propia
+  por encima del proveedor, para cambiar de proveedor sin reescribirla.
+
+---
+
 ## Pendiente de esta semana
 
 - [ ] Conversación con **dueño** de flota (comprador económico) — foco: qué pagaría, qué le

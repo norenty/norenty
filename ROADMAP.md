@@ -130,8 +130,37 @@ y un segundo gestor sin relación personal con el fundador (para contrastar sesg
   coste de conductor, peajes; e indexar costes REALES por viaje (repostajes, multas) para ir afinando
   el cálculo con datos de producción en vez de estimaciones. El `UMBRAL_MARGEN_AMBAR_PCT`=10% y el
   `UMBRAL_NOCHE_FUERA_KM`=50 son valores iniciales, pendientes de pactar con cliente real.
+- [ ] `[LOOP]` **5.3 ETA "cumple-561" — tiempo de ruta con paradas legales** — El gestor calcula
+  a mano el tiempo real de una ruta insertando las paradas obligatorias; automatizarlo. Detalle
+  regulatorio investigado 2026-07-01 (ver `DISCOVERY.md`, Reglamento CE 561/2006): pausa 45 min tras
+  4,5 h de conducción; conducción diaria 9 h (10 h máx 2×/sem); descanso diario 11 h (reducible 9 h);
+  semanal 56 h / bisemanal 90 h; descanso semanal 45 h (reducible 24 h). Núcleo **construible ya sobre
+  OSRM** (que ya devuelve DURACIÓN de conducción además de distancia — hoy solo usamos la distancia):
+  función PURA que, dada la duración de conducción y una velocidad de planificación configurable
+  (`VELOCIDAD_PLANIFICACION_KMH`=75 default, ajustable por empresa; contexto: camión limitado a 90),
+  inserta las pausas/descansos obligatorios y devuelve el tiempo total transcurrido + nº de paradas.
+  Testeable sin red. UI: mostrar en `/viajes/[id]` "conducción X h + N paradas → llega Y". (v2 con HERE:
+  routing truck-aware con altura/peso/ADR + tráfico, de pago; ver principio de terceros abajo.)
+- [ ] `[DECISIÓN]` **5.4 Parkings seguros en la ruta** — Investigado 2026-07-01 (ver `DISCOVERY.md`):
+  existe fuente OFICIAL y GRATIS — European Access Point for Truck Parking Data (formato DATEX II,
+  dataset "ETPA" en data.europa.eu, Reglamento delegado 885/2013), + certificación SSTPA (Bronze/
+  Silver/Gold/Platinum), + comercial (Truck Parking Europe). NO tiene que aportarlo la empresa, pero
+  la de nuestro gestor YA tiene su mapa curado propio (activo suyo). Diseño correcto: soportar AMBOS
+  — importar la lista propia de la empresa Y enriquecer con el dataset EU. Es `[DECISIÓN]` porque
+  implica parsear DATEX II y decidir cobertura/esfuerzo; la parte "importar lista propia de la empresa"
+  sí sería loop-safe por separado si se prioriza. Encaja con 5.3 (sugerir parking seguro donde toca el
+  descanso diario).
 - [ ] `[DECISIÓN]` **Asignación automática de rutas (dispatch)** — confirmado como North Star,
   no como punto de partida. Mantener asignación manual (ya existe) hasta tener volumen de datos.
+
+### Principio de arquitectura: recurrir a terceros para lo difícil (decidido con usuario 2026-07-01)
+Para capacidades caras de construir y mantener (routing, tráfico, mapas), apoyarse en terceros en vez
+de reimplementar. Estado actual: **OSRM** (gratis, self-host) da distancia + duración, suficiente para
+km (5.2) y ETA-con-paradas (5.3). Salto de calidad cuando haya presupuesto: **HERE** (routing
+*truck-aware* real — respeta altura/peso/ADR/restricciones de camión + tráfico en vivo), que es el
+estándar del sector; Google Directions/Waze son buenos con tráfico pero NO truck-aware. Nuestra lógica
+de negocio (paradas legales, margen, noches fuera) se queda como capa propia por encima del proveedor,
+para poder cambiar de proveedor sin reescribirla.
 
 ---
 
