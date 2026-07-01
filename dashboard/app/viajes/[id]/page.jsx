@@ -4,11 +4,14 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, MapPin, Package, Clock, Truck, Edit3, Check, X, AlertTriangle,
+  ArrowLeft, MapPin, Package, Clock, Truck, Edit3, Check, X, AlertTriangle, Euro,
 } from "lucide-react";
 import PodImage from "../../components/PodImage";
 import DocumentosSection from "../../components/DocumentosSection";
-import { getViaje, getChoferes, validarCambioEstado, validarAsignacion } from "../../../lib/data";
+import {
+  getViaje, getChoferes, validarCambioEstado, validarAsignacion,
+  getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT,
+} from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
 import Timeline from "../../components/Timeline";
@@ -56,11 +59,16 @@ export default function ViajeDetalle() {
   const [guardandoEstado, setGuardandoEstado] = useState(false);
   const [guardandoChofer, setGuardandoChofer] = useState(false);
   const [procesandoPod, setProcesandoPod] = useState(null);
+  const [viabilidad, setViabilidad] = useState(null);
+  const [editandoPrecio, setEditandoPrecio] = useState(false);
+  const [precioInput, setPrecioInput] = useState("");
+  const [guardandoPrecio, setGuardandoPrecio] = useState(false);
 
   const load = useCallback(async () => {
     const d = await getViaje(id);
     setData(d);
     setLoading(false);
+    getViabilidadViaje(id).then(setViabilidad);
 
     if (d?.viaje) {
       if (d.viaje.vehiculo_id) {
@@ -135,6 +143,24 @@ export default function ViajeDetalle() {
     const c = await getChoferes();
     setChoferes(c);
     setEditandoChofer(true);
+  }
+
+  async function guardarPrecio() {
+    if (guardandoPrecio) return;
+    const precio = precioInput.trim() === "" ? null : Number(precioInput);
+    if (precio != null && (Number.isNaN(precio) || precio < 0)) {
+      setError("El precio debe ser un número positivo.");
+      return;
+    }
+    setGuardandoPrecio(true);
+    setError(null);
+    try {
+      await supabase.from("viaje").update({ precio }).eq("id", id);
+      setEditandoPrecio(false);
+      await load();
+    } finally {
+      setGuardandoPrecio(false);
+    }
   }
 
   if (loading) return <div className="h-64 bg-surface-alt rounded-lg animate-pulse" />;
@@ -280,6 +306,71 @@ export default function ViajeDetalle() {
         </div>
 
         <aside className="flex flex-col gap-6">
+          <section className="bg-surface border border-border rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-medium text-ink flex items-center gap-1.5">
+                <Euro size={15} /> Viabilidad
+              </h2>
+              {!editandoPrecio && (
+                <button
+                  onClick={() => { setPrecioInput(viaje.precio != null ? String(viaje.precio) : ""); setEditandoPrecio(true); }}
+                  className="text-xs text-ink-secondary hover:text-ink flex items-center gap-1"
+                >
+                  <Edit3 size={12} /> Precio
+                </button>
+              )}
+            </div>
+
+            {editandoPrecio ? (
+              <div className="flex items-center gap-2 mb-3">
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  autoFocus
+                  value={precioInput}
+                  onChange={(e) => setPrecioInput(e.target.value)}
+                  placeholder="Precio del viaje (€)"
+                  className="flex-1 text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand"
+                />
+                <button onClick={guardarPrecio} disabled={guardandoPrecio} className="p-1.5 text-estado-ok disabled:opacity-40"><Check size={16} /></button>
+                <button onClick={() => setEditandoPrecio(false)} disabled={guardandoPrecio} className="p-1.5 text-ink-muted disabled:opacity-40"><X size={16} /></button>
+              </div>
+            ) : (
+              <div className="text-sm text-ink mb-3">
+                Precio: <span className="font-medium">{viaje.precio != null ? `${viaje.precio.toLocaleString("es-ES")} €` : "—"}</span>
+              </div>
+            )}
+
+            {(() => {
+              if (!viabilidad) return <p className="text-xs text-ink-muted">Calculando…</p>;
+              if (viaje.precio == null) return <p className="text-xs text-ink-secondary">Añade el precio para ver el margen.</p>;
+              if (viabilidad.costeKm == null) return <p className="text-xs text-ink-secondary">Configura el coste/km en Ajustes (o en la ficha del vehículo) para ver el margen.</p>;
+              if (viabilidad.km === 0) return <p className="text-xs text-ink-secondary">Sin km calculables: faltan coordenadas en los hitos o el servicio de rutas no responde.</p>;
+
+              const { margen, margenPct, km, costeKm, coste, fuenteCoste } = viabilidad;
+              const cls = margen < 0
+                ? "bg-red-50 text-estado-incidencia"
+                : margenPct < UMBRAL_MARGEN_AMBAR_PCT
+                ? "bg-yellow-50 text-yellow-700"
+                : "bg-green-50 text-estado-ok";
+              return (
+                <div>
+                  <div className={`rounded-lg px-3 py-2 mb-2 ${cls}`}>
+                    <div className="text-lg font-semibold">{margen.toLocaleString("es-ES")} € <span className="text-sm font-normal">({margenPct}%)</span></div>
+                    <div className="text-xs">
+                      {margen < 0 ? "A pérdidas — revisar precio" : margenPct < UMBRAL_MARGEN_AMBAR_PCT ? "Margen ajustado" : "Margen sano"}
+                    </div>
+                  </div>
+                  <div className="text-xs text-ink-muted space-y-0.5">
+                    <div>{km.toLocaleString("es-ES")} km × {costeKm} €/km = {coste.toLocaleString("es-ES")} € de coste</div>
+                    <div>Coste/km según: {fuenteCoste === "vehiculo" ? "vehículo asignado" : "empresa"}</div>
+                  </div>
+                </div>
+              );
+            })()}
+          </section>
+
           <RatingControl
             choferId={viaje.chofer?.id}
             viajeId={viaje.id}

@@ -47,6 +47,8 @@ export default function VehiculoDetalle() {
   const [borrandoId, setBorrandoId] = useState(null);
   const [error, setError] = useState(null);
   const [mostrarForm, setMostrarForm] = useState(false);
+  const [costeKm, setCosteKm] = useState("");
+  const [guardandoCoste, setGuardandoCoste] = useState(false);
 
   const loadRegistros = useCallback(async () => {
     const { data } = await supabase
@@ -66,11 +68,25 @@ export default function VehiculoDetalle() {
         .eq("id", id)
         .single();
       setVehiculo(v);
+      setCosteKm(v?.coste_km != null ? String(v.coste_km) : "");
       await loadRegistros();
       setLoading(false);
     }
     load();
   }, [id, loadRegistros]);
+
+  async function guardarCosteKm() {
+    const coste = costeKm.trim() === "" ? null : Number(costeKm);
+    if (coste != null && (Number.isNaN(coste) || coste < 0)) {
+      setError("El coste por km debe ser un número positivo.");
+      return;
+    }
+    setGuardandoCoste(true);
+    setError(null);
+    await supabase.from("vehiculo").update({ coste_km: coste }).eq("id", id);
+    setVehiculo((v) => ({ ...v, coste_km: coste }));
+    setGuardandoCoste(false);
+  }
 
   async function guardar(e) {
     e.preventDefault();
@@ -157,6 +173,30 @@ export default function VehiculoDetalle() {
             ITV pendiente{proxITV.fecha ? ` — ${new Date(proxITV.fecha + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" })}` : ""}
           </div>
         )}
+        <div className="mt-3 pt-3 border-t border-border flex items-end gap-3">
+          <div className="flex-1 max-w-[10rem]">
+            <label className="block text-xs text-ink-secondary mb-1">Coste por km (€)</label>
+            <input
+              type="number"
+              step="any"
+              min="0"
+              value={costeKm}
+              onChange={(e) => setCosteKm(e.target.value)}
+              placeholder="por defecto: empresa"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand bg-surface"
+            />
+          </div>
+          <button
+            onClick={guardarCosteKm}
+            disabled={guardandoCoste}
+            className="text-xs px-3 py-2 rounded-md border border-border text-ink-secondary hover:bg-surface-alt disabled:opacity-40"
+          >
+            {guardandoCoste ? "Guardando…" : "Guardar"}
+          </button>
+          <p className="flex-1 text-xs text-ink-muted pb-1">
+            Sobrescribe el coste/km de la empresa solo para este vehículo. Vacío = usa el de la empresa.
+          </p>
+        </div>
       </div>
 
       {/* Mantenimiento */}

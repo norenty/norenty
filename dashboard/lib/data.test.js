@@ -58,6 +58,10 @@ const {
   getMetricasChoferes,
   getMetricasFlota,
   getInformeNomina,
+  resolveCosteKm,
+  calcularMargen,
+  kmCarreteraViaje,
+  getViabilidadViaje,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -475,5 +479,128 @@ describe("getInformeNomina", () => {
     expect(r.filas[0].km).toBe(0);
     expect(r.filas[0].viajes).toEqual([]);
     expect(osrmMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveCosteKm (viabilidad 5.2 — capas)", () => {
+  it("usa el coste del vehículo si lo tiene (capa más granular)", () => {
+    const r = resolveCosteKm({ vehiculo: { coste_km: 1.35 }, empresa: { coste_km: 1.2 } });
+    expect(r).toEqual({ costeKm: 1.35, fuente: "vehiculo" });
+  });
+
+  it("cae al coste de empresa si el vehículo no tiene", () => {
+    const r = resolveCosteKm({ vehiculo: { coste_km: null }, empresa: { coste_km: 1.2 } });
+    expect(r).toEqual({ costeKm: 1.2, fuente: "empresa" });
+  });
+
+  it("cae a empresa si no hay vehículo asignado", () => {
+    const r = resolveCosteKm({ vehiculo: null, empresa: { coste_km: 1.2 } });
+    expect(r).toEqual({ costeKm: 1.2, fuente: "empresa" });
+  });
+
+  it("devuelve null si no hay ningún coste configurado", () => {
+    const r = resolveCosteKm({ vehiculo: null, empresa: { coste_km: null } });
+    expect(r).toEqual({ costeKm: null, fuente: null });
+  });
+});
+
+describe("calcularMargen (viabilidad 5.2)", () => {
+  it("calcula coste, margen y margen %", () => {
+    const r = calcularMargen({ precio: 1000, km: 620, costeKm: 1.2 });
+    expect(r.coste).toBe(744);
+    expect(r.margen).toBe(256);
+    expect(Math.round(r.margenPct)).toBe(26);
+  });
+
+  it("margen negativo cuando el coste supera el precio", () => {
+    const r = calcularMargen({ precio: 500, km: 620, costeKm: 1.2 });
+    expect(r.margen).toBeLessThan(0);
+  });
+
+  it("devuelve nulls si falta cualquier dato (no inventa números)", () => {
+    expect(calcularMargen({ precio: null, km: 620, costeKm: 1.2 }).margen).toBeNull();
+    expect(calcularMargen({ precio: 1000, km: null, costeKm: 1.2 }).margen).toBeNull();
+    expect(calcularMargen({ precio: 1000, km: 620, costeKm: null }).margen).toBeNull();
+  });
+
+  it("margenPct es null si el precio es 0 (evita dividir por cero)", () => {
+    expect(calcularMargen({ precio: 0, km: 100, costeKm: 1 }).margenPct).toBeNull();
+  });
+});
+
+describe("kmCarreteraViaje (viabilidad 5.2)", () => {
+  it("suma los tramos OSRM entre hitos con coordenadas, ordenados por orden", async () => {
+    osrmMock.mockResolvedValue(50);
+    const km = await kmCarreteraViaje([
+      { orden: 2, lat: 41, lon: 2 },
+      { orden: 1, lat: 40, lon: -3 },
+      { orden: 3, lat: 42, lon: 1 },
+    ]);
+    expect(km).toBe(100); // 2 tramos × 50
+    expect(osrmMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignora hitos sin coordenadas", async () => {
+    osrmMock.mockResolvedValue(50);
+    const km = await kmCarreteraViaje([
+      { orden: 1, lat: 40, lon: -3 },
+      { orden: 2, lat: null, lon: null },
+      { orden: 3, lat: 42, lon: 1 },
+    ]);
+    expect(km).toBe(50); // solo 1 tramo entre los 2 hitos con coords
+    expect(osrmMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("devuelve 0 con menos de 2 hitos con coordenadas", async () => {
+    const km = await kmCarreteraViaje([{ orden: 1, lat: 40, lon: -3 }]);
+    expect(km).toBe(0);
+    expect(osrmMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("getViabilidadViaje (viabilidad 5.2 — integración)", () => {
+  it("devuelve el margen completo con coste de empresa y km de OSRM", async () => {
+    TABLES.viaje = [{ id: "v1", precio: 1000, vehiculo_id: null }];
+    TABLES.hito = [
+      { viaje_id: "v1", orden: 1, lat: 40, lon: -3 },
+      { viaje_id: "v1", orden: 2, lat: 41, lon: 2 },
+    ];
+    TABLES.empresa = [{ coste_km: 1.2 }];
+    osrmMock.mockResolvedValue(300); // 1 tramo = 300 km
+
+    const r = await getViabilidadViaje("v1");
+    expect(r.km).toBe(300);
+    expect(r.costeKm).toBe(1.2);
+    expect(r.fuenteCoste).toBe("empresa");
+    expect(r.coste).toBe(360);
+    expect(r.margen).toBe(640);
+  });
+
+  it("el coste del vehículo asignado tiene prioridad sobre el de la empresa", async () => {
+    TABLES.viaje = [{ id: "v1", precio: 1000, vehiculo_id: "veh1" }];
+    TABLES.hito = [
+      { viaje_id: "v1", orden: 1, lat: 40, lon: -3 },
+      { viaje_id: "v1", orden: 2, lat: 41, lon: 2 },
+    ];
+    TABLES.empresa = [{ coste_km: 1.2 }];
+    TABLES.vehiculo = [{ id: "veh1", coste_km: 2.0 }];
+    osrmMock.mockResolvedValue(100);
+
+    const r = await getViabilidadViaje("v1");
+    expect(r.fuenteCoste).toBe("vehiculo");
+    expect(r.coste).toBe(200); // 100 km × 2.0
+  });
+
+  it("margen null si no hay coste/km configurado en ninguna capa", async () => {
+    TABLES.viaje = [{ id: "v1", precio: 1000, vehiculo_id: null }];
+    TABLES.hito = [
+      { viaje_id: "v1", orden: 1, lat: 40, lon: -3 },
+      { viaje_id: "v1", orden: 2, lat: 41, lon: 2 },
+    ];
+    TABLES.empresa = [{ coste_km: null }];
+
+    const r = await getViabilidadViaje("v1");
+    expect(r.costeKm).toBeNull();
+    expect(r.margen).toBeNull();
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, User, Building2, Bell, Shield, Send, Copy, Check, MapPin } from "lucide-react";
+import { Save, User, Building2, Bell, Shield, Send, Copy, Check, MapPin, Euro } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getSession, signOut } from "../../lib/auth";
 
@@ -13,6 +13,7 @@ export default function AjustesPage() {
   const [empresaNombre, setEmpresaNombre] = useState("");
   const [baseLat, setBaseLat] = useState("");
   const [baseLon, setBaseLon] = useState("");
+  const [costeKm, setCosteKm] = useState("");
   const [gestor, setGestor] = useState(null);
   const [prefs, setPrefs] = useState({ notif_incidencias: true, notif_entregas: true, notif_fuera_ventana: false });
   const [guardando, setGuardando] = useState(false);
@@ -49,6 +50,7 @@ export default function AjustesPage() {
           setEmpresaNombre(emp?.nombre || "");
           setBaseLat(emp?.base_lat != null ? String(emp.base_lat) : "");
           setBaseLon(emp?.base_lon != null ? String(emp.base_lon) : "");
+          setCosteKm(emp?.coste_km != null ? String(emp.coste_km) : "");
         }
       }
     }
@@ -85,6 +87,19 @@ export default function AjustesPage() {
     setGuardando(true);
     await supabase.from("empresa").update({ base_lat: lat, base_lon: lon }).eq("id", empresa.id);
     flash("Ubicación base guardada");
+    setGuardando(false);
+  }
+
+  async function guardarCoste() {
+    if (!empresa) return;
+    const coste = costeKm.trim() === "" ? null : Number(costeKm);
+    if (coste != null && (Number.isNaN(coste) || coste < 0)) {
+      flash("Error: el coste por km debe ser un número positivo");
+      return;
+    }
+    setGuardando(true);
+    await supabase.from("empresa").update({ coste_km: coste }).eq("id", empresa.id);
+    flash("Coste por km guardado");
     setGuardando(false);
   }
 
@@ -275,6 +290,40 @@ export default function AjustesPage() {
             className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
           >
             <Save size={16} /> Guardar base
+          </button>
+        </div>
+      </section>
+
+      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Euro size={18} className="text-brand" />
+          <h2 className="text-sm font-medium text-ink">Coste de operación</h2>
+        </div>
+        <p className="text-xs text-ink-secondary mb-4">
+          Coste medio por kilómetro de tu flota (combustible + conductor + amortización…).
+          Se usa para calcular el margen de cada viaje y detectar los que van a pérdidas.
+          Puedes afinarlo por camión en la ficha de cada vehículo (tiene prioridad sobre este).
+          Déjalo vacío si aún no lo tienes.
+        </p>
+        <div className="flex items-end gap-3">
+          <div className="flex-1 max-w-[12rem]">
+            <label className="block text-xs text-ink-secondary mb-1">Coste por km (€)</label>
+            <input
+              type="number"
+              step="any"
+              min="0"
+              value={costeKm}
+              onChange={(e) => setCosteKm(e.target.value)}
+              placeholder="1.20"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+            />
+          </div>
+          <button
+            onClick={guardarCoste}
+            disabled={guardando}
+            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
+          >
+            <Save size={16} /> Guardar coste
           </button>
         </div>
       </section>

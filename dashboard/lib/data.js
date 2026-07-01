@@ -11,6 +11,12 @@ const ESTADOS_ACTIVOS = ["planificado", "en_curso"];
 // cuando haya conversación con el cliente. Fácil de cambiar aquí.
 export const UMBRAL_NOCHE_FUERA_KM = 50;
 
+// --- Viabilidad / margen de viaje (ítem 5.2) — parámetro ajustable ---
+// Margen % por debajo del cual un viaje se marca en ÁMBAR ("comercial se columpió
+// en precio o viabilidad"). Un margen negativo siempre es ROJO. 10 % es un valor
+// inicial RAZONABLE, NO pactado con un cliente real (igual que UMBRAL_NOCHE_FUERA_KM).
+export const UMBRAL_MARGEN_AMBAR_PCT = 10;
+
 // Ventana horaria alrededor de medianoche en la que un hito completado (llegada)
 // cuenta como "el chófer estaba fuera esa noche". Del día D 22:00 al día D+1 06:00.
 const NOCHE_HORA_INICIO = 22; // 22:00 del día D
@@ -602,6 +608,97 @@ export async function getInformeNomina(mes, anio) {
   filas.sort((a, b) => b.km - a.km);
 
   return { filas, tieneBase, umbralKm: UMBRAL_NOCHE_FUERA_KM };
+}
+
+// ==========================================================================
+// Viabilidad / margen de viaje (ítem 5.2)
+// ==========================================================================
+
+/**
+ * Resuelve el coste/km a aplicar a un viaje, POR CAPAS: usa el dato más granular
+ * disponible y cae al menos granular. v1: vehículo → empresa. (v2 añadirá el
+ * desglose combustible/conductor/peajes como capas por delante, sin tocar esto.)
+ * @returns {{costeKm: number|null, fuente: 'vehiculo'|'empresa'|null}}
+ */
+export function resolveCosteKm({ vehiculo, empresa }) {
+  if (vehiculo && vehiculo.coste_km != null) return { costeKm: vehiculo.coste_km, fuente: "vehiculo" };
+  if (empresa && empresa.coste_km != null) return { costeKm: empresa.coste_km, fuente: "empresa" };
+  return { costeKm: null, fuente: null };
+}
+
+/**
+ * Margen de un viaje dado el ingreso (`precio`), los `km` y el `costeKm`.
+ * Devuelve null en los campos que no se puedan calcular (falta precio, km o coste)
+ * — no se inventa un número, para que la UI muestre "n/d" en vez de engañar.
+ * @returns {{coste: number|null, margen: number|null, margenPct: number|null}}
+ */
+export function calcularMargen({ precio, km, costeKm }) {
+  if (precio == null || km == null || costeKm == null) {
+    return { coste: null, margen: null, margenPct: null };
+  }
+  const coste = km * costeKm;
+  const margen = precio - coste;
+  const margenPct = precio > 0 ? (margen / precio) * 100 : null;
+  return { coste, margen, margenPct };
+}
+
+/**
+ * Km por carretera real de un viaje: suma OSRM entre hitos consecutivos con
+ * coordenadas, ordenados por `orden`. Para VIABILIDAD se usan TODOS los hitos
+ * (ruta planificada), no solo los completados — se evalúa antes/durante la
+ * ejecución. Devuelve 0 si hay menos de 2 hitos con coordenadas.
+ */
+export async function kmCarreteraViaje(hitos) {
+  const conCoords = (hitos || [])
+    .filter((h) => h.lat != null && h.lon != null)
+    .sort((a, b) => a.orden - b.orden);
+  let km = 0;
+  for (let i = 0; i < conCoords.length - 1; i++) {
+    const d = await distanciaPorCarretera(
+      { lat: conCoords[i].lat, lon: conCoords[i].lon },
+      { lat: conCoords[i + 1].lat, lon: conCoords[i + 1].lon }
+    );
+    if (d != null) km += d;
+  }
+  return km;
+}
+
+/**
+ * Viabilidad/margen de un viaje. Junta precio (ingreso) + coste/km resuelto por
+ * capas (vehículo→empresa) + km por carretera, y devuelve el margen. Lo que falte
+ * se devuelve como null. Mismo patrón que getMetricas / getInformeNomina.
+ */
+export async function getViabilidadViaje(viajeId) {
+  const { data: viaje } = await supabase
+    .from("viaje")
+    .select("id, precio, vehiculo_id")
+    .eq("id", viajeId)
+    .single();
+  if (!viaje) return null;
+
+  const [{ data: hitos }, { data: empresas }, vehiculoRes] = await Promise.all([
+    supabase.from("hito").select("orden, lat, lon").eq("viaje_id", viajeId),
+    supabase.from("empresa").select("coste_km"),
+    viaje.vehiculo_id
+      ? supabase.from("vehiculo").select("coste_km").eq("id", viaje.vehiculo_id).single()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const empresa = (empresas || [])[0] || null;
+  const vehiculo = vehiculoRes.data || null;
+  const { costeKm, fuente } = resolveCosteKm({ vehiculo, empresa });
+  const km = await kmCarreteraViaje(hitos || []);
+  const { coste, margen, margenPct } = calcularMargen({ precio: viaje.precio, km, costeKm });
+
+  return {
+    precio: viaje.precio,
+    km: Math.round(km),
+    costeKm,
+    fuenteCoste: fuente,
+    coste: coste != null ? Math.round(coste) : null,
+    margen: margen != null ? Math.round(margen) : null,
+    margenPct: margenPct != null ? Math.round(margenPct) : null,
+  };
 }
 
 export async function getChoferes() {
