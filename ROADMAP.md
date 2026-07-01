@@ -130,17 +130,25 @@ y un segundo gestor sin relación personal con el fundador (para contrastar sesg
   coste de conductor, peajes; e indexar costes REALES por viaje (repostajes, multas) para ir afinando
   el cálculo con datos de producción en vez de estimaciones. El `UMBRAL_MARGEN_AMBAR_PCT`=10% y el
   `UMBRAL_NOCHE_FUERA_KM`=50 son valores iniciales, pendientes de pactar con cliente real.
-- [ ] `[LOOP]` **5.3 ETA "cumple-561" — tiempo de ruta con paradas legales** — El gestor calcula
+- [x] `[LOOP]` **5.3 ETA "cumple-561" — tiempo de ruta con paradas legales** — El gestor calcula
   a mano el tiempo real de una ruta insertando las paradas obligatorias; automatizarlo. Detalle
   regulatorio investigado 2026-07-01 (ver `DISCOVERY.md`, Reglamento CE 561/2006): pausa 45 min tras
   4,5 h de conducción; conducción diaria 9 h (10 h máx 2×/sem); descanso diario 11 h (reducible 9 h);
-  semanal 56 h / bisemanal 90 h; descanso semanal 45 h (reducible 24 h). Núcleo **construible ya sobre
-  OSRM** (que ya devuelve DURACIÓN de conducción además de distancia — hoy solo usamos la distancia):
-  función PURA que, dada la duración de conducción y una velocidad de planificación configurable
-  (`VELOCIDAD_PLANIFICACION_KMH`=75 default, ajustable por empresa; contexto: camión limitado a 90),
-  inserta las pausas/descansos obligatorios y devuelve el tiempo total transcurrido + nº de paradas.
-  Testeable sin red. UI: mostrar en `/viajes/[id]` "conducción X h + N paradas → llega Y". (v2 con HERE:
-  routing truck-aware con altura/peso/ADR + tráfico, de pago; ver principio de terceros abajo.)
+  semanal 56 h / bisemanal 90 h; descanso semanal 45 h (reducible 24 h).
+  (2026-07-01: **decisión de implementación tomada en esta sesión** — NO se usa la duración que
+  devuelve OSRM directamente, porque su perfil "driving" está calibrado para turismos y subestimaría
+  el tiempo real de un camión. En su lugar: horas de conducción = km por carretera (ya calculados en
+  5.2 vía `kmCarreteraViaje`, ruta planificada) / `VELOCIDAD_PLANIFICACION_KMH` (75 default,
+  configurable por empresa en Ajustes — migración 0015 `empresa.velocidad_planificacion_kmh`).
+  `calcularEtaConParadas()` pura simula el Reglamento e inserta pausas/descansos; v1 CONSERVADORA
+  deliberada: usa siempre el límite diario base 9h y descanso normal 11h (nunca la excepción de 10h
+  2×/semana ni el descanso reducido 9h — ambas requieren estado multi-viaje que no existe en un
+  cálculo aislado), y NO comprueba límites semanal/bisemanal/descanso semanal (mismo motivo). Esto
+  hace que el cálculo sobreestime el tiempo, nunca lo infraestime. `getEtaViaje()` integra todo.
+  UI en `/viajes/[id]`: "X km a Y km/h → Z h conducción + N paradas de 45min + M descansos de 11h =
+  T h totales". 12 tests nuevos (62 vitest). CI verde.)
+  (v2 con HERE: routing truck-aware con altura/peso/ADR + tráfico, de pago; ver principio de
+  terceros abajo. v2 también: modelar límites semanales/bisemanales con estado real del chófer.)
 - [ ] `[DECISIÓN]` **5.4 Parkings seguros en la ruta** — Investigado 2026-07-01 (ver `DISCOVERY.md`):
   existe fuente OFICIAL y GRATIS — European Access Point for Truck Parking Data (formato DATEX II,
   dataset "ETPA" en data.europa.eu, Reglamento delegado 885/2013), + certificación SSTPA (Bronze/
