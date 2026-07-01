@@ -41,6 +41,13 @@ vi.mock("./supabase", () => ({
   },
 }));
 
+// Mock del cliente OSRM: por defecto devuelve una distancia fija por tramo, sin
+// tocar red. Los tests que necesitan un valor concreto lo sobreescriben.
+const osrmMock = vi.fn(async () => 100);
+vi.mock("./osrm", () => ({
+  distanciaPorCarretera: (...args) => osrmMock(...args),
+}));
+
 const {
   validarAsignacion,
   validarCambioEstado,
@@ -50,11 +57,14 @@ const {
   getMetricasIncidencias,
   getMetricasChoferes,
   getMetricasFlota,
+  getInformeNomina,
 } = await import("./data.js");
 
 beforeEach(() => {
   TABLES = {};
   SESSION = null;
+  osrmMock.mockReset();
+  osrmMock.mockResolvedValue(100);
 });
 
 describe("validarAsignacion", () => {
@@ -324,5 +334,116 @@ describe("getMetricasFlota", () => {
     expect(r.pctUtilizacion).toBe(50);
     expect(r.itvPendientes[0].matricula).toBe("2222BBB");
     expect(r.averiasRecientes[0].matricula).toBe("1111AAA");
+  });
+});
+
+describe("getInformeNomina", () => {
+  const MADRID = { lat: 40.4168, lon: -3.7038 }; // base
+  const BARCELONA = { lat: 41.3851, lon: 2.1734 }; // lejos (>50km)
+  const CERCA_MADRID = { lat: 40.42, lon: -3.71 }; // <50km de la base
+
+  function setBase(punto) {
+    TABLES.empresa = [{ id: "emp1", base_lat: punto?.lat ?? null, base_lon: punto?.lon ?? null }];
+  }
+
+  it("nochesFuera = null cuando la empresa no tiene base configurada", async () => {
+    setBase(null);
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    const r = await getInformeNomina(1, 2026);
+    expect(r.tieneBase).toBe(false);
+    expect(r.filas[0].nochesFuera).toBeNull();
+  });
+
+  it("cuenta una noche fuera cuando hay llegada nocturna lejos de la base", async () => {
+    setBase(MADRID);
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    TABLES.viaje = [{ id: "v1", referencia: "VJ-1", chofer_id: "c1", estado: "en_curso" }];
+    TABLES.hito = [{ id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...BARCELONA }];
+    TABLES.ejecucion_evento = [
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2026-01-15T23:30:00Z" },
+    ];
+    const r = await getInformeNomina(1, 2026);
+    expect(r.tieneBase).toBe(true);
+    expect(r.filas[0].nochesFuera).toBe(1);
+    expect(r.umbralKm).toBe(50);
+  });
+
+  it("NO cuenta noche fuera si la llegada nocturna es cerca de la base", async () => {
+    setBase(MADRID);
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", estado: "en_curso" }];
+    TABLES.hito = [{ id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...CERCA_MADRID }];
+    TABLES.ejecucion_evento = [
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2026-01-15T23:30:00Z" },
+    ];
+    const r = await getInformeNomina(1, 2026);
+    expect(r.filas[0].nochesFuera).toBe(0);
+  });
+
+  it("NO cuenta noche fuera si la llegada lejana es de día (fuera de la ventana nocturna)", async () => {
+    setBase(MADRID);
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", estado: "en_curso" }];
+    TABLES.hito = [{ id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...BARCELONA }];
+    TABLES.ejecucion_evento = [
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2026-01-15T14:00:00Z" },
+    ];
+    const r = await getInformeNomina(1, 2026);
+    expect(r.filas[0].nochesFuera).toBe(0);
+  });
+
+  it("dedup: dos llegadas lejanas la misma noche cuentan como UNA noche fuera", async () => {
+    setBase(MADRID);
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", estado: "en_curso" }];
+    TABLES.hito = [
+      { id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...BARCELONA },
+      { id: "h2", viaje_id: "v1", orden: 2, estado: "completado", ...BARCELONA },
+    ];
+    TABLES.ejecucion_evento = [
+      // 23:00 del día 15 y 01:00 del día 16 -> ambas pertenecen a la noche del 15.
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2026-01-15T23:00:00Z" },
+      { hito_id: "h2", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2026-01-16T01:00:00Z" },
+    ];
+    const r = await getInformeNomina(1, 2026);
+    expect(r.filas[0].nochesFuera).toBe(1);
+  });
+
+  it("suma km por carretera vía OSRM entre hitos completados consecutivos", async () => {
+    setBase(MADRID);
+    osrmMock.mockResolvedValue(120); // cada tramo = 120 km
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    TABLES.viaje = [{ id: "v1", referencia: "VJ-1", chofer_id: "c1", estado: "completado" }];
+    TABLES.hito = [
+      { id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...MADRID },
+      { id: "h2", viaje_id: "v1", orden: 2, estado: "completado", ...CERCA_MADRID },
+      { id: "h3", viaje_id: "v1", orden: 3, estado: "completado", ...BARCELONA },
+    ];
+    TABLES.ejecucion_evento = [
+      { hito_id: "h3", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2026-01-15T12:00:00Z" },
+    ];
+    const r = await getInformeNomina(1, 2026);
+    // 3 hitos completados -> 2 tramos -> 240 km. OSRM llamado 2 veces.
+    expect(r.filas[0].km).toBe(240);
+    expect(r.filas[0].viajes).toEqual(["VJ-1"]);
+    expect(osrmMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignora km de viajes sin actividad (ninguna llegada) en el mes", async () => {
+    setBase(MADRID);
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    TABLES.viaje = [{ id: "v1", referencia: "VJ-1", chofer_id: "c1", estado: "completado" }];
+    TABLES.hito = [
+      { id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...MADRID },
+      { id: "h2", viaje_id: "v1", orden: 2, estado: "completado", ...BARCELONA },
+    ];
+    // Llegada en DICIEMBRE, fuera del mes consultado (enero).
+    TABLES.ejecucion_evento = [
+      { hito_id: "h2", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2025-12-20T12:00:00Z" },
+    ];
+    const r = await getInformeNomina(1, 2026);
+    expect(r.filas[0].km).toBe(0);
+    expect(r.filas[0].viajes).toEqual([]);
+    expect(osrmMock).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,20 @@
 import { supabase } from "./supabase";
+import { distanciaPorCarretera } from "./osrm";
 
 const ALERTA_ESTADOS = ["abierta", "en_revision"];
 const ESTADOS_ACTIVOS = ["planificado", "en_curso"];
+
+// --- Informe de nómina (ítem 5.1) — parámetros ajustables ---
+//
+// Umbral de distancia a la base para contar una "noche fuera". 50 km es un valor
+// inicial RAZONABLE, NO una cifra pactada con un gestor real: pendiente de ajustar
+// cuando haya conversación con el cliente. Fácil de cambiar aquí.
+export const UMBRAL_NOCHE_FUERA_KM = 50;
+
+// Ventana horaria alrededor de medianoche en la que un hito completado (llegada)
+// cuenta como "el chófer estaba fuera esa noche". Del día D 22:00 al día D+1 06:00.
+const NOCHE_HORA_INICIO = 22; // 22:00 del día D
+const NOCHE_HORA_FIN = 6; //  06:00 del día D+1
 
 export async function getViajes() {
   const { data: viajes, error } = await supabase
@@ -406,6 +419,159 @@ export async function getMetricasFlota() {
     itvPendientes,
     averiasRecientes,
   };
+}
+
+/** Distancia en línea recta (Haversine) en km — solo para el fallback de tests
+ * y como último recurso; el cálculo principal usa OSRM (carretera real). */
+function haversineKm(a, b) {
+  const R = 6371;
+  const rad = (d) => (d * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLon = rad(b.lon - a.lon);
+  const lat1 = rad(a.lat);
+  const lat2 = rad(b.lat);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Informe de nómina auto-derivado (ítem 5.1). Para cada chófer de la empresa y
+ * un mes/año dados, calcula:
+ *   - nochesFuera: nº de noches del mes en que, en torno a medianoche, el chófer
+ *     tenía un viaje en curso y su último hito completado (llegada) estaba a más
+ *     de UMBRAL_NOCHE_FUERA_KM de la base de la empresa. Requiere que la empresa
+ *     tenga base_lat/base_lon configuradas (si no, nochesFuera = null → "n/d").
+ *   - km: km por CARRETERA REAL del mes, sumando la distancia OSRM entre hitos
+ *     consecutivos completados de los viajes con actividad en el mes.
+ *   - viajes: lista de referencias de viajes que contribuyeron a los km.
+ *
+ * v1 simplificada y sus supuestos están documentados en PROGRESS.md. El cálculo
+ * vive en JS (mismo patrón que getMetricas*) y usa el cliente OSRM vía fetch,
+ * mockeable en tests.
+ *
+ * @param {number} mes  1-12
+ * @param {number} anio p.ej. 2026
+ */
+export async function getInformeNomina(mes, anio) {
+  // Rango del mes [inicio, finExclusivo) en ISO, para filtrar en cliente.
+  const inicio = new Date(Date.UTC(anio, mes - 1, 1));
+  const finExcl = new Date(Date.UTC(anio, mes, 1));
+  const inicioISO = inicio.toISOString();
+  const finISO = finExcl.toISOString();
+
+  const [
+    { data: choferes },
+    { data: viajes },
+    { data: hitos },
+    { data: eventos },
+    { data: empresas },
+  ] = await Promise.all([
+    supabase.from("chofer").select("id, nombre"),
+    supabase.from("viaje").select("id, referencia, chofer_id, estado"),
+    supabase.from("hito").select("id, viaje_id, orden, estado, lat, lon"),
+    supabase.from("ejecucion_evento").select("hito_id, viaje_id, chofer_id, tipo_evento, ocurrido_en"),
+    supabase.from("empresa").select("id, base_lat, base_lon"),
+  ]);
+
+  const base = (empresas || [])[0];
+  const tieneBase = base && base.base_lat != null && base.base_lon != null;
+  const basePunto = tieneBase ? { lat: base.base_lat, lon: base.base_lon } : null;
+
+  const hitoById = Object.fromEntries((hitos || []).map((h) => [h.id, h]));
+  const viajeById = Object.fromEntries((viajes || []).map((v) => [v.id, v]));
+
+  // Eventos de llegada dentro del mes.
+  const llegadasMes = (eventos || []).filter(
+    (e) =>
+      e.tipo_evento === "llegada" &&
+      e.ocurrido_en &&
+      e.ocurrido_en >= inicioISO &&
+      e.ocurrido_en < finISO
+  );
+
+  // Inicializa el acumulador por chófer.
+  const porChofer = {};
+  (choferes || []).forEach((c) => {
+    porChofer[c.id] = {
+      id: c.id,
+      nombre: c.nombre,
+      km: 0,
+      // Set de fechas (YYYY-MM-DD) que ya cuentan como noche fuera (dedup).
+      _nochesSet: new Set(),
+      _viajes: new Set(),
+    };
+  });
+
+  // --- Noches fuera ---
+  // Una llegada cuenta si: hora local en [22:00, 06:00), su viaje NO está
+  // cancelado, hay coords del hito y de la base, y la distancia supera el umbral.
+  if (tieneBase) {
+    for (const ev of llegadasMes) {
+      const chofer = porChofer[ev.chofer_id];
+      if (!chofer) continue;
+      const hito = hitoById[ev.hito_id];
+      if (!hito || hito.lat == null || hito.lon == null) continue;
+      const viaje = viajeById[ev.viaje_id];
+      if (viaje && viaje.estado === "cancelado") continue;
+
+      const d = new Date(ev.ocurrido_en);
+      const hora = d.getUTCHours();
+      const enVentana = hora >= NOCHE_HORA_INICIO || hora < NOCHE_HORA_FIN;
+      if (!enVentana) continue;
+
+      const distancia = haversineKm(basePunto, { lat: hito.lat, lon: hito.lon });
+      if (distancia > UMBRAL_NOCHE_FUERA_KM) {
+        // La "noche" se atribuye a la fecha del día D: si la llegada es de
+        // madrugada (00:00-06:00) pertenece a la noche del día anterior.
+        const fechaNoche = new Date(d);
+        if (hora < NOCHE_HORA_FIN) fechaNoche.setUTCDate(fechaNoche.getUTCDate() - 1);
+        chofer._nochesSet.add(fechaNoche.toISOString().slice(0, 10));
+      }
+    }
+  }
+
+  // --- Km por carretera real ---
+  // Viajes con actividad (alguna llegada) en el mes. Para cada uno, hitos
+  // completados ordenados por `orden`, distancia OSRM entre consecutivos.
+  const viajesConActividad = new Set(llegadasMes.map((e) => e.viaje_id));
+
+  for (const viajeId of viajesConActividad) {
+    const viaje = viajeById[viajeId];
+    if (!viaje || !viaje.chofer_id) continue;
+    const chofer = porChofer[viaje.chofer_id];
+    if (!chofer) continue;
+
+    const completados = (hitos || [])
+      .filter((h) => h.viaje_id === viajeId && h.estado === "completado" && h.lat != null && h.lon != null)
+      .sort((a, b) => a.orden - b.orden);
+
+    let kmViaje = 0;
+    for (let i = 0; i < completados.length - 1; i++) {
+      const origen = { lat: completados[i].lat, lon: completados[i].lon };
+      const destino = { lat: completados[i + 1].lat, lon: completados[i + 1].lon };
+      const km = await distanciaPorCarretera(origen, destino);
+      if (km != null) kmViaje += km;
+    }
+
+    if (completados.length >= 2) {
+      chofer.km += kmViaje;
+      chofer._viajes.add(viaje.referencia || viaje.id.slice(0, 8));
+    }
+  }
+
+  const filas = Object.values(porChofer).map((c) => ({
+    id: c.id,
+    nombre: c.nombre,
+    nochesFuera: tieneBase ? c._nochesSet.size : null,
+    km: Math.round(c.km),
+    viajes: [...c._viajes],
+  }));
+
+  filas.sort((a, b) => b.km - a.km);
+
+  return { filas, tieneBase, umbralKm: UMBRAL_NOCHE_FUERA_KM };
 }
 
 export async function getChoferes() {

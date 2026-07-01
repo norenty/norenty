@@ -16,6 +16,7 @@ import {
   CarFront,
   FileWarning,
   BarChart3,
+  Wallet,
   Menu,
   X,
 } from "lucide-react";
@@ -29,6 +30,7 @@ const links = [
   { href: "/vehiculos", label: "Vehículos", icon: CarFront },
   { href: "/documentos", label: "Documentos", icon: FileWarning },
   { href: "/analitica", label: "Analítica", icon: BarChart3 },
+  { href: "/nomina", label: "Nómina", icon: Wallet },
   { href: "/plantillas", label: "Plantillas", icon: Route },
   { href: "/importar", label: "Importar", icon: Upload },
   { href: "/ajustes", label: "Ajustes", icon: Settings },

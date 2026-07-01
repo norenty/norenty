@@ -1,0 +1,22 @@
+# OSRM (Open Source Routing Machine) — infraestructura de DESARROLLO/TEST.
+#
+# Sirve el endpoint HTTP de routing que usa el cliente `dashboard/lib/osrm.js`
+# para calcular km por carretera real entre hitos (informe de nómina, ítem 5.1).
+#
+# ⚠️  Esto es solo para desarrollo/test local. La puesta en PRODUCCIÓN de OSRM
+#     (dónde se hostea, con qué recursos, cómo se actualiza el mapa) queda
+#     pospuesta junto con la sección "Despliegue" del ROADMAP. No la actives aquí.
+#
+# El extracto .osm.pbf de España NO se versiona (cientos de MB). Hay que
+# descargarlo y preprocesarlo una vez antes de levantar el servicio: ver README.md.
+
+services:
+  osrm:
+    image: osrm/osrm-backend:latest
+    container_name: norenty-osrm
+    command: osrm-routed --algorithm mld /data/spain-latest.osrm
+    volumes:
+      - ./data:/data
+    ports:
+      - "5000:5000"
+    restart: unless-stopped

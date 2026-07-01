@@ -1,0 +1,3 @@
+# El extracto OSM de España y los archivos preprocesados de OSRM son enormes
+# (cientos de MB / GB). Nunca se versionan: se generan localmente (ver README).
+data/

@@ -101,16 +101,16 @@ entrevista). Esta sección solo recoge las implicaciones de producto que salen d
 Contexto: conversación con un gestor de tráfico real (~30 camiones). Pendiente: dueño, gerente,
 y un segundo gestor sin relación personal con el fundador (para contrastar sesgo de apertura).
 
-- [ ] `[LOOP]` **5.1 Informe de nómina auto-derivado (noches fuera + km por chófer)** — El gestor
+- [x] `[LOOP]` **5.1 Informe de nómina auto-derivado (noches fuera + km por chófer)** — El gestor
   reporta hacerlo a mano cada mes; Norenty ya tiene el dato subyacente (timestamps de hitos por
-  viaje). Spec a cerrar antes de que el loop lo ejecute (falta una decisión de modelo de datos):
-  necesita (a) un concepto de "base"/domicilio de la empresa o del chófer para calcular noches
-  fuera de verdad (¿cuándo un viaje cuenta como "noche fuera"? ¿cruza medianoche sin volver a la
-  base?), (b) km por viaje — o bien sumando distancias entre hitos consecutivos (ya hay lat/lon
-  para el mapa, se puede aproximar con Haversine sin llamar a ninguna API de routing), o bien un
-  campo manual de cuentakilómetros que el chófer reporte por el bot. **NO empezar a construir
-  sin cerrar esta decisión de modelo de datos con el usuario primero** — es la típica spec que
-  parece simple y no lo es hasta que se define qué cuenta como "noche fuera".
+  viaje). Decisión de modelo de datos cerrada con el usuario (2026-07-01): (a) **base de la
+  empresa** = nuevo campo opcional `base_lat`/`base_lon` en `empresa` (migración 0013), configurable
+  en Ajustes; **noche fuera** = llegada nocturna (22:00–06:00) a más de un umbral (50 km, valor
+  inicial ajustable = `UMBRAL_NOCHE_FUERA_KM`) de la base, dedup por chófer+fecha; (b) **km** = por
+  CARRETERA REAL vía OSRM (no Haversine), sumando tramos entre hitos consecutivos completados.
+  `getInformeNomina(mes, anio)` en `dashboard/lib/data.js` (mismo patrón que getMetricas*, OSRM
+  mockeado en tests). Página `/nomina`. Infra OSRM de desarrollo en `infra/osrm/` (docker-compose +
+  README); **su despliegue en producción queda pospuesto junto con "Despliegue"**. (2026-07-01)
 - [ ] `[DECISIÓN]` **Voice-to-text en el bot (chófer habla, gestor recibe texto)** — mismo ítem
   que "Notas de voz → transcripción (Whisper)" de la sección production-gated de Fase 4, ahora
   reforzado por el insight del gestor: prioridad #1 cuando haya presupuesto para transcripción,

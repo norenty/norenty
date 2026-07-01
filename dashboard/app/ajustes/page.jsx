@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, User, Building2, Bell, Shield, Send, Copy, Check } from "lucide-react";
+import { Save, User, Building2, Bell, Shield, Send, Copy, Check, MapPin } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getSession, signOut } from "../../lib/auth";
 
@@ -11,6 +11,8 @@ export default function AjustesPage() {
   const [user, setUser] = useState(null);
   const [empresa, setEmpresa] = useState(null);
   const [empresaNombre, setEmpresaNombre] = useState("");
+  const [baseLat, setBaseLat] = useState("");
+  const [baseLon, setBaseLon] = useState("");
   const [gestor, setGestor] = useState(null);
   const [prefs, setPrefs] = useState({ notif_incidencias: true, notif_entregas: true, notif_fuera_ventana: false });
   const [guardando, setGuardando] = useState(false);
@@ -45,6 +47,8 @@ export default function AjustesPage() {
             .single();
           setEmpresa(emp);
           setEmpresaNombre(emp?.nombre || "");
+          setBaseLat(emp?.base_lat != null ? String(emp.base_lat) : "");
+          setBaseLon(emp?.base_lon != null ? String(emp.base_lon) : "");
         }
       }
     }
@@ -61,6 +65,26 @@ export default function AjustesPage() {
     setGuardando(true);
     await supabase.from("empresa").update({ nombre: empresaNombre.trim() }).eq("id", empresa.id);
     flash("Guardado");
+    setGuardando(false);
+  }
+
+  async function guardarBase() {
+    if (!empresa) return;
+    const lat = baseLat.trim() === "" ? null : Number(baseLat);
+    const lon = baseLon.trim() === "" ? null : Number(baseLon);
+    if ((lat != null && (Number.isNaN(lat) || lat < -90 || lat > 90)) ||
+        (lon != null && (Number.isNaN(lon) || lon < -180 || lon > 180))) {
+      flash("Error: coordenadas inválidas");
+      return;
+    }
+    // Ambas o ninguna: una base a medias no sirve para el cálculo.
+    if ((lat == null) !== (lon == null)) {
+      flash("Error: rellena latitud y longitud, o deja ambas vacías");
+      return;
+    }
+    setGuardando(true);
+    await supabase.from("empresa").update({ base_lat: lat, base_lon: lon }).eq("id", empresa.id);
+    flash("Ubicación base guardada");
     setGuardando(false);
   }
 
@@ -208,6 +232,51 @@ export default function AjustesPage() {
             ID empresa: <span className="font-mono">{empresa.id.slice(0, 12)}…</span>
           </div>
         )}
+      </section>
+
+      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+        <div className="flex items-center gap-2 mb-1">
+          <MapPin size={18} className="text-brand" />
+          <h2 className="text-sm font-medium text-ink">Ubicación base</h2>
+        </div>
+        <p className="text-xs text-ink-secondary mb-4">
+          Coordenadas del domicilio/base de la empresa. Se usan en el informe de
+          nómina para calcular las noches fuera (cuando un chófer duerme lejos de
+          la base). Déjalas vacías si aún no las tienes.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs text-ink-secondary mb-1">Latitud</label>
+            <input
+              type="number"
+              step="any"
+              value={baseLat}
+              onChange={(e) => setBaseLat(e.target.value)}
+              placeholder="40.4168"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-ink-secondary mb-1">Longitud</label>
+            <input
+              type="number"
+              step="any"
+              value={baseLon}
+              onChange={(e) => setBaseLon(e.target.value)}
+              placeholder="-3.7038"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+            />
+          </div>
+        </div>
+        <div className="mt-3">
+          <button
+            onClick={guardarBase}
+            disabled={guardando}
+            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
+          >
+            <Save size={16} /> Guardar base
+          </button>
+        </div>
       </section>
 
       <section className="bg-surface border border-border rounded-xl p-5 mb-4">
