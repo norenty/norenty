@@ -115,9 +115,21 @@ y un segundo gestor sin relación personal con el fundador (para contrastar sesg
   que "Notas de voz → transcripción (Whisper)" de la sección production-gated de Fase 4, ahora
   reforzado por el insight del gestor: prioridad #1 cuando haya presupuesto para transcripción,
   por delante del agente de voz telefónico completo.
-- [ ] `[DECISIÓN]` **Cálculo de viabilidad/margen de un viaje** (¿comercial se columpió en precio
-  o coste?) — requiere datos de coste que no existen hoy (precio del viaje, coste combustible,
-  tarifas). NO construir hasta tener ese modelo de datos; candidato v2/v3, no v1.
+- [x] `[LOOP]` **5.2 Cálculo de viabilidad/margen de un viaje** (¿comercial se columpió en precio?)
+  — decisión de modelo de coste cerrada con el usuario (2026-07-01): **modelo POR CAPAS** para que el
+  cliente "elija hasta dónde llegar" según cuántos datos puebla. Migración 0014: `viaje.precio`
+  (ingreso), `empresa.coste_km` (blended, fallback), `vehiculo.coste_km` (override por camión).
+  `resolveCosteKm()` usa el dato más granular disponible (vehículo→empresa); `calcularMargen()` y
+  `kmCarreteraViaje()` (OSRM, ruta planificada = todos los hitos) puros y testeados;
+  `getViabilidadViaje()` integra todo. UI: precio editable + badge de margen (rojo <0, ámbar
+  <`UMBRAL_MARGEN_AMBAR_PCT`=10%, verde) en `/viajes/[id]`; coste/km de empresa en Ajustes; override
+  por vehículo en `/vehiculos/[id]`. 14 tests nuevos (50 vitest). (2026-07-01)
+  **EN RECÁMARA (v2, documentado, NO construido):** desglose completo como capas por DELANTE de las
+  dos actuales — combustible por consumo real (L/100km × €/L, variando por peso/conducción, usando
+  la BD pública de costes/consumos de camiones del mercado que el usuario recuerda haber montado),
+  coste de conductor, peajes; e indexar costes REALES por viaje (repostajes, multas) para ir afinando
+  el cálculo con datos de producción en vez de estimaciones. El `UMBRAL_MARGEN_AMBAR_PCT`=10% y el
+  `UMBRAL_NOCHE_FUERA_KM`=50 son valores iniciales, pendientes de pactar con cliente real.
 - [ ] `[DECISIÓN]` **Asignación automática de rutas (dispatch)** — confirmado como North Star,
   no como punto de partida. Mantener asignación manual (ya existe) hasta tener volumen de datos.
 
