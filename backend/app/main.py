@@ -13,5 +13,7 @@ def health():
 
 @app.get("/db/health")
 def db_health():
-    result = supabase.table("empresa").select("id").limit(1).execute()
-    return {"status": "ok", "db_connected": True, "rows": len(result.data)}
+    # Solo confirma conectividad; no expone recuento de filas de negocio en un
+    # endpoint público (esta consulta usa la service role key, que salta RLS).
+    supabase.table("empresa").select("id").limit(1).execute()
+    return {"status": "ok", "db_connected": True}
