@@ -7,6 +7,13 @@ import {
   ArrowLeft, Copy, Check, Star, Truck, ChevronDown, MessageSquare,
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
+import DocumentosSection from "../../components/DocumentosSection";
+
+const TIPOS_DOC_CHOFER = [
+  { value: "licencia", label: "Licencia de conducir" },
+  { value: "cap", label: "CAP" },
+  { value: "otro", label: "Otro" },
+];
 
 const IDIOMA_LABEL = { es: "ES", ro: "RO", ar: "AR", fr: "FR", it: "IT", en: "EN", pt: "PT", de: "DE" };
 const BOT = process.env.NEXT_PUBLIC_BOT_USERNAME;
@@ -242,6 +249,10 @@ export default function ChoferDetalle() {
             )}
           </>
         )}
+      </div>
+
+      <div className="mt-4">
+        <DocumentosSection ambito="chofer" entidadId={id} tipos={TIPOS_DOC_CHOFER} />
       </div>
     </div>
   );

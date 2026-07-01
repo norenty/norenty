@@ -9,6 +9,14 @@ import {
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import { getCurrentEmpresaId } from "../../../lib/data";
+import DocumentosSection from "../../components/DocumentosSection";
+
+const TIPOS_DOC_VEHICULO = [
+  { value: "itv", label: "ITV" },
+  { value: "seguro", label: "Seguro" },
+  { value: "autorizacion_transporte", label: "Autorización de transporte" },
+  { value: "otro", label: "Otro" },
+];
 
 const TIPO_LABEL = {
   itv: { label: "ITV", icon: CalendarCheck, color: "text-blue-600", bg: "bg-blue-50" },
@@ -304,6 +312,10 @@ export default function VehiculoDetalle() {
             })}
           </div>
         )}
+      </div>
+
+      <div className="mt-4">
+        <DocumentosSection ambito="vehiculo" entidadId={id} tipos={TIPOS_DOC_VEHICULO} />
       </div>
     </div>
   );

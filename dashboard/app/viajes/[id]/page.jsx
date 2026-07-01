@@ -7,6 +7,7 @@ import {
   ArrowLeft, MapPin, Package, Clock, Truck, Edit3, Check, X, AlertTriangle,
 } from "lucide-react";
 import PodImage from "../../components/PodImage";
+import DocumentosSection from "../../components/DocumentosSection";
 import { getViaje, getChoferes, validarCambioEstado, validarAsignacion } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
@@ -26,6 +27,13 @@ const estadoHito = {
   completado: { label: "Completado", color: "text-estado-ok" },
   fallido: { label: "Fallido", color: "text-estado-incidencia" },
 };
+
+const TIPOS_DOC_VIAJE = [
+  { value: "cmr", label: "CMR / Carta de porte" },
+  { value: "albaran", label: "Albarán" },
+  { value: "adr", label: "ADR (mercancía peligrosa)" },
+  { value: "otro", label: "Otro" },
+];
 
 const estadoPod = {
   pendiente: { label: "Sin validar", color: "bg-gray-100 text-ink-secondary" },
@@ -319,6 +327,8 @@ export default function ViajeDetalle() {
               </div>
             )}
           </section>
+
+          <DocumentosSection ambito="viaje" entidadId={viaje.id} tipos={TIPOS_DOC_VIAJE} />
         </aside>
       </div>
     </div>
