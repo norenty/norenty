@@ -16,6 +16,41 @@ export const UMBRAL_NOCHE_FUERA_KM = 50;
 const NOCHE_HORA_INICIO = 22; // 22:00 del día D
 const NOCHE_HORA_FIN = 6; //  06:00 del día D+1
 
+// La operación es en España: la ventana horaria se evalúa en hora local
+// (Europe/Madrid, con cambio de horario CET/CEST correcto vía Intl), no en UTC.
+const ZONA_HORARIA_OPERACION = "Europe/Madrid";
+
+// Descompone un timestamp ISO en año/mes/día/hora locales de ZONA_HORARIA_OPERACION.
+function partesLocalOperacion(fechaIso) {
+  const d = new Date(fechaIso);
+  const partes = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: ZONA_HORARIA_OPERACION,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      hour12: false,
+    })
+      .formatToParts(d)
+      .map((p) => [p.type, p.value])
+  );
+  // Intl con hour12:false puede devolver "24" para la medianoche exacta.
+  let hora = parseInt(partes.hour, 10);
+  if (hora === 24) hora = 0;
+  return { anio: Number(partes.year), mes: Number(partes.month), dia: Number(partes.day), hora };
+}
+
+// Fecha (YYYY-MM-DD) a la que se atribuye la "noche fuera": si la llegada es de
+// madrugada (antes de NOCHE_HORA_FIN), pertenece a la noche del día anterior.
+function fechaNocheOperacion(fechaIso) {
+  const { anio, mes, dia, hora } = partesLocalOperacion(fechaIso);
+  // Mediodía UTC del día local para evitar que restar un día cruce un borde de DST.
+  const d = new Date(Date.UTC(anio, mes - 1, dia, 12));
+  if (hora < NOCHE_HORA_FIN) d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export async function getViajes() {
   const { data: viajes, error } = await supabase
     .from("viaje")
@@ -516,18 +551,13 @@ export async function getInformeNomina(mes, anio) {
       const viaje = viajeById[ev.viaje_id];
       if (viaje && viaje.estado === "cancelado") continue;
 
-      const d = new Date(ev.ocurrido_en);
-      const hora = d.getUTCHours();
+      const { hora } = partesLocalOperacion(ev.ocurrido_en);
       const enVentana = hora >= NOCHE_HORA_INICIO || hora < NOCHE_HORA_FIN;
       if (!enVentana) continue;
 
       const distancia = haversineKm(basePunto, { lat: hito.lat, lon: hito.lon });
       if (distancia > UMBRAL_NOCHE_FUERA_KM) {
-        // La "noche" se atribuye a la fecha del día D: si la llegada es de
-        // madrugada (00:00-06:00) pertenece a la noche del día anterior.
-        const fechaNoche = new Date(d);
-        if (hora < NOCHE_HORA_FIN) fechaNoche.setUTCDate(fechaNoche.getUTCDate() - 1);
-        chofer._nochesSet.add(fechaNoche.toISOString().slice(0, 10));
+        chofer._nochesSet.add(fechaNocheOperacion(ev.ocurrido_en));
       }
     }
   }

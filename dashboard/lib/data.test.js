@@ -409,6 +409,36 @@ describe("getInformeNomina", () => {
     expect(r.filas[0].nochesFuera).toBe(1);
   });
 
+  it("evalúa la ventana horaria en hora local de España (CEST, UTC+2), no en UTC", async () => {
+    setBase(MADRID);
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", estado: "en_curso" }];
+    TABLES.hito = [{ id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...BARCELONA }];
+    TABLES.ejecucion_evento = [
+      // 22:30 UTC en julio = 00:30 en Madrid (CEST, +2) del día siguiente:
+      // en UTC puro caería en la ventana del día 15, pero localmente es
+      // madrugada del 16 y debe atribuirse a la noche del 15.
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2026-07-15T22:30:00Z" },
+    ];
+    const r = await getInformeNomina(7, 2026);
+    expect(r.filas[0].nochesFuera).toBe(1);
+  });
+
+  it("una llegada a las 21:30 UTC en julio (23:30 local CEST) NO cuenta fuera de ventana si local ya está dentro de ella", async () => {
+    setBase(MADRID);
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", estado: "en_curso" }];
+    TABLES.hito = [{ id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...BARCELONA }];
+    TABLES.ejecucion_evento = [
+      // 20:30 UTC en julio = 22:30 local (CEST) -> dentro de ventana localmente,
+      // pero en UTC puro (20:30) estaría FUERA de la ventana [22,6). Confirma
+      // que se usa hora local, no UTC.
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2026-07-15T20:30:00Z" },
+    ];
+    const r = await getInformeNomina(7, 2026);
+    expect(r.filas[0].nochesFuera).toBe(1);
+  });
+
   it("suma km por carretera vía OSRM entre hitos completados consecutivos", async () => {
     setBase(MADRID);
     osrmMock.mockResolvedValue(120); // cada tramo = 120 km
