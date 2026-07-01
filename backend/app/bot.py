@@ -14,7 +14,7 @@ if _dsn := os.environ.get("SENTRY_DSN"):
         environment=os.environ.get("ENVIRONMENT", "production"),
     )
     logging.getLogger("norenty.bot").info("Sentry inicializado")
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -53,6 +53,12 @@ TEXTOS = {
         "pod_ok": "Albarán recibido para {dir}.\nEntrega completada.",
         "incidencia_ayuda": "Escribe qué ha pasado: /incidencia avería en la rueda trasera",
         "incidencia_ok": "Incidencia reportada para viaje {ref}. Tu gestor ha sido notificado.",
+        "btn_incidencia": "📍 Reportar incidencia",
+        "btn_mi_viaje": "📋 Mi viaje",
+        "btn_contactar": "📞 Contactar gestor",
+        "contactar_info": "Tu gestor es {nombre}.\n📧 {contacto}",
+        "contactar_sin_contacto": "Tu gestor es {nombre}.\nTodavía no ha configurado un contacto directo.",
+        "contactar_sin_gestor": "Tu gestor aún no ha configurado contacto. Prueba con /incidencia si es urgente.",
     },
     "en": {
         "sin_viaje_activo": "You have no active trip.",
@@ -75,6 +81,12 @@ TEXTOS = {
         "pod_ok": "Proof of delivery received for {dir}.\nDelivery completed.",
         "incidencia_ayuda": "Describe what happened: /incidencia flat tyre on rear wheel",
         "incidencia_ok": "Incident reported for trip {ref}. Your manager has been notified.",
+        "btn_incidencia": "📍 Report incident",
+        "btn_mi_viaje": "📋 My trip",
+        "btn_contactar": "📞 Contact manager",
+        "contactar_info": "Your manager is {nombre}.\n📧 {contacto}",
+        "contactar_sin_contacto": "Your manager is {nombre}.\nNo direct contact configured yet.",
+        "contactar_sin_gestor": "Your manager hasn't configured contact info yet. Try /incidencia if it's urgent.",
     },
     "ro": {
         "sin_viaje_activo": "Nu ai nicio cursă activă.",
@@ -97,6 +109,12 @@ TEXTOS = {
         "pod_ok": "Document primit pentru {dir}.\nLivrare finalizată.",
         "incidencia_ayuda": "Descrie ce s-a întâmplat: /incidencia pană la roata din spate",
         "incidencia_ok": "Incident raportat pentru cursa {ref}. Managerul tău a fost notificat.",
+        "btn_incidencia": "📍 Raportează un incident",
+        "btn_mi_viaje": "📋 Cursa mea",
+        "btn_contactar": "📞 Contactează managerul",
+        "contactar_info": "Managerul tău este {nombre}.\n📧 {contacto}",
+        "contactar_sin_contacto": "Managerul tău este {nombre}.\nNu a configurat încă un contact direct.",
+        "contactar_sin_gestor": "Managerul tău nu a configurat încă datele de contact. Încearcă /incidencia dacă este urgent.",
     },
     "fr": {
         "sin_viaje_activo": "Vous n'avez aucun trajet actif.",
@@ -119,11 +137,23 @@ TEXTOS = {
         "pod_ok": "Bon de livraison reçu pour {dir}.\nLivraison terminée.",
         "incidencia_ayuda": "Décrivez ce qui s'est passé : /incidencia crevaison roue arrière",
         "incidencia_ok": "Incident signalé pour le trajet {ref}. Votre responsable a été notifié.",
+        "btn_incidencia": "📍 Signaler un incident",
+        "btn_mi_viaje": "📋 Mon trajet",
+        "btn_contactar": "📞 Contacter le responsable",
+        "contactar_info": "Votre responsable est {nombre}.\n📧 {contacto}",
+        "contactar_sin_contacto": "Votre responsable est {nombre}.\nAucun contact direct configuré pour le moment.",
+        "contactar_sin_gestor": "Votre responsable n'a pas encore configuré de contact. Essayez /incidencia si c'est urgent.",
     },
 }
 # Idiomas sin traduccion completa: usar ingles como fallback
 for _lang in ("ar", "it", "pt", "de"):
     TEXTOS.setdefault(_lang, TEXTOS["en"])
+
+# Textos de los 3 botones del menu persistente, en todos los idiomas soportados,
+# para reconocer la pulsacion sin importar el idioma del chofer que la mando.
+BOTONES_INCIDENCIA = {textos["btn_incidencia"] for textos in TEXTOS.values()}
+BOTONES_MI_VIAJE = {textos["btn_mi_viaje"] for textos in TEXTOS.values()}
+BOTONES_CONTACTAR = {textos["btn_contactar"] for textos in TEXTOS.values()}
 
 
 def t(chofer_or_idioma, key, **kwargs):
@@ -313,6 +343,45 @@ async def send_next_hito(chat_id, chofer, bot):
     )
 
 
+def menu_keyboard(chofer):
+    """Teclado persistente con accesos rápidos para el chófer."""
+    return ReplyKeyboardMarkup(
+        [[t(chofer, "btn_incidencia"), t(chofer, "btn_mi_viaje"), t(chofer, "btn_contactar")]],
+        resize_keyboard=True,
+    )
+
+
+def contactar_gestor_texto(chofer):
+    """Nombre + contacto (email) del primer gestor de la empresa del chófer.
+    No hay campo de teléfono en la tabla gestor; se usa el email disponible."""
+    r = supabase.table("gestor").select("nombre, email").eq("empresa_id", chofer["empresa_id"]).execute()
+    if not r.data:
+        return t(chofer, "contactar_sin_gestor")
+    gestor = r.data[0]
+    nombre = gestor.get("nombre") or "—"
+    email = gestor.get("email")
+    if email:
+        return t(chofer, "contactar_info", nombre=nombre, contacto=email)
+    return t(chofer, "contactar_sin_contacto", nombre=nombre)
+
+
+async def handle_menu_texto(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Enruta la pulsación de uno de los botones del menú persistente."""
+    chat_id = str(update.effective_chat.id)
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
+        return
+
+    texto = update.message.text
+
+    if texto in BOTONES_INCIDENCIA:
+        await update.message.reply_text(t(chofer, "incidencia_ayuda"))
+    elif texto in BOTONES_MI_VIAJE:
+        await send_next_hito(chat_id, chofer, ctx.bot)
+    elif texto in BOTONES_CONTACTAR:
+        await update.message.reply_text(contactar_gestor_texto(chofer))
+
+
 async def vincular_gestor(update: Update, gestor_id: str, chat_id: str):
     """Vincula la cuenta de Telegram de un GESTOR (no chófer) para que reciba
     alertas. Enlace generado en /ajustes del dashboard: t.me/Bot?start=gestor_<id>
@@ -391,7 +460,8 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     idioma = chofer.get("idioma", "es").upper()
 
     await update.message.reply_text(
-        f"Vinculado correctamente, {nombre}.\nIdioma: {idioma}"
+        f"Vinculado correctamente, {nombre}.\nIdioma: {idioma}",
+        reply_markup=menu_keyboard(chofer),
     )
 
     logger.info("Chofer %s vinculado al chat %s", codigo, chat_id)
@@ -655,4 +725,5 @@ def create_bot_app():
     app.add_handler(CallbackQueryHandler(cb_llegada, pattern=r"^llegada:"))
     app.add_handler(CallbackQueryHandler(cb_cancelar, pattern=r"^cancelar$"))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_texto))
     return app

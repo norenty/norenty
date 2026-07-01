@@ -262,3 +262,83 @@ async def test_cmd_start_con_prefijo_gestor_enruta_correctamente(fake_db, monkey
     ctx = SimpleNamespace(args=["gestor_g1"], bot=AsyncMock())
     await bot.cmd_start(update, ctx)
     assert fake_db.tables["gestor"][0]["telegram_chat_id"] == "chat-1"
+
+
+# --- Menú de botones rápidos (Fase 4.1) ---
+
+def fake_menu_update(texto, chat_id="chat-1"):
+    return SimpleNamespace(
+        effective_chat=SimpleNamespace(id=chat_id),
+        message=SimpleNamespace(text=texto, reply_text=AsyncMock()),
+    )
+
+
+def test_menu_keyboard_incluye_los_tres_botones():
+    chofer = {"idioma": "es"}
+    teclado = bot.menu_keyboard(chofer)
+    textos = [b.text for b in teclado.keyboard[0]]
+    assert "📍 Reportar incidencia" in textos
+    assert "📋 Mi viaje" in textos
+    assert "📞 Contactar gestor" in textos
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_texto_boton_incidencia_muestra_ayuda(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "es"}]
+    update = fake_menu_update("📍 Reportar incidencia")
+    ctx = SimpleNamespace(bot=AsyncMock())
+    await bot.handle_menu_texto(update, ctx)
+    texto = update.message.reply_text.call_args[0][0]
+    assert "/incidencia" in texto
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_texto_boton_mi_viaje_llama_send_next_hito(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "es"}]
+    update = fake_menu_update("📋 Mi viaje")
+    ctx = SimpleNamespace(bot=AsyncMock())
+    await bot.handle_menu_texto(update, ctx)
+    ctx.bot.send_message.assert_awaited_once()
+    assert "No tienes ningún viaje activo" in ctx.bot.send_message.call_args.kwargs["text"]
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_texto_boton_contactar_con_gestor(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "es"}]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "nombre": "Ana", "email": "ana@norenty.com"}]
+    update = fake_menu_update("📞 Contactar gestor")
+    ctx = SimpleNamespace(bot=AsyncMock())
+    await bot.handle_menu_texto(update, ctx)
+    texto = update.message.reply_text.call_args[0][0]
+    assert "Ana" in texto
+    assert "ana@norenty.com" in texto
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_texto_boton_contactar_sin_gestor(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "es"}]
+    fake_db.tables["gestor"] = []
+    update = fake_menu_update("📞 Contactar gestor")
+    ctx = SimpleNamespace(bot=AsyncMock())
+    await bot.handle_menu_texto(update, ctx)
+    texto = update.message.reply_text.call_args[0][0]
+    assert "aún no ha configurado contacto" in texto
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_texto_chofer_no_vinculado_no_responde(fake_db):
+    fake_db.tables["chofer"] = []
+    update = fake_menu_update("📋 Mi viaje")
+    ctx = SimpleNamespace(bot=AsyncMock())
+    await bot.handle_menu_texto(update, ctx)
+    update.message.reply_text.assert_not_called()
+    ctx.bot.send_message.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_texto_texto_desconocido_no_responde(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "es"}]
+    update = fake_menu_update("hola, todo bien")
+    ctx = SimpleNamespace(bot=AsyncMock())
+    await bot.handle_menu_texto(update, ctx)
+    update.message.reply_text.assert_not_called()
