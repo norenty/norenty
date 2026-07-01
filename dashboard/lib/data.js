@@ -17,6 +17,113 @@ export const UMBRAL_NOCHE_FUERA_KM = 50;
 // inicial RAZONABLE, NO pactado con un cliente real (igual que UMBRAL_NOCHE_FUERA_KM).
 export const UMBRAL_MARGEN_AMBAR_PCT = 10;
 
+// --- ETA "cumple-561" (ítem 5.3) — parámetros ajustables ---
+// Velocidad de planificación por defecto. 75 km/h es un HEURÍSTICO de flota
+// (absorbe urbano/tráfico/repechos de un camión limitado legalmente a 90 km/h),
+// NO un dato pactado con cliente real — mismo estatus que los umbrales anteriores.
+export const VELOCIDAD_PLANIFICACION_KMH = 75;
+
+// Reglamento (CE) 561/2006 — límites v1 (ver DISCOVERY.md para el detalle
+// investigado). Simplificaciones deliberadas de esta v1, documentadas:
+//  - Se usa siempre el límite diario base (9h) y el descanso normal (11h); NO se
+//    modela la excepción de conducción diaria a 10h (máx. 2x/semana) ni el
+//    descanso reducido (9h) — ambas requieren estado multi-viaje/multi-semana
+//    que no existe en un cálculo por-viaje aislado. Esto hace el cálculo
+//    CONSERVADOR (sobreestima el tiempo total, nunca lo infraestima).
+//  - NO se comprueban los límites semanal (56h) / bisemanal (90h) / descanso
+//    semanal (45h) por la misma razón: son estado acumulado entre viajes.
+const PAUSA_TRAS_HORAS = 4.5;
+const PAUSA_DURACION_H = 45 / 60;
+const CONDUCCION_DIARIA_MAX_H = 9;
+const DESCANSO_DIARIO_H = 11;
+
+/**
+ * Resuelve la velocidad de planificación a usar: la de la empresa si está
+ * configurada (y es positiva), si no VELOCIDAD_PLANIFICACION_KMH por defecto.
+ */
+export function resolveVelocidadPlanificacion(empresa) {
+  if (empresa && empresa.velocidad_planificacion_kmh != null && empresa.velocidad_planificacion_kmh > 0) {
+    return empresa.velocidad_planificacion_kmh;
+  }
+  return VELOCIDAD_PLANIFICACION_KMH;
+}
+
+/**
+ * Simula el Reglamento (CE) 561/2006 (versión v1 conservadora, ver nota arriba)
+ * sobre un total de horas de CONDUCCIÓN pura, e inserta las pausas/descansos
+ * obligatorios. Función PURA (sin red, sin fechas reales) — testeable a mano.
+ *
+ * @param {number} horasConduccionTotal
+ * @returns {{horasTotales: number, paradas45min: number, descansos11h: number}}
+ */
+export function calcularEtaConParadas(horasConduccionTotal) {
+  const EPS = 1e-9;
+  let restante = horasConduccionTotal;
+  let desdeUltimaPausa = 0;
+  let conduccionHoy = 0;
+  let horasTotales = 0;
+  let paradas45min = 0;
+  let descansos11h = 0;
+
+  while (restante > EPS) {
+    const margenPausa = PAUSA_TRAS_HORAS - desdeUltimaPausa;
+    const margenDia = CONDUCCION_DIARIA_MAX_H - conduccionHoy;
+    const tramo = Math.min(restante, margenPausa, margenDia);
+
+    horasTotales += tramo;
+    desdeUltimaPausa += tramo;
+    conduccionHoy += tramo;
+    restante -= tramo;
+
+    if (restante <= EPS) break;
+
+    if (conduccionHoy >= CONDUCCION_DIARIA_MAX_H - EPS) {
+      horasTotales += DESCANSO_DIARIO_H;
+      descansos11h++;
+      conduccionHoy = 0;
+      desdeUltimaPausa = 0; // un descanso largo también cubre/resetea la pausa corta
+    } else if (desdeUltimaPausa >= PAUSA_TRAS_HORAS - EPS) {
+      horasTotales += PAUSA_DURACION_H;
+      paradas45min++;
+      desdeUltimaPausa = 0;
+    }
+  }
+
+  return { horasTotales, paradas45min, descansos11h };
+}
+
+/**
+ * ETA de un viaje respetando las paradas legales. Reutiliza kmCarreteraViaje
+ * (5.2, ruta planificada = todos los hitos) y deriva horas de conducción como
+ * km / velocidad de planificación — NO se usa la duración que da OSRM porque su
+ * perfil "driving" está calibrado para turismos, no camiones, y subestimaría el
+ * tiempo real de conducción.
+ */
+export async function getEtaViaje(viajeId) {
+  const { data: viaje } = await supabase.from("viaje").select("id").eq("id", viajeId).single();
+  if (!viaje) return null;
+
+  const [{ data: hitos }, { data: empresas }] = await Promise.all([
+    supabase.from("hito").select("orden, lat, lon").eq("viaje_id", viajeId),
+    supabase.from("empresa").select("velocidad_planificacion_kmh"),
+  ]);
+
+  const empresa = (empresas || [])[0] || null;
+  const velocidadKmh = resolveVelocidadPlanificacion(empresa);
+  const km = await kmCarreteraViaje(hitos || []);
+  const horasConduccion = km / velocidadKmh;
+  const { horasTotales, paradas45min, descansos11h } = calcularEtaConParadas(horasConduccion);
+
+  return {
+    km: Math.round(km),
+    velocidadKmh,
+    horasConduccion: +horasConduccion.toFixed(1),
+    horasTotales: +horasTotales.toFixed(1),
+    paradas45min,
+    descansos11h,
+  };
+}
+
 // Ventana horaria alrededor de medianoche en la que un hito completado (llegada)
 // cuenta como "el chófer estaba fuera esa noche". Del día D 22:00 al día D+1 06:00.
 const NOCHE_HORA_INICIO = 22; // 22:00 del día D

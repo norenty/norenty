@@ -62,6 +62,10 @@ const {
   calcularMargen,
   kmCarreteraViaje,
   getViabilidadViaje,
+  resolveVelocidadPlanificacion,
+  calcularEtaConParadas,
+  getEtaViaje,
+  VELOCIDAD_PLANIFICACION_KMH,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -602,5 +606,104 @@ describe("getViabilidadViaje (viabilidad 5.2 — integración)", () => {
     const r = await getViabilidadViaje("v1");
     expect(r.costeKm).toBeNull();
     expect(r.margen).toBeNull();
+  });
+});
+
+describe("resolveVelocidadPlanificacion (ETA 5.3)", () => {
+  it("usa la velocidad de la empresa si está configurada y es positiva", () => {
+    expect(resolveVelocidadPlanificacion({ velocidad_planificacion_kmh: 65 })).toBe(65);
+  });
+
+  it("cae al valor por defecto si la empresa no la tiene", () => {
+    expect(resolveVelocidadPlanificacion({ velocidad_planificacion_kmh: null })).toBe(VELOCIDAD_PLANIFICACION_KMH);
+    expect(resolveVelocidadPlanificacion(null)).toBe(VELOCIDAD_PLANIFICACION_KMH);
+  });
+
+  it("ignora un valor de empresa no positivo (dato corrupto)", () => {
+    expect(resolveVelocidadPlanificacion({ velocidad_planificacion_kmh: 0 })).toBe(VELOCIDAD_PLANIFICACION_KMH);
+    expect(resolveVelocidadPlanificacion({ velocidad_planificacion_kmh: -10 })).toBe(VELOCIDAD_PLANIFICACION_KMH);
+  });
+});
+
+describe("calcularEtaConParadas (ETA 5.3 — Reglamento CE 561/2006, pura)", () => {
+  it("0 horas de conducción: sin paradas", () => {
+    const r = calcularEtaConParadas(0);
+    expect(r).toEqual({ horasTotales: 0, paradas45min: 0, descansos11h: 0 });
+  });
+
+  it("por debajo de 4.5h: sin paradas obligatorias", () => {
+    const r = calcularEtaConParadas(3);
+    expect(r).toEqual({ horasTotales: 3, paradas45min: 0, descansos11h: 0 });
+  });
+
+  it("5h de conducción: 1 pausa de 45min, sin descanso diario", () => {
+    const r = calcularEtaConParadas(5);
+    expect(r.paradas45min).toBe(1);
+    expect(r.descansos11h).toBe(0);
+    expect(r.horasTotales).toBeCloseTo(5.75, 5); // 5h conduccion + 0.75h pausa
+  });
+
+  it("9h exactas: 1 pausa, termina justo en el límite diario sin necesitar descanso", () => {
+    const r = calcularEtaConParadas(9);
+    expect(r.paradas45min).toBe(1);
+    expect(r.descansos11h).toBe(0);
+    expect(r.horasTotales).toBeCloseTo(9.75, 5);
+  });
+
+  it("10h de conducción: supera el límite diario -> 1 pausa + 1 descanso de 11h", () => {
+    const r = calcularEtaConParadas(10);
+    expect(r.paradas45min).toBe(1);
+    expect(r.descansos11h).toBe(1);
+    expect(r.horasTotales).toBeCloseTo(21.75, 5); // 10h + 0.75h pausa + 11h descanso
+  });
+
+  it("18h de conducción (2 días completos de 9h): 2 pausas, 1 descanso", () => {
+    const r = calcularEtaConParadas(18);
+    expect(r.paradas45min).toBe(2);
+    expect(r.descansos11h).toBe(1);
+    expect(r.horasTotales).toBeCloseTo(30.5, 5); // 18h + 2×0.75h + 1×11h
+  });
+});
+
+describe("getEtaViaje (ETA 5.3 — integración)", () => {
+  it("calcula horas totales y paradas a partir de los km por carretera y la velocidad de la empresa", async () => {
+    TABLES.viaje = [{ id: "v1" }];
+    TABLES.hito = [
+      { viaje_id: "v1", orden: 1, lat: 40, lon: -3 },
+      { viaje_id: "v1", orden: 2, lat: 41, lon: 2 },
+    ];
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 100 }];
+    osrmMock.mockResolvedValue(500); // 1 tramo = 500 km
+
+    const r = await getEtaViaje("v1");
+    expect(r.km).toBe(500);
+    expect(r.velocidadKmh).toBe(100);
+    expect(r.horasConduccion).toBe(5); // 500km / 100km/h
+    expect(r.paradas45min).toBe(1);
+  });
+
+  it("usa la velocidad por defecto (75) si la empresa no la configura", async () => {
+    TABLES.viaje = [{ id: "v1" }];
+    TABLES.hito = [
+      { viaje_id: "v1", orden: 1, lat: 40, lon: -3 },
+      { viaje_id: "v1", orden: 2, lat: 41, lon: 2 },
+    ];
+    TABLES.empresa = [{ velocidad_planificacion_kmh: null }];
+    osrmMock.mockResolvedValue(75);
+
+    const r = await getEtaViaje("v1");
+    expect(r.velocidadKmh).toBe(VELOCIDAD_PLANIFICACION_KMH);
+    expect(r.horasConduccion).toBe(1);
+  });
+
+  it("devuelve km 0 y sin paradas si no hay coordenadas suficientes", async () => {
+    TABLES.viaje = [{ id: "v1" }];
+    TABLES.hito = [{ viaje_id: "v1", orden: 1, lat: 40, lon: -3 }];
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 75 }];
+
+    const r = await getEtaViaje("v1");
+    expect(r.km).toBe(0);
+    expect(r.paradas45min).toBe(0);
+    expect(osrmMock).not.toHaveBeenCalled();
   });
 });

@@ -4,13 +4,13 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, MapPin, Package, Clock, Truck, Edit3, Check, X, AlertTriangle, Euro,
+  ArrowLeft, MapPin, Package, Clock, Truck, Edit3, Check, X, AlertTriangle, Euro, Gauge,
 } from "lucide-react";
 import PodImage from "../../components/PodImage";
 import DocumentosSection from "../../components/DocumentosSection";
 import {
   getViaje, getChoferes, validarCambioEstado, validarAsignacion,
-  getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT,
+  getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje,
 } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
@@ -60,6 +60,7 @@ export default function ViajeDetalle() {
   const [guardandoChofer, setGuardandoChofer] = useState(false);
   const [procesandoPod, setProcesandoPod] = useState(null);
   const [viabilidad, setViabilidad] = useState(null);
+  const [eta, setEta] = useState(null);
   const [editandoPrecio, setEditandoPrecio] = useState(false);
   const [precioInput, setPrecioInput] = useState("");
   const [guardandoPrecio, setGuardandoPrecio] = useState(false);
@@ -69,6 +70,7 @@ export default function ViajeDetalle() {
     setData(d);
     setLoading(false);
     getViabilidadViaje(id).then(setViabilidad);
+    getEtaViaje(id).then(setEta);
 
     if (d?.viaje) {
       if (d.viaje.vehiculo_id) {
@@ -369,6 +371,39 @@ export default function ViajeDetalle() {
                 </div>
               );
             })()}
+          </section>
+
+          <section className="bg-surface border border-border rounded-xl p-4">
+            <h2 className="text-sm font-medium text-ink mb-3 flex items-center gap-1.5">
+              <Gauge size={15} /> Tiempo estimado (con paradas legales)
+            </h2>
+            {!eta ? (
+              <p className="text-xs text-ink-muted">Calculando…</p>
+            ) : eta.km === 0 ? (
+              <p className="text-xs text-ink-secondary">Sin km calculables: faltan coordenadas en los hitos o el servicio de rutas no responde.</p>
+            ) : (
+              <div>
+                <div className="text-sm text-ink mb-2">
+                  <span className="font-semibold text-lg">{eta.horasTotales} h</span>
+                  <span className="text-ink-secondary"> totales</span>
+                </div>
+                <div className="text-xs text-ink-muted space-y-0.5">
+                  <div>{eta.km.toLocaleString("es-ES")} km a {eta.velocidadKmh} km/h → {eta.horasConduccion} h de conducción</div>
+                  {(eta.paradas45min > 0 || eta.descansos11h > 0) ? (
+                    <div>
+                      + {eta.paradas45min} parada{eta.paradas45min !== 1 ? "s" : ""} de 45 min
+                      {eta.descansos11h > 0 && ` + ${eta.descansos11h} descanso${eta.descansos11h !== 1 ? "s" : ""} de 11h`}
+                    </div>
+                  ) : (
+                    <div>Sin paradas obligatorias en este trayecto.</div>
+                  )}
+                  <div className="pt-1">
+                    Estimación v1 (Reglamento CE 561/2006): no considera límites semanales/bisemanales
+                    ni descansos reducidos — conservadora, nunca infraestima.
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
 
           <RatingControl

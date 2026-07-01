@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, User, Building2, Bell, Shield, Send, Copy, Check, MapPin, Euro } from "lucide-react";
+import { Save, User, Building2, Bell, Shield, Send, Copy, Check, MapPin, Euro, Gauge } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getSession, signOut } from "../../lib/auth";
+import { VELOCIDAD_PLANIFICACION_KMH } from "../../lib/data";
 
 const BOT = process.env.NEXT_PUBLIC_BOT_USERNAME;
 
@@ -14,6 +15,7 @@ export default function AjustesPage() {
   const [baseLat, setBaseLat] = useState("");
   const [baseLon, setBaseLon] = useState("");
   const [costeKm, setCosteKm] = useState("");
+  const [velocidadPlanificacion, setVelocidadPlanificacion] = useState("");
   const [gestor, setGestor] = useState(null);
   const [prefs, setPrefs] = useState({ notif_incidencias: true, notif_entregas: true, notif_fuera_ventana: false });
   const [guardando, setGuardando] = useState(false);
@@ -51,6 +53,7 @@ export default function AjustesPage() {
           setBaseLat(emp?.base_lat != null ? String(emp.base_lat) : "");
           setBaseLon(emp?.base_lon != null ? String(emp.base_lon) : "");
           setCosteKm(emp?.coste_km != null ? String(emp.coste_km) : "");
+          setVelocidadPlanificacion(emp?.velocidad_planificacion_kmh != null ? String(emp.velocidad_planificacion_kmh) : "");
         }
       }
     }
@@ -100,6 +103,19 @@ export default function AjustesPage() {
     setGuardando(true);
     await supabase.from("empresa").update({ coste_km: coste }).eq("id", empresa.id);
     flash("Coste por km guardado");
+    setGuardando(false);
+  }
+
+  async function guardarVelocidad() {
+    if (!empresa) return;
+    const velocidad = velocidadPlanificacion.trim() === "" ? null : Number(velocidadPlanificacion);
+    if (velocidad != null && (Number.isNaN(velocidad) || velocidad <= 0)) {
+      flash("Error: la velocidad debe ser un número mayor que 0");
+      return;
+    }
+    setGuardando(true);
+    await supabase.from("empresa").update({ velocidad_planificacion_kmh: velocidad }).eq("id", empresa.id);
+    flash("Velocidad de planificación guardada");
     setGuardando(false);
   }
 
@@ -324,6 +340,39 @@ export default function AjustesPage() {
             className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
           >
             <Save size={16} /> Guardar coste
+          </button>
+        </div>
+      </section>
+
+      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Gauge size={18} className="text-brand" />
+          <h2 className="text-sm font-medium text-ink">Velocidad de planificación</h2>
+        </div>
+        <p className="text-xs text-ink-secondary mb-4">
+          Velocidad media usada para estimar cuántas horas de conducción tiene un viaje (y con
+          ello, cuántas paradas legales — 45 min cada 4,5h, descansos de 11h — le corresponden).
+          Por defecto {VELOCIDAD_PLANIFICACION_KMH} km/h. Déjalo vacío para usar ese valor.
+        </p>
+        <div className="flex items-end gap-3">
+          <div className="flex-1 max-w-[12rem]">
+            <label className="block text-xs text-ink-secondary mb-1">Velocidad (km/h)</label>
+            <input
+              type="number"
+              step="any"
+              min="1"
+              value={velocidadPlanificacion}
+              onChange={(e) => setVelocidadPlanificacion(e.target.value)}
+              placeholder={String(VELOCIDAD_PLANIFICACION_KMH)}
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+            />
+          </div>
+          <button
+            onClick={guardarVelocidad}
+            disabled={guardando}
+            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
+          >
+            <Save size={16} /> Guardar velocidad
           </button>
         </div>
       </section>
