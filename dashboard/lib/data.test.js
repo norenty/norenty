@@ -45,6 +45,7 @@ const {
   validarAsignacion,
   validarCambioEstado,
   getCurrentEmpresaId,
+  getDocumentosPorCaducar,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -181,5 +182,43 @@ describe("getCurrentEmpresaId", () => {
     TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "empresa-123" }];
     const id = await getCurrentEmpresaId();
     expect(id).toBe("empresa-123");
+  });
+});
+
+describe("getDocumentosPorCaducar", () => {
+  function fechaOffset(dias) {
+    const d = new Date();
+    d.setDate(d.getDate() + dias);
+    return d.toISOString().slice(0, 10);
+  }
+
+  it("excluye documentos sin fecha de caducidad", async () => {
+    TABLES.documento = [{ id: "d1", ambito: "viaje", entidad_id: "v1", tipo: "cmr", fecha_caducidad: null }];
+    const r = await getDocumentosPorCaducar();
+    expect(r).toEqual([]);
+  });
+
+  it("excluye documentos que caducan en más de 30 días", async () => {
+    TABLES.documento = [{ id: "d1", ambito: "viaje", entidad_id: "v1", tipo: "cmr", fecha_caducidad: fechaOffset(45) }];
+    const r = await getDocumentosPorCaducar();
+    expect(r).toEqual([]);
+  });
+
+  it("incluye documentos caducados y por caducar, ordenados por urgencia", async () => {
+    TABLES.documento = [
+      { id: "d-lejos", ambito: "vehiculo", entidad_id: "veh1", tipo: "itv", fecha_caducidad: fechaOffset(20) },
+      { id: "d-caducado", ambito: "chofer", entidad_id: "c1", tipo: "cap", fecha_caducidad: fechaOffset(-5) },
+      { id: "d-cerca", ambito: "viaje", entidad_id: "v1", tipo: "adr", fecha_caducidad: fechaOffset(2) },
+    ];
+    TABLES.vehiculo = [{ id: "veh1", matricula: "1234ABC" }];
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    TABLES.viaje = [{ id: "v1", referencia: "VJ-1" }];
+
+    const r = await getDocumentosPorCaducar();
+    expect(r.map((d) => d.id)).toEqual(["d-caducado", "d-cerca", "d-lejos"]);
+    expect(r[0].entidadEtiqueta).toBe("Mario");
+    expect(r[0].href).toBe("/choferes/c1");
+    expect(r[1].entidadEtiqueta).toBe("VJ-1");
+    expect(r[2].entidadEtiqueta).toBe("1234ABC");
   });
 });

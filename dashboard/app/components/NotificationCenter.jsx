@@ -2,8 +2,15 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, AlertTriangle, Check, Truck, X } from "lucide-react";
+import { Bell, AlertTriangle, Check, Truck, X, FileWarning } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { getDocumentosPorCaducar } from "../../lib/data";
+
+const TIPO_LABEL = {
+  cmr: "CMR / Carta de porte", albaran: "Albarán", adr: "ADR", itv: "ITV",
+  seguro: "Seguro", autorizacion_transporte: "Autorización de transporte",
+  licencia: "Licencia de conducir", cap: "CAP", otro: "Otro",
+};
 
 export default function NotificationCenter() {
   const router = useRouter();
@@ -23,7 +30,7 @@ export default function NotificationCenter() {
   async function loadNotifs() {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    const [incRes, evtRes] = await Promise.all([
+    const [incRes, evtRes, docsPorCaducar] = await Promise.all([
       supabase
         .from("incidencia")
         .select("id, tipo, descripcion, created_at, viaje_id, viaje(referencia)")
@@ -36,6 +43,7 @@ export default function NotificationCenter() {
         .gte("ocurrido_en", since)
         .order("ocurrido_en", { ascending: false })
         .limit(10),
+      getDocumentosPorCaducar(),
     ]);
 
     const items = [
@@ -61,10 +69,21 @@ export default function NotificationCenter() {
         href: `/viajes/${e.viaje_id}`,
         time: e.ocurrido_en,
       })),
+      ...docsPorCaducar.map((d) => ({
+        id: `doc-${d.id}`,
+        type: "documento",
+        icon: FileWarning,
+        iconColor: "text-yellow-600",
+        title: `${TIPO_LABEL[d.tipo] || d.tipo} por caducar`,
+        sub: d.entidadEtiqueta,
+        ref: d.fecha_caducidad,
+        href: d.href,
+        time: d.created_at,
+      })),
     ].sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 15);
 
     setNotifs(items);
-    setUnread(items.filter((n) => n.type === "incidencia").length);
+    setUnread(items.filter((n) => n.type === "incidencia" || n.type === "documento").length);
   }
 
   useEffect(() => {

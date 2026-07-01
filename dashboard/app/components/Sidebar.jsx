@@ -14,6 +14,7 @@ import {
   Plus,
   Upload,
   CarFront,
+  FileWarning,
   Menu,
   X,
 } from "lucide-react";
@@ -25,6 +26,7 @@ const links = [
   { href: "/viajes", label: "Viajes", icon: Truck },
   { href: "/choferes", label: "Chóferes", icon: Users },
   { href: "/vehiculos", label: "Vehículos", icon: CarFront },
+  { href: "/documentos", label: "Documentos", icon: FileWarning },
   { href: "/plantillas", label: "Plantillas", icon: Route },
   { href: "/importar", label: "Importar", icon: Upload },
   { href: "/ajustes", label: "Ajustes", icon: Settings },

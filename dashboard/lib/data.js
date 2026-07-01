@@ -160,6 +160,46 @@ export async function getCurrentEmpresaId() {
   return gestor.empresa_id;
 }
 
+/**
+ * Documentos con fecha de caducidad ya pasada o dentro de los próximos 30
+ * días, ordenados por urgencia (los más próximos/caducados primero). Junta
+ * la etiqueta y el enlace de la entidad (viaje/vehículo/chófer) a la que
+ * pertenece cada documento, ya que "documento" no tiene FK directa a una
+ * tabla concreta (el ámbito determina a cuál).
+ */
+export async function getDocumentosPorCaducar() {
+  const limite = new Date();
+  limite.setDate(limite.getDate() + 30);
+  const limiteStr = limite.toISOString().slice(0, 10);
+
+  const { data } = await supabase.from("documento").select("*");
+  const rows = (data || []).filter((d) => d.fecha_caducidad && d.fecha_caducidad <= limiteStr);
+  rows.sort((a, b) => a.fecha_caducidad.localeCompare(b.fecha_caducidad));
+
+  const idsPorAmbito = { viaje: [], vehiculo: [], chofer: [] };
+  rows.forEach((d) => { idsPorAmbito[d.ambito]?.push(d.entidad_id); });
+
+  const [viajesR, vehiculosR, choferesR] = await Promise.all([
+    idsPorAmbito.viaje.length ? supabase.from("viaje").select("id, referencia").in("id", idsPorAmbito.viaje) : Promise.resolve({ data: [] }),
+    idsPorAmbito.vehiculo.length ? supabase.from("vehiculo").select("id, matricula").in("id", idsPorAmbito.vehiculo) : Promise.resolve({ data: [] }),
+    idsPorAmbito.chofer.length ? supabase.from("chofer").select("id, nombre").in("id", idsPorAmbito.chofer) : Promise.resolve({ data: [] }),
+  ]);
+
+  const mapaViaje = Object.fromEntries((viajesR.data || []).map((v) => [v.id, v.referencia || v.id.slice(0, 8)]));
+  const mapaVehiculo = Object.fromEntries((vehiculosR.data || []).map((v) => [v.id, v.matricula]));
+  const mapaChofer = Object.fromEntries((choferesR.data || []).map((c) => [c.id, c.nombre]));
+
+  return rows.map((d) => {
+    const mapa = d.ambito === "viaje" ? mapaViaje : d.ambito === "vehiculo" ? mapaVehiculo : mapaChofer;
+    const base = d.ambito === "viaje" ? "/viajes" : d.ambito === "vehiculo" ? "/vehiculos" : "/choferes";
+    return {
+      ...d,
+      entidadEtiqueta: mapa[d.entidad_id] || "—",
+      href: `${base}/${d.entidad_id}`,
+    };
+  });
+}
+
 export async function getChoferes() {
   const { data } = await supabase
     .from("chofer")
