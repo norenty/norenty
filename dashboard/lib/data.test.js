@@ -46,6 +46,10 @@ const {
   validarCambioEstado,
   getCurrentEmpresaId,
   getDocumentosPorCaducar,
+  getMetricasPuntualidad,
+  getMetricasIncidencias,
+  getMetricasChoferes,
+  getMetricasFlota,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -220,5 +224,105 @@ describe("getDocumentosPorCaducar", () => {
     expect(r[0].href).toBe("/choferes/c1");
     expect(r[1].entidadEtiqueta).toBe("VJ-1");
     expect(r[2].entidadEtiqueta).toBe("1234ABC");
+  });
+});
+
+describe("getMetricasPuntualidad", () => {
+  it("devuelve null si no hay hitos con ventana", async () => {
+    TABLES.hito = [{ id: "h1", viaje_id: "v1", ventana_fin: null }];
+    const r = await getMetricasPuntualidad();
+    expect(r.pctPuntualidad).toBeNull();
+  });
+
+  it("calcula el % de puntualidad frente a incidencias fuera_de_ventana", async () => {
+    TABLES.hito = [
+      { id: "h1", viaje_id: "v1", ventana_fin: "2026-01-01T10:00:00Z" },
+      { id: "h2", viaje_id: "v1", ventana_fin: "2026-01-02T10:00:00Z" },
+      { id: "h3", viaje_id: "v2", ventana_fin: "2026-01-03T10:00:00Z" },
+      { id: "h4", viaje_id: "v2", ventana_fin: null },
+    ];
+    TABLES.incidencia = [
+      { id: "i1", viaje_id: "v1", tipo: "fuera_de_ventana", created_at: "2026-01-01T10:00:00Z" },
+      { id: "i2", viaje_id: "v2", tipo: "otro", created_at: "2026-01-01T10:00:00Z" },
+    ];
+    TABLES.viaje = [{ id: "v1", referencia: "VJ-1" }, { id: "v2", referencia: "VJ-2" }];
+
+    const r = await getMetricasPuntualidad();
+    expect(r.totalConVentana).toBe(3);
+    expect(r.totalTarde).toBe(1);
+    expect(r.pctPuntualidad).toBe(67); // (3-1)/3 redondeado
+    expect(r.peoresRutas[0]).toEqual({ referencia: "VJ-1", incidencias: 1 });
+  });
+});
+
+describe("getMetricasIncidencias", () => {
+  it("devuelve ceros/tasa null cuando no hay datos", async () => {
+    const r = await getMetricasIncidencias();
+    expect(r.total).toBe(0);
+    expect(r.tasa).toBeNull();
+  });
+
+  it("calcula total, tasa y desglose por tipo/chofer/vehiculo", async () => {
+    TABLES.viaje = [
+      { id: "v1", chofer_id: "c1", vehiculo_id: "veh1" },
+      { id: "v2", chofer_id: "c1", vehiculo_id: "veh2" },
+    ];
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    TABLES.vehiculo = [{ id: "veh1", matricula: "1111AAA" }, { id: "veh2", matricula: "2222BBB" }];
+    TABLES.incidencia = [
+      { id: "i1", viaje_id: "v1", tipo: "averia" },
+      { id: "i2", viaje_id: "v1", tipo: "averia" },
+      { id: "i3", viaje_id: "v2", tipo: "otro" },
+    ];
+
+    const r = await getMetricasIncidencias();
+    expect(r.total).toBe(3);
+    expect(r.tasa).toBe(1.5);
+    expect(r.porTipo[0]).toEqual({ tipo: "averia", count: 2 });
+    expect(r.porChofer[0]).toEqual({ nombre: "Mario", count: 3 });
+  });
+});
+
+describe("getMetricasChoferes", () => {
+  it("devuelve una fila por chófer con viajes, valoración e incidencias", async () => {
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }, { id: "c2", nombre: "Ana" }];
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1" }, { id: "v2", chofer_id: "c1" }];
+    TABLES.valoracion = [{ chofer_id: "c1", puntuacion: 5 }, { chofer_id: "c1", puntuacion: 3 }];
+    TABLES.incidencia = [{ viaje_id: "v1", tipo: "otro" }];
+    TABLES.hito = [{ viaje_id: "v1", ventana_fin: "2026-01-01T10:00:00Z" }];
+
+    const r = await getMetricasChoferes();
+    const mario = r.find((c) => c.nombre === "Mario");
+    expect(mario.viajes).toBe(2);
+    expect(mario.valoracionMedia).toBe(4);
+    expect(mario.incidencias).toBe(1);
+    expect(mario.pctPuntualidad).toBe(100);
+
+    const ana = r.find((c) => c.nombre === "Ana");
+    expect(ana.viajes).toBe(0);
+    expect(ana.valoracionMedia).toBeNull();
+  });
+});
+
+describe("getMetricasFlota", () => {
+  it("calcula utilización, ITV pendientes y averías recientes", async () => {
+    TABLES.vehiculo = [
+      { id: "veh1", matricula: "1111AAA", activo: true },
+      { id: "veh2", matricula: "2222BBB", activo: true },
+      { id: "veh3", matricula: "3333CCC", activo: false },
+    ];
+    TABLES.viaje = [{ vehiculo_id: "veh1", remolque_id: null, estado: "en_curso" }];
+    TABLES.mantenimiento_vehiculo = [
+      { id: "m1", vehiculo_id: "veh2", tipo: "itv", estado: "pendiente", fecha: "2026-08-01" },
+      { id: "m2", vehiculo_id: "veh1", tipo: "averia", estado: "completado", fecha: "2026-06-01" },
+    ];
+
+    const r = await getMetricasFlota();
+    expect(r.totalVehiculos).toBe(3);
+    expect(r.vehiculosActivos).toBe(2);
+    expect(r.enUso).toBe(1);
+    expect(r.pctUtilizacion).toBe(50);
+    expect(r.itvPendientes[0].matricula).toBe("2222BBB");
+    expect(r.averiasRecientes[0].matricula).toBe("1111AAA");
   });
 });

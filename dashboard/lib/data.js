@@ -200,6 +200,214 @@ export async function getDocumentosPorCaducar() {
   });
 }
 
+/** Semana ISO (YYYY-Www) de una fecha, para agrupar tendencias por semana. */
+function semanaISO(fechaStr) {
+  const d = new Date(fechaStr);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const inicioAno = new Date(d.getFullYear(), 0, 4);
+  const semana = 1 + Math.round(((d - inicioAno) / 86400000 - 3 + ((inicioAno.getDay() + 6) % 7)) / 7);
+  return `${d.getFullYear()}-W${String(semana).padStart(2, "0")}`;
+}
+
+/**
+ * Vista 1/4 de /analitica: puntualidad. Usa las incidencias tipo
+ * "fuera_de_ventana" (creadas por el bot al confirmar llegada tarde) como
+ * señal de "hito no puntual", frente al total de hitos con ventana definida.
+ */
+export async function getMetricasPuntualidad() {
+  const [{ data: hitos }, { data: tarde }, { data: viajes }] = await Promise.all([
+    supabase.from("hito").select("id, viaje_id, ventana_fin"),
+    supabase.from("incidencia").select("id, viaje_id, created_at").eq("tipo", "fuera_de_ventana"),
+    supabase.from("viaje").select("id, referencia"),
+  ]);
+
+  const totalConVentana = (hitos || []).filter((h) => h.ventana_fin).length;
+  const totalTarde = (tarde || []).length;
+  const pctPuntualidad = totalConVentana > 0
+    ? Math.round(((totalConVentana - totalTarde) / totalConVentana) * 100)
+    : null;
+
+  const mapaViaje = Object.fromEntries((viajes || []).map((v) => [v.id, v.referencia || v.id.slice(0, 8)]));
+  const porRuta = {};
+  (tarde || []).forEach((i) => {
+    const ref = mapaViaje[i.viaje_id] || i.viaje_id;
+    porRuta[ref] = (porRuta[ref] || 0) + 1;
+  });
+  const peoresRutas = Object.entries(porRuta)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([referencia, incidencias]) => ({ referencia, incidencias }));
+
+  const porSemana = {};
+  (tarde || []).forEach((i) => {
+    const semana = semanaISO(i.created_at);
+    porSemana[semana] = (porSemana[semana] || 0) + 1;
+  });
+  const tendencia = Object.entries(porSemana)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-8)
+    .map(([semana, count]) => ({ semana, count }));
+
+  return { pctPuntualidad, totalConVentana, totalTarde, peoresRutas, tendencia };
+}
+
+/** Vista 2/4 de /analitica: incidencias totales, tasa y desglose. */
+export async function getMetricasIncidencias() {
+  const [{ data: incidencias }, { data: viajes }, { data: choferes }, { data: vehiculos }] = await Promise.all([
+    supabase.from("incidencia").select("id, viaje_id, tipo"),
+    supabase.from("viaje").select("id, chofer_id, vehiculo_id"),
+    supabase.from("chofer").select("id, nombre"),
+    supabase.from("vehiculo").select("id, matricula"),
+  ]);
+
+  const rows = incidencias || [];
+  const total = rows.length;
+  const totalViajes = (viajes || []).length;
+  const tasa = totalViajes > 0 ? +(total / totalViajes).toFixed(2) : null;
+
+  const mapaViajeChofer = Object.fromEntries((viajes || []).map((v) => [v.id, v.chofer_id]));
+  const mapaViajeVehiculo = Object.fromEntries((viajes || []).map((v) => [v.id, v.vehiculo_id]));
+  const mapaChofer = Object.fromEntries((choferes || []).map((c) => [c.id, c.nombre]));
+  const mapaVehiculo = Object.fromEntries((vehiculos || []).map((v) => [v.id, v.matricula]));
+
+  const porTipo = {};
+  const porChofer = {};
+  const porVehiculo = {};
+  rows.forEach((i) => {
+    porTipo[i.tipo] = (porTipo[i.tipo] || 0) + 1;
+
+    const choferId = mapaViajeChofer[i.viaje_id];
+    if (choferId) {
+      const nombre = mapaChofer[choferId] || choferId;
+      porChofer[nombre] = (porChofer[nombre] || 0) + 1;
+    }
+    const vehiculoId = mapaViajeVehiculo[i.viaje_id];
+    if (vehiculoId) {
+      const matricula = mapaVehiculo[vehiculoId] || vehiculoId;
+      porVehiculo[matricula] = (porVehiculo[matricula] || 0) + 1;
+    }
+  });
+
+  const orden = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]);
+
+  return {
+    total,
+    tasa,
+    porTipo: orden(porTipo).map(([tipo, count]) => ({ tipo, count })),
+    porChofer: orden(porChofer).slice(0, 5).map(([nombre, count]) => ({ nombre, count })),
+    porVehiculo: orden(porVehiculo).slice(0, 5).map(([matricula, count]) => ({ matricula, count })),
+  };
+}
+
+/** Vista 3/4 de /analitica: rendimiento por chófer. */
+export async function getMetricasChoferes() {
+  const [{ data: choferes }, { data: viajes }, { data: valoraciones }, { data: incidencias }, { data: hitos }] =
+    await Promise.all([
+      supabase.from("chofer").select("id, nombre"),
+      supabase.from("viaje").select("id, chofer_id"),
+      supabase.from("valoracion").select("chofer_id, puntuacion"),
+      supabase.from("incidencia").select("viaje_id, tipo"),
+      supabase.from("hito").select("viaje_id, ventana_fin"),
+    ]);
+
+  const mapaViajeChofer = Object.fromEntries((viajes || []).map((v) => [v.id, v.chofer_id]));
+
+  const viajesPorChofer = {};
+  (viajes || []).forEach((v) => {
+    if (!v.chofer_id) return;
+    viajesPorChofer[v.chofer_id] = (viajesPorChofer[v.chofer_id] || 0) + 1;
+  });
+
+  const valoracionesPorChofer = {};
+  (valoraciones || []).forEach((val) => {
+    (valoracionesPorChofer[val.chofer_id] ||= []).push(val.puntuacion);
+  });
+
+  const incidenciasPorChofer = {};
+  const tardePorChofer = {};
+  (incidencias || []).forEach((i) => {
+    const choferId = mapaViajeChofer[i.viaje_id];
+    if (!choferId) return;
+    incidenciasPorChofer[choferId] = (incidenciasPorChofer[choferId] || 0) + 1;
+    if (i.tipo === "fuera_de_ventana") {
+      tardePorChofer[choferId] = (tardePorChofer[choferId] || 0) + 1;
+    }
+  });
+
+  const conVentanaPorChofer = {};
+  (hitos || []).forEach((h) => {
+    if (!h.ventana_fin) return;
+    const choferId = mapaViajeChofer[h.viaje_id];
+    if (!choferId) return;
+    conVentanaPorChofer[choferId] = (conVentanaPorChofer[choferId] || 0) + 1;
+  });
+
+  return (choferes || [])
+    .map((c) => {
+      const puntuaciones = valoracionesPorChofer[c.id] || [];
+      const valoracionMedia = puntuaciones.length
+        ? +(puntuaciones.reduce((s, p) => s + p, 0) / puntuaciones.length).toFixed(1)
+        : null;
+      const totalConVentana = conVentanaPorChofer[c.id] || 0;
+      const tarde = tardePorChofer[c.id] || 0;
+      const pctPuntualidad = totalConVentana > 0
+        ? Math.round(((totalConVentana - tarde) / totalConVentana) * 100)
+        : null;
+      return {
+        id: c.id,
+        nombre: c.nombre,
+        viajes: viajesPorChofer[c.id] || 0,
+        valoracionMedia,
+        incidencias: incidenciasPorChofer[c.id] || 0,
+        pctPuntualidad,
+      };
+    })
+    .sort((a, b) => b.viajes - a.viajes);
+}
+
+/** Vista 4/4 de /analitica: estado de la flota. */
+export async function getMetricasFlota() {
+  const [{ data: vehiculos }, { data: viajesActivos }, { data: mantenimientos }] = await Promise.all([
+    supabase.from("vehiculo").select("id, matricula, activo"),
+    supabase.from("viaje").select("vehiculo_id, remolque_id, estado").eq("estado", "en_curso"),
+    supabase.from("mantenimiento_vehiculo").select("id, vehiculo_id, tipo, estado, fecha"),
+  ]);
+
+  const vehiculosActivos = (vehiculos || []).filter((v) => v.activo);
+  const idsEnUso = new Set();
+  (viajesActivos || []).forEach((v) => {
+    if (v.vehiculo_id) idsEnUso.add(v.vehiculo_id);
+    if (v.remolque_id) idsEnUso.add(v.remolque_id);
+  });
+  const enUso = vehiculosActivos.filter((v) => idsEnUso.has(v.id)).length;
+  const pctUtilizacion = vehiculosActivos.length > 0
+    ? Math.round((enUso / vehiculosActivos.length) * 100)
+    : null;
+
+  const mapaMatricula = Object.fromEntries((vehiculos || []).map((v) => [v.id, v.matricula]));
+
+  const itvPendientes = (mantenimientos || [])
+    .filter((m) => m.tipo === "itv" && m.estado === "pendiente")
+    .map((m) => ({ ...m, matricula: mapaMatricula[m.vehiculo_id] || m.vehiculo_id }))
+    .sort((a, b) => (a.fecha || "9999-99-99").localeCompare(b.fecha || "9999-99-99"));
+
+  const averiasRecientes = (mantenimientos || [])
+    .filter((m) => m.tipo === "averia")
+    .map((m) => ({ ...m, matricula: mapaMatricula[m.vehiculo_id] || m.vehiculo_id }))
+    .sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""))
+    .slice(0, 5);
+
+  return {
+    totalVehiculos: (vehiculos || []).length,
+    vehiculosActivos: vehiculosActivos.length,
+    enUso,
+    pctUtilizacion,
+    itvPendientes,
+    averiasRecientes,
+  };
+}
+
 export async function getChoferes() {
   const { data } = await supabase
     .from("chofer")

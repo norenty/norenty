@@ -1,0 +1,251 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Clock, AlertTriangle, Users, CarFront } from "lucide-react";
+import {
+  getMetricasPuntualidad,
+  getMetricasIncidencias,
+  getMetricasChoferes,
+  getMetricasFlota,
+} from "../../lib/data";
+
+const VISTAS = [
+  { id: "puntualidad", label: "Puntualidad", icon: Clock },
+  { id: "incidencias", label: "Incidencias", icon: AlertTriangle },
+  { id: "choferes", label: "Chóferes", icon: Users },
+  { id: "flota", label: "Flota", icon: CarFront },
+];
+
+function Card({ label, value, sub }) {
+  return (
+    <div className="bg-surface border border-border rounded-xl p-4">
+      <div className="text-xs text-ink-secondary mb-1">{label}</div>
+      <div className="text-2xl font-semibold text-ink">{value ?? "—"}</div>
+      {sub && <div className="text-xs text-ink-muted mt-1">{sub}</div>}
+    </div>
+  );
+}
+
+function Barra({ label, count, max }) {
+  const pct = max > 0 ? Math.round((count / max) * 100) : 0;
+  return (
+    <div className="flex items-center gap-3 text-xs">
+      <span className="w-32 shrink-0 text-ink-secondary truncate" title={label}>{label}</span>
+      <div className="flex-1 h-2 bg-surface-alt rounded-full overflow-hidden">
+        <div className="h-full bg-brand rounded-full" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="w-8 shrink-0 text-right text-ink-muted">{count}</span>
+    </div>
+  );
+}
+
+function VistaPuntualidad({ datos }) {
+  const maxRuta = Math.max(1, ...datos.peoresRutas.map((r) => r.incidencias));
+  const maxSemana = Math.max(1, ...datos.tendencia.map((s) => s.count));
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-3 gap-3">
+        <Card label="% Puntualidad" value={datos.pctPuntualidad != null ? `${datos.pctPuntualidad}%` : null} />
+        <Card label="Hitos con ventana" value={datos.totalConVentana} />
+        <Card label="Fuera de ventana" value={datos.totalTarde} />
+      </div>
+
+      <div className="bg-surface border border-border rounded-xl p-4">
+        <h3 className="text-sm font-medium text-ink mb-3">Tendencia (incidencias fuera de ventana, por semana)</h3>
+        {datos.tendencia.length === 0 ? (
+          <p className="text-xs text-ink-secondary">Sin datos suficientes.</p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {datos.tendencia.map((s) => (
+              <Barra key={s.semana} label={s.semana} count={s.count} max={maxSemana} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-surface border border-border rounded-xl p-4">
+        <h3 className="text-sm font-medium text-ink mb-3">Peores rutas (más llegadas fuera de ventana)</h3>
+        {datos.peoresRutas.length === 0 ? (
+          <p className="text-xs text-ink-secondary">Sin incidencias de puntualidad.</p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {datos.peoresRutas.map((r) => (
+              <Barra key={r.referencia} label={r.referencia} count={r.incidencias} max={maxRuta} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function VistaIncidencias({ datos }) {
+  const maxTipo = Math.max(1, ...datos.porTipo.map((t) => t.count));
+  const maxChofer = Math.max(1, ...datos.porChofer.map((c) => c.count));
+  const maxVehiculo = Math.max(1, ...datos.porVehiculo.map((v) => v.count));
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-3">
+        <Card label="Total incidencias" value={datos.total} />
+        <Card label="Tasa por viaje" value={datos.tasa ?? "—"} sub="incidencias / viajes totales" />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="bg-surface border border-border rounded-xl p-4">
+          <h3 className="text-sm font-medium text-ink mb-3">Por tipo</h3>
+          <div className="flex flex-col gap-1.5">
+            {datos.porTipo.length === 0 && <p className="text-xs text-ink-secondary">Sin incidencias.</p>}
+            {datos.porTipo.map((t) => (
+              <Barra key={t.tipo} label={t.tipo} count={t.count} max={maxTipo} />
+            ))}
+          </div>
+        </div>
+        <div className="bg-surface border border-border rounded-xl p-4">
+          <h3 className="text-sm font-medium text-ink mb-3">Por chófer</h3>
+          <div className="flex flex-col gap-1.5">
+            {datos.porChofer.length === 0 && <p className="text-xs text-ink-secondary">Sin datos.</p>}
+            {datos.porChofer.map((c) => (
+              <Barra key={c.nombre} label={c.nombre} count={c.count} max={maxChofer} />
+            ))}
+          </div>
+        </div>
+        <div className="bg-surface border border-border rounded-xl p-4">
+          <h3 className="text-sm font-medium text-ink mb-3">Por vehículo</h3>
+          <div className="flex flex-col gap-1.5">
+            {datos.porVehiculo.length === 0 && <p className="text-xs text-ink-secondary">Sin datos.</p>}
+            {datos.porVehiculo.map((v) => (
+              <Barra key={v.matricula} label={v.matricula} count={v.count} max={maxVehiculo} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VistaChoferes({ datos }) {
+  return (
+    <div className="bg-surface border border-border rounded-xl overflow-hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border text-xs text-ink-secondary text-left">
+            <th className="px-4 py-2 font-medium">Chófer</th>
+            <th className="px-4 py-2 font-medium">Viajes</th>
+            <th className="px-4 py-2 font-medium">Valoración</th>
+            <th className="px-4 py-2 font-medium">Incidencias</th>
+            <th className="px-4 py-2 font-medium">% Puntualidad</th>
+          </tr>
+        </thead>
+        <tbody>
+          {datos.length === 0 ? (
+            <tr><td colSpan={5} className="px-4 py-6 text-center text-ink-secondary">Sin chóferes.</td></tr>
+          ) : (
+            datos.map((c) => (
+              <tr key={c.id} className="border-b border-border last:border-0">
+                <td className="px-4 py-2.5 text-ink">{c.nombre}</td>
+                <td className="px-4 py-2.5 text-ink-secondary">{c.viajes}</td>
+                <td className="px-4 py-2.5 text-ink-secondary">{c.valoracionMedia ?? "—"}</td>
+                <td className="px-4 py-2.5 text-ink-secondary">{c.incidencias}</td>
+                <td className="px-4 py-2.5 text-ink-secondary">{c.pctPuntualidad != null ? `${c.pctPuntualidad}%` : "—"}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function VistaFlota({ datos }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-3 gap-3">
+        <Card label="Vehículos activos" value={`${datos.vehiculosActivos} / ${datos.totalVehiculos}`} />
+        <Card label="En uso ahora" value={datos.enUso} />
+        <Card label="% Utilización" value={datos.pctUtilizacion != null ? `${datos.pctUtilizacion}%` : null} />
+      </div>
+
+      <div className="bg-surface border border-border rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-border">
+          <h3 className="text-sm font-medium text-ink">ITV pendientes</h3>
+        </div>
+        {datos.itvPendientes.length === 0 ? (
+          <p className="text-sm text-ink-secondary p-4 text-center">Sin ITV pendientes.</p>
+        ) : (
+          datos.itvPendientes.map((m) => (
+            <div key={m.id} className="flex items-center justify-between px-4 py-2.5 border-b border-border last:border-0 text-sm">
+              <span className="text-ink font-mono">{m.matricula}</span>
+              <span className="text-ink-muted text-xs">{m.fecha || "sin fecha"}</span>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="bg-surface border border-border rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-border">
+          <h3 className="text-sm font-medium text-ink">Averías recientes</h3>
+        </div>
+        {datos.averiasRecientes.length === 0 ? (
+          <p className="text-sm text-ink-secondary p-4 text-center">Sin averías registradas.</p>
+        ) : (
+          datos.averiasRecientes.map((m) => (
+            <div key={m.id} className="flex items-center justify-between px-4 py-2.5 border-b border-border last:border-0 text-sm">
+              <span className="text-ink font-mono">{m.matricula}</span>
+              <span className="text-ink-muted text-xs">{m.fecha || "sin fecha"}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function Analitica() {
+  const [vista, setVista] = useState("puntualidad");
+  const [datos, setDatos] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    const cargar = {
+      puntualidad: getMetricasPuntualidad,
+      incidencias: getMetricasIncidencias,
+      choferes: getMetricasChoferes,
+      flota: getMetricasFlota,
+    }[vista];
+    cargar().then((d) => { setDatos(d); setLoading(false); });
+  }, [vista]);
+
+  return (
+    <div>
+      <h1 className="text-lg font-medium text-ink mb-4">Analítica</h1>
+
+      <div className="flex gap-1 mb-4 border-b border-border">
+        {VISTAS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => setVista(id)}
+            className={`flex items-center gap-1.5 text-sm px-3 py-2 border-b-2 -mb-px transition-colors ${
+              vista === id
+                ? "border-brand text-ink font-medium"
+                : "border-transparent text-ink-secondary hover:text-ink"
+            }`}
+          >
+            <Icon size={15} /> {label}
+          </button>
+        ))}
+      </div>
+
+      {loading || !datos ? (
+        <div className="h-64 bg-surface-alt rounded-xl animate-pulse" />
+      ) : (
+        <>
+          {vista === "puntualidad" && <VistaPuntualidad datos={datos} />}
+          {vista === "incidencias" && <VistaIncidencias datos={datos} />}
+          {vista === "choferes" && <VistaChoferes datos={datos} />}
+          {vista === "flota" && <VistaFlota datos={datos} />}
+        </>
+      )}
+    </div>
+  );
+}
