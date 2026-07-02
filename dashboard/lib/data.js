@@ -110,12 +110,13 @@ export async function getEtaViaje(viajeId) {
 
   const empresa = (empresas || [])[0] || null;
   const velocidadKmh = resolveVelocidadPlanificacion(empresa);
-  const km = await kmCarreteraViaje(hitos || []);
+  const { km, estimado } = await kmCarreteraViaje(hitos || []);
   const horasConduccion = km / velocidadKmh;
   const { horasTotales, paradas45min, descansos11h } = calcularEtaConParadas(horasConduccion);
 
   return {
     km: Math.round(km),
+    estimado,
     velocidadKmh,
     horasConduccion: +horasConduccion.toFixed(1),
     horasTotales: +horasTotales.toFixed(1),
@@ -569,8 +570,15 @@ export async function getMetricasFlota() {
   };
 }
 
-/** Distancia en línea recta (Haversine) en km — solo para el fallback de tests
- * y como último recurso; el cálculo principal usa OSRM (carretera real). */
+// Factor de corrección aplicado a la distancia en línea recta (Haversine) cuando
+// OSRM no responde: una carretera real nunca es una línea recta, así que se
+// corrige al alza. 1.3 es un valor de ingeniería de tráfico habitual, NO medido
+// contra rutas reales de España — igual de "valor inicial razonable" que los
+// demás umbrales del proyecto (ver UMBRAL_NOCHE_FUERA_KM, UMBRAL_MARGEN_AMBAR_PCT).
+export const FACTOR_SINUOSIDAD_FALLBACK = 1.3;
+
+/** Distancia en línea recta (Haversine) en km — usada como cálculo principal en
+ * algunos casos y como fallback de `kmCarreteraViaje` cuando OSRM no responde. */
 function haversineKm(a, b) {
   const R = 6371;
   const rad = (d) => (d * Math.PI) / 180;
@@ -646,6 +654,7 @@ export async function getInformeNomina(mes, anio) {
       id: c.id,
       nombre: c.nombre,
       km: 0,
+      estimado: false,
       // Set de fechas (YYYY-MM-DD) que ya cuentan como noche fuera (dedup).
       _nochesSet: new Set(),
       _viajes: new Set(),
@@ -686,20 +695,17 @@ export async function getInformeNomina(mes, anio) {
     const chofer = porChofer[viaje.chofer_id];
     if (!chofer) continue;
 
-    const completados = (hitos || [])
-      .filter((h) => h.viaje_id === viajeId && h.estado === "completado" && h.lat != null && h.lon != null)
-      .sort((a, b) => a.orden - b.orden);
-
-    let kmViaje = 0;
-    for (let i = 0; i < completados.length - 1; i++) {
-      const origen = { lat: completados[i].lat, lon: completados[i].lon };
-      const destino = { lat: completados[i + 1].lat, lon: completados[i + 1].lon };
-      const km = await distanciaPorCarretera(origen, destino);
-      if (km != null) kmViaje += km;
-    }
+    const completados = (hitos || []).filter(
+      (h) => h.viaje_id === viajeId && h.estado === "completado"
+    );
+    // kmCarreteraViaje ya filtra por coordenadas y ordena por `orden`; reutilizarla
+    // aquí (en vez de duplicar el bucle OSRM) es lo que le da a nómina el mismo
+    // fallback Haversine que viabilidad/ETA (ítem 6.1).
+    const { km: kmViaje, estimado } = await kmCarreteraViaje(completados);
 
     if (completados.length >= 2) {
       chofer.km += kmViaje;
+      if (estimado) chofer.estimado = true;
       chofer._viajes.add(viaje.referencia || viaje.id.slice(0, 8));
     }
   }
@@ -709,6 +715,7 @@ export async function getInformeNomina(mes, anio) {
     nombre: c.nombre,
     nochesFuera: tieneBase ? c._nochesSet.size : null,
     km: Math.round(c.km),
+    estimado: c.estimado,
     viajes: [...c._viajes],
   }));
 
@@ -751,23 +758,35 @@ export function calcularMargen({ precio, km, costeKm }) {
 
 /**
  * Km por carretera real de un viaje: suma OSRM entre hitos consecutivos con
- * coordenadas, ordenados por `orden`. Para VIABILIDAD se usan TODOS los hitos
- * (ruta planificada), no solo los completados — se evalúa antes/durante la
- * ejecución. Devuelve 0 si hay menos de 2 hitos con coordenadas.
+ * coordenadas, ordenados por `orden`. Para VIABILIDAD/ETA se usan TODOS los
+ * hitos (ruta planificada); para NÓMINA el llamador filtra antes a los
+ * completados. Devuelve km=0 si hay menos de 2 hitos con coordenadas.
+ *
+ * FALLBACK (ítem 6.1): si OSRM no responde para un tramo (self-host caído, sin
+ * contenedor en dev), ese tramo se calcula con Haversine × FACTOR_SINUOSIDAD_FALLBACK
+ * en vez de contarlo como 0 km (que es lo que pasaba antes — silenciosamente
+ * subestimaba el viaje entero). `estimado: true` si ALGÚN tramo usó el fallback,
+ * para que la UI lo marque como aproximado en vez de presentarlo como exacto.
+ * @returns {Promise<{km: number, estimado: boolean}>}
  */
 export async function kmCarreteraViaje(hitos) {
   const conCoords = (hitos || [])
     .filter((h) => h.lat != null && h.lon != null)
     .sort((a, b) => a.orden - b.orden);
   let km = 0;
+  let estimado = false;
   for (let i = 0; i < conCoords.length - 1; i++) {
-    const d = await distanciaPorCarretera(
-      { lat: conCoords[i].lat, lon: conCoords[i].lon },
-      { lat: conCoords[i + 1].lat, lon: conCoords[i + 1].lon }
-    );
-    if (d != null) km += d;
+    const origen = { lat: conCoords[i].lat, lon: conCoords[i].lon };
+    const destino = { lat: conCoords[i + 1].lat, lon: conCoords[i + 1].lon };
+    const d = await distanciaPorCarretera(origen, destino);
+    if (d != null) {
+      km += d;
+    } else {
+      km += haversineKm(origen, destino) * FACTOR_SINUOSIDAD_FALLBACK;
+      estimado = true;
+    }
   }
-  return km;
+  return { km, estimado };
 }
 
 /**
@@ -794,12 +813,13 @@ export async function getViabilidadViaje(viajeId) {
   const empresa = (empresas || [])[0] || null;
   const vehiculo = vehiculoRes.data || null;
   const { costeKm, fuente } = resolveCosteKm({ vehiculo, empresa });
-  const km = await kmCarreteraViaje(hitos || []);
+  const { km, estimado } = await kmCarreteraViaje(hitos || []);
   const { coste, margen, margenPct } = calcularMargen({ precio: viaje.precio, km, costeKm });
 
   return {
     precio: viaje.precio,
     km: Math.round(km),
+    estimado,
     costeKm,
     fuenteCoste: fuente,
     coste: coste != null ? Math.round(coste) : null,

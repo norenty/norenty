@@ -93,7 +93,10 @@ export default function Nomina() {
                     <tr key={f.id} className="border-b border-border last:border-0">
                       <td className="px-4 py-2.5 text-ink">{f.nombre}</td>
                       <td className="px-4 py-2.5 text-ink-secondary">{f.nochesFuera ?? "n/d"}</td>
-                      <td className="px-4 py-2.5 text-ink-secondary">{f.km.toLocaleString("es-ES")} km</td>
+                      <td className="px-4 py-2.5 text-ink-secondary">
+                        {f.estimado && <span title="Estimado: OSRM no respondió para algún tramo, se usó distancia en línea recta corregida">~</span>}
+                        {f.km.toLocaleString("es-ES")} km
+                      </td>
                       <td className="px-4 py-2.5 text-ink-muted text-xs">
                         {f.viajes.length ? f.viajes.join(", ") : "—"}
                       </td>
@@ -108,6 +111,11 @@ export default function Nomina() {
             v1: la noche fuera se estima por la llegada nocturna (22:00–06:00) más
             lejana a la base; los km se calculan por carretera real entre hitos
             completados. Pendiente de ajustar el umbral con el gestor.
+            {informe.filas.some((f) => f.estimado) && (
+              <> Las filas con “~” tienen algún tramo estimado en línea recta
+              corregida porque el servicio de rutas (OSRM) no respondió — instala
+              OSRM para km por carretera reales en todos los tramos.</>
+            )}
           </p>
         </>
       )}

@@ -350,7 +350,7 @@ export default function ViajeDetalle() {
               if (viabilidad.costeKm == null) return <p className="text-xs text-ink-secondary">Configura el coste/km en Ajustes (o en la ficha del vehículo) para ver el margen.</p>;
               if (viabilidad.km === 0) return <p className="text-xs text-ink-secondary">Sin km calculables: faltan coordenadas en los hitos o el servicio de rutas no responde.</p>;
 
-              const { margen, margenPct, km, costeKm, coste, fuenteCoste } = viabilidad;
+              const { margen, margenPct, km, costeKm, coste, fuenteCoste, estimado } = viabilidad;
               const cls = margen < 0
                 ? "bg-red-50 text-estado-incidencia"
                 : margenPct < UMBRAL_MARGEN_AMBAR_PCT
@@ -365,8 +365,11 @@ export default function ViajeDetalle() {
                     </div>
                   </div>
                   <div className="text-xs text-ink-muted space-y-0.5">
-                    <div>{km.toLocaleString("es-ES")} km × {costeKm} €/km = {coste.toLocaleString("es-ES")} € de coste</div>
+                    <div>{estimado && "~"}{km.toLocaleString("es-ES")} km × {costeKm} €/km = {coste.toLocaleString("es-ES")} € de coste</div>
                     <div>Coste/km según: {fuenteCoste === "vehiculo" ? "vehículo asignado" : "empresa"}</div>
+                    {estimado && (
+                      <div className="text-yellow-700">~ distancia estimada en línea recta corregida; instala OSRM para km por carretera reales.</div>
+                    )}
                   </div>
                 </div>
               );
@@ -388,7 +391,7 @@ export default function ViajeDetalle() {
                   <span className="text-ink-secondary"> totales</span>
                 </div>
                 <div className="text-xs text-ink-muted space-y-0.5">
-                  <div>{eta.km.toLocaleString("es-ES")} km a {eta.velocidadKmh} km/h → {eta.horasConduccion} h de conducción</div>
+                  <div>{eta.estimado && "~"}{eta.km.toLocaleString("es-ES")} km a {eta.velocidadKmh} km/h → {eta.horasConduccion} h de conducción</div>
                   {(eta.paradas45min > 0 || eta.descansos11h > 0) ? (
                     <div>
                       + {eta.paradas45min} parada{eta.paradas45min !== 1 ? "s" : ""} de 45 min
@@ -396,6 +399,9 @@ export default function ViajeDetalle() {
                     </div>
                   ) : (
                     <div>Sin paradas obligatorias en este trayecto.</div>
+                  )}
+                  {eta.estimado && (
+                    <div className="text-yellow-700">~ distancia estimada en línea recta corregida; instala OSRM para km por carretera reales.</div>
                   )}
                   <div className="pt-1">
                     Estimación v1 (Reglamento CE 561/2006): no considera límites semanales/bisemanales

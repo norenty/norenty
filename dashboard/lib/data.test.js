@@ -486,6 +486,23 @@ describe("getInformeNomina", () => {
     expect(r.filas[0].viajes).toEqual([]);
     expect(osrmMock).not.toHaveBeenCalled();
   });
+
+  it("marca estimado=true en la fila del chófer si OSRM falló para algún tramo del mes (fallback 6.1)", async () => {
+    setBase(MADRID);
+    osrmMock.mockResolvedValue(null); // OSRM caído -> fallback Haversine
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    TABLES.viaje = [{ id: "v1", referencia: "VJ-1", chofer_id: "c1", estado: "completado" }];
+    TABLES.hito = [
+      { id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...MADRID },
+      { id: "h2", viaje_id: "v1", orden: 2, estado: "completado", ...BARCELONA },
+    ];
+    TABLES.ejecucion_evento = [
+      { hito_id: "h2", viaje_id: "v1", chofer_id: "c1", tipo: "llegada", ocurrido_en: "2026-01-15T12:00:00Z" },
+    ];
+    const r = await getInformeNomina(1, 2026);
+    expect(r.filas[0].estimado).toBe(true);
+    expect(r.filas[0].km).toBeGreaterThan(0); // no se queda en 0 como antes del fallback
+  });
 });
 
 describe("resolveCosteKm (viabilidad 5.2 — capas)", () => {
@@ -537,30 +554,65 @@ describe("calcularMargen (viabilidad 5.2)", () => {
 describe("kmCarreteraViaje (viabilidad 5.2)", () => {
   it("suma los tramos OSRM entre hitos con coordenadas, ordenados por orden", async () => {
     osrmMock.mockResolvedValue(50);
-    const km = await kmCarreteraViaje([
+    const r = await kmCarreteraViaje([
       { orden: 2, lat: 41, lon: 2 },
       { orden: 1, lat: 40, lon: -3 },
       { orden: 3, lat: 42, lon: 1 },
     ]);
-    expect(km).toBe(100); // 2 tramos × 50
+    expect(r.km).toBe(100); // 2 tramos × 50
+    expect(r.estimado).toBe(false);
     expect(osrmMock).toHaveBeenCalledTimes(2);
   });
 
   it("ignora hitos sin coordenadas", async () => {
     osrmMock.mockResolvedValue(50);
-    const km = await kmCarreteraViaje([
+    const r = await kmCarreteraViaje([
       { orden: 1, lat: 40, lon: -3 },
       { orden: 2, lat: null, lon: null },
       { orden: 3, lat: 42, lon: 1 },
     ]);
-    expect(km).toBe(50); // solo 1 tramo entre los 2 hitos con coords
+    expect(r.km).toBe(50); // solo 1 tramo entre los 2 hitos con coords
     expect(osrmMock).toHaveBeenCalledTimes(1);
   });
 
   it("devuelve 0 con menos de 2 hitos con coordenadas", async () => {
-    const km = await kmCarreteraViaje([{ orden: 1, lat: 40, lon: -3 }]);
-    expect(km).toBe(0);
+    const r = await kmCarreteraViaje([{ orden: 1, lat: 40, lon: -3 }]);
+    expect(r.km).toBe(0);
+    expect(r.estimado).toBe(false);
     expect(osrmMock).not.toHaveBeenCalled();
+  });
+
+  // --- Fallback Haversine (ítem 6.1) ---
+
+  it("usa Haversine × 1.3 y marca estimado=true si OSRM devuelve null en un tramo", async () => {
+    osrmMock.mockResolvedValue(null);
+    const r = await kmCarreteraViaje([
+      { orden: 1, lat: 40.4168, lon: -3.7038 }, // Madrid
+      { orden: 2, lat: 41.3851, lon: 2.1734 },  // Barcelona (~504 km en línea recta)
+    ]);
+    expect(r.estimado).toBe(true);
+    expect(r.km).toBeGreaterThan(500); // 504km haversine × 1.3 ≈ 655km
+    expect(r.km).toBeLessThan(700);
+  });
+
+  it("mezcla tramos OSRM reales con tramos estimados en el mismo viaje", async () => {
+    osrmMock.mockResolvedValueOnce(100).mockResolvedValueOnce(null);
+    const r = await kmCarreteraViaje([
+      { orden: 1, lat: 40, lon: -3 },
+      { orden: 2, lat: 40.5, lon: -3.5 },
+      { orden: 3, lat: 41, lon: -4 },
+    ]);
+    expect(r.estimado).toBe(true);
+    expect(r.km).toBeGreaterThan(100); // el tramo 1 (OSRM=100) + el tramo 2 (haversine estimado, >0)
+  });
+
+  it("no marca estimado si todos los tramos responden por OSRM", async () => {
+    osrmMock.mockResolvedValue(80);
+    const r = await kmCarreteraViaje([
+      { orden: 1, lat: 40, lon: -3 },
+      { orden: 2, lat: 41, lon: -4 },
+    ]);
+    expect(r.estimado).toBe(false);
   });
 });
 
@@ -608,6 +660,21 @@ describe("getViabilidadViaje (viabilidad 5.2 — integración)", () => {
     const r = await getViabilidadViaje("v1");
     expect(r.costeKm).toBeNull();
     expect(r.margen).toBeNull();
+  });
+
+  it("marca estimado=true si OSRM no responde (fallback Haversine, ítem 6.1)", async () => {
+    TABLES.viaje = [{ id: "v1", precio: 1000, vehiculo_id: null }];
+    TABLES.hito = [
+      { viaje_id: "v1", orden: 1, lat: 40, lon: -3 },
+      { viaje_id: "v1", orden: 2, lat: 41, lon: 2 },
+    ];
+    TABLES.empresa = [{ coste_km: 1.2 }];
+    osrmMock.mockResolvedValue(null);
+
+    const r = await getViabilidadViaje("v1");
+    expect(r.estimado).toBe(true);
+    expect(r.km).toBeGreaterThan(0);
+    expect(r.margen).not.toBeNull(); // el margen se sigue calculando con el km estimado
   });
 });
 
@@ -707,6 +774,20 @@ describe("getEtaViaje (ETA 5.3 — integración)", () => {
     expect(r.km).toBe(0);
     expect(r.paradas45min).toBe(0);
     expect(osrmMock).not.toHaveBeenCalled();
+  });
+
+  it("marca estimado=true si OSRM no responde (fallback Haversine, ítem 6.1)", async () => {
+    TABLES.viaje = [{ id: "v1" }];
+    TABLES.hito = [
+      { viaje_id: "v1", orden: 1, lat: 40, lon: -3 },
+      { viaje_id: "v1", orden: 2, lat: 41, lon: 2 },
+    ];
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 75 }];
+    osrmMock.mockResolvedValue(null);
+
+    const r = await getEtaViaje("v1");
+    expect(r.estimado).toBe(true);
+    expect(r.km).toBeGreaterThan(0);
   });
 });
 
