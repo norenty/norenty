@@ -72,6 +72,27 @@ class FakeTable:
         return FakeUpdate(self._rows, payload)
 
 
+class FakeStorageBucket:
+    def __init__(self, uploads, bucket):
+        self._uploads = uploads
+        self._bucket = bucket
+
+    def upload(self, path, file, file_options=None):
+        self._uploads.append({"bucket": self._bucket, "path": path, "file": file, "file_options": file_options})
+        return {"path": path}
+
+
+class FakeStorage:
+    """Cubre solo `.from_(bucket).upload(...)` — lo único que usa handle_photo
+    (subida de POD, ítem 6.11 E2E)."""
+
+    def __init__(self):
+        self.uploads = []
+
+    def from_(self, bucket):
+        return FakeStorageBucket(self.uploads, bucket)
+
+
 class FakeSupabase:
     """tables: dict tabla -> lista de filas (dicts). Las filas se mutan in-place
     al hacer insert/update, así que se pueden inspeccionar después en el test.
@@ -79,6 +100,7 @@ class FakeSupabase:
 
     def __init__(self, tables=None):
         self.tables = {k: list(v) for k, v in (tables or {}).items()}
+        self.storage = FakeStorage()
 
     def table(self, name):
         self.tables.setdefault(name, [])
