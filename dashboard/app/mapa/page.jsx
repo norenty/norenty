@@ -131,24 +131,26 @@ export default function MapaPage() {
       {mostrarFormParking && (
         <form onSubmit={guardarParking} className="bg-surface border border-border rounded-xl p-3 mb-4 flex flex-wrap items-end gap-3">
           {errorParking && (
-            <p className="w-full text-xs text-estado-incidencia">{errorParking}</p>
+            <p role="alert" className="w-full text-xs text-estado-incidencia">{errorParking}</p>
           )}
           <div className="flex-1 min-w-[10rem]">
-            <label className="block text-xs text-ink-secondary mb-1">Nombre *</label>
+            <label htmlFor="parking-nombre" className="block text-xs text-ink-secondary mb-1">Nombre *</label>
             <input
+              id="parking-nombre"
               value={formParking.nombre}
               onChange={(e) => setFormParking((f) => ({ ...f, nombre: e.target.value }))}
               placeholder="Parking Ctra. N-II km 34"
               maxLength={200}
-              className="w-full text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand"
+              className="w-full text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
             />
           </div>
           <div>
-            <label className="block text-xs text-ink-secondary mb-1">Tipo</label>
+            <label htmlFor="parking-tipo" className="block text-xs text-ink-secondary mb-1">Tipo</label>
             <select
+              id="parking-tipo"
               value={formParking.tipo}
               onChange={(e) => setFormParking((f) => ({ ...f, tipo: e.target.value }))}
-              className="text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand bg-surface"
+              className="text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 bg-surface"
             >
               {TIPOS_PARKING.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -156,21 +158,23 @@ export default function MapaPage() {
             </select>
           </div>
           <div className="w-28">
-            <label className="block text-xs text-ink-secondary mb-1">Latitud *</label>
+            <label htmlFor="parking-lat" className="block text-xs text-ink-secondary mb-1">Latitud *</label>
             <input
+              id="parking-lat"
               type="number" step="any" value={formParking.lat}
               onChange={(e) => setFormParking((f) => ({ ...f, lat: e.target.value }))}
               placeholder="40.4168"
-              className="w-full text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand"
+              className="w-full text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
             />
           </div>
           <div className="w-28">
-            <label className="block text-xs text-ink-secondary mb-1">Longitud *</label>
+            <label htmlFor="parking-lon" className="block text-xs text-ink-secondary mb-1">Longitud *</label>
             <input
+              id="parking-lon"
               type="number" step="any" value={formParking.lon}
               onChange={(e) => setFormParking((f) => ({ ...f, lon: e.target.value }))}
               placeholder="-3.7038"
-              className="w-full text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand"
+              className="w-full text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
             />
           </div>
           <button

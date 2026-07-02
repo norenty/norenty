@@ -74,19 +74,23 @@ export default function Nomina() {
       </p>
 
       <div className="flex items-center gap-2 mb-4 print:hidden">
+        <label htmlFor="nomina-mes" className="sr-only">Mes</label>
         <select
+          id="nomina-mes"
           value={mes}
           onChange={(e) => setMes(Number(e.target.value))}
-          className="text-sm border border-border rounded-md px-3 py-2 bg-surface focus:outline-none focus:border-brand"
+          className="text-sm border border-border rounded-md px-3 py-2 bg-surface focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
         >
           {MESES.map((m, i) => (
             <option key={i} value={i + 1}>{m}</option>
           ))}
         </select>
+        <label htmlFor="nomina-anio" className="sr-only">Año</label>
         <select
+          id="nomina-anio"
           value={anio}
           onChange={(e) => setAnio(Number(e.target.value))}
-          className="text-sm border border-border rounded-md px-3 py-2 bg-surface focus:outline-none focus:border-brand"
+          className="text-sm border border-border rounded-md px-3 py-2 bg-surface focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
         >
           {anios.map((a) => (
             <option key={a} value={a}>{a}</option>
@@ -111,6 +115,9 @@ export default function Nomina() {
           </div>
 
           <div className="bg-surface border border-border rounded-xl overflow-hidden print:border-0 print:rounded-none">
+            {/* Móvil (< ~500px): la tabla no encoge bien con 4 columnas, mejor
+                scroll horizontal contenido que romper el layout de la página. */}
+            <div className="overflow-x-auto print:overflow-visible">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-xs text-ink-secondary text-left">
@@ -144,6 +151,7 @@ export default function Nomina() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
 
           <p className="text-xs text-ink-muted mt-3">

@@ -19,7 +19,9 @@ function badgeFor(doc) {
   const dias = Math.round((caduca - hoy) / 86400000);
   if (dias < 0) return { label: "Caducado", cls: "bg-red-50 text-estado-incidencia" };
   if (dias <= 30) return { label: "Caduca pronto", cls: "bg-yellow-50 text-yellow-700" };
-  return { label: "Vigente", cls: "bg-green-50 text-estado-ok" };
+  // text-estado-ok sobre bg-green-50 no llega al contraste AA (4.5:1) en texto
+  // pequeño (~3.15:1); text-green-700 sí lo cumple.
+  return { label: "Vigente", cls: "bg-green-50 text-green-700" };
 }
 
 function fmtFecha(f) {
@@ -147,14 +149,15 @@ export default function DocumentosSection({ ambito, entidadId, tipos, titulo = "
       {mostrarForm && (
         <form onSubmit={guardar} className="p-4 border-b border-border bg-surface-alt">
           {error && (
-            <p className="text-xs text-estado-incidencia mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded-lg">{error}</p>
+            <p role="alert" className="text-xs text-estado-incidencia mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded-lg">{error}</p>
           )}
           <div className="mb-3">
-            <label className="block text-xs text-ink-secondary mb-1">Tipo *</label>
+            <label htmlFor={`doc-tipo-${ambito}`} className="block text-xs text-ink-secondary mb-1">Tipo *</label>
             <select
+              id={`doc-tipo-${ambito}`}
               value={form.tipo}
               onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))}
-              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand bg-surface"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 bg-surface"
             >
               {tipos.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -163,27 +166,30 @@ export default function DocumentosSection({ ambito, entidadId, tipos, titulo = "
           </div>
           <div className="grid grid-cols-2 gap-3 mb-3">
             <div>
-              <label className="block text-xs text-ink-secondary mb-1">Fecha emisión</label>
+              <label htmlFor={`doc-emision-${ambito}`} className="block text-xs text-ink-secondary mb-1">Fecha emisión</label>
               <input
+                id={`doc-emision-${ambito}`}
                 type="date"
                 value={form.fecha_emision}
                 onChange={(e) => setForm((f) => ({ ...f, fecha_emision: e.target.value }))}
-                className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand bg-surface"
+                className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 bg-surface"
               />
             </div>
             <div>
-              <label className="block text-xs text-ink-secondary mb-1">Fecha caducidad</label>
+              <label htmlFor={`doc-caducidad-${ambito}`} className="block text-xs text-ink-secondary mb-1">Fecha caducidad</label>
               <input
+                id={`doc-caducidad-${ambito}`}
                 type="date"
                 value={form.fecha_caducidad}
                 onChange={(e) => setForm((f) => ({ ...f, fecha_caducidad: e.target.value }))}
-                className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand bg-surface"
+                className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 bg-surface"
               />
             </div>
           </div>
           <div className="mb-3">
-            <label className="block text-xs text-ink-secondary mb-1">Archivo (imagen o PDF) *</label>
+            <label htmlFor={`doc-archivo-${ambito}`} className="block text-xs text-ink-secondary mb-1">Archivo (imagen o PDF) *</label>
             <input
+              id={`doc-archivo-${ambito}`}
               type="file"
               accept="image/*,application/pdf"
               onChange={(e) => setForm((f) => ({ ...f, archivo: e.target.files?.[0] || null }))}
@@ -191,13 +197,14 @@ export default function DocumentosSection({ ambito, entidadId, tipos, titulo = "
             />
           </div>
           <div className="mb-3">
-            <label className="block text-xs text-ink-secondary mb-1">Notas</label>
+            <label htmlFor={`doc-notas-${ambito}`} className="block text-xs text-ink-secondary mb-1">Notas</label>
             <input
+              id={`doc-notas-${ambito}`}
               value={form.notas}
               onChange={(e) => setForm((f) => ({ ...f, notas: e.target.value }))}
               placeholder="Opcional"
               maxLength={300}
-              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand bg-surface"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 bg-surface"
             />
           </div>
           <div className="flex gap-2 justify-end">
@@ -250,6 +257,7 @@ export default function DocumentosSection({ ambito, entidadId, tipos, titulo = "
                   disabled={abriendoId === doc.id}
                   className="text-ink-muted hover:text-ink disabled:opacity-40 shrink-0 p-1"
                   title="Ver / descargar"
+                  aria-label={`Ver o descargar documento: ${tipoLabel(doc.tipo)}`}
                 >
                   <ExternalLink size={14} />
                 </button>
@@ -258,6 +266,7 @@ export default function DocumentosSection({ ambito, entidadId, tipos, titulo = "
                   disabled={borrandoId === doc.id}
                   className="text-ink-muted hover:text-estado-incidencia disabled:opacity-40 shrink-0 p-1"
                   title="Eliminar documento"
+                  aria-label={`Eliminar documento: ${tipoLabel(doc.tipo)}`}
                 >
                   <Trash2 size={14} />
                 </button>

@@ -126,6 +126,9 @@ function VistaIncidencias({ datos }) {
 function VistaChoferes({ datos }) {
   return (
     <div className="bg-surface border border-border rounded-xl overflow-hidden">
+      {/* Móvil (< ~500px): 5 columnas no encogen bien, mejor scroll horizontal
+          contenido que romper el layout. */}
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border text-xs text-ink-secondary text-left">
@@ -152,6 +155,7 @@ function VistaChoferes({ datos }) {
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -225,10 +229,12 @@ export default function Analitica() {
         </span>
       </div>
 
-      <div className="flex gap-1 mb-4 border-b border-border">
+      <div className="flex gap-1 mb-4 border-b border-border" role="tablist" aria-label="Vista de analítica">
         {VISTAS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
+            role="tab"
+            aria-selected={vista === id}
             onClick={() => setVista(id)}
             className={`flex items-center gap-1.5 text-sm px-3 py-2 border-b-2 -mb-px transition-colors ${
               vista === id

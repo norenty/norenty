@@ -330,13 +330,14 @@ export default function ViajeDetalle() {
                   step="any"
                   min="0"
                   autoFocus
+                  aria-label="Precio del viaje en euros"
                   value={precioInput}
                   onChange={(e) => setPrecioInput(e.target.value)}
                   placeholder="Precio del viaje (€)"
-                  className="flex-1 text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand"
+                  className="flex-1 text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
                 />
-                <button onClick={guardarPrecio} disabled={guardandoPrecio} className="p-1.5 text-estado-ok disabled:opacity-40"><Check size={16} /></button>
-                <button onClick={() => setEditandoPrecio(false)} disabled={guardandoPrecio} className="p-1.5 text-ink-muted disabled:opacity-40"><X size={16} /></button>
+                <button onClick={guardarPrecio} disabled={guardandoPrecio} aria-label="Guardar precio" className="p-1.5 text-estado-ok disabled:opacity-40"><Check size={16} /></button>
+                <button onClick={() => setEditandoPrecio(false)} disabled={guardandoPrecio} aria-label="Cancelar edición del precio" className="p-1.5 text-ink-muted disabled:opacity-40"><X size={16} /></button>
               </div>
             ) : (
               <div className="text-sm text-ink mb-3">
@@ -351,11 +352,14 @@ export default function ViajeDetalle() {
               if (viabilidad.km === 0) return <p className="text-xs text-ink-secondary">Sin km calculables: faltan coordenadas en los hitos o el servicio de rutas no responde.</p>;
 
               const { margen, margenPct, km, costeKm, coste, fuenteCoste, estimado } = viabilidad;
+              // text-estado-ok (#16A34A) sobre bg-green-50 da ~3.15:1 de contraste —
+              // pasa para texto grande (≥3:1) pero NO para el texto pequeño de abajo
+              // (necesita 4.5:1). green-700 sí cumple en ambos tamaños.
               const cls = margen < 0
                 ? "bg-red-50 text-estado-incidencia"
                 : margenPct < UMBRAL_MARGEN_AMBAR_PCT
                 ? "bg-yellow-50 text-yellow-700"
-                : "bg-green-50 text-estado-ok";
+                : "bg-green-50 text-green-700";
               return (
                 <div>
                   <div className={`rounded-lg px-3 py-2 mb-2 ${cls}`}>
