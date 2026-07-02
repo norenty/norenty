@@ -1,13 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Moon, Route as RouteIcon } from "lucide-react";
+import { Moon, Route as RouteIcon, Download, Printer } from "lucide-react";
 import { getInformeNomina } from "../../lib/data";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
+
+function exportarCSV(informe, mes, anio) {
+  const header = "Chófer,Noches fuera,Km (carretera),Estimado,Viajes\n";
+  const rows = informe.filas.map((f) =>
+    [
+      f.nombre,
+      f.nochesFuera ?? "n/d",
+      f.km,
+      f.estimado ? "sí" : "no",
+      f.viajes.join("; "),
+    ].map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")
+  ).join("\n");
+  const blob = new Blob(["﻿" + header + rows], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `nomina-${MESES[mes - 1].toLowerCase()}-${anio}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function Nomina() {
   const ahora = new Date();
@@ -29,12 +49,31 @@ export default function Nomina() {
 
   return (
     <div>
-      <h1 className="text-lg font-medium text-ink mb-1">Nómina</h1>
+      <div className="flex items-start justify-between gap-3 mb-1 print:block">
+        <h1 className="text-lg font-medium text-ink">Nómina</h1>
+        {informe && (
+          <div className="flex gap-2 print:hidden">
+            <button
+              onClick={() => exportarCSV(informe, mes, anio)}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border text-ink-secondary hover:bg-surface-alt"
+            >
+              <Download size={13} /> Exportar CSV
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border text-ink-secondary hover:bg-surface-alt"
+            >
+              <Printer size={13} /> Imprimir / PDF
+            </button>
+          </div>
+        )}
+      </div>
       <p className="text-xs text-ink-secondary mb-4">
         Noches fuera y km por carretera de cada chófer, derivados de los hitos de sus viajes.
+        <span className="hidden print:inline"> — {MESES[mes - 1]} {anio}</span>
       </p>
 
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4 print:hidden">
         <select
           value={mes}
           onChange={(e) => setMes(Number(e.target.value))}
@@ -71,7 +110,7 @@ export default function Nomina() {
             Umbral de “noche fuera”: más de {informe.umbralKm} km de la base.
           </div>
 
-          <div className="bg-surface border border-border rounded-xl overflow-hidden">
+          <div className="bg-surface border border-border rounded-xl overflow-hidden print:border-0 print:rounded-none">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-xs text-ink-secondary text-left">

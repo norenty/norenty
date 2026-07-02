@@ -90,7 +90,7 @@ export default function Sidebar() {
       {/* Mobile hamburger */}
       <button
         onClick={() => setOpen(true)}
-        className="md:hidden fixed top-3 left-3 z-50 p-2 rounded-md bg-surface border border-border text-ink"
+        className="md:hidden fixed top-3 left-3 z-50 p-2 rounded-md bg-surface border border-border text-ink print:hidden"
       >
         <Menu size={20} />
       </button>
@@ -119,7 +119,7 @@ export default function Sidebar() {
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-52 shrink-0 flex-col border-r border-border bg-surface p-3 gap-1">
+      <aside className="hidden md:flex w-52 shrink-0 flex-col border-r border-border bg-surface p-3 gap-1 print:hidden">
         {content}
       </aside>
     </>

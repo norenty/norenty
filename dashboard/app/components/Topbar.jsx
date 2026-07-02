@@ -71,7 +71,7 @@ export default function Topbar() {
   }
 
   return (
-    <header className="h-14 shrink-0 flex items-center gap-3 px-3 md:px-5 border-b border-border bg-surface pl-14 md:pl-5">
+    <header className="h-14 shrink-0 flex items-center gap-3 px-3 md:px-5 border-b border-border bg-surface pl-14 md:pl-5 print:hidden">
       <div className="flex-1 relative" ref={ref}>
         <div className="flex items-center gap-2 bg-surface-alt border border-border rounded-md px-3 py-1.5">
           <Search size={15} className="text-ink-muted" />

@@ -24,12 +24,12 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="es">
-      <body className="h-screen flex overflow-hidden">
+      <body className="h-screen flex overflow-hidden print:h-auto print:overflow-visible">
         <AuthGuard>
           <Sidebar />
           <div className="flex-1 flex flex-col min-w-0">
             <Topbar />
-            <main className="flex-1 overflow-y-auto p-3 md:p-5">{children}</main>
+            <main className="flex-1 overflow-y-auto p-3 md:p-5 print:overflow-visible print:p-0">{children}</main>
           </div>
         </AuthGuard>
       </body>
