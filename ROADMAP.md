@@ -219,13 +219,26 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
   refactorizada para reutilizar `kmCarreteraViaje` en vez de duplicar el bucle OSRM (bonus: elimina
   código repetido entre 5.1/5.2/5.3). UI (`/nomina`, viabilidad y ETA en `/viajes/[id]`) muestra "~"
   + aviso cuando `estimado`. 6 tests nuevos (71 vitest). CI verde.
-- [ ] `[LOOP]` **6.2 Datos demo por la puerta de RLS** — `backend/db/seed_demo.py`: crea (si no
-  existe) un gestor demo vía `supabase.auth.sign_up` (email demo+norenty@..., contraseña en .env
-  `DEMO_PASSWORD`), y CON SU SESIÓN (anon key + login, NUNCA service role) puebla su empresa:
-  6 vehículos, 8 chóferes (idiomas variados), 25 viajes en distintos estados con hitos
-  geocodificados reales de España, incidencias, valoraciones, precios, documentos con caducidades
-  próximas, 3 parkings propios. Al pasar por RLS real, valida las políticas de verdad (habría
-  cazado el bug de tipo_evento). Idempotente (borra y repuebla solo esa empresa).
+- [x] `[LOOP]` **6.2 Datos demo por la puerta de RLS** — (2026-07-02) `backend/db/seed_demo.py`:
+  login/alta del gestor demo vía anon key + `DEMO_EMAIL`/`DEMO_PASSWORD` (nunca service role — RLS
+  real). Puebla 6 vehículos, 8 chóferes (uno por cada idioma del bot), 25 viajes en los 4 estados
+  con hitos geocodificados a 15 ciudades españolas reales, eventos de ejecución en los completados
+  (para que nómina/analítica tengan señal real), incidencias, valoraciones, precios, documentos con
+  caducidades, 3 parkings propios, y configura empresa (base/coste_km/velocidad). Idempotente
+  (borra solo los datos de esa empresa antes de repoblar). **Verificado en producción real: 25
+  viajes / 8 chóferes / 6 vehículos / 57 hitos / 69 eventos / 4 documentos / 3 parkings, ejecutado
+  dos veces para confirmar idempotencia, sin fugas a otras empresas.**
+  **HALLAZGO CRÍTICO al ejecutarlo por primera vez (2026-07-02): el alta de una empresa NUEVA lleva
+  ROTA desde que se activó RLS (2026-06-30) — nadie lo detectó porque solo se había probado con la
+  empresa pre-sembrada de antes de RLS.** Causa: `.insert(...).select().single()` pide `RETURNING`;
+  la policy SELECT de `empresa` es `id = current_empresa_id()`, y en el momento del alta el usuario
+  no tiene fila en `gestor` todavía → `current_empresa_id()` es NULL → Postgres rechaza el
+  `RETURNING` con "new row violates row-level security policy" (mismo mensaje que un fallo de
+  `WITH CHECK`, indistinguible sin depurar a fondo). Arreglado en `dashboard/lib/auth.js` (commit
+  0be2356): generar el `id` de la empresa en el cliente y NO pedir `RETURNING` en ese insert
+  concreto — evita depender de una visibilidad que aún no existe. Test de regresión en
+  `auth.test.js` (4 tests) que fija la forma correcta de la llamada. Este es exactamente el tipo de
+  bug que 6.2 estaba diseñado para cazar (verdad vs. mocks) y lo cazó a la primera.
 - [ ] `[LOOP]` **6.3 Export del informe de nómina** — botón "Exportar CSV" en `/nomina` (mismo
   patrón export CSV existente en viajes) + estilos `@media print` para imprimir/PDF limpio.
 - [ ] `[LOOP]` **6.4 Rango de fechas server-side en agregaciones** — `getInformeNomina` ya filtra
