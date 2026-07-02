@@ -258,9 +258,19 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
   silencioso. 2 tests nuevos + 3 tests existentes actualizados (fixtures con fechas fijas de 2026-01
   necesitan un rango explícito amplio, ya no basta con no pasar argumentos). 77 vitest, 43 pytest.
   CI verde.
-- [ ] `[LOOP]` **6.5 Índices según advisor de performance** — pasar `get_advisors(performance)` vía
-  MCP, crear los índices FK que falten (migración 0017 + checksum registrado). Documentar en PROGRESS
-  lo que diga el advisor aunque no haya acción.
+- [x] `[LOOP]` **6.5 Índices según advisor de performance** — (2026-07-02) `get_advisors(performance)`
+  falla con un error interno propio de Supabase ("syntax error at or near 'storage.buckets'", bug en
+  su lint, no en nuestro esquema — reproducido 2 veces). Chequeo equivalente hecho a mano por SQL
+  (FKs sin índice que las cubra como primera columna): 3 encontradas — `documento.empresa_id`,
+  `mantenimiento_vehiculo.empresa_id`, `mantenimiento_vehiculo.vehiculo_id` — las tres importan
+  porque RLS las filtra en CADA query (`empresa_id = current_empresa_id()`) o se usan en cada carga
+  de `/vehiculos/[id]`/`getMetricasFlota`. Migración 0017 (aplicada + checksum registrado), verificado
+  que los 3 índices existen tras aplicar. **Hallazgo adicional del advisor de seguridad** (no estaba
+  en la auditoría del 2026-07-01, posiblemente un check añadido después): "Leaked Password
+  Protection" desactivada — Supabase puede rechazar contraseñas filtradas (HaveIBeenPwned) pero es
+  un toggle del panel de Supabase (Authentication → Providers → Email), no algo tocable por SQL/MCP.
+  Añadido como acción ligera pendiente del usuario (no requiere criterio, solo el toggle) — ver
+  sección de decisiones. CI verde (sin cambios de código app, solo migración).
 - [ ] `[LOOP]` **6.6 CSP en modo Report-Only** — añadir `Content-Security-Policy-Report-Only` en
   `next.config.js` con allowlist de lo real (self, *.supabase.co, tile.openstreetmap.org, Sentry,
   data: para iconos leaflet, unsafe-inline solo en style por Tailwind). NO enforcing todavía: nota
@@ -336,6 +346,10 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
 - [ ] `[DECISIÓN D4]` **Luz verde al despliegue** — con 6.21 hecho, desplegar es una sesión contigo.
 - [ ] `[DECISIÓN D5]` **BD pública de consumos de camiones** — dijiste que la montaste hace meses;
   pásala (archivo o enlace) y especifico la capa de coste por combustible de viabilidad v2.
+- [ ] `[ACCIÓN D6 — ligera, sin criterio]` **Activar "Leaked Password Protection"** en Supabase
+  (Authentication → Providers → Email). Encontrado por el advisor de seguridad el 2026-07-02
+  (item 6.5); un toggle de un clic, gratis, rechaza contraseñas ya filtradas (HaveIBeenPwned) en el
+  signup/cambio de contraseña. No tocable por SQL/MCP, solo desde el panel.
 
 ---
 
