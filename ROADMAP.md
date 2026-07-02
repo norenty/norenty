@@ -239,8 +239,11 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
   concreto — evita depender de una visibilidad que aún no existe. Test de regresión en
   `auth.test.js` (4 tests) que fija la forma correcta de la llamada. Este es exactamente el tipo de
   bug que 6.2 estaba diseñado para cazar (verdad vs. mocks) y lo cazó a la primera.
-- [ ] `[LOOP]` **6.3 Export del informe de nómina** — botón "Exportar CSV" en `/nomina` (mismo
-  patrón export CSV existente en viajes) + estilos `@media print` para imprimir/PDF limpio.
+- [x] `[LOOP]` **6.3 Export del informe de nómina** — (2026-07-02) botón "Exportar CSV" en
+  `/nomina` (mismo patrón que `/viajes`) + botón "Imprimir/PDF". Estilos `print:` (Tailwind) a
+  nivel global: `layout.jsx`/Sidebar/Topbar ocultos al imprimir, `main` sin scroll/padding
+  forzados; controles de mes/año y botones ocultos, tabla sin bordes redondeados en la versión
+  impresa. Sin librería nueva (usa `window.print()`).
 - [ ] `[LOOP]` **6.4 Rango de fechas server-side en agregaciones** — `getInformeNomina` ya filtra
   por mes en cliente: mover el filtro de eventos a `.gte/.lt` en la query; `getMetricas*`: añadir
   parámetro opcional de rango (por defecto últimos 90 días) aplicado en servidor. Tests actualizados.
