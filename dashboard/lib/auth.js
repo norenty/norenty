@@ -34,17 +34,25 @@ export async function signUp(email, password, empresaNombre) {
       .single();
 
     if (!existing) {
-      const { data: empresa, error: empresaError } = await supabase
+      // Bootstrap: en este momento el usuario está autenticado pero SIN fila en
+      // `gestor` todavía, así que `current_empresa_id()` devuelve NULL y la
+      // policy SELECT de `empresa` (`id = current_empresa_id()`) no puede ver
+      // ninguna fila — ni siquiera la que él mismo acaba de crear. Un
+      // `.insert(...).select().single()` pide RETURNING, que Postgres evalúa
+      // contra esa misma policy SELECT, así que fallaría con "new row violates
+      // row-level security policy" aunque el INSERT en sí esté permitido.
+      // Solución: generar el id en el cliente y NO pedir RETURNING — así no
+      // hace falta ver la fila todavía, solo escribirla.
+      const empresaId = crypto.randomUUID();
+      const { error: empresaError } = await supabase
         .from("empresa")
-        .insert({ nombre: empresaNombre.trim() })
-        .select("id")
-        .single();
+        .insert({ id: empresaId, nombre: empresaNombre.trim() });
       if (empresaError) throw empresaError;
 
       const { error: gestorError } = await supabase.from("gestor").insert({
         nombre: email.split("@")[0],
         email,
-        empresa_id: empresa.id,
+        empresa_id: empresaId,
         auth_user_id: data.user.id,
       });
       if (gestorError) throw gestorError;
