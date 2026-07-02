@@ -372,15 +372,30 @@ function semanaISO(fechaStr) {
   return `${d.getFullYear()}-W${String(semana).padStart(2, "0")}`;
 }
 
+// Rango por defecto para las agregaciones de /analitica (ítem 6.4): antes se
+// cargaban las tablas enteras y se filtraba en cliente; ahora el rango se
+// aplica en la query (.gte/.lt), server-side. 90 días es un valor por defecto
+// razonable para un panel de "actividad reciente", no una cifra pactada.
+const RANGO_METRICAS_DIAS_DEFAULT = 90;
+
+function resolveRango({ desde, hasta } = {}) {
+  const hastaFinal = hasta || new Date().toISOString();
+  const desdeFinal = desde || new Date(Date.now() - RANGO_METRICAS_DIAS_DEFAULT * 86400000).toISOString();
+  return { desde: desdeFinal, hasta: hastaFinal };
+}
+
 /**
  * Vista 1/4 de /analitica: puntualidad. Usa las incidencias tipo
  * "fuera_de_ventana" (creadas por el bot al confirmar llegada tarde) como
  * señal de "hito no puntual", frente al total de hitos con ventana definida.
+ * `rango.desde`/`rango.hasta` (ISO) acotan el periodo; por defecto últimos 90
+ * días, aplicado en servidor.
  */
-export async function getMetricasPuntualidad() {
+export async function getMetricasPuntualidad(rango = {}) {
+  const { desde, hasta } = resolveRango(rango);
   const [{ data: hitos }, { data: tarde }, { data: viajes }] = await Promise.all([
-    supabase.from("hito").select("id, viaje_id, ventana_fin"),
-    supabase.from("incidencia").select("id, viaje_id, created_at").eq("tipo", "fuera_de_ventana"),
+    supabase.from("hito").select("id, viaje_id, ventana_fin").gte("ventana_fin", desde).lt("ventana_fin", hasta),
+    supabase.from("incidencia").select("id, viaje_id, created_at").eq("tipo", "fuera_de_ventana").gte("created_at", desde).lt("created_at", hasta),
     supabase.from("viaje").select("id, referencia"),
   ]);
 
@@ -414,11 +429,16 @@ export async function getMetricasPuntualidad() {
   return { pctPuntualidad, totalConVentana, totalTarde, peoresRutas, tendencia };
 }
 
-/** Vista 2/4 de /analitica: incidencias totales, tasa y desglose. */
-export async function getMetricasIncidencias() {
+/**
+ * Vista 2/4 de /analitica: incidencias totales, tasa y desglose. `rango`
+ * (últimos 90 días por defecto) acota tanto las incidencias como los viajes
+ * (para que la "tasa" compare el mismo periodo en numerador y denominador).
+ */
+export async function getMetricasIncidencias(rango = {}) {
+  const { desde, hasta } = resolveRango(rango);
   const [{ data: incidencias }, { data: viajes }, { data: choferes }, { data: vehiculos }] = await Promise.all([
-    supabase.from("incidencia").select("id, viaje_id, tipo"),
-    supabase.from("viaje").select("id, chofer_id, vehiculo_id"),
+    supabase.from("incidencia").select("id, viaje_id, tipo").gte("created_at", desde).lt("created_at", hasta),
+    supabase.from("viaje").select("id, chofer_id, vehiculo_id").gte("created_at", desde).lt("created_at", hasta),
     supabase.from("chofer").select("id, nombre"),
     supabase.from("vehiculo").select("id, matricula"),
   ]);
@@ -462,15 +482,19 @@ export async function getMetricasIncidencias() {
   };
 }
 
-/** Vista 3/4 de /analitica: rendimiento por chófer. */
-export async function getMetricasChoferes() {
+/**
+ * Vista 3/4 de /analitica: rendimiento por chófer. `rango` (últimos 90 días
+ * por defecto) acota viajes, valoraciones, incidencias y hitos al mismo periodo.
+ */
+export async function getMetricasChoferes(rango = {}) {
+  const { desde, hasta } = resolveRango(rango);
   const [{ data: choferes }, { data: viajes }, { data: valoraciones }, { data: incidencias }, { data: hitos }] =
     await Promise.all([
       supabase.from("chofer").select("id, nombre"),
-      supabase.from("viaje").select("id, chofer_id"),
-      supabase.from("valoracion").select("chofer_id, puntuacion"),
-      supabase.from("incidencia").select("viaje_id, tipo"),
-      supabase.from("hito").select("viaje_id, ventana_fin"),
+      supabase.from("viaje").select("id, chofer_id").gte("created_at", desde).lt("created_at", hasta),
+      supabase.from("valoracion").select("chofer_id, puntuacion").gte("created_at", desde).lt("created_at", hasta),
+      supabase.from("incidencia").select("viaje_id, tipo").gte("created_at", desde).lt("created_at", hasta),
+      supabase.from("hito").select("viaje_id, ventana_fin").gte("ventana_fin", desde).lt("ventana_fin", hasta),
     ]);
 
   const mapaViajeChofer = Object.fromEntries((viajes || []).map((v) => [v.id, v.chofer_id]));
@@ -528,12 +552,22 @@ export async function getMetricasChoferes() {
     .sort((a, b) => b.viajes - a.viajes);
 }
 
-/** Vista 4/4 de /analitica: estado de la flota. */
-export async function getMetricasFlota() {
-  const [{ data: vehiculos }, { data: viajesActivos }, { data: mantenimientos }] = await Promise.all([
+/**
+ * Vista 4/4 de /analitica: estado de la flota. A diferencia de las otras 3
+ * vistas, "vehículos activos"/"en uso"/"ITV pendientes" son estado ACTUAL
+ * (instantáneo), no una serie histórica — no tiene sentido acotarlos a un
+ * rango de fechas (una ITV pendiente sigue pendiente aunque su vencimiento
+ * caiga fuera del rango). Solo "averías recientes" es realmente histórico, así
+ * que el `rango` (últimos 90 días por defecto) se aplica SOLO ahí, en una
+ * query separada de la de ITV para no romper esa distinción.
+ */
+export async function getMetricasFlota(rango = {}) {
+  const { desde, hasta } = resolveRango(rango);
+  const [{ data: vehiculos }, { data: viajesActivos }, { data: itvData }, { data: averiaData }] = await Promise.all([
     supabase.from("vehiculo").select("id, matricula, activo"),
     supabase.from("viaje").select("vehiculo_id, remolque_id, estado").eq("estado", "en_curso"),
-    supabase.from("mantenimiento_vehiculo").select("id, vehiculo_id, tipo, estado, fecha"),
+    supabase.from("mantenimiento_vehiculo").select("id, vehiculo_id, tipo, estado, fecha").eq("tipo", "itv").eq("estado", "pendiente"),
+    supabase.from("mantenimiento_vehiculo").select("id, vehiculo_id, tipo, estado, fecha").eq("tipo", "averia").gte("fecha", desde.slice(0, 10)).lt("fecha", hasta.slice(0, 10)),
   ]);
 
   const vehiculosActivos = (vehiculos || []).filter((v) => v.activo);
@@ -549,13 +583,11 @@ export async function getMetricasFlota() {
 
   const mapaMatricula = Object.fromEntries((vehiculos || []).map((v) => [v.id, v.matricula]));
 
-  const itvPendientes = (mantenimientos || [])
-    .filter((m) => m.tipo === "itv" && m.estado === "pendiente")
+  const itvPendientes = (itvData || [])
     .map((m) => ({ ...m, matricula: mapaMatricula[m.vehiculo_id] || m.vehiculo_id }))
     .sort((a, b) => (a.fecha || "9999-99-99").localeCompare(b.fecha || "9999-99-99"));
 
-  const averiasRecientes = (mantenimientos || [])
-    .filter((m) => m.tipo === "averia")
+  const averiasRecientes = (averiaData || [])
     .map((m) => ({ ...m, matricula: mapaMatricula[m.vehiculo_id] || m.vehiculo_id }))
     .sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""))
     .slice(0, 5);
@@ -611,7 +643,9 @@ function haversineKm(a, b) {
  * @param {number} anio p.ej. 2026
  */
 export async function getInformeNomina(mes, anio) {
-  // Rango del mes [inicio, finExclusivo) en ISO, para filtrar en cliente.
+  // Rango del mes [inicio, finExclusivo) en ISO. Ítem 6.4: aplicado en la
+  // query (.gte/.lt) en vez de traer toda la tabla ejecucion_evento y filtrar
+  // en cliente.
   const inicio = new Date(Date.UTC(anio, mes - 1, 1));
   const finExcl = new Date(Date.UTC(anio, mes, 1));
   const inicioISO = inicio.toISOString();
@@ -621,15 +655,20 @@ export async function getInformeNomina(mes, anio) {
     { data: choferes },
     { data: viajes },
     { data: hitos },
-    { data: eventos },
+    { data: llegadasMesRaw },
     { data: empresas },
   ] = await Promise.all([
     supabase.from("chofer").select("id, nombre"),
     supabase.from("viaje").select("id, referencia, chofer_id, estado"),
     supabase.from("hito").select("id, viaje_id, orden, estado, lat, lon"),
-    supabase.from("ejecucion_evento").select("hito_id, viaje_id, chofer_id, tipo, ocurrido_en"),
+    supabase.from("ejecucion_evento")
+      .select("hito_id, viaje_id, chofer_id, tipo, ocurrido_en")
+      .eq("tipo", "llegada")
+      .gte("ocurrido_en", inicioISO)
+      .lt("ocurrido_en", finISO),
     supabase.from("empresa").select("id, base_lat, base_lon"),
   ]);
+  const llegadasMes = llegadasMesRaw || [];
 
   const base = (empresas || [])[0];
   const tieneBase = base && base.base_lat != null && base.base_lon != null;
@@ -637,15 +676,6 @@ export async function getInformeNomina(mes, anio) {
 
   const hitoById = Object.fromEntries((hitos || []).map((h) => [h.id, h]));
   const viajeById = Object.fromEntries((viajes || []).map((v) => [v.id, v]));
-
-  // Eventos de llegada dentro del mes.
-  const llegadasMes = (eventos || []).filter(
-    (e) =>
-      e.tipo === "llegada" &&
-      e.ocurrido_en &&
-      e.ocurrido_en >= inicioISO &&
-      e.ocurrido_en < finISO
-  );
 
   // Inicializa el acumulador por chófer.
   const porChofer = {};

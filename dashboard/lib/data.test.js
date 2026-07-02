@@ -11,6 +11,8 @@ function makeBuilder(table) {
     eq(field, value) { rows = rows.filter((r) => r[field] === value); return builder; },
     neq(field, value) { rows = rows.filter((r) => r[field] !== value); return builder; },
     in(field, values) { rows = rows.filter((r) => values.includes(r[field])); return builder; },
+    gte(field, value) { rows = rows.filter((r) => r[field] != null && r[field] >= value); return builder; },
+    lt(field, value) { rows = rows.filter((r) => r[field] != null && r[field] < value); return builder; },
     order() { return builder; },
     limit(n) { rows = rows.slice(0, n); return builder; },
     single() {
@@ -247,6 +249,12 @@ describe("getDocumentosPorCaducar", () => {
   });
 });
 
+// Fixtures con fechas fijas en el pasado (para no depender de "hoy"), usadas
+// junto a un rango explícito amplio que las cubra — ver ítem 6.4 (las
+// funciones getMetricas* ahora filtran por rango server-side, últimos 90 días
+// por defecto, así que fixtures de 2026-01 necesitan pasar su propio rango).
+const RANGO_AMPLIO = { desde: "2020-01-01T00:00:00Z", hasta: "2030-01-01T00:00:00Z" };
+
 describe("getMetricasPuntualidad", () => {
   it("devuelve null si no hay hitos con ventana", async () => {
     TABLES.hito = [{ id: "h1", viaje_id: "v1", ventana_fin: null }];
@@ -267,11 +275,22 @@ describe("getMetricasPuntualidad", () => {
     ];
     TABLES.viaje = [{ id: "v1", referencia: "VJ-1" }, { id: "v2", referencia: "VJ-2" }];
 
-    const r = await getMetricasPuntualidad();
+    const r = await getMetricasPuntualidad(RANGO_AMPLIO);
     expect(r.totalConVentana).toBe(3);
     expect(r.totalTarde).toBe(1);
     expect(r.pctPuntualidad).toBe(67); // (3-1)/3 redondeado
     expect(r.peoresRutas[0]).toEqual({ referencia: "VJ-1", incidencias: 1 });
+  });
+
+  it("acota por defecto a los últimos 90 días (server-side)", async () => {
+    const hace200dias = new Date(Date.now() - 200 * 86400000).toISOString();
+    TABLES.hito = [{ id: "h1", viaje_id: "v1", ventana_fin: hace200dias }];
+    TABLES.incidencia = [{ id: "i1", viaje_id: "v1", tipo: "fuera_de_ventana", created_at: hace200dias }];
+    TABLES.viaje = [{ id: "v1", referencia: "VJ-1" }];
+
+    const r = await getMetricasPuntualidad(); // sin rango explícito -> default 90 días
+    expect(r.totalConVentana).toBe(0);
+    expect(r.totalTarde).toBe(0);
   });
 });
 
@@ -284,18 +303,18 @@ describe("getMetricasIncidencias", () => {
 
   it("calcula total, tasa y desglose por tipo/chofer/vehiculo", async () => {
     TABLES.viaje = [
-      { id: "v1", chofer_id: "c1", vehiculo_id: "veh1" },
-      { id: "v2", chofer_id: "c1", vehiculo_id: "veh2" },
+      { id: "v1", chofer_id: "c1", vehiculo_id: "veh1", created_at: "2026-01-01T10:00:00Z" },
+      { id: "v2", chofer_id: "c1", vehiculo_id: "veh2", created_at: "2026-01-01T10:00:00Z" },
     ];
     TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
     TABLES.vehiculo = [{ id: "veh1", matricula: "1111AAA" }, { id: "veh2", matricula: "2222BBB" }];
     TABLES.incidencia = [
-      { id: "i1", viaje_id: "v1", tipo: "averia" },
-      { id: "i2", viaje_id: "v1", tipo: "averia" },
-      { id: "i3", viaje_id: "v2", tipo: "otro" },
+      { id: "i1", viaje_id: "v1", tipo: "averia", created_at: "2026-01-01T10:00:00Z" },
+      { id: "i2", viaje_id: "v1", tipo: "averia", created_at: "2026-01-01T10:00:00Z" },
+      { id: "i3", viaje_id: "v2", tipo: "otro", created_at: "2026-01-01T10:00:00Z" },
     ];
 
-    const r = await getMetricasIncidencias();
+    const r = await getMetricasIncidencias(RANGO_AMPLIO);
     expect(r.total).toBe(3);
     expect(r.tasa).toBe(1.5);
     expect(r.porTipo[0]).toEqual({ tipo: "averia", count: 2 });
@@ -306,12 +325,18 @@ describe("getMetricasIncidencias", () => {
 describe("getMetricasChoferes", () => {
   it("devuelve una fila por chófer con viajes, valoración e incidencias", async () => {
     TABLES.chofer = [{ id: "c1", nombre: "Mario" }, { id: "c2", nombre: "Ana" }];
-    TABLES.viaje = [{ id: "v1", chofer_id: "c1" }, { id: "v2", chofer_id: "c1" }];
-    TABLES.valoracion = [{ chofer_id: "c1", puntuacion: 5 }, { chofer_id: "c1", puntuacion: 3 }];
-    TABLES.incidencia = [{ viaje_id: "v1", tipo: "otro" }];
+    TABLES.viaje = [
+      { id: "v1", chofer_id: "c1", created_at: "2026-01-01T10:00:00Z" },
+      { id: "v2", chofer_id: "c1", created_at: "2026-01-01T10:00:00Z" },
+    ];
+    TABLES.valoracion = [
+      { chofer_id: "c1", puntuacion: 5, created_at: "2026-01-01T10:00:00Z" },
+      { chofer_id: "c1", puntuacion: 3, created_at: "2026-01-01T10:00:00Z" },
+    ];
+    TABLES.incidencia = [{ viaje_id: "v1", tipo: "otro", created_at: "2026-01-01T10:00:00Z" }];
     TABLES.hito = [{ viaje_id: "v1", ventana_fin: "2026-01-01T10:00:00Z" }];
 
-    const r = await getMetricasChoferes();
+    const r = await getMetricasChoferes(RANGO_AMPLIO);
     const mario = r.find((c) => c.nombre === "Mario");
     expect(mario.viajes).toBe(2);
     expect(mario.valoracionMedia).toBe(4);
@@ -337,13 +362,28 @@ describe("getMetricasFlota", () => {
       { id: "m2", vehiculo_id: "veh1", tipo: "averia", estado: "completado", fecha: "2026-06-01" },
     ];
 
-    const r = await getMetricasFlota();
+    const r = await getMetricasFlota(RANGO_AMPLIO);
     expect(r.totalVehiculos).toBe(3);
     expect(r.vehiculosActivos).toBe(2);
     expect(r.enUso).toBe(1);
     expect(r.pctUtilizacion).toBe(50);
     expect(r.itvPendientes[0].matricula).toBe("2222BBB");
     expect(r.averiasRecientes[0].matricula).toBe("1111AAA");
+  });
+
+  it("ITV pendientes ignora el rango (estado actual); averías recientes SI lo respeta (histórico)", async () => {
+    TABLES.vehiculo = [{ id: "veh1", matricula: "1111AAA", activo: true }];
+    TABLES.viaje = [];
+    TABLES.mantenimiento_vehiculo = [
+      // ITV con vencimiento MUY lejos en el futuro, fuera de cualquier rango de "últimos N días".
+      { id: "m1", vehiculo_id: "veh1", tipo: "itv", estado: "pendiente", fecha: "2099-01-01" },
+      // Avería muy antigua, fuera del rango por defecto de 90 días.
+      { id: "m2", vehiculo_id: "veh1", tipo: "averia", estado: "completado", fecha: "2020-01-01" },
+    ];
+
+    const r = await getMetricasFlota(); // rango por defecto (90 días)
+    expect(r.itvPendientes.length).toBe(1); // no se filtra por rango
+    expect(r.averiasRecientes.length).toBe(0); // sí se filtra por rango, y 2020 queda fuera
   });
 });
 
