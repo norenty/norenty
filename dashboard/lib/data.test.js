@@ -29,6 +29,14 @@ function makeBuilder(table) {
         then(resolve) { resolve({ data: [row], error: null }); },
       };
     },
+    delete() {
+      return {
+        eq(field, value) {
+          TABLES[table] = (TABLES[table] || []).filter((r) => r[field] !== value);
+          return Promise.resolve({ data: null, error: null });
+        },
+      };
+    },
     then(resolve) { resolve({ data: rows, error: null }); },
   };
   return builder;
@@ -70,6 +78,9 @@ const {
   VELOCIDAD_PLANIFICACION_KMH,
   getParkings,
   createParkingPropio,
+  getInvitaciones,
+  createInvitacion,
+  deleteInvitacion,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -856,5 +867,35 @@ describe("parkings (5.4)", () => {
     await expect(
       createParkingPropio({ nombre: "X", tipo: "parking", lat: 1, lon: 1 })
     ).rejects.toThrow(/No hay sesión activa/);
+  });
+});
+
+describe("invitaciones (6.9)", () => {
+  it("getInvitaciones devuelve las invitaciones (RLS filtra por empresa en real)", async () => {
+    TABLES.invitacion = [
+      { id: "i1", email: "a@x.com", codigo: "c1", usada_at: null, created_at: "2026-01-01T00:00:00Z" },
+      { id: "i2", email: "b@x.com", codigo: "c2", usada_at: "2026-01-02T00:00:00Z", created_at: "2026-01-02T00:00:00Z" },
+    ];
+    const r = await getInvitaciones();
+    expect(r.length).toBe(2);
+  });
+
+  it("createInvitacion inserta con la empresa del gestor logueado", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "emp1" }];
+    const r = await createInvitacion("  nuevo@empresa.com  ");
+    expect(r.empresa_id).toBe("emp1");
+    expect(r.email).toBe("nuevo@empresa.com");
+  });
+
+  it("createInvitacion lanza si no hay sesión", async () => {
+    SESSION = null;
+    await expect(createInvitacion("x@y.com")).rejects.toThrow(/No hay sesión activa/);
+  });
+
+  it("deleteInvitacion borra la fila", async () => {
+    TABLES.invitacion = [{ id: "i1", email: "a@x.com" }];
+    await deleteInvitacion("i1");
+    expect(TABLES.invitacion.find((i) => i.id === "i1")).toBeUndefined();
   });
 });

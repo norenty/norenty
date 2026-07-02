@@ -322,6 +322,36 @@ export async function getCurrentEmpresaId() {
   return gestor.empresa_id;
 }
 
+// ==========================================================================
+// Invitaciones multi-gestor (ítem 6.9)
+// ==========================================================================
+
+/** Invitaciones pendientes/usadas de la empresa del gestor logueado. */
+export async function getInvitaciones() {
+  const { data } = await supabase
+    .from("invitacion")
+    .select("id, email, codigo, usada_at, created_at")
+    .order("created_at", { ascending: false });
+  return data || [];
+}
+
+/** Crea una invitación para `email` en la empresa del gestor logueado. */
+export async function createInvitacion(email) {
+  const empresaId = await getCurrentEmpresaId();
+  const { data, error } = await supabase
+    .from("invitacion")
+    .insert({ empresa_id: empresaId, email: email.trim() })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Revoca (borra) una invitación pendiente. */
+export async function deleteInvitacion(id) {
+  await supabase.from("invitacion").delete().eq("id", id);
+}
+
 /**
  * Documentos con fecha de caducidad ya pasada o dentro de los próximos 30
  * días, ordenados por urgencia (los más próximos/caducados primero). Junta

@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Route } from "lucide-react";
 import { signIn, signUp, resetPassword } from "../../lib/auth";
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const invitacionCodigo = searchParams.get("invitacion");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [empresaNombre, setEmpresaNombre] = useState("");
@@ -12,6 +15,12 @@ export default function LoginPage() {
   const [error, setError] = useState(null);
   const [mensaje, setMensaje] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // Un enlace de invitación (?invitacion=codigo) va directo al formulario de
+  // registro: el que lo recibe casi siempre no tiene cuenta todavía.
+  useEffect(() => {
+    if (invitacionCodigo) setModo("registro");
+  }, [invitacionCodigo]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -22,8 +31,12 @@ export default function LoginPage() {
       if (modo === "login") {
         await signIn(email, password);
       } else if (modo === "registro") {
-        await signUp(email, password, empresaNombre);
-        setMensaje("Cuenta y empresa creadas. Revisa tu email para confirmarla.");
+        await signUp(email, password, empresaNombre, invitacionCodigo);
+        setMensaje(
+          invitacionCodigo
+            ? "Cuenta creada y unida a tu equipo. Revisa tu email para confirmarla."
+            : "Cuenta y empresa creadas. Revisa tu email para confirmarla."
+        );
       } else if (modo === "reset") {
         await resetPassword(email);
         setMensaje("Email de recuperación enviado. Revisa tu bandeja.");
@@ -76,7 +89,13 @@ export default function LoginPage() {
             />
           </div>
 
-          {modo === "registro" && (
+          {modo === "registro" && invitacionCodigo && (
+            <div className="text-xs text-ink-secondary bg-surface-alt rounded-md p-2">
+              Te han invitado a unirte a un equipo existente en Norenty.
+            </div>
+          )}
+
+          {modo === "registro" && !invitacionCodigo && (
             <div>
               <label className="block text-xs text-ink-secondary mb-1">Nombre de tu empresa</label>
               <input

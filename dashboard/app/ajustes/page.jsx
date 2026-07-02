@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, User, Building2, Bell, Shield, Send, Copy, Check, MapPin, Euro, Gauge } from "lucide-react";
+import { Save, User, Building2, Bell, Shield, Send, Copy, Check, MapPin, Euro, Gauge, Users, X } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getSession, signOut } from "../../lib/auth";
-import { VELOCIDAD_PLANIFICACION_KMH } from "../../lib/data";
+import { VELOCIDAD_PLANIFICACION_KMH, getInvitaciones, createInvitacion, deleteInvitacion } from "../../lib/data";
 
 const BOT = process.env.NEXT_PUBLIC_BOT_USERNAME;
 
@@ -22,6 +22,10 @@ export default function AjustesPage() {
   const [mensaje, setMensaje] = useState(null);
   const [newPassword, setNewPassword] = useState("");
   const [copiado, setCopiado] = useState(false);
+  const [invitaciones, setInvitaciones] = useState([]);
+  const [invitarEmail, setInvitarEmail] = useState("");
+  const [invitando, setInvitando] = useState(false);
+  const [codigoCopiadoId, setCodigoCopiadoId] = useState(null);
 
   useEffect(() => {
     async function init() {
@@ -54,6 +58,7 @@ export default function AjustesPage() {
           setBaseLon(emp?.base_lon != null ? String(emp.base_lon) : "");
           setCosteKm(emp?.coste_km != null ? String(emp.coste_km) : "");
           setVelocidadPlanificacion(emp?.velocidad_planificacion_kmh != null ? String(emp.velocidad_planificacion_kmh) : "");
+          setInvitaciones(await getInvitaciones());
         }
       }
     }
@@ -117,6 +122,33 @@ export default function AjustesPage() {
     await supabase.from("empresa").update({ velocidad_planificacion_kmh: velocidad }).eq("id", empresa.id);
     flash("Velocidad de planificación guardada");
     setGuardando(false);
+  }
+
+  async function enviarInvitacion(e) {
+    e.preventDefault();
+    if (!invitarEmail.trim()) return;
+    setInvitando(true);
+    try {
+      await createInvitacion(invitarEmail);
+      setInvitarEmail("");
+      setInvitaciones(await getInvitaciones());
+      flash("Invitación creada");
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
+    setInvitando(false);
+  }
+
+  async function revocarInvitacion(id) {
+    await deleteInvitacion(id);
+    setInvitaciones(await getInvitaciones());
+  }
+
+  function copiarEnlaceInvitacion(inv) {
+    const url = `${window.location.origin}/?invitacion=${inv.codigo}`;
+    navigator.clipboard.writeText(url);
+    setCodigoCopiadoId(inv.id);
+    setTimeout(() => setCodigoCopiadoId(null), 2000);
   }
 
   async function cambiarPassword() {
@@ -261,6 +293,71 @@ export default function AjustesPage() {
         {empresa && (
           <div className="mt-3 text-xs text-ink-muted">
             ID empresa: <span className="font-mono">{empresa.id.slice(0, 12)}…</span>
+          </div>
+        )}
+      </section>
+
+      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Users size={18} className="text-brand" />
+          <h2 className="text-sm font-medium text-ink">Equipo</h2>
+        </div>
+        <p className="text-xs text-ink-secondary mb-4">
+          Invita a otros gestores de tu empresa. El enlace une al gestor nuevo a
+          TU empresa (no crea una nueva) y solo se puede usar una vez.
+        </p>
+
+        <form onSubmit={enviarInvitacion} className="flex items-end gap-2 mb-4">
+          <div className="flex-1">
+            <label className="block text-xs text-ink-secondary mb-1">Email a invitar</label>
+            <input
+              type="email"
+              value={invitarEmail}
+              onChange={(e) => setInvitarEmail(e.target.value)}
+              placeholder="compañero@empresa.com"
+              maxLength={254}
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={invitando}
+            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
+          >
+            <Send size={16} /> Invitar
+          </button>
+        </form>
+
+        {invitaciones.length === 0 ? (
+          <p className="text-xs text-ink-muted">Sin invitaciones todavía.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {invitaciones.map((inv) => (
+              <div key={inv.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-md bg-surface-alt">
+                <span className="flex-1 text-ink">{inv.email}</span>
+                {inv.usada_at ? (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-estado-ok">Usada</span>
+                ) : (
+                  <>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700">Pendiente</span>
+                    <button
+                      onClick={() => copiarEnlaceInvitacion(inv)}
+                      className="p-1.5 text-ink-secondary hover:text-ink"
+                      title="Copiar enlace de invitación"
+                    >
+                      {codigoCopiadoId === inv.id ? <Check size={14} /> : <Copy size={14} />}
+                    </button>
+                    <button
+                      onClick={() => revocarInvitacion(inv.id)}
+                      className="p-1.5 text-ink-muted hover:text-estado-incidencia"
+                      title="Revocar invitación"
+                    >
+                      <X size={14} />
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </section>

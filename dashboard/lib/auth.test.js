@@ -14,13 +14,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const insertEmpresaSpy = vi.fn();
 const insertGestorSpy = vi.fn();
+const rpcSpy = vi.fn();
 let existingGestor = null;
 let signUpUser = { id: "user-1" };
+let rpcResultado = { data: null, error: null };
 
 vi.mock("./supabase", () => ({
   supabase: {
     auth: {
       signUp: vi.fn(async () => ({ data: { user: signUpUser }, error: null })),
+    },
+    rpc: (fn, args) => {
+      rpcSpy(fn, args);
+      return Promise.resolve(rpcResultado);
     },
     from: (table) => {
       if (table === "gestor") {
@@ -65,8 +71,10 @@ const { signUp } = await import("./auth.js");
 beforeEach(() => {
   insertEmpresaSpy.mockClear();
   insertGestorSpy.mockClear();
+  rpcSpy.mockClear();
   existingGestor = null;
   signUpUser = { id: "user-1" };
+  rpcResultado = { data: null, error: null };
 });
 
 describe("signUp (regresión: alta de empresa nueva sin pedir RETURNING)", () => {
@@ -101,5 +109,36 @@ describe("signUp (regresión: alta de empresa nueva sin pedir RETURNING)", () =>
   it("lanza si no se indica nombre de empresa", async () => {
     await expect(signUp("a@b.com", "password123", "")).rejects.toThrow(/nombre de tu empresa/);
     expect(insertEmpresaSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("signUp con invitacionCodigo (ítem 6.9 — unirse a empresa existente)", () => {
+  it("NO exige nombre de empresa si hay código de invitación", async () => {
+    rpcResultado = { data: "empresa-invitada-1", error: null };
+    await expect(signUp("nuevo@empresa.com", "password123", "", "codigo-123")).resolves.toBeDefined();
+  });
+
+  it("canjea la invitación vía RPC y NO crea una empresa nueva", async () => {
+    rpcResultado = { data: "empresa-invitada-1", error: null };
+    await signUp("nuevo@empresa.com", "password123", "", "codigo-123");
+
+    expect(rpcSpy).toHaveBeenCalledWith("usar_invitacion", { p_codigo: "codigo-123" });
+    expect(insertEmpresaSpy).not.toHaveBeenCalled();
+  });
+
+  it("vincula el gestor a la empresa devuelta por la invitación", async () => {
+    rpcResultado = { data: "empresa-invitada-1", error: null };
+    await signUp("nuevo@empresa.com", "password123", "", "codigo-123");
+
+    expect(insertGestorSpy).toHaveBeenCalledTimes(1);
+    expect(insertGestorSpy.mock.calls[0][0].empresa_id).toBe("empresa-invitada-1");
+  });
+
+  it("lanza un error claro si la invitación no es válida o ya se usó (RPC devuelve null)", async () => {
+    rpcResultado = { data: null, error: null };
+    await expect(
+      signUp("nuevo@empresa.com", "password123", "", "codigo-invalido")
+    ).rejects.toThrow(/no es válida o ya ha sido usada/);
+    expect(insertGestorSpy).not.toHaveBeenCalled();
   });
 });

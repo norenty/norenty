@@ -10,12 +10,13 @@ export async function signIn(email, password) {
 }
 
 /**
- * SaaS multi-cliente: cada registro nuevo crea su PROPIA empresa.
- * No hay flujo de invitación todavía (Fase 2), así que de momento
- * "registrarse" siempre significa "dar de alta una empresa nueva".
+ * SaaS multi-cliente: un registro normal crea su PROPIA empresa. Si viene con
+ * un `invitacionCodigo` (enlace `?invitacion=<codigo>`, ítem 6.9), en vez de
+ * crear una empresa nueva se une a la del que le invitó — `empresaNombre` no
+ * hace falta en ese caso.
  */
-export async function signUp(email, password, empresaNombre) {
-  if (!empresaNombre?.trim()) {
+export async function signUp(email, password, empresaNombre, invitacionCodigo) {
+  if (!invitacionCodigo && !empresaNombre?.trim()) {
     throw new Error("Indica el nombre de tu empresa");
   }
 
@@ -34,20 +35,38 @@ export async function signUp(email, password, empresaNombre) {
       .single();
 
     if (!existing) {
-      // Bootstrap: en este momento el usuario está autenticado pero SIN fila en
-      // `gestor` todavía, así que `current_empresa_id()` devuelve NULL y la
-      // policy SELECT de `empresa` (`id = current_empresa_id()`) no puede ver
-      // ninguna fila — ni siquiera la que él mismo acaba de crear. Un
-      // `.insert(...).select().single()` pide RETURNING, que Postgres evalúa
-      // contra esa misma policy SELECT, así que fallaría con "new row violates
-      // row-level security policy" aunque el INSERT en sí esté permitido.
-      // Solución: generar el id en el cliente y NO pedir RETURNING — así no
-      // hace falta ver la fila todavía, solo escribirla.
-      const empresaId = crypto.randomUUID();
-      const { error: empresaError } = await supabase
-        .from("empresa")
-        .insert({ id: empresaId, nombre: empresaNombre.trim() });
-      if (empresaError) throw empresaError;
+      let empresaId;
+
+      if (invitacionCodigo) {
+        // Canjea la invitación vía RPC (SECURITY DEFINER — ver migración 0018):
+        // el usuario recién registrado aún no tiene fila en `gestor`, así que
+        // no podría LEER la tabla `invitacion` por RLS normal; el canje pasa
+        // por una función que solo necesita conocer el código exacto.
+        const { data: empresaInvitada, error: rpcError } = await supabase.rpc(
+          "usar_invitacion",
+          { p_codigo: invitacionCodigo }
+        );
+        if (rpcError) throw rpcError;
+        if (!empresaInvitada) {
+          throw new Error("Esta invitación no es válida o ya ha sido usada.");
+        }
+        empresaId = empresaInvitada;
+      } else {
+        // Bootstrap: en este momento el usuario está autenticado pero SIN fila
+        // en `gestor` todavía, así que `current_empresa_id()` devuelve NULL y
+        // la policy SELECT de `empresa` (`id = current_empresa_id()`) no puede
+        // ver ninguna fila — ni siquiera la que él mismo acaba de crear. Un
+        // `.insert(...).select().single()` pide RETURNING, que Postgres evalúa
+        // contra esa misma policy SELECT, así que fallaría con "new row
+        // violates row-level security policy" aunque el INSERT en sí esté
+        // permitido. Solución: generar el id en el cliente y NO pedir
+        // RETURNING — así no hace falta ver la fila todavía, solo escribirla.
+        empresaId = crypto.randomUUID();
+        const { error: empresaError } = await supabase
+          .from("empresa")
+          .insert({ id: empresaId, nombre: empresaNombre.trim() });
+        if (empresaError) throw empresaError;
+      }
 
       const { error: gestorError } = await supabase.from("gestor").insert({
         nombre: email.split("@")[0],
