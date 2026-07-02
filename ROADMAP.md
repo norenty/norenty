@@ -289,10 +289,14 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
   verdad (pendiente, requiere acceso a esa consola que aquí no se pudo obtener).
 
 ### Semana 2 (7–13 jul) — demo/piloto enseñable
-- [ ] `[LOOP]` **6.7 Bot: /parking** — el chófer pide parking cercano; el bot toma su última
-  `ubicacion` (o la del último hito completado) y responde los 3 parkings más cercanos (Haversine
-  sobre tabla `parking`) con nombre/tipo/distancia y botón "Cómo llegar" (Maps). i18n 4 idiomas.
-  Tests con FakeSupabase.
+- [x] `[LOOP]` **6.7 Bot: /parking** — (2026-07-02) `obtener_ubicacion_chofer()`: tabla `ubicacion`
+  (GPS en vivo) primero, si no hay nada cae al último hito COMPLETADO del viaje activo. `/parking`
+  junta parkings propios de la empresa + dataset abierto (mismo criterio que `getParkings()` del
+  dashboard, replicado a mano porque el bot usa service role y salta RLS), calcula distancia con
+  `haversine_km()` (espejo en Python de la función JS), devuelve los 3 más cercanos con nombre real
+  (propios) o tipo localizado (dataset abierto) + botón "Cómo llegar" a Maps por cada uno. i18n
+  completo es/en/ro/fr. `tests/fakes.py` ampliado con `.order()`/`.limit()` reales (antes `.order()`
+  era no-op) para poder testear "más reciente" de verdad. 10 tests nuevos (53 pytest total). CI verde.
 - [ ] `[LOOP]` **6.8 Bot: /eta** — portar `calcularEtaConParadas` a Python (función pura espejo,
   mismos casos de test que en JS) y responder al chófer el ETA-561 de su viaje activo usando km
   Haversine×1.3 entre hitos pendientes (el bot no depende de OSRM). i18n.
