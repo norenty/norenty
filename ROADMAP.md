@@ -307,10 +307,22 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
   Respeta `empresa.velocidad_planificacion_kmh` (default 75, mismo que el dashboard). i18n completo
   es/en/ro/fr con pluralización real de "parada(s)"/"descanso(s)". 12 tests nuevos (65 pytest
   total). CI verde.
-- [ ] `[LOOP]` **6.9 Invitaciones multi-gestor** — migración: tabla `invitacion(id, empresa_id,
-  email, codigo uuid, usada_at)` con RLS por empresa; en Ajustes, sección "Equipo": invitar por
-  email genera enlace con código; el signup con `?invitacion=codigo` une el gestor nuevo a ESA
-  empresa en vez de crear una. Tests de la lógica de data.js.
+- [x] `[LOOP]` **6.9 Invitaciones multi-gestor** — (2026-07-02) Migración 0018: tabla
+  `invitacion(id, empresa_id, email, codigo uuid único, usada_at)` con RLS empresa-scoped
+  (SELECT/INSERT/DELETE) para que un gestor YA vinculado gestione SUS invitaciones. **Mismo
+  problema de arranque que en 6.2** (un usuario recién registrado sin fila en `gestor` no puede
+  leer la tabla por RLS): resuelto con una función `usar_invitacion(codigo)` SECURITY DEFINER que
+  canjea atómicamente (marca `usada_at` + devuelve `empresa_id`, o `NULL` si inválida/ya usada) —
+  sin exponer listado, solo funciona conociendo el código exacto (uuid impredecible). `signUp()`
+  acepta un `invitacionCodigo` opcional: si viene, canjea vía RPC y une el gestor a esa empresa en
+  vez de crear una nueva (ya no exige nombre de empresa). Sección "Equipo" en Ajustes: invitar por
+  email, copiar enlace (`?invitacion=codigo`), revocar, ver estado pendiente/usada. `LoginPage`
+  lee `?invitacion=` de la URL y ajusta el formulario. **Verificado en producción real** (no solo
+  con mocks, aprendida la lección de 6.2): usuario auténtico nuevo sin fila `gestor`, canjea la
+  invitación vía RPC real → recibe el `empresa_id` correcto; segundo intento con el mismo código →
+  `NULL` (no se puede reusar); código inventado → `NULL`; inserción del gestor con ese `empresa_id`
+  → éxito. Datos de prueba limpiados después. 8 tests nuevos en `data.test.js` + 4 tests de
+  regresión en `auth.test.js` (85 vitest total). CI verde.
 - [ ] `[LOOP]` **6.10 Pase de accesibilidad/móvil de páginas nuevas** — documentos, analítica,
   nómina, mapa (form parking), viabilidad/ETA en viaje: labels con htmlFor, focus visible, orden de
   tabulación, contraste de badges, overflow en móvil 360px. Arreglos concretos, sin librerías.
