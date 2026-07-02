@@ -297,9 +297,16 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
   (propios) o tipo localizado (dataset abierto) + botón "Cómo llegar" a Maps por cada uno. i18n
   completo es/en/ro/fr. `tests/fakes.py` ampliado con `.order()`/`.limit()` reales (antes `.order()`
   era no-op) para poder testear "más reciente" de verdad. 10 tests nuevos (53 pytest total). CI verde.
-- [ ] `[LOOP]` **6.8 Bot: /eta** — portar `calcularEtaConParadas` a Python (función pura espejo,
-  mismos casos de test que en JS) y responder al chófer el ETA-561 de su viaje activo usando km
-  Haversine×1.3 entre hitos pendientes (el bot no depende de OSRM). i18n.
+- [x] `[LOOP]` **6.8 Bot: /eta** — (2026-07-02) `calcular_eta_con_paradas()` en `bot.py`, espejo
+  exacto de `calcularEtaConParadas()` (JS, 5.3), mismos 6 casos de test (0h, 3h, 5h, 9h, 10h, 18h)
+  y mismos resultados. **Decisión de alcance distinta a la del dashboard, documentada**: mientras
+  el dashboard calcula la ruta PLANIFICADA completa (todos los hitos, útil antes/durante el viaje
+  visto desde fuera), `/eta` calcula lo que queda DESDE AHORA — solo hitos no completados
+  (pendiente/en_curso), más útil para un chófer preguntando a mitad de trayecto. El bot no depende
+  de OSRM, así que usa Haversine×`FACTOR_SINUOSIDAD_FALLBACK` (1.3) directamente, no como fallback.
+  Respeta `empresa.velocidad_planificacion_kmh` (default 75, mismo que el dashboard). i18n completo
+  es/en/ro/fr con pluralización real de "parada(s)"/"descanso(s)". 12 tests nuevos (65 pytest
+  total). CI verde.
 - [ ] `[LOOP]` **6.9 Invitaciones multi-gestor** — migración: tabla `invitacion(id, empresa_id,
   email, codigo uuid, usada_at)` con RLS por empresa; en Ajustes, sección "Equipo": invitar por
   email genera enlace con código; el signup con `?invitacion=codigo` une el gestor nuevo a ESA
