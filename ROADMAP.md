@@ -244,9 +244,20 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
   nivel global: `layout.jsx`/Sidebar/Topbar ocultos al imprimir, `main` sin scroll/padding
   forzados; controles de mes/año y botones ocultos, tabla sin bordes redondeados en la versión
   impresa. Sin librería nueva (usa `window.print()`).
-- [ ] `[LOOP]` **6.4 Rango de fechas server-side en agregaciones** — `getInformeNomina` ya filtra
-  por mes en cliente: mover el filtro de eventos a `.gte/.lt` en la query; `getMetricas*`: añadir
-  parámetro opcional de rango (por defecto últimos 90 días) aplicado en servidor. Tests actualizados.
+- [x] `[LOOP]` **6.4 Rango de fechas server-side en agregaciones** — (2026-07-02) `getInformeNomina`:
+  el filtro de `ejecucion_evento` por mes ahora se aplica en la query (`.eq("tipo","llegada").gte/.lt`)
+  en vez de traer la tabla entera y filtrar en cliente. `getMetricasPuntualidad/Incidencias/Choferes`
+  aceptan `{ desde, hasta }` opcional (default últimos 90 días vía `resolveRango()` compartido),
+  aplicado en servidor sobre las columnas con fecha real (`created_at`/`ventana_fin`).
+  `getMetricasFlota` es un caso aparte y se documentó como tal: "vehículos activos"/"en uso"/"ITV
+  pendientes" son estado ACTUAL (no tiene sentido acotarlos a un rango — una ITV pendiente sigue
+  pendiente aunque venza fuera del rango), así que el rango se aplica SOLO a "averías recientes",
+  en una query de `mantenimiento_vehiculo` separada de la de ITV. **Cambio de comportamiento real
+  para el usuario** (antes `/analitica` mostraba histórico completo, ahora últimos 90 días por
+  defecto): se añadió un aviso visible en la cabecera de `/analitica` para que no sea un cambio
+  silencioso. 2 tests nuevos + 3 tests existentes actualizados (fixtures con fechas fijas de 2026-01
+  necesitan un rango explícito amplio, ya no basta con no pasar argumentos). 77 vitest, 43 pytest.
+  CI verde.
 - [ ] `[LOOP]` **6.5 Índices según advisor de performance** — pasar `get_advisors(performance)` vía
   MCP, crear los índices FK que falten (migración 0017 + checksum registrado). Documentar en PROGRESS
   lo que diga el advisor aunque no haya acción.
