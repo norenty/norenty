@@ -410,6 +410,201 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
 
 ---
 
+# NORENTY OS — El gestor de tráfico autónomo (visión de producto, 2026-07-02)
+
+**North Star: camiones por gestor.** Hoy un gestor lleva ~30 camiones. El gestor real entrevistado
+dijo que con "automatizar lo básico" llevaría 60. El producto ideal lleva ese número a **120**: no
+un SaaS que el gestor usa, sino un sistema que HACE el trabajo del gestor y deja a la persona solo
+las decisiones excepcionales. Para el chófer, la experiencia es "Uber": recibe la ruta, carga y
+conduce — todo lo demás (papeles, tiempos, incidencias, cobros) lo lleva el sistema.
+
+**Métricas que definen el éxito** (instrumentar desde el día 1 del piloto):
+- Camiones gestionados por persona (North Star)
+- % de viajes completados sin NINGUNA intervención humana del gestor
+- Tiempo medio de resolución de incidencia (del reporte del chófer a la resolución)
+- Margen medio real por ruta (no estimado — real, con repostajes y multas imputados)
+- Tiempo de respuesta a una petición de presupuesto (objetivo: < 60 segundos)
+
+## Revisión de lo construido (qué tenemos vs. qué falta, por pilar)
+
+**1. CEREBRO — viabilidad y coste de ruta.** Tenemos: coste €/km por capas (empresa→vehículo),
+margen con semáforo, ETA cumple-561, km por carretera (OSRM + fallback Haversine). Falta: desglose
+real de coste (combustible por consumo del camión, peajes, dietas/noches), presupuestador
+instantáneo, y el P&L REAL (lo gastado de verdad, no lo estimado).
+
+**2. DISPATCH — asignación.** Tenemos: asignación manual con validaciones (anti doble asignación,
+vehículo inactivo). Falta TODO lo inteligente: sugerencia de chófer con score explicado, oferta
+push al chófer con Aceptar/Rechazar, y el camino progresivo hacia auto-dispatch.
+
+**3. OJOS — ejecución y seguimiento.** Tenemos: hitos con botones, POD por foto, mapa con última
+ubicación, eventos de ejecución. Falta: captura de live location en el bot (la tabla `ubicacion`
+existe pero el bot no tiene handler de location), geo-detección de llegada (que el chófer no tenga
+ni que pulsar un botón), plan-vs-real, alerta por desviación.
+
+**4. VOZ — comunicación multilingüe y resolución de incidencias.** Tenemos: bot en 4 idiomas
+completos (+4 con fallback), /incidencia, alertas al gestor. Falta: voz→texto (Whisper), traducción
+bidireccional gestor↔chófer, y el salto grande: TRIAJE AUTOMÁTICO de incidencias con playbooks (el
+sistema resuelve las comunes; solo escala las raras). La llamada telefónica con agente es la v2.
+
+**5. ESCUDO — cumplimiento legal.** Tenemos: ETA-561 conservador, registro documental con
+caducidades, parkings (dataset ES + propios). Falta: estado 561 REAL por chófer (horas acumuladas
+semana/bisemana desde los eventos), tacógrafo (descarga remota, v2), registro de multas.
+
+**6. CAJA — cierre económico.** Tenemos: informe de nómina (noches fuera + km), precio y margen
+estimado. Falta: repostajes y multas imputadas al viaje, P&L real-vs-estimado, exports listos para
+gestoría/nómina, integración con tarjetas de combustible (v2).
+
+**7. PLATAFORMA Y UX.** Tenemos: multi-tenant con RLS sólido, invitaciones de equipo, demo con
+datos realistas, tests (68 pytest + 85 vitest + E2E). Falta: el dashboard como CENTRO DE MANDO (hoy
+es una colección de páginas; debe abrir con "qué necesita mi atención AHORA"), wizard de creación
+guiado, explicaciones ("por qué este chófer"), onboarding, y el portal de cliente (tracking público
+por enlace — lo que convierte a Norenty en algo que los CLIENTES de la flota también ven).
+
+## Principios de diseño (aplican a todo lo de abajo)
+
+1. **Automatiza el 80%, explica el 100%.** Cada sugerencia del sistema lleva su "por qué" visible
+   (score desglosado). La confianza del gestor se gana con transparencia, no con magia.
+2. **Human-in-the-loop progresivo.** Toda automatización nace como sugerencia → pasa a "aprobar con
+   1 clic" → termina en automática con guardrails. Nunca se salta etapas.
+3. **El chófer solo carga y conduce.** Cada interacción que le pedimos al chófer es un fallo de
+   diseño a eliminar: la llegada se detecta por GPS, no por botón; el idioma es el suyo, siempre.
+4. **Datos estimados y reales, siempre separados y siempre etiquetados.** Ya lo hacemos (~, avisos
+   v1) — es política de producto, no detalle.
+5. **Dashboard = decisiones, no datos.** Cada pantalla responde "¿qué hago?" antes que "¿qué hay?".
+
+---
+
+## Fase 7A — Norenty OS, cola ejecutable (ABIERTA 2026-07-02, sin coste por uso, PRIORIDAD del loop)
+
+Protocolo del loop: **esta cola va ANTES que los ítems restantes de Fase 6** (6.12, 6.13, 6.16,
+6.17, 6.18, 6.19, 6.21, 6.22, que pasan a cola secundaria). Los ítems 6.14, 6.15 y 6.20 quedan
+SUBSUMIDOS por 7A.12, 7A.1 y 7A.10 respectivamente (no hacerlos por separado). Mismo protocolo:
+EN ORDEN, uno por iteración, `ci.ps1` verde, commit, `[x]` + línea en PROGRESS.md.
+
+- [ ] `[LOOP]` **7A.1 Estado 561 por chófer** (subsume 6.15) — Función `getEstado561(choferId)` en
+  `lib/data.js`: horas de conducción estimadas de los últimos 7 y 14 días (km Haversine×1.3 de sus
+  viajes con eventos de llegada en ese periodo / velocidad de planificación — misma aproximación
+  honesta que nómina, etiquetada como estimación), contra límites 56h/90h. Vista: barra de
+  progreso + horas restantes en `/choferes/[id]` y chip de aviso (no bloqueo) al asignar chófer en
+  `/viajes/nuevo` y en el cambio de chófer del detalle si la suma con el viaje nuevo supera límites.
+  Tests de la función con fixtures de eventos.
+- [ ] `[LOOP]` **7A.2 Motor de asignación v1 — sugerencia con score explicado** — `sugerirChofer(
+  viajeId)` en `lib/data.js`: puntúa cada chófer de la empresa con desglose visible: disponibilidad
+  (sin viaje activo, +40), margen 561 (horas restantes vs. horas del viaje, 0–25), documentos
+  vigentes (licencia/CAP no caducados, +15 / bloqueo visual si caducados), proximidad al origen
+  (última ubicación conocida vs. primer hito, 0–10), historial (valoración media, 0–10). Devuelve
+  ranking con `{chofer, score, razones: ["Disponible", "42h de margen semanal", ...]}`. UI: en
+  `/viajes/nuevo` y en el editor de chófer del detalle, lista ordenada por score con las razones
+  visibles y "Asignar" a 1 clic. Los pesos como constantes exportadas ajustables (mismo patrón que
+  los umbrales existentes). Tests exhaustivos del scoring.
+- [ ] `[LOOP]` **7A.3 Oferta de viaje al chófer (Uber-style)** — Migración: `viaje.ofertado_a uuid
+  NULL` + `viaje.ofertado_en timestamptz`. Botón "Ofrecer viaje" junto a "Asignar" en la UI de
+  asignación: manda al chófer por bot el resumen del viaje (hitos, fechas, km estimados) con
+  botones Aceptar/Rechazar (callback_data `oferta_si:{viaje_id}` / `oferta_no:{viaje_id}`).
+  Aceptar → asigna de verdad + notifica al gestor; rechazar → limpia oferta + notifica con el
+  siguiente del ranking sugerido. i18n 4 idiomas. Tests unitarios + E2E del flujo de oferta.
+- [ ] `[LOOP]` **7A.4 Live location + geo-llegada v1** — Bot: `MessageHandler(filters.LOCATION)`
+  que guarda cada ubicación (incluida live location editada — handler de `edited_message`) en la
+  tabla `ubicacion`. Al recibir ubicación, si el chófer tiene hito pendiente/en_curso a <300 m
+  (Haversine), el bot pregunta proactivamente "¿Has llegado a X?" con el botón de confirmar de
+  siempre (NO auto-confirma en v1 — guardrail del principio 2). Mensaje al vincular que explica
+  cómo compartir ubicación en tiempo real. `UMBRAL_GEO_LLEGADA_M = 300` configurable. Tests con
+  updates reales de location en el arnés E2E.
+- [ ] `[LOOP]` **7A.5 Coste total de ruta v2 — desglose por capas** — Migración: `vehiculo.
+  consumo_l_100km numeric`, `empresa.precio_gasoil_litro numeric`, `empresa.coste_peaje_km numeric`,
+  `empresa.dieta_noche_eur numeric` (todos nullable). `calcularCosteRuta({km, noches, vehiculo,
+  empresa})` puro: combustible (km × consumo/100 × €/l) + conductor (coste_km existente si se
+  quiere mantener blended, o desglosado) + peajes (km × €/km peaje) + dietas (noches × €/noche);
+  cada componente devuelve `null` si faltan datos y el total indica qué capas están activas — el
+  cliente "elige hasta dónde llega" poblando datos (decisión de 5.2 extendida). La viabilidad de
+  `/viajes/[id]` muestra el desglose en tabla pequeña. Campos nuevos en Ajustes y ficha de
+  vehículo. Tests por capa y combinaciones.
+- [ ] `[LOOP]` **7A.6 Presupuestador instantáneo** — Página `/presupuesto`: form origen + destinos
+  (direcciones con lat/lon manual o clic en mini-mapa) + vehículo opcional → devuelve al instante:
+  km, horas-561 con paradas, noches fuera estimadas (por descansos de 11h del cálculo ETA), coste
+  total desglosado (7A.5), y PRECIO SUGERIDO = coste / (1 − margen objetivo) con
+  `MARGEN_OBJETIVO_PCT = 15` configurable en Ajustes. Botón "Crear viaje con estos datos" que
+  precarga el wizard. Es la respuesta en <60 s a "¿me sale a cuenta esta carga?" — la herramienta
+  anti-"comercial se columpió". Tests del cálculo.
+- [ ] `[LOOP]` **7A.7 Multas y repostajes por viaje** — Migración: tabla `gasto_viaje(id, viaje_id,
+  empresa_id, tipo CHECK in ('repostaje','peaje','multa','dieta','otro'), importe numeric, litros
+  numeric NULL, descripcion, fecha, chofer_id NULL, created_at)` con RLS empresa. UI: sección
+  "Gastos" en `/viajes/[id]` (alta rápida + lista + total). Las multas además se ven agregadas en
+  la ficha del chófer (historial de multas) y del vehículo. Tests data.js.
+- [ ] `[LOOP]` **7A.8 P&L real del viaje** — Card en `/viajes/[id]`: ingreso (precio) − gastos
+  REALES (suma de gasto_viaje) = margen real, lado a lado con el estimado (7A.5/5.2) y la
+  desviación en %. En `/analitica`, vista nueva "Rentabilidad": top viajes por margen real, viajes
+  a pérdidas reales, desviación media estimado-vs-real (la métrica que dice si nuestro cost engine
+  aprende). Tests.
+- [ ] `[LOOP]` **7A.9 Plan-vs-real en el detalle del viaje** — Para cada hito: ventana planificada
+  vs. llegada real (evento `llegada`), con delta en minutos y color (verde a tiempo / ámbar <1h
+  tarde / rojo más). Un mini-resumen arriba: "3/4 hitos a tiempo". Reutiliza datos existentes, sin
+  migración. Tests del cálculo de deltas.
+- [ ] `[LOOP]` **7A.10 Centro de mando "Hoy"** (subsume 6.20) — La home (`/`) deja de ser solo el
+  Kanban y abre con una fila de tarjetas accionables: viajes EN RIESGO (fuera de ventana ya, o ETA
+  imposible), incidencias abiertas (con antigüedad), documentos por caducar (N), chóferes cerca del
+  límite 561 (de 7A.1), viajes a pérdidas (margen<0). Cada tarjeta → clic lleva al sitio con el
+  filtro puesto. Kanban debajo, intacto. Es la pantalla que el gestor deja abierta todo el día:
+  si está todo verde, no hay nada que hacer — ese es el producto.
+- [ ] `[LOOP]` **7A.11 Wizard "Nuevo viaje" con inteligencia inline** — Rehacer `/viajes/nuevo` en
+  3 pasos: (1) ruta (hitos, con km/horas/coste/precio-sugerido calculándose en vivo en un panel
+  lateral según añades hitos), (2) chófer+vehículo (ranking de 7A.2 con razones, aviso 561, botón
+  "Ofrecer" de 7A.3), (3) confirmación (resumen completo + viabilidad final). Mantener el flujo
+  actual como fallback hasta que el wizard esté completo (feature por ruta nueva `/viajes/nuevo-w`
+  hasta validar, luego swap). Tests de los cálculos del panel.
+- [ ] `[LOOP]` **7A.12 Sistema de diseño consolidado** (subsume 6.14) — `dashboard/lib/labels.js`
+  (todos los TIPO_LABEL/estados/ámbitos duplicados hoy en 3+ archivos) y `dashboard/lib/format.js`
+  (fmtFecha, fmtEuros, fmtKm, badges de caducidad/margen). Componentes compartidos en
+  `app/components/ui/`: `Stat` (tarjeta numérica), `Badge` (semáforo consistente), `EmptyState`
+  (icono + texto + CTA), `SectionCard`. Migrar las páginas existentes a estos componentes SIN
+  cambiar comportamiento (refactor puro, tests siguen verdes). Es lo que hace que todo lo demás se
+  vea y se sienta igual de pulido.
+- [ ] `[LOOP]` **7A.13 Onboarding y empty states** — Para una empresa recién creada, la home
+  muestra un checklist guiado: 1) añade tu primer vehículo → 2) tu primer chófer → 3) vincúlalo a
+  Telegram (enlace listo) → 4) crea tu primer viaje → 5) configura costes (€/km, gasoil, base).
+  Cada paso con enlace directo y check automático al completarse. Todos los empty states de listas
+  pasan de "Sin datos" a explicación + botón de acción (usar `EmptyState` de 7A.12).
+- [ ] `[LOOP]` **7A.14 Portal de cliente — tracking público por enlace** — Migración: `viaje.token_
+  publico uuid NULL UNIQUE`. Botón "Compartir seguimiento" en el detalle genera el token y copia
+  `/t/{token}`. Página pública `/t/[token]` (SIN login, fuera del AuthGuard): referencia, estado,
+  hitos con check de completados, ETA-561, última posición aproximada del camión en un mini-mapa
+  (redondeada a ~2 decimales por privacidad del chófer), auto-refresh. Lectura vía función RPC
+  SECURITY DEFINER `viaje_publico(token)` que devuelve SOLO esos campos (nunca precio, coste,
+  nombre completo del chófer ni matrícula) — mismo patrón seguro que `usar_invitacion` de 6.9.
+  Revocable (botón regenerar/quitar token). Es lo que la flota enseña a SUS clientes — Norenty se
+  vuelve visible más allá del gestor. Tests de la RPC (que no filtre campos sensibles) + página.
+
+## Fase 7B — Norenty OS, production-gated (requieren presupuesto/deploy/decisión — NO loop)
+
+- [ ] `[DECISIÓN]` **7B.1 Voz Whisper** (= D3, prioridad #1 confirmada por discovery): nota de voz
+  del chófer → texto en el idioma del gestor; respuesta del gestor → texto en el idioma del chófer.
+  La fontanería (capturar/almacenar audio) es loop-safe y se preparará cuando se apruebe el gasto.
+- [ ] `[DECISIÓN]` **7B.2 Triaje AI de incidencias con playbooks** — el salto de "reportar" a
+  "RESOLVER": clasificador LLM sobre el texto/voz de la incidencia + playbooks deterministas:
+  retraso → recalcular ETA + (con 7A.14) el cliente lo ve solo; avería → 3 talleres/parkings más
+  cercanos + aviso al gestor con contexto completo; espera en muelle → cronometrar paralización
+  (dato facturable). Cada playbook empieza en modo "sugerir al gestor" (principio 2). Coste por
+  incidencia acotado (~1 llamada LLM); definir presupuesto mensual + rate limit.
+- [ ] `[DECISIÓN]` **7B.3 Agente telefónico** — STT/LLM/TTS en tiempo real, identifica al chófer
+  por número, contexto del viaje cargado. Después de que 7B.1+7B.2 demuestren valor.
+- [ ] `[DECISIÓN]` **7B.4 Tacógrafo remoto** — integraciones de descarga remota (Continental VDO,
+  Stoneridge, Webfleet…): sustituye la ESTIMACIÓN 561 de 7A.1 por horas REALES. Requiere acuerdos/
+  cuentas con proveedores; evaluar en el piloto qué usa la flota.
+- [ ] `[DECISIÓN]` **7B.5 Tarjetas de combustible** (Solred, DKV, AS24…): repostajes reales
+  automáticos al P&L (7A.8) sin que nadie teclee nada.
+- [ ] `[DECISIÓN]` **7B.6 Routing truck-aware (HERE)** — altura/peso/ADR + tráfico real; sustituye
+  OSRM/Haversine capa por capa sin tocar la lógica de negocio (principio ya establecido en Fase 5).
+- [ ] `[DECISIÓN]` **7B.7 Auto-dispatch con guardrails** — cuando 7A.2/7A.3 acumulen historial:
+  auto-ofertar al mejor chófer si score > umbral y sin conflictos; el gestor solo ve excepciones.
+  El paso final hacia 120 camiones/persona.
+- [ ] `[DECISIÓN]` **7B.8 Integraciones TMS + API pública** — import/export con los TMS que usen
+  los pilotos (descubrir en entrevistas), webhooks, API con claves por empresa.
+- [ ] `[DECISIÓN]` **7B.9 (Moonshot) Marketplace de cargas** — con la flota digitalizada, conectar
+  camiones vacíos con bolsas de carga (Timocom etc.) o cargas de otras empresas Norenty. Es el
+  efecto red que convierte la herramienta en plataforma. No antes de tener >5 flotas activas.
+
+---
+
 ## Despliegue (POSPUESTO — no tocar sin confirmación explícita)
 
 GitHub → Vercel (dashboard) → Railway (backend) → dominio norenty.com vía Cloudflare.
