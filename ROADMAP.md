@@ -213,11 +213,12 @@ Protocolo: mismo de siempre (EN ORDEN, uno por iteración, `ci.ps1` verde, commi
 PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y seguir con el siguiente.
 
 ### Semana 1 (2–6 jul) — verdad y robustez
-- [ ] `[LOOP]` **6.1 Fallback Haversine cuando OSRM no responde** — `kmCarreteraViaje` y nómina:
-  si `distanciaPorCarretera` devuelve null, usar Haversine × 1.3 (factor de sinuosidad de carretera)
-  y marcar el resultado `estimado: true`; la UI (nómina, viabilidad, ETA) muestra "~" y el aviso
-  "distancia estimada en línea recta corregida; instala OSRM para km por carretera reales". Tests
-  de ambos caminos.
+- [x] `[LOOP]` **6.1 Fallback Haversine cuando OSRM no responde** — (2026-07-02) `kmCarreteraViaje`
+  ahora devuelve `{km, estimado}`: si `distanciaPorCarretera` devuelve null para un tramo, usa
+  Haversine × `FACTOR_SINUOSIDAD_FALLBACK` (1.3) para ESE tramo y marca `estimado=true`. Nómina
+  refactorizada para reutilizar `kmCarreteraViaje` en vez de duplicar el bucle OSRM (bonus: elimina
+  código repetido entre 5.1/5.2/5.3). UI (`/nomina`, viabilidad y ETA en `/viajes/[id]`) muestra "~"
+  + aviso cuando `estimado`. 6 tests nuevos (71 vitest). CI verde.
 - [ ] `[LOOP]` **6.2 Datos demo por la puerta de RLS** — `backend/db/seed_demo.py`: crea (si no
   existe) un gestor demo vía `supabase.auth.sign_up` (email demo+norenty@..., contraseña en .env
   `DEMO_PASSWORD`), y CON SU SESIÓN (anon key + login, NUNCA service role) puebla su empresa:
