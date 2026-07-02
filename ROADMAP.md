@@ -149,15 +149,19 @@ y un segundo gestor sin relación personal con el fundador (para contrastar sesg
   T h totales". 12 tests nuevos (62 vitest). CI verde.)
   (v2 con HERE: routing truck-aware con altura/peso/ADR + tráfico, de pago; ver principio de
   terceros abajo. v2 también: modelar límites semanales/bisemanales con estado real del chófer.)
-- [ ] `[DECISIÓN]` **5.4 Parkings seguros en la ruta** — Investigado 2026-07-01 (ver `DISCOVERY.md`):
-  existe fuente OFICIAL y GRATIS — European Access Point for Truck Parking Data (formato DATEX II,
-  dataset "ETPA" en data.europa.eu, Reglamento delegado 885/2013), + certificación SSTPA (Bronze/
-  Silver/Gold/Platinum), + comercial (Truck Parking Europe). NO tiene que aportarlo la empresa, pero
-  la de nuestro gestor YA tiene su mapa curado propio (activo suyo). Diseño correcto: soportar AMBOS
-  — importar la lista propia de la empresa Y enriquecer con el dataset EU. Es `[DECISIÓN]` porque
-  implica parsear DATEX II y decidir cobertura/esfuerzo; la parte "importar lista propia de la empresa"
-  sí sería loop-safe por separado si se prioriza. Encaja con 5.3 (sugerir parking seguro donde toca el
-  descanso diario).
+- [x] **5.4 Parkings en la ruta** — (2026-07-02, aprobado por usuario "sigue con los parkings").
+  Hallazgo clave: el endpoint oficial UE (webgate.ec.europa.eu/etpa) requiere login ECAS — NO es
+  descarga abierta; el DATEX II oficial queda pendiente. En su lugar se usó un dataset REALMENTE
+  abierto: Fraunhofer ISI vía Zenodo (Link & Plötz 2024, Data in Brief, CC-BY 4.0, 19.713
+  ubicaciones EU de parking/descanso/repostaje para camión construidas sobre OSM). NO es la
+  certificación SSTPA "seguro" — es "dónde hay parking conocido", etiquetado honesto en la UI.
+  Migración 0016: tabla `parking` (dataset abierto global con empresa_id NULL visible para todos +
+  propios por empresa con RLS completa). Sembradas 763 ubicaciones de España
+  (`backend/db/seed_parking_abierto.py`, idempotente, `--pais`). Mapa: capa toggle "Parkings"
+  (icono gris dataset / ámbar propios, popup con confianza y fuente, borrar propios desde popup,
+  NO entran en fitBounds), alta de parking propio con form compacto. 3 tests (65 vitest). Pendiente
+  v2: DATEX II oficial si algún cliente lo exige, y "sugerir parking donde cae el descanso de 11h"
+  (encaja con 5.3).
 - [ ] `[DECISIÓN]` **Asignación automática de rutas (dispatch)** — confirmado como North Star,
   no como punto de partida. Mantener asignación manual (ya existe) hasta tener volumen de datos.
 
@@ -169,6 +173,141 @@ km (5.2) y ETA-con-paradas (5.3). Salto de calidad cuando haya presupuesto: **HE
 estándar del sector; Google Directions/Waze son buenos con tráfico pero NO truck-aware. Nuestra lógica
 de negocio (paradas legales, margen, noches fuera) se queda como capa propia por encima del proveedor,
 para poder cambiar de proveedor sin reescribirla.
+
+---
+
+## Revisión CTO — 2026-07-02 (a petición del usuario)
+
+**Qué hay (sólido):** bot Telegram completo (vinculación chófer/gestor, hitos con navegación,
+POD, incidencias, menú, i18n es/en/ro/fr), dashboard completo (operación, mapa+parkings, viajes
+con viabilidad y ETA-561, chóferes, vehículos con coste/km, documentos con caducidades, analítica
+4 vistas, nómina auto-derivada, ajustes), multi-tenant con RLS en 17 tablas + 2 buckets privados,
+16 migraciones con checksum, 43 pytest + 65 vitest + build en `ci.ps1`, Sentry opt-in, webhook-ready.
+
+**Hallazgos (por gravedad):**
+1. **CRÍTICO — `SUPABASE_SERVICE_ROLE_KEY` vacía en `.env`.** El bot cae a la anon key; con RLS
+   activo desde 2026-06-30, el bot EN VIVO no puede leer ni escribir nada (los tests pasan porque
+   mockean la BD). Consecuencia: el flujo real del bot probablemente lleva roto desde que se activó
+   RLS y nadie lo ha notado porque no se ha probado en vivo. → `[DECISIÓN D1]` abajo.
+2. **BUG (corregido 2026-07-02, commit fe056b6):** el informe de nómina consultaba la columna
+   `tipo_evento`, que no existe (`ejecucion_evento.tipo`). Contra la BD real el informe salía
+   siempre vacío. Cazado y arreglado en esta revisión. Lección aplicada: los fakes de tests
+   replican el schema que asumimos, no el real → ítem 6.2 (datos demo vía RLS real) y 6.11 (E2E).
+3. **Riesgo — nada probado end-to-end en vivo:** OSRM sin contenedor local (nómina/viabilidad/ETA
+   muestran 0 km sin él → ítem 6.1 fallback), bot sin prueba real post-RLS (→ D1), sin datos demo.
+4. **Deuda anotada:** CSP pendiente (→ 6.6), agregaciones cargan tablas completas sin rango
+   (aceptable hoy, → 6.4), `DATABASE_URL` vacía (migrate.py/backup no ejecutables localmente → D2),
+   ar/it/pt/de aliasados a inglés (→ 6.19), labels de tipos duplicados en 3 archivos (→ 6.14).
+5. **Sin riesgo:** advisors de Supabase limpios salvo 2 avisos benignos ya analizados
+   (schema_migrations sin policies — solo se toca por psycopg2/MCP; current_empresa_id SECURITY
+   DEFINER — revisada, inocua).
+
+**Decisión de dirección (CTO):** el producto está sobrado de features y corto de VERDAD — nada se
+ha validado contra datos/uso real. Julio se dedica a: (semana 1) verdad y robustez, (semana 2)
+demo/piloto listo para enseñar a insiders, (semana 3) operativa real del bot y estado semanal,
+(semana 4) deploy-ready. NO se añaden features grandes nuevas hasta que un insider haya visto la demo.
+
+## Fase 6 — Julio: verdad, demo y deploy-ready (ABIERTA 2026-07-02, cola del loop 24/7)
+
+Protocolo: mismo de siempre (EN ORDEN, uno por iteración, `ci.ps1` verde, commit, `[x]` + línea en
+PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y seguir con el siguiente.
+
+### Semana 1 (2–6 jul) — verdad y robustez
+- [ ] `[LOOP]` **6.1 Fallback Haversine cuando OSRM no responde** — `kmCarreteraViaje` y nómina:
+  si `distanciaPorCarretera` devuelve null, usar Haversine × 1.3 (factor de sinuosidad de carretera)
+  y marcar el resultado `estimado: true`; la UI (nómina, viabilidad, ETA) muestra "~" y el aviso
+  "distancia estimada en línea recta corregida; instala OSRM para km por carretera reales". Tests
+  de ambos caminos.
+- [ ] `[LOOP]` **6.2 Datos demo por la puerta de RLS** — `backend/db/seed_demo.py`: crea (si no
+  existe) un gestor demo vía `supabase.auth.sign_up` (email demo+norenty@..., contraseña en .env
+  `DEMO_PASSWORD`), y CON SU SESIÓN (anon key + login, NUNCA service role) puebla su empresa:
+  6 vehículos, 8 chóferes (idiomas variados), 25 viajes en distintos estados con hitos
+  geocodificados reales de España, incidencias, valoraciones, precios, documentos con caducidades
+  próximas, 3 parkings propios. Al pasar por RLS real, valida las políticas de verdad (habría
+  cazado el bug de tipo_evento). Idempotente (borra y repuebla solo esa empresa).
+- [ ] `[LOOP]` **6.3 Export del informe de nómina** — botón "Exportar CSV" en `/nomina` (mismo
+  patrón export CSV existente en viajes) + estilos `@media print` para imprimir/PDF limpio.
+- [ ] `[LOOP]` **6.4 Rango de fechas server-side en agregaciones** — `getInformeNomina` ya filtra
+  por mes en cliente: mover el filtro de eventos a `.gte/.lt` en la query; `getMetricas*`: añadir
+  parámetro opcional de rango (por defecto últimos 90 días) aplicado en servidor. Tests actualizados.
+- [ ] `[LOOP]` **6.5 Índices según advisor de performance** — pasar `get_advisors(performance)` vía
+  MCP, crear los índices FK que falten (migración 0017 + checksum registrado). Documentar en PROGRESS
+  lo que diga el advisor aunque no haya acción.
+- [ ] `[LOOP]` **6.6 CSP en modo Report-Only** — añadir `Content-Security-Policy-Report-Only` en
+  `next.config.js` con allowlist de lo real (self, *.supabase.co, tile.openstreetmap.org, Sentry,
+  data: para iconos leaflet, unsafe-inline solo en style por Tailwind). NO enforcing todavía: nota
+  en ROADMAP para promocionarla tras una semana sin violaciones en consola.
+
+### Semana 2 (7–13 jul) — demo/piloto enseñable
+- [ ] `[LOOP]` **6.7 Bot: /parking** — el chófer pide parking cercano; el bot toma su última
+  `ubicacion` (o la del último hito completado) y responde los 3 parkings más cercanos (Haversine
+  sobre tabla `parking`) con nombre/tipo/distancia y botón "Cómo llegar" (Maps). i18n 4 idiomas.
+  Tests con FakeSupabase.
+- [ ] `[LOOP]` **6.8 Bot: /eta** — portar `calcularEtaConParadas` a Python (función pura espejo,
+  mismos casos de test que en JS) y responder al chófer el ETA-561 de su viaje activo usando km
+  Haversine×1.3 entre hitos pendientes (el bot no depende de OSRM). i18n.
+- [ ] `[LOOP]` **6.9 Invitaciones multi-gestor** — migración: tabla `invitacion(id, empresa_id,
+  email, codigo uuid, usada_at)` con RLS por empresa; en Ajustes, sección "Equipo": invitar por
+  email genera enlace con código; el signup con `?invitacion=codigo` une el gestor nuevo a ESA
+  empresa en vez de crear una. Tests de la lógica de data.js.
+- [ ] `[LOOP]` **6.10 Pase de accesibilidad/móvil de páginas nuevas** — documentos, analítica,
+  nómina, mapa (form parking), viabilidad/ETA en viaje: labels con htmlFor, focus visible, orden de
+  tabulación, contraste de badges, overflow en móvil 360px. Arreglos concretos, sin librerías.
+- [ ] `[LOOP]` **6.11 E2E del bot con updates reales** — tests de integración que construyen
+  `Update`s reales de PTB y los pasan por los handlers registrados (`app.process_update` con
+  FakeSupabase): flujo completo /start→ver hito→llegada→POD→completar viaje, y flujo /incidencia.
+  Caza regresiones de wiring que los tests unitarios no ven.
+
+### Semana 3 (14–20 jul) — operativa real
+- [ ] `[LOOP]` **6.12 Búsqueda global (Ctrl+K)** — paleta de búsqueda sobre viajes (referencia),
+  chóferes (nombre), vehículos (matrícula): modal con input, resultados agrupados, navegación con
+  teclado. Sin librería nueva.
+- [ ] `[LOOP]` **6.13 Audit log ligero** — migración: tabla `audit_log(id, empresa_id, gestor_id,
+  entidad, entidad_id, accion, detalle, created_at)` RLS por empresa; registrar desde el dashboard
+  los cambios críticos (estado de viaje, asignación de chófer, precio, borrado de documento);
+  mostrar como "Actividad" colapsable en el detalle del viaje.
+- [ ] `[LOOP]` **6.14 Constantes compartidas** — extraer TIPO_LABEL de documentos (3 copias),
+  tipos de parking (2 copias) y helpers fmtFecha/badgeFor duplicados a `dashboard/lib/labels.js` y
+  `dashboard/lib/format.js`. Solo refactor, tests siguen verdes.
+- [ ] `[LOOP]` **6.15 Aviso de límite semanal en asignación** — al asignar chófer a viaje, estimar
+  sus horas de conducción de los últimos 7 días (km Haversine×1.3 de sus viajes con actividad /
+  velocidad de planificación) y avisar (no bloquear) si la suma con el viaje nuevo supera 56h/90h
+  (Reglamento 561). Aproximación honesta etiquetada como estimación. Tests.
+- [ ] `[LOOP]` **6.16 ONBOARDING.md** — guía de arranque para un segundo desarrollador: requisitos,
+  .env (qué clave es cada una y dónde se consigue), arrancar bot/dashboard/OSRM, correr tests,
+  aplicar migraciones, sembrar demo/parkings, convenciones del repo (fases, loop, PROGRESS).
+
+### Semana 4 (21–31 jul) — deploy-ready (sin desplegar)
+- [ ] `[LOOP]` **6.17 Runbook de backup/restore** — documentar (y scriptear si D2 desbloqueada)
+  pg_dump/restore de Supabase, qué incluye (BD sí, storage aparte), frecuencia recomendada y prueba
+  de restore. Si falta DATABASE_URL: documentar el procedimiento y marcar el script como pendiente.
+- [ ] `[LOOP]` **6.18 Reintentos y captura de errores en el bot** — wrapper con 3 reintentos y
+  backoff para llamadas Supabase del bot, errores a Sentry con contexto (update_id, chofer),
+  mensaje de disculpa al chófer si todo falla. Tests del wrapper.
+- [ ] `[LOOP]` **6.19 i18n real ar/it/pt/de** — traducir las ~35 claves de TEXTOS a los 4 idiomas
+  hoy aliasados a inglés (árabe incluido — el chófer magrebí es persona real del sector). Tests de
+  muestreo por idioma.
+- [ ] `[LOOP]` **6.20 Tarjetas de riesgo en Operación** — en la home añadir dos tarjetas:
+  "Documentos por caducar (N)" → /documentos y "Viajes a pérdidas (N)" (margen<0 con precio y
+  coste configurados) → lista filtrada. Reutiliza getDocumentosPorCaducar/getViabilidadViaje.
+- [ ] `[LOOP]` **6.21 Checklist de despliegue** — DEPLOY.md: pasos exactos Vercel+Railway+dominio,
+  variables por entorno, activar webhook del bot (BOT_WEBHOOK_URL/SECRET ya soportados), promover
+  CSP a enforcing, alta de OSRM en producción, Sentry DSN, smoke tests post-deploy. Deja el
+  despliegue a un clic de decisión humana.
+- [ ] `[LOOP]` **6.22 Pase final de simplificación** — recorrer los diffs de julio buscando
+  duplicación restante, dead code y TODOs; arreglar lo obvio, listar lo dudoso en PROGRESS.
+
+### Decisiones pendientes del usuario (bloquean lo marcado)
+- [ ] `[DECISIÓN D1 — CRÍTICA]` **Pegar la SUPABASE_SERVICE_ROLE_KEY real en `.env`** (Supabase →
+  Project Settings → API). Sin ella el bot EN VIVO no funciona con RLS. Tras pegarla: probar flujo
+  real con un chófer de prueba en Telegram (yo preparo el guion de prueba cuando confirmes).
+- [ ] `[DECISIÓN D2]` **Pegar DATABASE_URL en `.env`** (connection string con contraseña) para
+  `migrate.py` y backups locales.
+- [ ] `[DECISIÓN D3]` **Presupuesto voz (Whisper)** — sigue siendo la feature #1 validada por el
+  gestor; en cuanto haya cifra mensual aceptable, se especifica y entra en cola.
+- [ ] `[DECISIÓN D4]` **Luz verde al despliegue** — con 6.21 hecho, desplegar es una sesión contigo.
+- [ ] `[DECISIÓN D5]` **BD pública de consumos de camiones** — dijiste que la montaste hace meses;
+  pásala (archivo o enlace) y especifico la capa de coste por combustible de viabilidad v2.
 
 ---
 
