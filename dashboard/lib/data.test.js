@@ -370,7 +370,7 @@ describe("getInformeNomina", () => {
     TABLES.viaje = [{ id: "v1", referencia: "VJ-1", chofer_id: "c1", estado: "en_curso" }];
     TABLES.hito = [{ id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...BARCELONA }];
     TABLES.ejecucion_evento = [
-      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2026-01-15T23:30:00Z" },
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo: "llegada", ocurrido_en: "2026-01-15T23:30:00Z" },
     ];
     const r = await getInformeNomina(1, 2026);
     expect(r.tieneBase).toBe(true);
@@ -384,7 +384,7 @@ describe("getInformeNomina", () => {
     TABLES.viaje = [{ id: "v1", chofer_id: "c1", estado: "en_curso" }];
     TABLES.hito = [{ id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...CERCA_MADRID }];
     TABLES.ejecucion_evento = [
-      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2026-01-15T23:30:00Z" },
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo: "llegada", ocurrido_en: "2026-01-15T23:30:00Z" },
     ];
     const r = await getInformeNomina(1, 2026);
     expect(r.filas[0].nochesFuera).toBe(0);
@@ -396,7 +396,7 @@ describe("getInformeNomina", () => {
     TABLES.viaje = [{ id: "v1", chofer_id: "c1", estado: "en_curso" }];
     TABLES.hito = [{ id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...BARCELONA }];
     TABLES.ejecucion_evento = [
-      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2026-01-15T14:00:00Z" },
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo: "llegada", ocurrido_en: "2026-01-15T14:00:00Z" },
     ];
     const r = await getInformeNomina(1, 2026);
     expect(r.filas[0].nochesFuera).toBe(0);
@@ -412,8 +412,8 @@ describe("getInformeNomina", () => {
     ];
     TABLES.ejecucion_evento = [
       // 23:00 del día 15 y 01:00 del día 16 -> ambas pertenecen a la noche del 15.
-      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2026-01-15T23:00:00Z" },
-      { hito_id: "h2", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2026-01-16T01:00:00Z" },
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo: "llegada", ocurrido_en: "2026-01-15T23:00:00Z" },
+      { hito_id: "h2", viaje_id: "v1", chofer_id: "c1", tipo: "llegada", ocurrido_en: "2026-01-16T01:00:00Z" },
     ];
     const r = await getInformeNomina(1, 2026);
     expect(r.filas[0].nochesFuera).toBe(1);
@@ -428,7 +428,7 @@ describe("getInformeNomina", () => {
       // 22:30 UTC en julio = 00:30 en Madrid (CEST, +2) del día siguiente:
       // en UTC puro caería en la ventana del día 15, pero localmente es
       // madrugada del 16 y debe atribuirse a la noche del 15.
-      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2026-07-15T22:30:00Z" },
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo: "llegada", ocurrido_en: "2026-07-15T22:30:00Z" },
     ];
     const r = await getInformeNomina(7, 2026);
     expect(r.filas[0].nochesFuera).toBe(1);
@@ -443,7 +443,7 @@ describe("getInformeNomina", () => {
       // 20:30 UTC en julio = 22:30 local (CEST) -> dentro de ventana localmente,
       // pero en UTC puro (20:30) estaría FUERA de la ventana [22,6). Confirma
       // que se usa hora local, no UTC.
-      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2026-07-15T20:30:00Z" },
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo: "llegada", ocurrido_en: "2026-07-15T20:30:00Z" },
     ];
     const r = await getInformeNomina(7, 2026);
     expect(r.filas[0].nochesFuera).toBe(1);
@@ -460,7 +460,7 @@ describe("getInformeNomina", () => {
       { id: "h3", viaje_id: "v1", orden: 3, estado: "completado", ...BARCELONA },
     ];
     TABLES.ejecucion_evento = [
-      { hito_id: "h3", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2026-01-15T12:00:00Z" },
+      { hito_id: "h3", viaje_id: "v1", chofer_id: "c1", tipo: "llegada", ocurrido_en: "2026-01-15T12:00:00Z" },
     ];
     const r = await getInformeNomina(1, 2026);
     // 3 hitos completados -> 2 tramos -> 240 km. OSRM llamado 2 veces.
@@ -479,7 +479,7 @@ describe("getInformeNomina", () => {
     ];
     // Llegada en DICIEMBRE, fuera del mes consultado (enero).
     TABLES.ejecucion_evento = [
-      { hito_id: "h2", viaje_id: "v1", chofer_id: "c1", tipo_evento: "llegada", ocurrido_en: "2025-12-20T12:00:00Z" },
+      { hito_id: "h2", viaje_id: "v1", chofer_id: "c1", tipo: "llegada", ocurrido_en: "2025-12-20T12:00:00Z" },
     ];
     const r = await getInformeNomina(1, 2026);
     expect(r.filas[0].km).toBe(0);

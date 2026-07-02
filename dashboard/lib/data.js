@@ -619,7 +619,7 @@ export async function getInformeNomina(mes, anio) {
     supabase.from("chofer").select("id, nombre"),
     supabase.from("viaje").select("id, referencia, chofer_id, estado"),
     supabase.from("hito").select("id, viaje_id, orden, estado, lat, lon"),
-    supabase.from("ejecucion_evento").select("hito_id, viaje_id, chofer_id, tipo_evento, ocurrido_en"),
+    supabase.from("ejecucion_evento").select("hito_id, viaje_id, chofer_id, tipo, ocurrido_en"),
     supabase.from("empresa").select("id, base_lat, base_lon"),
   ]);
 
@@ -633,7 +633,7 @@ export async function getInformeNomina(mes, anio) {
   // Eventos de llegada dentro del mes.
   const llegadasMes = (eventos || []).filter(
     (e) =>
-      e.tipo_evento === "llegada" &&
+      e.tipo === "llegada" &&
       e.ocurrido_en &&
       e.ocurrido_en >= inicioISO &&
       e.ocurrido_en < finISO
