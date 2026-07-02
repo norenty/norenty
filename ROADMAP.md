@@ -271,10 +271,22 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
   un toggle del panel de Supabase (Authentication → Providers → Email), no algo tocable por SQL/MCP.
   Añadido como acción ligera pendiente del usuario (no requiere criterio, solo el toggle) — ver
   sección de decisiones. CI verde (sin cambios de código app, solo migración).
-- [ ] `[LOOP]` **6.6 CSP en modo Report-Only** — añadir `Content-Security-Policy-Report-Only` en
-  `next.config.js` con allowlist de lo real (self, *.supabase.co, tile.openstreetmap.org, Sentry,
-  data: para iconos leaflet, unsafe-inline solo en style por Tailwind). NO enforcing todavía: nota
-  en ROADMAP para promocionarla tras una semana sin violaciones en consola.
+- [x] `[LOOP]` **6.6 CSP en modo Report-Only** — (2026-07-02) `Content-Security-Policy-Report-Only`
+  añadida en `next.config.js`. Allowlist basado en grep real del código (no adivinado): Supabase
+  (`https://*.supabase.co` + `wss://*.supabase.co` para REST/Realtime), tiles de Leaflet
+  (`https://*.tile.openstreetmap.org`, URL exacta de `MapView.jsx`), Sentry (`*.sentry.io` +
+  `*.ingest.us/de.sentry.io` — dominio best-effort porque no hay DSN real configurado todavía;
+  inofensivo en Report-Only si no coincide exacto). `style-src 'unsafe-inline'` (Tailwind + estilos
+  inline de React en varios componentes); `script-src` se dejó ESTRICTO a propósito (sin
+  unsafe-inline) para que las violaciones reales ahí sean visibles. NO se descubrió que Google Fonts
+  no se usa de verdad (solo nombradas en `@theme`, sin `<link>` — un dominio menos que allowlistear).
+  **NO verificado en navegador real** (intentado con `mcp__Claude_Preview__*`: la herramienta resultó
+  estar mal configurada en este entorno — su "workspace" apunta a la carpeta de instalación de Git
+  para Windows, no al proyecto; `chromium-cli` tampoco está disponible aquí). Verificación de
+  respaldo: build de producción limpio (`ci.ps1`) confirma que la cabecera se genera sin errores, y
+  al ser Report-Only un allowlist incompleto solo generaría avisos en consola, nunca rompe nada —
+  riesgo real bajo. Promocionar a enforcing tras una semana revisando la consola en un navegador de
+  verdad (pendiente, requiere acceso a esa consola que aquí no se pudo obtener).
 
 ### Semana 2 (7–13 jul) — demo/piloto enseñable
 - [ ] `[LOOP]` **6.7 Bot: /parking** — el chófer pide parking cercano; el bot toma su última
