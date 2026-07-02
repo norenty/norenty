@@ -338,10 +338,20 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
   `role="tablist"`/`role="tab"`/`aria-selected`. Mensajes de error de formulario con `role="alert"`.
   Documentos/página no necesitaba cambios (sin formularios, sin badges verdes). Sin librerías nuevas.
   CI verde (build limpio, sin tests nuevos — cambios puramente de marcado/estilo).
-- [ ] `[LOOP]` **6.11 E2E del bot con updates reales** — tests de integración que construyen
-  `Update`s reales de PTB y los pasan por los handlers registrados (`app.process_update` con
-  FakeSupabase): flujo completo /start→ver hito→llegada→POD→completar viaje, y flujo /incidencia.
-  Caza regresiones de wiring que los tests unitarios no ven.
+- [x] `[LOOP]` **6.11 E2E del bot con updates reales** — (2026-07-02) `tests/test_bot_e2e.py`:
+  construye `Update`s REALES de PTB (Message con `MessageEntity.BOT_COMMAND`, `CallbackQuery`,
+  `PhotoSize`) y los pasa por `app.process_update()` — el mismo camino que un mensaje real de
+  Telegram — en vez de llamar a los handlers a mano. Flujo completo verificado: /start CODIGO →
+  vincula → hito 1 (recogida) → pre_llegada → llegada → hito 2 (entrega) → llegada → pide foto →
+  foto (POD sube a storage fake, crea pod, completa hito) → viaje completado. Más /incidencia con
+  args reales del framework y un comando desconocido (no rompe). Trampas de PTB v22 resueltas y
+  documentadas en el propio test: `Bot` congelado (parcheo a nivel de CLASE, no de instancia),
+  `get_me` debe cachear `_bot_user` (si no `.username` revienta en CommandHandler), cada `Message`
+  construido a mano necesita `.set_bot()` para que los shortcuts (`reply_text`,
+  `edit_message_text`) funcionen. `fakes.py` ampliado con `FakeStorage` (upload de POD).
+  **Verificado que el test caza regresiones reales**: rompí temporalmente el patrón del
+  CallbackQueryHandler de "llegada:" y el E2E falló al instante (el hito se quedó en "pendiente");
+  restaurado después. 3 tests E2E (68 pytest total). CI verde.
 
 ### Semana 3 (14–20 jul) — operativa real
 - [ ] `[LOOP]` **6.12 Búsqueda global (Ctrl+K)** — paleta de búsqueda sobre viajes (referencia),
