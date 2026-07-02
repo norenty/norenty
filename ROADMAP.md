@@ -323,9 +323,21 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
   `NULL` (no se puede reusar); código inventado → `NULL`; inserción del gestor con ese `empresa_id`
   → éxito. Datos de prueba limpiados después. 8 tests nuevos en `data.test.js` + 4 tests de
   regresión en `auth.test.js` (85 vitest total). CI verde.
-- [ ] `[LOOP]` **6.10 Pase de accesibilidad/móvil de páginas nuevas** — documentos, analítica,
-  nómina, mapa (form parking), viabilidad/ETA en viaje: labels con htmlFor, focus visible, orden de
-  tabulación, contraste de badges, overflow en móvil 360px. Arreglos concretos, sin librerías.
+- [x] `[LOOP]` **6.10 Pase de accesibilidad/móvil de páginas nuevas** — (2026-07-02) Revisadas
+  documentos, analítica, nómina, mapa (form parking), viabilidad/ETA en viaje, `DocumentosSection`.
+  **Hallazgo real de contraste** (no cosmético): `text-estado-ok` (#16A34A) sobre `bg-green-50` da
+  ~3.15:1 — pasa para texto grande (≥3:1) pero FALLA WCAG AA para texto pequeño (necesita 4.5:1);
+  corregido a `text-green-700` en el badge "Vigente" de documentos y "Margen sano" de viabilidad
+  (ambos en texto pequeño). Labels de formulario (mes/año en nómina, parking en mapa, tipo/fechas/
+  archivo/notas en `DocumentosSection`) pasaron de `<label>` suelto sin asociación programática a
+  `htmlFor`+`id` reales (o `sr-only` cuando no hace falta label visible); ids únicos por `ambito` en
+  el componente reutilizable para no colisionar. `focus:ring-2` añadido donde `focus:outline-none`
+  dejaba sin indicador visible de foco. Botones solo-icono (ver/descargar, eliminar documento) con
+  `aria-label` (el `title` no es fiable como nombre accesible). Tablas de nómina/chóferes (analítica)
+  con `overflow-x-auto` para 360px en vez de romper el layout. Pestañas de `/analitica` con
+  `role="tablist"`/`role="tab"`/`aria-selected`. Mensajes de error de formulario con `role="alert"`.
+  Documentos/página no necesitaba cambios (sin formularios, sin badges verdes). Sin librerías nuevas.
+  CI verde (build limpio, sin tests nuevos — cambios puramente de marcado/estilo).
 - [ ] `[LOOP]` **6.11 E2E del bot con updates reales** — tests de integración que construyen
   `Update`s reales de PTB y los pasan por los handlers registrados (`app.process_update` con
   FakeSupabase): flujo completo /start→ver hito→llegada→POD→completar viaje, y flujo /incidencia.
