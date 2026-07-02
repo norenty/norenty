@@ -218,7 +218,12 @@ export default function Analitica() {
 
   return (
     <div>
-      <h1 className="text-lg font-medium text-ink mb-4">Analítica</h1>
+      <div className="flex items-baseline gap-2 mb-4">
+        <h1 className="text-lg font-medium text-ink">Analítica</h1>
+        <span className="text-xs text-ink-muted">
+          {vista === "flota" ? "estado actual (averías: últimos 90 días)" : "últimos 90 días"}
+        </span>
+      </div>
 
       <div className="flex gap-1 mb-4 border-b border-border">
         {VISTAS.map(({ id, label, icon: Icon }) => (
