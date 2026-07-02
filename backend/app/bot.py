@@ -1,5 +1,6 @@
 """Norenty Telegram Bot — operación de hitos, POD, y alertas al gestor."""
 
+import math
 import os
 import logging
 import uuid
@@ -59,6 +60,14 @@ TEXTOS = {
         "contactar_info": "Tu gestor es {nombre}.\n📧 {contacto}",
         "contactar_sin_contacto": "Tu gestor es {nombre}.\nTodavía no ha configurado un contacto directo.",
         "contactar_sin_gestor": "Tu gestor aún no ha configurado contacto. Prueba con /incidencia si es urgente.",
+        "parking_titulo": "📍 Parkings cercanos:",
+        "parking_sin_ubicacion": "No tengo tu ubicación todavía. Confirma la llegada a un hito o comparte tu ubicación por Telegram.",
+        "parking_sin_resultados": "No encontré parkings cercanos.",
+        "parking_tipo_parking": "Parking",
+        "parking_tipo_fueling": "Gasolinera / Truck stop",
+        "parking_tipo_rest_area": "Área de descanso",
+        "parking_tipo_otro": "Otro",
+        "btn_como_llegar": "Cómo llegar",
     },
     "en": {
         "sin_viaje_activo": "You have no active trip.",
@@ -87,6 +96,14 @@ TEXTOS = {
         "contactar_info": "Your manager is {nombre}.\n📧 {contacto}",
         "contactar_sin_contacto": "Your manager is {nombre}.\nNo direct contact configured yet.",
         "contactar_sin_gestor": "Your manager hasn't configured contact info yet. Try /incidencia if it's urgent.",
+        "parking_titulo": "📍 Nearby parkings:",
+        "parking_sin_ubicacion": "I don't have your location yet. Confirm arrival at a stop or share your location on Telegram.",
+        "parking_sin_resultados": "No nearby parkings found.",
+        "parking_tipo_parking": "Parking",
+        "parking_tipo_fueling": "Fueling station / Truck stop",
+        "parking_tipo_rest_area": "Rest area",
+        "parking_tipo_otro": "Other",
+        "btn_como_llegar": "Directions",
     },
     "ro": {
         "sin_viaje_activo": "Nu ai nicio cursă activă.",
@@ -115,6 +132,14 @@ TEXTOS = {
         "contactar_info": "Managerul tău este {nombre}.\n📧 {contacto}",
         "contactar_sin_contacto": "Managerul tău este {nombre}.\nNu a configurat încă un contact direct.",
         "contactar_sin_gestor": "Managerul tău nu a configurat încă datele de contact. Încearcă /incidencia dacă este urgent.",
+        "parking_titulo": "📍 Parcări din apropiere:",
+        "parking_sin_ubicacion": "Nu am încă locația ta. Confirmă sosirea la o oprire sau distribuie locația pe Telegram.",
+        "parking_sin_resultados": "Nu am găsit parcări în apropiere.",
+        "parking_tipo_parking": "Parcare",
+        "parking_tipo_fueling": "Benzinărie / Truck stop",
+        "parking_tipo_rest_area": "Zonă de odihnă",
+        "parking_tipo_otro": "Altul",
+        "btn_como_llegar": "Direcții",
     },
     "fr": {
         "sin_viaje_activo": "Vous n'avez aucun trajet actif.",
@@ -143,6 +168,14 @@ TEXTOS = {
         "contactar_info": "Votre responsable est {nombre}.\n📧 {contacto}",
         "contactar_sin_contacto": "Votre responsable est {nombre}.\nAucun contact direct configuré pour le moment.",
         "contactar_sin_gestor": "Votre responsable n'a pas encore configuré de contact. Essayez /incidencia si c'est urgent.",
+        "parking_titulo": "📍 Parkings à proximité :",
+        "parking_sin_ubicacion": "Je n'ai pas encore votre position. Confirmez l'arrivée à un arrêt ou partagez votre position sur Telegram.",
+        "parking_sin_resultados": "Aucun parking trouvé à proximité.",
+        "parking_tipo_parking": "Parking",
+        "parking_tipo_fueling": "Station-service / Truck stop",
+        "parking_tipo_rest_area": "Aire de repos",
+        "parking_tipo_otro": "Autre",
+        "btn_como_llegar": "Itinéraire",
     },
 }
 # Idiomas sin traduccion completa: usar ingles como fallback
@@ -737,11 +770,138 @@ async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     logger.info("Incidencia manual: chofer %s, viaje %s", chofer["id"], viaje["id"])
 
 
+def haversine_km(lat1, lon1, lat2, lon2):
+    """Distancia en línea recta (km) entre dos puntos. Espejo en Python de
+    haversineKm() en dashboard/lib/data.js (mismo cálculo, mismo redondeo natural)."""
+    r = 6371
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    )
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+TIPO_PARKING_KEY = {
+    "parking": "parking_tipo_parking",
+    "fueling": "parking_tipo_fueling",
+    "rest_area": "parking_tipo_rest_area",
+    "otro": "parking_tipo_otro",
+}
+
+
+def obtener_ubicacion_chofer(chofer):
+    """Última ubicación conocida del chófer para /parking (ítem 6.7): primero
+    la tabla `ubicacion` (GPS en vivo, si el chófer la comparte), y si no hay
+    nada ahí, el último hito COMPLETADO de su viaje activo — proxy razonable
+    de "dónde está ahora" sin depender de tracking en vivo. None si no hay
+    ninguna señal de ubicación disponible.
+    """
+    ubic_r = (
+        supabase.table("ubicacion")
+        .select("lat, lon")
+        .eq("chofer_id", chofer["id"])
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if ubic_r.data:
+        return ubic_r.data[0]["lat"], ubic_r.data[0]["lon"]
+
+    viaje_r = (
+        supabase.table("viaje")
+        .select("id")
+        .eq("chofer_id", chofer["id"])
+        .eq("estado", "en_curso")
+        .execute()
+    )
+    if not viaje_r.data:
+        return None
+
+    hitos_r = (
+        supabase.table("hito")
+        .select("lat, lon, orden")
+        .eq("viaje_id", viaje_r.data[0]["id"])
+        .eq("estado", "completado")
+        .order("orden", desc=True)
+        .execute()
+    )
+    for h in hitos_r.data or []:
+        if h.get("lat") is not None and h.get("lon") is not None:
+            return h["lat"], h["lon"]
+    return None
+
+
+async def cmd_parking(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """El chófer pide parking cercano a su última ubicación conocida (ítem 6.7).
+    Junta el dataset abierto (visible para todos) + los parkings propios de su
+    empresa — mismo criterio que getParkings() en el dashboard, pero replicado
+    a mano aquí porque el bot usa la service role key (salta RLS).
+    """
+    chat_id = str(update.effective_chat.id)
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
+        await update.message.reply_text(t("es", "no_vinculado"))
+        return
+
+    punto = obtener_ubicacion_chofer(chofer)
+    if not punto:
+        await update.message.reply_text(t(chofer, "parking_sin_ubicacion"))
+        return
+    lat, lon = punto
+
+    propios_r = (
+        supabase.table("parking")
+        .select("nombre, tipo, lat, lon, fuente")
+        .eq("empresa_id", chofer["empresa_id"])
+        .execute()
+    )
+    abiertos_r = (
+        supabase.table("parking")
+        .select("nombre, tipo, lat, lon, fuente")
+        .eq("fuente", "dataset_abierto")
+        .execute()
+    )
+    parkings = (propios_r.data or []) + (abiertos_r.data or [])
+
+    con_distancia = [
+        (p, haversine_km(lat, lon, p["lat"], p["lon"]))
+        for p in parkings
+        if p.get("lat") is not None and p.get("lon") is not None
+    ]
+    con_distancia.sort(key=lambda par: par[1])
+    top3 = con_distancia[:3]
+
+    if not top3:
+        await update.message.reply_text(t(chofer, "parking_sin_resultados"))
+        return
+
+    lineas = [t(chofer, "parking_titulo")]
+    botones = []
+    for p, dist in top3:
+        if p.get("fuente") == "empresa" and p.get("nombre"):
+            etiqueta = p["nombre"]
+        else:
+            etiqueta = t(chofer, TIPO_PARKING_KEY.get(p["tipo"], "parking_tipo_otro"))
+        lineas.append(f"• {etiqueta} — {dist:.1f} km")
+        gmaps = f"https://www.google.com/maps/dir/?api=1&destination={p['lat']},{p['lon']}"
+        botones.append([
+            InlineKeyboardButton(f"{etiqueta} ({dist:.1f} km) · {t(chofer, 'btn_como_llegar')}", url=gmaps)
+        ])
+
+    await update.message.reply_text(
+        "\n".join(lineas),
+        reply_markup=InlineKeyboardMarkup(botones),
+    )
+
+
 def create_bot_app():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("estado", cmd_estado))
     app.add_handler(CommandHandler("incidencia", cmd_incidencia))
+    app.add_handler(CommandHandler("parking", cmd_parking))
     app.add_handler(CallbackQueryHandler(cb_pre_llegada, pattern=r"^pre_llegada:"))
     app.add_handler(CallbackQueryHandler(cb_llegada, pattern=r"^llegada:"))
     app.add_handler(CallbackQueryHandler(cb_cancelar, pattern=r"^cancelar$"))

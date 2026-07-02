@@ -399,3 +399,120 @@ async def test_notificar_gestor_evento_usa_el_transporte(fake_db, fake_transport
     await bot.notificar_gestor_evento("e1", "v1", "Mensaje de prueba")
 
     assert fake_transporte.enviados == [("chat-1", "Mensaje de prueba"), ("chat-2", "Mensaje de prueba")]
+
+
+# --- /parking (ítem 6.7) ---
+
+MADRID = (40.4168, -3.7038)
+BARCELONA = (41.3851, 2.1734)
+
+
+def test_haversine_km_madrid_barcelona_es_realista():
+    # Distancia real en línea recta Madrid-Barcelona: ~500 km.
+    d = bot.haversine_km(*MADRID, *BARCELONA)
+    assert 490 < d < 510
+
+
+def test_haversine_km_mismo_punto_es_cero():
+    assert bot.haversine_km(*MADRID, *MADRID) == 0
+
+
+def test_obtener_ubicacion_chofer_prefiere_tabla_ubicacion(fake_db):
+    fake_db.tables["ubicacion"] = [
+        {"chofer_id": "c1", "lat": 1.0, "lon": 2.0, "created_at": "2026-01-01T10:00:00Z"},
+        {"chofer_id": "c1", "lat": 9.0, "lon": 9.0, "created_at": "2026-01-02T10:00:00Z"},  # más reciente
+    ]
+    punto = bot.obtener_ubicacion_chofer({"id": "c1"})
+    assert punto == (9.0, 9.0)
+
+
+def test_obtener_ubicacion_chofer_cae_a_ultimo_hito_completado_si_no_hay_ubicacion(fake_db):
+    fake_db.tables["ubicacion"] = []
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "estado": "en_curso"}]
+    fake_db.tables["hito"] = [
+        {"viaje_id": "v1", "orden": 1, "estado": "completado", "lat": 1.0, "lon": 1.0},
+        {"viaje_id": "v1", "orden": 2, "estado": "completado", "lat": 2.0, "lon": 2.0},  # último completado
+        {"viaje_id": "v1", "orden": 3, "estado": "pendiente", "lat": 3.0, "lon": 3.0},
+    ]
+    punto = bot.obtener_ubicacion_chofer({"id": "c1"})
+    assert punto == (2.0, 2.0)
+
+
+def test_obtener_ubicacion_chofer_none_si_no_hay_senal(fake_db):
+    fake_db.tables["ubicacion"] = []
+    fake_db.tables["viaje"] = []
+    assert bot.obtener_ubicacion_chofer({"id": "c1"}) is None
+
+
+@pytest.mark.asyncio
+async def test_cmd_parking_no_vinculado(fake_db):
+    fake_db.tables["chofer"] = []
+    update = SimpleNamespace(effective_chat=SimpleNamespace(id="chat-1"), message=SimpleNamespace(reply_text=AsyncMock()))
+    ctx = SimpleNamespace()
+    await bot.cmd_parking(update, ctx)
+    texto = update.message.reply_text.call_args[0][0]
+    assert "No estás vinculado" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_parking_sin_ubicacion(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "es"}]
+    fake_db.tables["ubicacion"] = []
+    fake_db.tables["viaje"] = []
+    update = SimpleNamespace(effective_chat=SimpleNamespace(id="chat-1"), message=SimpleNamespace(reply_text=AsyncMock()))
+    ctx = SimpleNamespace()
+    await bot.cmd_parking(update, ctx)
+    texto = update.message.reply_text.call_args[0][0]
+    assert "No tengo tu ubicación todavía" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_parking_devuelve_los_3_mas_cercanos_ordenados(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "es"}]
+    fake_db.tables["ubicacion"] = [{"chofer_id": "c1", "lat": MADRID[0], "lon": MADRID[1], "created_at": "2026-01-01T10:00:00Z"}]
+    # 4 parkings: 3 propios de e1 (a distintas distancias de Madrid) + 1 del dataset abierto.
+    fake_db.tables["parking"] = [
+        {"id": "p1", "empresa_id": "e1", "nombre": "Mi parking cercano", "tipo": "parking", "lat": 40.42, "lon": -3.71, "fuente": "empresa"},
+        {"id": "p2", "empresa_id": "e1", "nombre": "Mi parking lejano", "tipo": "parking", "lat": 42.0, "lon": -3.0, "fuente": "empresa"},
+        {"id": "p3", "empresa_id": "e2", "nombre": "Parking de otra empresa", "tipo": "parking", "lat": 40.42, "lon": -3.70, "fuente": "empresa"},
+        {"id": "p4", "empresa_id": None, "nombre": "Rest Area", "tipo": "rest_area", "lat": 40.5, "lon": -3.72, "fuente": "dataset_abierto"},
+    ]
+    update = SimpleNamespace(effective_chat=SimpleNamespace(id="chat-1"), message=SimpleNamespace(reply_text=AsyncMock()))
+    ctx = SimpleNamespace()
+    await bot.cmd_parking(update, ctx)
+
+    texto = update.message.reply_text.call_args[0][0]
+    reply_markup = update.message.reply_text.call_args[1]["reply_markup"]
+
+    assert "Mi parking cercano" in texto  # el más cercano de la empresa
+    assert "Área de descanso" in texto  # el del dataset abierto, tipo localizado
+    assert "Parking de otra empresa" not in texto  # nunca datos de OTRA empresa
+    assert len(reply_markup.inline_keyboard) == 3  # top 3, no los 4
+
+
+@pytest.mark.asyncio
+async def test_cmd_parking_sin_resultados(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "es"}]
+    fake_db.tables["ubicacion"] = [{"chofer_id": "c1", "lat": MADRID[0], "lon": MADRID[1], "created_at": "2026-01-01T10:00:00Z"}]
+    fake_db.tables["parking"] = []
+    update = SimpleNamespace(effective_chat=SimpleNamespace(id="chat-1"), message=SimpleNamespace(reply_text=AsyncMock()))
+    ctx = SimpleNamespace()
+    await bot.cmd_parking(update, ctx)
+    texto = update.message.reply_text.call_args[0][0]
+    assert "No encontré parkings cercanos" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_parking_en_ingles(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "John", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "en"}]
+    fake_db.tables["ubicacion"] = [{"chofer_id": "c1", "lat": MADRID[0], "lon": MADRID[1], "created_at": "2026-01-01T10:00:00Z"}]
+    fake_db.tables["parking"] = [
+        {"id": "p1", "empresa_id": "e1", "nombre": "My parking", "tipo": "fueling", "lat": 40.42, "lon": -3.71, "fuente": "empresa"},
+    ]
+    update = SimpleNamespace(effective_chat=SimpleNamespace(id="chat-1"), message=SimpleNamespace(reply_text=AsyncMock()))
+    ctx = SimpleNamespace()
+    await bot.cmd_parking(update, ctx)
+    texto = update.message.reply_text.call_args[0][0]
+    assert "Nearby parkings" in texto
+    reply_markup = update.message.reply_text.call_args[1]["reply_markup"]
+    assert "Directions" in reply_markup.inline_keyboard[0][0].text

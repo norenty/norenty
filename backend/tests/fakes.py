@@ -19,7 +19,12 @@ class FakeQuery:
         self._rows = [r for r in self._rows if r.get(field) == value]
         return self
 
-    def order(self, *_args, **_kwargs):
+    def order(self, field, desc=False):
+        self._rows = sorted(self._rows, key=lambda r: (r.get(field) is None, r.get(field)), reverse=desc)
+        return self
+
+    def limit(self, n):
+        self._rows = self._rows[:n]
         return self
 
     def execute(self):
