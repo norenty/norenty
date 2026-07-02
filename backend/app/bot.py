@@ -68,6 +68,15 @@ TEXTOS = {
         "parking_tipo_rest_area": "Área de descanso",
         "parking_tipo_otro": "Otro",
         "btn_como_llegar": "Cómo llegar",
+        "eta_titulo": "🕐 Tiempo estimado restante:",
+        "eta_sin_hitos": "No tengo suficientes datos de ruta para calcular el tiempo restante.",
+        "eta_conduccion": "{km} km a {velocidad} km/h → {horas} h de conducción",
+        "eta_parada": "parada de 45 min",
+        "eta_paradas": "paradas de 45 min",
+        "eta_descanso": "descanso de 11h",
+        "eta_descansos": "descansos de 11h",
+        "eta_sin_paradas": "Sin paradas obligatorias en el resto de la ruta.",
+        "eta_total": "Total: {horas} h",
     },
     "en": {
         "sin_viaje_activo": "You have no active trip.",
@@ -104,6 +113,15 @@ TEXTOS = {
         "parking_tipo_rest_area": "Rest area",
         "parking_tipo_otro": "Other",
         "btn_como_llegar": "Directions",
+        "eta_titulo": "🕐 Estimated remaining time:",
+        "eta_sin_hitos": "Not enough route data to calculate the remaining time.",
+        "eta_conduccion": "{km} km at {velocidad} km/h → {horas} h driving",
+        "eta_parada": "45-min break",
+        "eta_paradas": "45-min breaks",
+        "eta_descanso": "11h rest",
+        "eta_descansos": "11h rests",
+        "eta_sin_paradas": "No mandatory stops on the rest of the route.",
+        "eta_total": "Total: {horas} h",
     },
     "ro": {
         "sin_viaje_activo": "Nu ai nicio cursă activă.",
@@ -140,6 +158,15 @@ TEXTOS = {
         "parking_tipo_rest_area": "Zonă de odihnă",
         "parking_tipo_otro": "Altul",
         "btn_como_llegar": "Direcții",
+        "eta_titulo": "🕐 Timp estimat rămas:",
+        "eta_sin_hitos": "Nu am suficiente date despre traseu pentru a calcula timpul rămas.",
+        "eta_conduccion": "{km} km la {velocidad} km/h → {horas} h de condus",
+        "eta_parada": "pauză de 45 min",
+        "eta_paradas": "pauze de 45 min",
+        "eta_descanso": "repaus de 11h",
+        "eta_descansos": "repausuri de 11h",
+        "eta_sin_paradas": "Fără opriri obligatorii pe restul traseului.",
+        "eta_total": "Total: {horas} h",
     },
     "fr": {
         "sin_viaje_activo": "Vous n'avez aucun trajet actif.",
@@ -176,6 +203,15 @@ TEXTOS = {
         "parking_tipo_rest_area": "Aire de repos",
         "parking_tipo_otro": "Autre",
         "btn_como_llegar": "Itinéraire",
+        "eta_titulo": "🕐 Temps restant estimé :",
+        "eta_sin_hitos": "Pas assez de données d'itinéraire pour calculer le temps restant.",
+        "eta_conduccion": "{km} km à {velocidad} km/h → {horas} h de conduite",
+        "eta_parada": "pause de 45 min",
+        "eta_paradas": "pauses de 45 min",
+        "eta_descanso": "repos de 11h",
+        "eta_descansos": "repos de 11h",
+        "eta_sin_paradas": "Aucun arrêt obligatoire sur le reste du trajet.",
+        "eta_total": "Total : {horas} h",
     },
 }
 # Idiomas sin traduccion completa: usar ingles como fallback
@@ -770,6 +806,63 @@ async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     logger.info("Incidencia manual: chofer %s, viaje %s", chofer["id"], viaje["id"])
 
 
+# Mismo factor que dashboard/lib/data.js (FACTOR_SINUOSIDAD_FALLBACK): el bot
+# no depende de OSRM, así que /eta siempre usa Haversine corregido, no solo
+# como fallback.
+FACTOR_SINUOSIDAD_FALLBACK = 1.3
+VELOCIDAD_PLANIFICACION_KMH_DEFAULT = 75
+
+# Reglamento (CE) 561/2006 — mismos límites y misma simplificación v1
+# CONSERVADORA que calcularEtaConParadas() en dashboard/lib/data.js (siempre
+# límite diario base 9h + descanso normal 11h, sin las excepciones de 10h/2x-
+# semana ni descanso reducido 9h; no comprueba límites semanales/bisemanales —
+# ver ese archivo para el razonamiento completo). Sobreestima, nunca infraestima.
+_PAUSA_TRAS_HORAS = 4.5
+_PAUSA_DURACION_H = 45 / 60
+_CONDUCCION_DIARIA_MAX_H = 9
+_DESCANSO_DIARIO_H = 11
+_EPS = 1e-9
+
+
+def calcular_eta_con_paradas(horas_conduccion_total):
+    """Espejo en Python de calcularEtaConParadas() (dashboard/lib/data.js,
+    ítem 5.3) — mismo algoritmo, mismos casos de test. Función PURA, sin red.
+
+    @return dict con horas_totales, paradas_45min, descansos_11h.
+    """
+    restante = horas_conduccion_total
+    desde_ultima_pausa = 0.0
+    conduccion_hoy = 0.0
+    horas_totales = 0.0
+    paradas_45min = 0
+    descansos_11h = 0
+
+    while restante > _EPS:
+        margen_pausa = _PAUSA_TRAS_HORAS - desde_ultima_pausa
+        margen_dia = _CONDUCCION_DIARIA_MAX_H - conduccion_hoy
+        tramo = min(restante, margen_pausa, margen_dia)
+
+        horas_totales += tramo
+        desde_ultima_pausa += tramo
+        conduccion_hoy += tramo
+        restante -= tramo
+
+        if restante <= _EPS:
+            break
+
+        if conduccion_hoy >= _CONDUCCION_DIARIA_MAX_H - _EPS:
+            horas_totales += _DESCANSO_DIARIO_H
+            descansos_11h += 1
+            conduccion_hoy = 0.0
+            desde_ultima_pausa = 0.0
+        elif desde_ultima_pausa >= _PAUSA_TRAS_HORAS - _EPS:
+            horas_totales += _PAUSA_DURACION_H
+            paradas_45min += 1
+            desde_ultima_pausa = 0.0
+
+    return {"horas_totales": horas_totales, "paradas_45min": paradas_45min, "descansos_11h": descansos_11h}
+
+
 def haversine_km(lat1, lon1, lat2, lon2):
     """Distancia en línea recta (km) entre dos puntos. Espejo en Python de
     haversineKm() en dashboard/lib/data.js (mismo cálculo, mismo redondeo natural)."""
@@ -896,12 +989,96 @@ async def cmd_parking(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def cmd_eta(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """ETA-561 del viaje activo del chófer (ítem 6.8). A diferencia de la
+    viabilidad/ETA del dashboard (que usa TODOS los hitos = ruta planificada
+    completa desde el origen), aquí se calcula el tiempo que queda desde AHORA:
+    solo los hitos que aún NO están completados (pendiente/en_curso/fallido no
+    cuenta como resuelto pero tampoco aporta km — se excluye igual que completado).
+    El bot no depende de OSRM, así que usa Haversine × FACTOR_SINUOSIDAD_FALLBACK
+    directamente (no solo como fallback, como sí ocurre en el dashboard).
+    """
+    chat_id = str(update.effective_chat.id)
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
+        await update.message.reply_text(t("es", "no_vinculado"))
+        return
+
+    viaje_r = (
+        supabase.table("viaje")
+        .select("id")
+        .eq("chofer_id", chofer["id"])
+        .eq("estado", "en_curso")
+        .execute()
+    )
+    if not viaje_r.data:
+        await update.message.reply_text(t(chofer, "sin_viaje_activo"))
+        return
+
+    hitos_r = (
+        supabase.table("hito")
+        .select("lat, lon, orden, estado")
+        .eq("viaje_id", viaje_r.data[0]["id"])
+        .order("orden")
+        .execute()
+    )
+    restantes = [
+        h for h in (hitos_r.data or [])
+        if h.get("estado") not in ("completado", "fallido") and h.get("lat") is not None and h.get("lon") is not None
+    ]
+
+    if len(restantes) < 2:
+        await update.message.reply_text(t(chofer, "eta_sin_hitos"))
+        return
+
+    empresa_r = (
+        supabase.table("empresa")
+        .select("velocidad_planificacion_kmh")
+        .eq("id", chofer["empresa_id"])
+        .execute()
+    )
+    velocidad = VELOCIDAD_PLANIFICACION_KMH_DEFAULT
+    if empresa_r.data and empresa_r.data[0].get("velocidad_planificacion_kmh"):
+        velocidad = empresa_r.data[0]["velocidad_planificacion_kmh"]
+
+    km = 0.0
+    for i in range(len(restantes) - 1):
+        km += haversine_km(
+            restantes[i]["lat"], restantes[i]["lon"], restantes[i + 1]["lat"], restantes[i + 1]["lon"]
+        ) * FACTOR_SINUOSIDAD_FALLBACK
+
+    horas_conduccion = km / velocidad
+    resultado = calcular_eta_con_paradas(horas_conduccion)
+
+    lineas = [
+        t(chofer, "eta_titulo"),
+        t(chofer, "eta_conduccion", km=round(km), velocidad=velocidad, horas=round(horas_conduccion, 1)),
+    ]
+
+    if resultado["paradas_45min"] > 0 or resultado["descansos_11h"] > 0:
+        partes = []
+        if resultado["paradas_45min"] > 0:
+            clave = "eta_parada" if resultado["paradas_45min"] == 1 else "eta_paradas"
+            partes.append(f"{resultado['paradas_45min']} {t(chofer, clave)}")
+        if resultado["descansos_11h"] > 0:
+            clave = "eta_descanso" if resultado["descansos_11h"] == 1 else "eta_descansos"
+            partes.append(f"{resultado['descansos_11h']} {t(chofer, clave)}")
+        lineas.append("+ " + " + ".join(partes))
+    else:
+        lineas.append(t(chofer, "eta_sin_paradas"))
+
+    lineas.append(t(chofer, "eta_total", horas=round(resultado["horas_totales"], 1)))
+
+    await update.message.reply_text("\n".join(lineas))
+
+
 def create_bot_app():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("estado", cmd_estado))
     app.add_handler(CommandHandler("incidencia", cmd_incidencia))
     app.add_handler(CommandHandler("parking", cmd_parking))
+    app.add_handler(CommandHandler("eta", cmd_eta))
     app.add_handler(CallbackQueryHandler(cb_pre_llegada, pattern=r"^pre_llegada:"))
     app.add_handler(CallbackQueryHandler(cb_llegada, pattern=r"^llegada:"))
     app.add_handler(CallbackQueryHandler(cb_cancelar, pattern=r"^cancelar$"))

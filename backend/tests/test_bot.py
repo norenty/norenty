@@ -516,3 +516,126 @@ async def test_cmd_parking_en_ingles(fake_db):
     assert "Nearby parkings" in texto
     reply_markup = update.message.reply_text.call_args[1]["reply_markup"]
     assert "Directions" in reply_markup.inline_keyboard[0][0].text
+
+
+# --- /eta (ítem 6.8) — calcular_eta_con_paradas: mismos casos que el JS (5.3) ---
+
+def test_calcular_eta_0h_sin_paradas():
+    r = bot.calcular_eta_con_paradas(0)
+    assert r == {"horas_totales": 0, "paradas_45min": 0, "descansos_11h": 0}
+
+
+def test_calcular_eta_por_debajo_de_4_5h_sin_paradas():
+    r = bot.calcular_eta_con_paradas(3)
+    assert r == {"horas_totales": 3, "paradas_45min": 0, "descansos_11h": 0}
+
+
+def test_calcular_eta_5h_una_pausa():
+    r = bot.calcular_eta_con_paradas(5)
+    assert r["paradas_45min"] == 1
+    assert r["descansos_11h"] == 0
+    assert round(r["horas_totales"], 5) == 5.75
+
+
+def test_calcular_eta_9h_exactas_una_pausa_sin_descanso():
+    r = bot.calcular_eta_con_paradas(9)
+    assert r["paradas_45min"] == 1
+    assert r["descansos_11h"] == 0
+    assert round(r["horas_totales"], 5) == 9.75
+
+
+def test_calcular_eta_10h_supera_limite_diario_pausa_y_descanso():
+    r = bot.calcular_eta_con_paradas(10)
+    assert r["paradas_45min"] == 1
+    assert r["descansos_11h"] == 1
+    assert round(r["horas_totales"], 5) == 21.75
+
+
+def test_calcular_eta_18h_dos_dias_completos():
+    r = bot.calcular_eta_con_paradas(18)
+    assert r["paradas_45min"] == 2
+    assert r["descansos_11h"] == 1
+    assert round(r["horas_totales"], 5) == 30.5
+
+
+# --- /eta — cmd_eta: integración con el bot ---
+
+@pytest.mark.asyncio
+async def test_cmd_eta_no_vinculado(fake_db):
+    fake_db.tables["chofer"] = []
+    update = SimpleNamespace(effective_chat=SimpleNamespace(id="chat-1"), message=SimpleNamespace(reply_text=AsyncMock()))
+    await bot.cmd_eta(update, SimpleNamespace())
+    texto = update.message.reply_text.call_args[0][0]
+    assert "No estás vinculado" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_eta_sin_viaje_activo(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "es"}]
+    fake_db.tables["viaje"] = []
+    update = SimpleNamespace(effective_chat=SimpleNamespace(id="chat-1"), message=SimpleNamespace(reply_text=AsyncMock()))
+    await bot.cmd_eta(update, SimpleNamespace())
+    texto = update.message.reply_text.call_args[0][0]
+    assert "No tienes ningún viaje activo" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_eta_sin_hitos_suficientes(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "es"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "estado": "en_curso"}]
+    fake_db.tables["hito"] = [{"viaje_id": "v1", "orden": 1, "estado": "completado", "lat": 1.0, "lon": 1.0}]
+    update = SimpleNamespace(effective_chat=SimpleNamespace(id="chat-1"), message=SimpleNamespace(reply_text=AsyncMock()))
+    await bot.cmd_eta(update, SimpleNamespace())
+    texto = update.message.reply_text.call_args[0][0]
+    assert "No tengo suficientes datos de ruta" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_eta_calcula_con_velocidad_de_empresa(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "es"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "estado": "en_curso"}]
+    # Hito 1 completado (ya no cuenta) + 2 pendientes -> 1 tramo entre los 2 restantes.
+    fake_db.tables["hito"] = [
+        {"viaje_id": "v1", "orden": 1, "estado": "completado", "lat": 40.0, "lon": -3.0},
+        {"viaje_id": "v1", "orden": 2, "estado": "en_curso", "lat": 40.0, "lon": -3.0},
+        {"viaje_id": "v1", "orden": 3, "estado": "pendiente", "lat": 40.9, "lon": -3.0},  # ~100km al norte
+    ]
+    fake_db.tables["empresa"] = [{"id": "e1", "velocidad_planificacion_kmh": 100}]
+    update = SimpleNamespace(effective_chat=SimpleNamespace(id="chat-1"), message=SimpleNamespace(reply_text=AsyncMock()))
+    await bot.cmd_eta(update, SimpleNamespace())
+    texto = update.message.reply_text.call_args[0][0]
+    assert "100 km/h" in texto
+    assert "Total:" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_eta_usa_velocidad_por_defecto_si_empresa_no_la_configura(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "es"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "estado": "en_curso"}]
+    fake_db.tables["hito"] = [
+        {"viaje_id": "v1", "orden": 1, "estado": "pendiente", "lat": 40.0, "lon": -3.0},
+        {"viaje_id": "v1", "orden": 2, "estado": "pendiente", "lat": 40.9, "lon": -3.0},
+    ]
+    fake_db.tables["empresa"] = [{"id": "e1", "velocidad_planificacion_kmh": None}]
+    update = SimpleNamespace(effective_chat=SimpleNamespace(id="chat-1"), message=SimpleNamespace(reply_text=AsyncMock()))
+    await bot.cmd_eta(update, SimpleNamespace())
+    texto = update.message.reply_text.call_args[0][0]
+    assert "75 km/h" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_eta_en_ingles_y_pluralizacion(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "John", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "en"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "estado": "en_curso"}]
+    # Suficiente distancia para necesitar >1 pausa (varios hitos muy separados).
+    fake_db.tables["hito"] = [
+        {"viaje_id": "v1", "orden": 1, "estado": "pendiente", "lat": 36.0, "lon": -6.0},
+        {"viaje_id": "v1", "orden": 2, "estado": "pendiente", "lat": 40.0, "lon": -3.0},
+        {"viaje_id": "v1", "orden": 3, "estado": "pendiente", "lat": 43.5, "lon": -5.7},
+    ]
+    fake_db.tables["empresa"] = [{"id": "e1", "velocidad_planificacion_kmh": 50}]
+    update = SimpleNamespace(effective_chat=SimpleNamespace(id="chat-1"), message=SimpleNamespace(reply_text=AsyncMock()))
+    await bot.cmd_eta(update, SimpleNamespace())
+    texto = update.message.reply_text.call_args[0][0]
+    assert "Estimated remaining time" in texto
+    assert "driving" in texto
