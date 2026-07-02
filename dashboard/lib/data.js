@@ -808,6 +808,48 @@ export async function getViabilidadViaje(viajeId) {
   };
 }
 
+// ==========================================================================
+// Parkings para camión (ítem 5.4)
+// ==========================================================================
+
+/**
+ * Todos los parkings visibles para el gestor: el dataset abierto global
+ * (fuente='dataset_abierto', empresa_id NULL — ver backend/db/seed_parking_abierto.py,
+ * datos Fraunhofer/Zenodo CC-BY 4.0; NO es la certificación oficial SSTPA) más
+ * los propios de su empresa (fuente='empresa'). RLS hace el filtrado real.
+ */
+export async function getParkings() {
+  const { data } = await supabase
+    .from("parking")
+    .select("id, nombre, tipo, lat, lon, confianza, fuente, notas");
+  return data || [];
+}
+
+/** Alta de un parking propio de la empresa (su mapa curado). */
+export async function createParkingPropio({ nombre, tipo, lat, lon, notas }) {
+  const empresaId = await getCurrentEmpresaId();
+  const { data, error } = await supabase
+    .from("parking")
+    .insert({
+      empresa_id: empresaId,
+      nombre: nombre.trim(),
+      tipo: tipo || "parking",
+      lat,
+      lon,
+      notas: notas?.trim() || null,
+      fuente: "empresa",
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Borra un parking propio. RLS impide borrar los del dataset abierto. */
+export async function deleteParkingPropio(id) {
+  await supabase.from("parking").delete().eq("id", id);
+}
+
 export async function getChoferes() {
   const { data } = await supabase
     .from("chofer")

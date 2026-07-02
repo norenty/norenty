@@ -66,6 +66,8 @@ const {
   calcularEtaConParadas,
   getEtaViaje,
   VELOCIDAD_PLANIFICACION_KMH,
+  getParkings,
+  createParkingPropio,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -705,5 +707,33 @@ describe("getEtaViaje (ETA 5.3 — integración)", () => {
     expect(r.km).toBe(0);
     expect(r.paradas45min).toBe(0);
     expect(osrmMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("parkings (5.4)", () => {
+  it("getParkings devuelve dataset abierto y propios (RLS filtra en real; el mock devuelve todo)", async () => {
+    TABLES.parking = [
+      { id: "p1", nombre: "Rest Area", tipo: "rest_area", lat: 41, lon: 2, fuente: "dataset_abierto" },
+      { id: "p2", nombre: "Mi parking", tipo: "parking", lat: 40, lon: -3, fuente: "empresa" },
+    ];
+    const r = await getParkings();
+    expect(r.length).toBe(2);
+  });
+
+  it("createParkingPropio inserta con la empresa del gestor y fuente='empresa'", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "emp1" }];
+    const r = await createParkingPropio({ nombre: "  Parking N-II  ", tipo: "parking", lat: 40.5, lon: -3.2, notas: "" });
+    expect(r.empresa_id).toBe("emp1");
+    expect(r.fuente).toBe("empresa");
+    expect(r.nombre).toBe("Parking N-II");
+    expect(r.notas).toBeNull();
+  });
+
+  it("createParkingPropio lanza si no hay sesión (getCurrentEmpresaId falla)", async () => {
+    SESSION = null;
+    await expect(
+      createParkingPropio({ nombre: "X", tipo: "parking", lat: 1, lon: 1 })
+    ).rejects.toThrow(/No hay sesión activa/);
   });
 });

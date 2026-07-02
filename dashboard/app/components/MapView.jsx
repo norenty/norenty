@@ -24,6 +24,27 @@ const ICON_CHOFER = new L.DivIcon({
   iconAnchor: [16, 16],
 });
 
+// Parkings: icono discreto (más pequeño que hitos/chóferes, es capa de contexto).
+const ICON_PARKING = new L.DivIcon({
+  className: "",
+  html: '<div style="width:18px;height:18px;border-radius:4px;background:#475569;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">P</div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
+const ICON_PARKING_PROPIO = new L.DivIcon({
+  className: "",
+  html: '<div style="width:20px;height:20px;border-radius:4px;background:#D97706;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">P</div>',
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+});
+
+const TIPO_PARKING_LABEL = {
+  parking: "Parking",
+  fueling: "Gasolinera / Truck stop",
+  rest_area: "Área de descanso",
+  otro: "Otro",
+};
+
 function FitBounds({ points }) {
   const map = useMap();
   useEffect(() => {
@@ -35,7 +56,9 @@ function FitBounds({ points }) {
   return null;
 }
 
-export default function MapView({ hitos, ubicaciones }) {
+export default function MapView({ hitos, ubicaciones, parkings, onBorrarParking }) {
+  // Los parkings NO entran en fitBounds: son capa de contexto (763 en toda
+  // España), no deben forzar el zoom fuera de la operación.
   const allPoints = [
     ...(hitos || []).filter((h) => h.lat && h.lon),
     ...(ubicaciones || []).filter((u) => u.lat && u.lon),
@@ -75,6 +98,45 @@ export default function MapView({ hitos, ubicaciones }) {
             </Popup>
           </Marker>
         ))}
+
+      {(parkings || []).map((p) => (
+        <Marker
+          key={p.id}
+          position={[p.lat, p.lon]}
+          icon={p.fuente === "empresa" ? ICON_PARKING_PROPIO : ICON_PARKING}
+        >
+          <Popup>
+            <div style={{ fontSize: 13 }}>
+              <strong>{TIPO_PARKING_LABEL[p.tipo] || p.nombre}</strong>
+              <br />
+              {p.fuente === "empresa" ? "Parking propio de la empresa" : "Dataset abierto (Fraunhofer/OSM)"}
+              {p.confianza && (
+                <>
+                  <br />
+                  <span style={{ color: "#64748B" }}>Confianza: {p.confianza}</span>
+                </>
+              )}
+              {p.notas && (
+                <>
+                  <br />
+                  <span style={{ color: "#64748B" }}>{p.notas}</span>
+                </>
+              )}
+              {p.fuente === "empresa" && onBorrarParking && (
+                <>
+                  <br />
+                  <button
+                    onClick={() => onBorrarParking(p.id)}
+                    style={{ marginTop: 6, fontSize: 12, color: "#DC2626", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                  >
+                    Eliminar
+                  </button>
+                </>
+              )}
+            </div>
+          </Popup>
+        </Marker>
+      ))}
 
       {(ubicaciones || []).map((u) => (
         <Marker key={u.id} position={[u.lat, u.lon]} icon={ICON_CHOFER}>
