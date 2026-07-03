@@ -1202,6 +1202,50 @@ export function resolveCosteKm({ vehiculo, empresa }) {
 }
 
 /**
+ * Coste de una ruta desglosado por capas (ítem 7A.5): combustible real,
+ * peajes, dietas y conductor, cada uno opcional según qué datos tenga
+ * configurados la empresa/vehículo — "elige hasta dónde llega" poblando
+ * datos (extiende la decisión de 5.2). Si no hay datos de combustible cae a
+ * modo "blended" (el €/km único de 5.2), para no perder la funcionalidad
+ * existente cuando la empresa aún no ha configurado el desglose. Pura.
+ *
+ * @returns {{ modo: "desglosado"|"blended"|null, combustible: number|null,
+ *   conductor: number|null, peajes: number|null, dietas: number|null,
+ *   total: number|null, capasFaltantes: string[] }}
+ */
+export function calcularCosteRuta({ km, noches = 0, vehiculo, empresa }) {
+  const tieneCombustible = vehiculo?.consumo_l_100km != null && empresa?.precio_gasoil_litro != null;
+
+  if (!tieneCombustible) {
+    const { costeKm } = resolveCosteKm({ vehiculo, empresa });
+    const total = costeKm != null ? +(km * costeKm).toFixed(2) : null;
+    return {
+      modo: total != null ? "blended" : null,
+      combustible: null,
+      conductor: null,
+      peajes: null,
+      dietas: null,
+      total,
+      capasFaltantes: [],
+    };
+  }
+
+  const combustible = +(km * (vehiculo.consumo_l_100km / 100) * empresa.precio_gasoil_litro).toFixed(2);
+  const conductor = empresa?.coste_conductor_km != null ? +(km * empresa.coste_conductor_km).toFixed(2) : null;
+  const peajes = empresa?.coste_peaje_km != null ? +(km * empresa.coste_peaje_km).toFixed(2) : null;
+  const dietas = noches === 0 ? 0 : (empresa?.dieta_noche_eur != null ? +(noches * empresa.dieta_noche_eur).toFixed(2) : null);
+
+  const capasFaltantes = [];
+  if (conductor == null) capasFaltantes.push("conductor");
+  if (peajes == null) capasFaltantes.push("peajes");
+  if (dietas == null) capasFaltantes.push("dietas");
+
+  const total = +[combustible, conductor, peajes, dietas].filter((v) => v != null).reduce((s, v) => s + v, 0).toFixed(2);
+
+  return { modo: "desglosado", combustible, conductor, peajes, dietas, total, capasFaltantes };
+}
+
+/**
  * Margen de un viaje dado el ingreso (`precio`), los `km` y el `costeKm`.
  * Devuelve null en los campos que no se puedan calcular (falta precio, km o coste)
  * — no se inventa un número, para que la UI muestre "n/d" en vez de engañar.
@@ -1265,9 +1309,9 @@ export async function getViabilidadViaje(viajeId) {
 
   const [{ data: hitos }, { data: empresas }, vehiculoRes] = await Promise.all([
     supabase.from("hito").select("orden, lat, lon").eq("viaje_id", viajeId),
-    supabase.from("empresa").select("coste_km"),
+    supabase.from("empresa").select("coste_km, velocidad_planificacion_kmh, precio_gasoil_litro, coste_peaje_km, dieta_noche_eur, coste_conductor_km"),
     viaje.vehiculo_id
-      ? supabase.from("vehiculo").select("coste_km").eq("id", viaje.vehiculo_id).single()
+      ? supabase.from("vehiculo").select("coste_km, consumo_l_100km").eq("id", viaje.vehiculo_id).single()
       : Promise.resolve({ data: null }),
   ]);
 
@@ -1275,7 +1319,17 @@ export async function getViabilidadViaje(viajeId) {
   const vehiculo = vehiculoRes.data || null;
   const { costeKm, fuente } = resolveCosteKm({ vehiculo, empresa });
   const { km, estimado } = await kmCarreteraViaje(hitos || []);
-  const { coste, margen, margenPct } = calcularMargen({ precio: viaje.precio, km, costeKm });
+
+  const velocidad = resolveVelocidadPlanificacion(empresa);
+  const { descansos11h } = calcularEtaConParadas(km / velocidad);
+  const desglose = calcularCosteRuta({ km, noches: descansos11h, vehiculo, empresa });
+
+  // desglose.total ya cubre tanto el modo blended (mismo resultado que
+  // calcularMargen con costeKm, ítem 5.2) como el desglosado (7A.5) — un único
+  // cálculo de coste "real" en vez de dos en paralelo.
+  const coste = desglose.total;
+  const margen = coste != null && viaje.precio != null ? viaje.precio - coste : null;
+  const margenPct = margen != null && viaje.precio > 0 ? (margen / viaje.precio) * 100 : null;
 
   return {
     precio: viaje.precio,
@@ -1286,6 +1340,7 @@ export async function getViabilidadViaje(viajeId) {
     coste: coste != null ? Math.round(coste) : null,
     margen: margen != null ? Math.round(margen) : null,
     margenPct: margenPct != null ? Math.round(margenPct) : null,
+    desglose,
   };
 }
 

@@ -10,12 +10,11 @@ completa aquí + el preámbulo de convenciones.**
 ## 0. CONVENCIONES DEL REPO (leer siempre — evitan los errores ya cometidos y resueltos)
 
 ### 0.1 Migraciones
-1. Crear `backend/db/migrations/00NN_nombre.sql` (numeración: la última es 0019
-   [`0019_seguridad_columnas.sql`, endurecimiento de GRANT/REVOKE por columna, 2026-07-03]; los
-   ítems de esta fase usan **0020–0025**, asignadas abajo: 0020 decision_asignacion (7A.2), 0021
-   notificacion_asignacion (7A.3), 0022 coste_desglosado (7A.5), 0023 gasto_viaje (7A.7), 0024
-   nota_gestor (7A.10), 0025 token_publico (7A.14)). Comentario de cabecera explicando el
-   porqué. **Nota importante para
+1. Crear `backend/db/migrations/00NN_nombre.sql` (numeración real ejecutada, actualizar aquí si
+   se reordena: 0019 seguridad_columnas, 0020 decision_asignacion (7A.2), 0021
+   notificacion_asignacion (7A.3), 0022 nota_gestor (7A.10, se ejecutó antes que 7A.5 en el orden
+   real del loop), 0023 coste_desglosado (7A.5), 0024 gasto_viaje (7A.7), 0025 token_publico
+   (7A.14)). Comentario de cabecera explicando el porqué. **Nota importante para
    7A.3/7A.5/7A.7/7A.14**: la migración 0019 restringió qué columnas puede tocar `authenticated`
    (dashboard) en `gestor`, `chofer`, `ejecucion_evento` y `ubicacion` — ver esa migración antes
    de añadir columnas nuevas a esas tablas o de escribir código que actualice
@@ -362,7 +361,8 @@ no vinculado silencioso.
 
 ## 7A.5 — Coste total de ruta v2 (desglose por capas)
 
-### Migración `0022_coste_desglosado.sql`
+### Migración `0023_coste_desglosado.sql` (0022 ya la ocupó nota_gestor de 7A.10, ejecutada
+antes en el orden real — renumerado 2026-07-03)
 ```sql
 ALTER TABLE vehiculo ADD COLUMN IF NOT EXISTS consumo_l_100km numeric;
 ALTER TABLE empresa  ADD COLUMN IF NOT EXISTS precio_gasoil_litro numeric;
@@ -404,7 +404,7 @@ aunque falte tarifa; fallback blended idéntico a 5.2; total suma solo activos.
 
 ## 7A.6 — Presupuestador instantáneo
 
-**Usa la migración 0022** (`empresa.margen_objetivo_pct`).
+**Usa la migración 0023** (`empresa.margen_objetivo_pct`).
 
 ### lib/data.js
 `export const MARGEN_OBJETIVO_PCT_DEFAULT = 15;` (comentario estándar).
@@ -435,7 +435,7 @@ margen de empresa respetado vs default; <2 puntos → km 0.
 
 ## 7A.7 — Gastos del viaje (multas, repostajes…)
 
-### Migración `0023_gasto_viaje.sql`
+### Migración `0024_gasto_viaje.sql`
 ```sql
 CREATE TABLE IF NOT EXISTS gasto_viaje (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),

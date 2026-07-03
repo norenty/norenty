@@ -16,6 +16,10 @@ export default function AjustesPage() {
   const [baseLon, setBaseLon] = useState("");
   const [costeKm, setCosteKm] = useState("");
   const [velocidadPlanificacion, setVelocidadPlanificacion] = useState("");
+  const [precioGasoil, setPrecioGasoil] = useState("");
+  const [costePeaje, setCostePeaje] = useState("");
+  const [dietaNoche, setDietaNoche] = useState("");
+  const [costeConductor, setCosteConductor] = useState("");
   const [gestor, setGestor] = useState(null);
   const [prefs, setPrefs] = useState({ notif_incidencias: true, notif_entregas: true, notif_fuera_ventana: false });
   const [guardando, setGuardando] = useState(false);
@@ -58,6 +62,10 @@ export default function AjustesPage() {
           setBaseLon(emp?.base_lon != null ? String(emp.base_lon) : "");
           setCosteKm(emp?.coste_km != null ? String(emp.coste_km) : "");
           setVelocidadPlanificacion(emp?.velocidad_planificacion_kmh != null ? String(emp.velocidad_planificacion_kmh) : "");
+          setPrecioGasoil(emp?.precio_gasoil_litro != null ? String(emp.precio_gasoil_litro) : "");
+          setCostePeaje(emp?.coste_peaje_km != null ? String(emp.coste_peaje_km) : "");
+          setDietaNoche(emp?.dieta_noche_eur != null ? String(emp.dieta_noche_eur) : "");
+          setCosteConductor(emp?.coste_conductor_km != null ? String(emp.coste_conductor_km) : "");
           setInvitaciones(await getInvitaciones());
         }
       }
@@ -121,6 +129,27 @@ export default function AjustesPage() {
     setGuardando(true);
     await supabase.from("empresa").update({ velocidad_planificacion_kmh: velocidad }).eq("id", empresa.id);
     flash("Velocidad de planificación guardada");
+    setGuardando(false);
+  }
+
+  async function guardarDesglose() {
+    if (!empresa) return;
+    const campos = {
+      precio_gasoil_litro: precioGasoil, coste_peaje_km: costePeaje,
+      dieta_noche_eur: dietaNoche, coste_conductor_km: costeConductor,
+    };
+    const valores = {};
+    for (const [campo, valorStr] of Object.entries(campos)) {
+      const v = valorStr.trim() === "" ? null : Number(valorStr);
+      if (v != null && (Number.isNaN(v) || v < 0)) {
+        flash("Error: los valores deben ser números positivos");
+        return;
+      }
+      valores[campo] = v;
+    }
+    setGuardando(true);
+    await supabase.from("empresa").update(valores).eq("id", empresa.id);
+    flash("Coste desglosado guardado");
     setGuardando(false);
   }
 
@@ -472,6 +501,61 @@ export default function AjustesPage() {
             <Save size={16} /> Guardar velocidad
           </button>
         </div>
+      </section>
+
+      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Euro size={18} className="text-brand" />
+          <h2 className="text-sm font-medium text-ink">Coste desglosado (avanzado)</h2>
+        </div>
+        <p className="text-xs text-ink-secondary mb-4">
+          Rellena estos campos para que el coste de cada viaje se calcule por capas (combustible
+          real + peajes + dietas + conductor) en vez de un único €/km. Cada campo es opcional: los
+          que dejes vacíos simplemente no se suman al total, y se te avisa en cada viaje de qué
+          falta por configurar. El consumo del camión (l/100km) se configura en la ficha de cada
+          vehículo.
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <div>
+            <label htmlFor="ajustes-gasoil" className="block text-xs text-ink-secondary mb-1">Gasoil (€/l)</label>
+            <input
+              id="ajustes-gasoil" type="number" step="any" min="0"
+              value={precioGasoil} onChange={(e) => setPrecioGasoil(e.target.value)} placeholder="1.50"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+            />
+          </div>
+          <div>
+            <label htmlFor="ajustes-peaje" className="block text-xs text-ink-secondary mb-1">Peaje (€/km)</label>
+            <input
+              id="ajustes-peaje" type="number" step="any" min="0"
+              value={costePeaje} onChange={(e) => setCostePeaje(e.target.value)} placeholder="0.10"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+            />
+          </div>
+          <div>
+            <label htmlFor="ajustes-dieta" className="block text-xs text-ink-secondary mb-1">Dieta (€/noche)</label>
+            <input
+              id="ajustes-dieta" type="number" step="any" min="0"
+              value={dietaNoche} onChange={(e) => setDietaNoche(e.target.value)} placeholder="40"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+            />
+          </div>
+          <div>
+            <label htmlFor="ajustes-conductor" className="block text-xs text-ink-secondary mb-1">Conductor (€/km)</label>
+            <input
+              id="ajustes-conductor" type="number" step="any" min="0"
+              value={costeConductor} onChange={(e) => setCosteConductor(e.target.value)} placeholder="0.30"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+            />
+          </div>
+        </div>
+        <button
+          onClick={guardarDesglose}
+          disabled={guardando}
+          className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
+        >
+          <Save size={16} /> Guardar coste desglosado
+        </button>
       </section>
 
       <section className="bg-surface border border-border rounded-xl p-5 mb-4">

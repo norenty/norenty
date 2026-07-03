@@ -378,10 +378,10 @@ export default function ViajeDetalle() {
             {(() => {
               if (!viabilidad) return <p className="text-xs text-ink-muted">Calculando…</p>;
               if (viaje.precio == null) return <p className="text-xs text-ink-secondary">Añade el precio para ver el margen.</p>;
-              if (viabilidad.costeKm == null) return <p className="text-xs text-ink-secondary">Configura el coste/km en Ajustes (o en la ficha del vehículo) para ver el margen.</p>;
+              if (viabilidad.coste == null) return <p className="text-xs text-ink-secondary">Configura el coste/km (o el desglose de coste) en Ajustes, o en la ficha del vehículo, para ver el margen.</p>;
               if (viabilidad.km === 0) return <p className="text-xs text-ink-secondary">Sin km calculables: faltan coordenadas en los hitos o el servicio de rutas no responde.</p>;
 
-              const { margen, margenPct, km, costeKm, coste, fuenteCoste, estimado } = viabilidad;
+              const { margen, margenPct, km, costeKm, coste, fuenteCoste, estimado, desglose } = viabilidad;
               // text-estado-ok (#16A34A) sobre bg-green-50 da ~3.15:1 de contraste —
               // pasa para texto grande (≥3:1) pero NO para el texto pequeño de abajo
               // (necesita 4.5:1). green-700 sí cumple en ambos tamaños.
@@ -390,6 +390,7 @@ export default function ViajeDetalle() {
                 : margenPct < UMBRAL_MARGEN_AMBAR_PCT
                 ? "bg-yellow-50 text-yellow-700"
                 : "bg-green-50 text-green-700";
+              const LABEL_CAPA = { combustible: "Combustible", conductor: "Conductor", peajes: "Peajes", dietas: "Dietas" };
               return (
                 <div>
                   <div className={`rounded-lg px-3 py-2 mb-2 ${cls}`}>
@@ -399,7 +400,25 @@ export default function ViajeDetalle() {
                     </div>
                   </div>
                   <div className="text-xs text-ink-muted space-y-0.5">
-                    <div>{estimado && "~"}{km.toLocaleString("es-ES")} km × {costeKm} €/km = {coste.toLocaleString("es-ES")} € de coste</div>
+                    {desglose?.modo === "desglosado" ? (
+                      <div className="space-y-0.5">
+                        {["combustible", "conductor", "peajes", "dietas"].map((capa) => (
+                          <div key={capa} className="flex justify-between">
+                            <span>{LABEL_CAPA[capa]}</span>
+                            <span>
+                              {desglose[capa] != null
+                                ? `${desglose[capa].toLocaleString("es-ES")} €`
+                                : <span className="text-ink-muted">— configura {LABEL_CAPA[capa].toLowerCase()} en Ajustes</span>}
+                            </span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between font-medium text-ink-secondary pt-0.5 border-t border-border">
+                          <span>Total</span><span>{coste.toLocaleString("es-ES")} €</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>{estimado && "~"}{km.toLocaleString("es-ES")} km × {costeKm} €/km = {coste.toLocaleString("es-ES")} € de coste</div>
+                    )}
                     <div>Coste/km según: {fuenteCoste === "vehiculo" ? "vehículo asignado" : "empresa"}</div>
                     {estimado && (
                       <div className="text-yellow-700">~ distancia estimada en línea recta corregida; instala OSRM para km por carretera reales.</div>

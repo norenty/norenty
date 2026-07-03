@@ -70,6 +70,7 @@ const {
   getInformeNomina,
   resolveCosteKm,
   calcularMargen,
+  calcularCosteRuta,
   kmCarreteraViaje,
   getViabilidadViaje,
   resolveVelocidadPlanificacion,
@@ -609,6 +610,54 @@ describe("calcularMargen (viabilidad 5.2)", () => {
 
   it("margenPct es null si el precio es 0 (evita dividir por cero)", () => {
     expect(calcularMargen({ precio: 0, km: 100, costeKm: 1 }).margenPct).toBeNull();
+  });
+});
+
+describe("calcularCosteRuta (7A.5 — desglose por capas)", () => {
+  const vehiculo = { consumo_l_100km: 30, coste_km: 1.2 };
+  const empresaCompleta = {
+    precio_gasoil_litro: 1.5, coste_peaje_km: 0.1, dieta_noche_eur: 40, coste_conductor_km: 0.3, coste_km: 1.2,
+  };
+
+  it("modo desglosado: calcula cada capa y el total", () => {
+    const r = calcularCosteRuta({ km: 500, noches: 1, vehiculo, empresa: empresaCompleta });
+    expect(r.modo).toBe("desglosado");
+    expect(r.combustible).toBeCloseTo(500 * 0.3 * 1.5, 2); // 225
+    expect(r.conductor).toBeCloseTo(500 * 0.3, 2); // 150
+    expect(r.peajes).toBeCloseTo(500 * 0.1, 2); // 50
+    expect(r.dietas).toBe(40);
+    expect(r.capasFaltantes).toEqual([]);
+    expect(r.total).toBeCloseTo(225 + 150 + 50 + 40, 2);
+  });
+
+  it("cada capa faltante da null y se lista en capasFaltantes", () => {
+    const r = calcularCosteRuta({
+      km: 500, noches: 1, vehiculo,
+      empresa: { precio_gasoil_litro: 1.5 }, // sin peaje/dieta/conductor
+    });
+    expect(r.conductor).toBeNull();
+    expect(r.peajes).toBeNull();
+    expect(r.dietas).toBeNull();
+    expect(r.capasFaltantes.sort()).toEqual(["conductor", "dietas", "peajes"]);
+    expect(r.total).toBeCloseTo(r.combustible, 2); // solo suma lo no-null
+  });
+
+  it("noches=0 da dietas=0 aunque falte la tarifa configurada", () => {
+    const r = calcularCosteRuta({ km: 500, noches: 0, vehiculo, empresa: { precio_gasoil_litro: 1.5 } });
+    expect(r.dietas).toBe(0);
+    expect(r.capasFaltantes).not.toContain("dietas");
+  });
+
+  it("sin datos de combustible cae a modo blended (idéntico a 5.2)", () => {
+    const r = calcularCosteRuta({ km: 620, noches: 0, vehiculo: { coste_km: 1.2 }, empresa: {} });
+    expect(r.modo).toBe("blended");
+    expect(r.total).toBeCloseTo(620 * 1.2, 2);
+  });
+
+  it("sin ningún coste configurado, modo y total son null", () => {
+    const r = calcularCosteRuta({ km: 620, noches: 0, vehiculo: null, empresa: {} });
+    expect(r.modo).toBeNull();
+    expect(r.total).toBeNull();
   });
 });
 

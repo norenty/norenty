@@ -48,6 +48,7 @@ export default function VehiculoDetalle() {
   const [error, setError] = useState(null);
   const [mostrarForm, setMostrarForm] = useState(false);
   const [costeKm, setCosteKm] = useState("");
+  const [consumoL100km, setConsumoL100km] = useState("");
   const [guardandoCoste, setGuardandoCoste] = useState(false);
 
   const loadRegistros = useCallback(async () => {
@@ -69,6 +70,7 @@ export default function VehiculoDetalle() {
         .single();
       setVehiculo(v);
       setCosteKm(v?.coste_km != null ? String(v.coste_km) : "");
+      setConsumoL100km(v?.consumo_l_100km != null ? String(v.consumo_l_100km) : "");
       await loadRegistros();
       setLoading(false);
     }
@@ -77,14 +79,19 @@ export default function VehiculoDetalle() {
 
   async function guardarCosteKm() {
     const coste = costeKm.trim() === "" ? null : Number(costeKm);
+    const consumo = consumoL100km.trim() === "" ? null : Number(consumoL100km);
     if (coste != null && (Number.isNaN(coste) || coste < 0)) {
       setError("El coste por km debe ser un número positivo.");
       return;
     }
+    if (consumo != null && (Number.isNaN(consumo) || consumo < 0)) {
+      setError("El consumo debe ser un número positivo.");
+      return;
+    }
     setGuardandoCoste(true);
     setError(null);
-    await supabase.from("vehiculo").update({ coste_km: coste }).eq("id", id);
-    setVehiculo((v) => ({ ...v, coste_km: coste }));
+    await supabase.from("vehiculo").update({ coste_km: coste, consumo_l_100km: consumo }).eq("id", id);
+    setVehiculo((v) => ({ ...v, coste_km: coste, consumo_l_100km: consumo }));
     setGuardandoCoste(false);
   }
 
@@ -175,15 +182,29 @@ export default function VehiculoDetalle() {
         )}
         <div className="mt-3 pt-3 border-t border-border flex items-end gap-3">
           <div className="flex-1 max-w-[10rem]">
-            <label className="block text-xs text-ink-secondary mb-1">Coste por km (€)</label>
+            <label htmlFor="vehiculo-coste-km" className="block text-xs text-ink-secondary mb-1">Coste por km (€)</label>
             <input
+              id="vehiculo-coste-km"
               type="number"
               step="any"
               min="0"
               value={costeKm}
               onChange={(e) => setCosteKm(e.target.value)}
               placeholder="por defecto: empresa"
-              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand bg-surface"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 bg-surface"
+            />
+          </div>
+          <div className="flex-1 max-w-[10rem]">
+            <label htmlFor="vehiculo-consumo" className="block text-xs text-ink-secondary mb-1">Consumo (l/100km)</label>
+            <input
+              id="vehiculo-consumo"
+              type="number"
+              step="any"
+              min="0"
+              value={consumoL100km}
+              onChange={(e) => setConsumoL100km(e.target.value)}
+              placeholder="30"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 bg-surface"
             />
           </div>
           <button
