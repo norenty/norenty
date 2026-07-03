@@ -8,6 +8,7 @@ import { useRealtimeRefresh } from "../lib/realtime";
 import MetricCard from "./components/MetricCard";
 import KanbanColumn from "./components/KanbanColumn";
 import TripCard from "./components/TripCard";
+import ResumenHoy from "./components/ResumenHoy";
 
 function classify(trips) {
   const conIncidencia = trips.filter((t) => t.incidencia);
@@ -65,6 +66,8 @@ export default function OperacionPage() {
 
   return (
     <div>
+      <ResumenHoy />
+
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-medium text-ink">Operación</h1>
         <Link

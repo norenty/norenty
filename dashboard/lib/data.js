@@ -943,6 +943,118 @@ export async function registrarDecisionAsignacion({
   }
 }
 
+// ==========================================================================
+// Centro de mando "Hoy" (ítem 7A.10) — la home deja de ser solo el Kanban:
+// abre con lo que de verdad necesita atención del gestor. Si todo está en
+// orden, ese es el mensaje — no hay que ir a buscar nada más.
+// ==========================================================================
+
+export async function getResumenHoy() {
+  const ahoraIso = new Date().toISOString();
+
+  const [
+    documentosPorCaducar,
+    { data: incidenciasAbiertas },
+    { data: viajesEnCurso },
+    { data: viajesActivosConPrecio },
+  ] = await Promise.all([
+    getDocumentosPorCaducar(),
+    supabase.from("incidencia").select("id, created_at").in("estado", ALERTA_ESTADOS),
+    supabase.from("viaje").select("id, referencia, chofer_id").eq("estado", "en_curso"),
+    supabase.from("viaje").select("id, precio").in("estado", ESTADOS_ACTIVOS),
+  ]);
+
+  // Incidencias abiertas
+  let masAntiguaDias = null;
+  if (incidenciasAbiertas && incidenciasAbiertas.length > 0) {
+    const masAntigua = incidenciasAbiertas.reduce((min, i) => (i.created_at < min ? i.created_at : min), incidenciasAbiertas[0].created_at);
+    masAntiguaDias = Math.floor((Date.now() - new Date(masAntigua).getTime()) / 86400000);
+  }
+
+  // Viajes en riesgo: en curso con algún hito no completado cuya ventana ya pasó
+  const idsEnCurso = (viajesEnCurso || []).map((v) => v.id);
+  let viajesEnRiesgo = { count: 0, refs: [] };
+  if (idsEnCurso.length > 0) {
+    const { data: hitosRiesgo } = await supabase
+      .from("hito")
+      .select("viaje_id, estado, ventana_fin")
+      .in("viaje_id", idsEnCurso);
+    const viajeIdsEnRiesgo = new Set(
+      (hitosRiesgo || [])
+        .filter((h) => h.estado !== "completado" && h.ventana_fin && h.ventana_fin < ahoraIso)
+        .map((h) => h.viaje_id)
+    );
+    const refs = (viajesEnCurso || [])
+      .filter((v) => viajeIdsEnRiesgo.has(v.id))
+      .map((v) => v.referencia || v.id.slice(0, 8));
+    viajesEnRiesgo = { count: viajeIdsEnRiesgo.size, refs: refs.slice(0, 3) };
+  }
+
+  // Chóferes cerca del límite 561 — solo los que tienen viaje activo ahora mismo
+  const choferIdsActivos = [...new Set((viajesEnCurso || []).map((v) => v.chofer_id).filter(Boolean))];
+  let choferes561 = { count: 0, nombres: [] };
+  if (choferIdsActivos.length > 0) {
+    const { data: choferesData } = await supabase.from("chofer").select("id, nombre").in("id", choferIdsActivos);
+    const mapaNombre = Object.fromEntries((choferesData || []).map((c) => [c.id, c.nombre]));
+    const estados = await Promise.all(choferIdsActivos.map((id) => getEstado561(id)));
+    const cerca = choferIdsActivos
+      .map((id, i) => ({ id, nombre: mapaNombre[id] || id, estado: estados[i] }))
+      .filter((c) => c.estado && c.estado.pct7 >= 80);
+    choferes561 = { count: cerca.length, nombres: cerca.map((c) => c.nombre) };
+  }
+
+  // Viajes a pérdidas estimadas (tope 20 llamadas a getViabilidadViaje por coste)
+  const candidatos = (viajesActivosConPrecio || []).filter((v) => v.precio != null).slice(0, 20);
+  const viabilidades = await Promise.all(candidatos.map((v) => getViabilidadViaje(v.id)));
+  const viajesPerdidas = { count: viabilidades.filter((v) => v && v.margen != null && v.margen < 0).length };
+
+  const todoEnOrden =
+    documentosPorCaducar.length === 0 &&
+    (incidenciasAbiertas || []).length === 0 &&
+    viajesEnRiesgo.count === 0 &&
+    choferes561.count === 0 &&
+    viajesPerdidas.count === 0;
+
+  return {
+    docsPorCaducar: documentosPorCaducar.length,
+    incidencias: { count: (incidenciasAbiertas || []).length, masAntiguaDias },
+    viajesEnRiesgo,
+    choferes561,
+    viajesPerdidas,
+    todoEnOrden,
+  };
+}
+
+// --- Notas rápidas del gestor (7A.10) — cuaderno de bitácora sin estructura,
+// pensado para capturar contexto de primera mano y poder minarlo más adelante
+// (complementa el registro estructurado de decision_asignacion, 7A.2). ---
+
+export async function getNotasRecientes(limite = 10, { viajeId = null } = {}) {
+  let query = supabase.from("nota_gestor").select("id, texto, viaje_id, created_at, gestor:gestor_id(nombre)");
+  if (viajeId) query = query.eq("viaje_id", viajeId);
+  const { data } = await query;
+  // Orden en JS (no en la query): el mock de tests no ordena de verdad, y esto
+  // es barato para el volumen de un cuaderno de notas.
+  return (data || []).sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).slice(0, limite);
+}
+
+export async function createNotaGestor({ texto, viajeId = null }) {
+  const empresaId = await getCurrentEmpresaId();
+  const { data: { session } } = await supabase.auth.getSession();
+  let gestorId = null;
+  if (session?.user) {
+    const { data: gestor } = await supabase.from("gestor").select("id").eq("auth_user_id", session.user.id).single();
+    gestorId = gestor?.id || null;
+  }
+  const { error } = await supabase.from("nota_gestor").insert({
+    empresa_id: empresaId,
+    gestor_id: gestorId,
+    texto: texto.trim(),
+    viaje_id: viajeId,
+  });
+  if (error) throw error;
+}
+
 /**
  * Informe de nómina auto-derivado (ítem 5.1). Para cada chófer de la empresa y
  * un mes/año dados, calcula:

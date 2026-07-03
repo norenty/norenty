@@ -88,6 +88,9 @@ const {
   scoreChofer,
   sugerirChofer,
   registrarDecisionAsignacion,
+  getResumenHoy,
+  getNotasRecientes,
+  createNotaGestor,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -1102,5 +1105,82 @@ describe("motor de asignación (7A.2)", () => {
     await expect(
       registrarDecisionAsignacion({ viajeId: "v1", choferSugeridoId: null, choferElegidoId: "c1" })
     ).resolves.not.toThrow();
+  });
+});
+
+describe("centro de mando Hoy + notas (7A.10)", () => {
+  it("todoEnOrden es true cuando no hay nada pendiente", async () => {
+    TABLES.documento = [];
+    TABLES.incidencia = [];
+    TABLES.viaje = [];
+    const r = await getResumenHoy();
+    expect(r.todoEnOrden).toBe(true);
+    expect(r.docsPorCaducar).toBe(0);
+    expect(r.incidencias.count).toBe(0);
+  });
+
+  it("todoEnOrden es false si hay incidencias abiertas, con la más antigua calculada", async () => {
+    TABLES.documento = [];
+    TABLES.viaje = [];
+    TABLES.incidencia = [
+      { id: "i1", estado: "abierta", created_at: new Date(Date.now() - 3 * 86400000).toISOString() },
+      { id: "i2", estado: "resuelta", created_at: new Date().toISOString() },
+    ];
+    const r = await getResumenHoy();
+    expect(r.todoEnOrden).toBe(false);
+    expect(r.incidencias.count).toBe(1);
+    expect(r.incidencias.masAntiguaDias).toBeGreaterThanOrEqual(2);
+  });
+
+  it("detecta un viaje en riesgo (hito sin completar con ventana ya pasada)", async () => {
+    TABLES.documento = [];
+    TABLES.incidencia = [];
+    TABLES.viaje = [{ id: "v1", referencia: "REF1", chofer_id: null, estado: "en_curso" }];
+    TABLES.hito = [
+      { viaje_id: "v1", estado: "pendiente", ventana_fin: new Date(Date.now() - 3600000).toISOString() },
+    ];
+    const r = await getResumenHoy();
+    expect(r.viajesEnRiesgo.count).toBe(1);
+    expect(r.viajesEnRiesgo.refs).toContain("REF1");
+    expect(r.todoEnOrden).toBe(false);
+  });
+
+  it("561: solo cuenta chóferes con viaje activo ahora mismo", async () => {
+    TABLES.documento = [];
+    TABLES.incidencia = [];
+    TABLES.hito = [];
+    TABLES.viaje = [{ id: "v1", referencia: "REF1", chofer_id: "c1", estado: "en_curso" }];
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    TABLES.ejecucion_evento = [
+      { tipo: "llegada", chofer_id: "c1", viaje_id: "v0", ocurrido_en: new Date().toISOString() },
+    ];
+    TABLES.hito = [
+      { id: "h1", viaje_id: "v0", orden: 1, estado: "completado", lat: 40.4168, lon: -3.7038 },
+      { id: "h2", viaje_id: "v0", orden: 2, estado: "completado", lat: 41.3851, lon: 2.1734 },
+    ];
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 1 }]; // fuerza muchas horas -> pct7 alto
+    const r = await getResumenHoy();
+    expect(r.choferes561.nombres).toContain("Mario");
+  });
+
+  it("createNotaGestor resuelve el gestor_id de la sesión e inserta", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+    TABLES.nota_gestor = [];
+    await createNotaGestor({ texto: "  ojo con este cliente  " });
+    expect(TABLES.nota_gestor).toHaveLength(1);
+    expect(TABLES.nota_gestor[0].texto).toBe("ojo con este cliente");
+    expect(TABLES.nota_gestor[0].empresa_id).toBe("e1");
+  });
+
+  it("getNotasRecientes respeta el límite y ordena por más reciente", async () => {
+    TABLES.nota_gestor = [
+      { id: "n1", texto: "vieja", viaje_id: null, created_at: "2026-01-01T00:00:00Z" },
+      { id: "n2", texto: "nueva", viaje_id: null, created_at: "2026-02-01T00:00:00Z" },
+      { id: "n3", texto: "media", viaje_id: null, created_at: "2026-01-15T00:00:00Z" },
+    ];
+    const r = await getNotasRecientes(2);
+    expect(r).toHaveLength(2);
+    expect(r[0].texto).toBe("nueva");
   });
 });
