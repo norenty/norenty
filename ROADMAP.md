@@ -481,6 +481,13 @@ Protocolo del loop: **esta cola va ANTES que los ítems restantes de Fase 6** (6
 SUBSUMIDOS por 7A.12, 7A.1 y 7A.10 respectivamente (no hacerlos por separado). Mismo protocolo:
 EN ORDEN, uno por iteración, `ci.ps1` verde, commit, `[x]` + línea en PROGRESS.md.
 
+**⚠️ OBLIGATORIO antes de implementar cualquier ítem 7A.x: leer `SPECS-7A.md`** — contiene la
+especificación de implementación completa de cada ítem (archivos exactos, firmas de funciones,
+SQL literal de migraciones, algoritmos con reglas numéricas, casos de test, y el preámbulo de
+convenciones/trampas del repo). Las decisiones de diseño YA están tomadas ahí; el ejecutor solo
+pica código. Orden de ejecución con dependencias, al final de ese documento:
+7A.1→2→3→4→5→6→7→8→9→10→12→13→11→14, y después los 6.x restantes.
+
 - [ ] `[LOOP]` **7A.1 Estado 561 por chófer** (subsume 6.15) — Función `getEstado561(choferId)` en
   `lib/data.js`: horas de conducción estimadas de los últimos 7 y 14 días (km Haversine×1.3 de sus
   viajes con eventos de llegada en ese periodo / velocidad de planificación — misma aproximación
