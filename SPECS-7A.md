@@ -10,8 +10,14 @@ completa aquí + el preámbulo de convenciones.**
 ## 0. CONVENCIONES DEL REPO (leer siempre — evitan los errores ya cometidos y resueltos)
 
 ### 0.1 Migraciones
-1. Crear `backend/db/migrations/00NN_nombre.sql` (numeración: la última es 0018; los ítems de
-   esta fase usan **0019–0022**, asignadas abajo). Comentario de cabecera explicando el porqué.
+1. Crear `backend/db/migrations/00NN_nombre.sql` (numeración: la última es 0019
+   [`0019_seguridad_columnas.sql`, endurecimiento de GRANT/REVOKE por columna, 2026-07-03]; los
+   ítems de esta fase usan **0020–0023**, asignadas abajo). Comentario de cabecera explicando el
+   porqué. **Nota importante para 7A.3/7A.5/7A.7/7A.14**: la migración 0019 restringió qué
+   columnas puede tocar `authenticated` (dashboard) en `gestor`, `chofer`, `ejecucion_evento` y
+   `ubicacion` — ver esa migración antes de añadir columnas nuevas a esas tablas o de escribir
+   código que actualice `chofer.chat_id`/`gestor.auth_user_id`/`gestor.empresa_id` desde el
+   dashboard (seguirá fallando con "permission denied for column X", por diseño).
 2. Aplicar vía MCP `apply_migration` (project_id `hloqddmdwinvjksqkhey`), nombre en snake_case.
 3. Registrar checksum:
    `python -c "import hashlib,pathlib; sql=pathlib.Path('backend/db/migrations/00NN_x.sql').read_text(encoding='utf-8'); print(hashlib.sha256(sql.encode('utf-8')).hexdigest())"`
@@ -181,7 +187,7 @@ propio viaje de "activo".
 
 ## 7A.3 — Oferta de viaje al chófer (Uber-style)
 
-### Migración `0019_oferta_viaje.sql`
+### Migración `0020_oferta_viaje.sql`
 ```sql
 ALTER TABLE viaje ADD COLUMN IF NOT EXISTS ofertado_a uuid REFERENCES chofer(id) ON DELETE SET NULL;
 ALTER TABLE viaje ADD COLUMN IF NOT EXISTS ofertado_en timestamptz;
@@ -268,7 +274,7 @@ no vinculado silencioso.
 
 ## 7A.5 — Coste total de ruta v2 (desglose por capas)
 
-### Migración `0020_coste_desglosado.sql`
+### Migración `0021_coste_desglosado.sql`
 ```sql
 ALTER TABLE vehiculo ADD COLUMN IF NOT EXISTS consumo_l_100km numeric;
 ALTER TABLE empresa  ADD COLUMN IF NOT EXISTS precio_gasoil_litro numeric;
@@ -310,7 +316,7 @@ aunque falte tarifa; fallback blended idéntico a 5.2; total suma solo activos.
 
 ## 7A.6 — Presupuestador instantáneo
 
-**Usa la migración 0020** (`empresa.margen_objetivo_pct`).
+**Usa la migración 0021** (`empresa.margen_objetivo_pct`).
 
 ### lib/data.js
 `export const MARGEN_OBJETIVO_PCT_DEFAULT = 15;` (comentario estándar).
@@ -341,7 +347,7 @@ margen de empresa respetado vs default; <2 puntos → km 0.
 
 ## 7A.7 — Gastos del viaje (multas, repostajes…)
 
-### Migración `0021_gasto_viaje.sql`
+### Migración `0022_gasto_viaje.sql`
 ```sql
 CREATE TABLE IF NOT EXISTS gasto_viaje (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -525,7 +531,7 @@ incidencias) por `EmptyState` con CTA a la acción de alta correspondiente.
 
 ## 7A.14 — Portal de cliente (tracking público)
 
-### Migración `0022_token_publico.sql`
+### Migración `0023_token_publico.sql`
 ```sql
 ALTER TABLE viaje ADD COLUMN IF NOT EXISTS token_publico uuid UNIQUE;
 
