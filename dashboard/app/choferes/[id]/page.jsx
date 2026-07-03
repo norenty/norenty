@@ -8,6 +8,13 @@ import {
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import DocumentosSection from "../../components/DocumentosSection";
+import { getEstado561, LIMITE_561_SEMANAL_H, LIMITE_561_BISEMANAL_H } from "../../../lib/data";
+
+function colorBarra561(pct) {
+  if (pct >= 90) return "bg-estado-incidencia";
+  if (pct >= 70) return "bg-yellow-500";
+  return "bg-brand";
+}
 
 const TIPOS_DOC_CHOFER = [
   { value: "licencia", label: "Licencia de conducir" },
@@ -35,6 +42,7 @@ export default function ChoferDetalle() {
   const [hayMas, setHayMas] = useState(false);
   const [offset, setOffset] = useState(0);
   const [copiado, setCopiado] = useState(false);
+  const [estado561, setEstado561] = useState(null);
 
   const fetchViajes = useCallback(async (off, append = false) => {
     const { data } = await supabase
@@ -71,6 +79,7 @@ export default function ChoferDetalle() {
 
       await fetchViajes(0, false);
       setLoading(false);
+      getEstado561(id).then(setEstado561);
     }
     load();
   }, [id, fetchViajes]);
@@ -163,6 +172,36 @@ export default function ChoferDetalle() {
           </div>
         </div>
       </div>
+
+      {/* Horas de conducción (estimación 561) */}
+      {estado561 && (
+        <div className="bg-surface border border-border rounded-xl p-4 mb-4">
+          <h2 className="text-sm font-medium text-ink mb-1">Horas de conducción (estimación)</h2>
+          <p className="text-xs text-ink-muted mb-3">
+            Estimación por km recorridos, no por tacógrafo (Reglamento CE 561/2006).
+          </p>
+          <div className="flex flex-col gap-3">
+            <div>
+              <div className="flex justify-between text-xs text-ink-secondary mb-1">
+                <span>Semana</span>
+                <span>{estado561.horas7} h / {LIMITE_561_SEMANAL_H} h</span>
+              </div>
+              <div className="h-2 bg-surface-alt rounded-full overflow-hidden">
+                <div className={`h-full rounded-full ${colorBarra561(estado561.pct7)}`} style={{ width: `${Math.min(100, estado561.pct7)}%` }} />
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-xs text-ink-secondary mb-1">
+                <span>14 días</span>
+                <span>{estado561.horas14} h / {LIMITE_561_BISEMANAL_H} h</span>
+              </div>
+              <div className="h-2 bg-surface-alt rounded-full overflow-hidden">
+                <div className={`h-full rounded-full ${colorBarra561(estado561.pct14)}`} style={{ width: `${Math.min(100, estado561.pct14)}%` }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Valoraciones recientes */}
       {valoraciones.length > 0 && (

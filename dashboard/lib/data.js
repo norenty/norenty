@@ -654,6 +654,102 @@ function haversineKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+// ==========================================================================
+// Estado 561 por chófer (ítem 7A.1) — horas de conducción estimadas vs. límites
+// ==========================================================================
+
+export const LIMITE_561_SEMANAL_H = 56; // Reglamento CE 561/2006
+export const LIMITE_561_BISEMANAL_H = 90;
+
+/**
+ * Km aproximados de un viaje SIN llamar a OSRM (Haversine ×
+ * FACTOR_SINUOSIDAD_FALLBACK entre hitos consecutivos con coordenadas, ordenados
+ * por `orden`). Para el estado 561 no queremos N llamadas OSRM por chófer, así
+ * que se acepta la aproximación en línea recta corregida. Pura, exportada para
+ * tests.
+ */
+export function kmAproxViaje(hitos) {
+  const conCoords = (hitos || [])
+    .filter((h) => h.lat != null && h.lon != null)
+    .sort((a, b) => a.orden - b.orden);
+  let km = 0;
+  for (let i = 0; i < conCoords.length - 1; i++) {
+    km +=
+      haversineKm(
+        { lat: conCoords[i].lat, lon: conCoords[i].lon },
+        { lat: conCoords[i + 1].lat, lon: conCoords[i + 1].lon }
+      ) * FACTOR_SINUOSIDAD_FALLBACK;
+  }
+  return km;
+}
+
+/**
+ * Horas de conducción ESTIMADAS de un chófer en los últimos 7 y 14 días, contra
+ * los límites del Reglamento 561/2006 (56 h semanal, 90 h bisemanal).
+ *
+ * Aproximación deliberada (SIEMPRE `estimado: true`, nunca es tacógrafo): se
+ * suman los km de los viajes con evento de llegada en el periodo (km / velocidad
+ * de planificación), atribuyendo TODAS las horas del viaje al periodo de su
+ * llegada. Es una cota razonable para avisar, no una cifra legal. La versión con
+ * horas reales llega con la integración de tacógrafo (7B.4).
+ */
+export async function getEstado561(choferId, { ahora = new Date() } = {}) {
+  const desde14 = new Date(ahora.getTime() - 14 * 86400000).toISOString();
+  const desde7 = new Date(ahora.getTime() - 7 * 86400000).toISOString();
+
+  const { data: llegadas } = await supabase
+    .from("ejecucion_evento")
+    .select("viaje_id, ocurrido_en")
+    .eq("tipo", "llegada")
+    .eq("chofer_id", choferId)
+    .gte("ocurrido_en", desde14);
+
+  if (!llegadas || llegadas.length === 0) {
+    return {
+      horas7: 0, horas14: 0,
+      margen7: LIMITE_561_SEMANAL_H, margen14: LIMITE_561_BISEMANAL_H,
+      pct7: 0, pct14: 0, estimado: true,
+    };
+  }
+
+  const viajeIds7 = new Set();
+  const viajeIds14 = new Set();
+  llegadas.forEach((e) => {
+    viajeIds14.add(e.viaje_id);
+    if (e.ocurrido_en >= desde7) viajeIds7.add(e.viaje_id);
+  });
+
+  const [{ data: hitos }, { data: empresas }] = await Promise.all([
+    supabase.from("hito").select("id, viaje_id, orden, estado, lat, lon").in("viaje_id", [...viajeIds14]),
+    supabase.from("empresa").select("velocidad_planificacion_kmh"),
+  ]);
+
+  const velocidad = resolveVelocidadPlanificacion((empresas || [])[0] || null);
+  const hitosPorViaje = {};
+  (hitos || []).forEach((h) => { (hitosPorViaje[h.viaje_id] ||= []).push(h); });
+
+  let horas7 = 0;
+  let horas14 = 0;
+  for (const viajeId of viajeIds14) {
+    const completados = (hitosPorViaje[viajeId] || []).filter((h) => h.estado === "completado");
+    const horas = kmAproxViaje(completados) / velocidad;
+    horas14 += horas;
+    if (viajeIds7.has(viajeId)) horas7 += horas;
+  }
+
+  horas7 = +horas7.toFixed(1);
+  horas14 = +horas14.toFixed(1);
+  return {
+    horas7,
+    horas14,
+    margen7: +Math.max(0, LIMITE_561_SEMANAL_H - horas7).toFixed(1),
+    margen14: +Math.max(0, LIMITE_561_BISEMANAL_H - horas14).toFixed(1),
+    pct7: Math.round((horas7 / LIMITE_561_SEMANAL_H) * 100),
+    pct14: Math.round((horas14 / LIMITE_561_BISEMANAL_H) * 100),
+    estimado: true,
+  };
+}
+
 /**
  * Informe de nómina auto-derivado (ítem 5.1). Para cada chófer de la empresa y
  * un mes/año dados, calcula:

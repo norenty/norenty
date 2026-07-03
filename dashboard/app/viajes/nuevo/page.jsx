@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2, AlertTriangle, Info } from "lucide-react";
-import { getChoferes, createViaje, validarAsignacion } from "../../../lib/data";
+import { getChoferes, createViaje, validarAsignacion, getEstado561 } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 
 function nuevoHito() {
@@ -23,6 +23,7 @@ export default function NuevoViaje() {
   const [hitos, setHitos] = useState([nuevoHito()]);
   const [guardando, setGuardando] = useState(false);
   const [errores, setErrores] = useState([]);
+  const [aviso561, setAviso561] = useState(null);
   const [avisos, setAvisos] = useState([]);
   const [errorGuardar, setErrorGuardar] = useState(null);
   const validarTimer = useRef(null);
@@ -59,7 +60,17 @@ export default function NuevoViaje() {
     }, 300);
   }
 
-  function setChoferIdWrapped(v) { setChoferId(v); validarConDebounce(v, vehiculoId, remolqueId, referencia); }
+  function setChoferIdWrapped(v) {
+    setChoferId(v);
+    validarConDebounce(v, vehiculoId, remolqueId, referencia);
+    setAviso561(null);
+    if (v) {
+      const nombre = choferes.find((c) => c.id === v)?.nombre || "El chófer";
+      getEstado561(v).then((est) => {
+        if (est && est.pct7 >= 80) setAviso561(`${nombre} cerca del límite semanal: quedan ${est.margen7} h (est.)`);
+      });
+    }
+  }
   function setVehiculoIdWrapped(v) { setVehiculoId(v); validarConDebounce(choferId, v, remolqueId, referencia); }
   function setRemolqueIdWrapped(v) { setRemolqueId(v); validarConDebounce(choferId, vehiculoId, v, referencia); }
   function setReferenciaWrapped(v) { setReferencia(v); validarConDebounce(choferId, vehiculoId, remolqueId, v); }
@@ -179,6 +190,11 @@ export default function NuevoViaje() {
                 </option>
               ))}
             </select>
+            {aviso561 && (
+              <p className="mt-1 flex items-start gap-1.5 text-xs text-yellow-700">
+                <AlertTriangle size={13} className="shrink-0 mt-0.5" /> {aviso561}
+              </p>
+            )}
           </div>
         </div>
 

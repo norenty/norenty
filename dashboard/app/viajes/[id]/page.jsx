@@ -10,7 +10,7 @@ import PodImage from "../../components/PodImage";
 import DocumentosSection from "../../components/DocumentosSection";
 import {
   getViaje, getChoferes, validarCambioEstado, validarAsignacion,
-  getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje,
+  getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje, getEstado561,
 } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
@@ -54,6 +54,7 @@ export default function ViajeDetalle() {
   const [editandoEstado, setEditandoEstado] = useState(false);
   const [editandoChofer, setEditandoChofer] = useState(false);
   const [choferes, setChoferes] = useState([]);
+  const [aviso561, setAviso561] = useState(null);
   const [incidencias, setIncidencias] = useState([]);
   const [error, setError] = useState(null);
   const [guardandoEstado, setGuardandoEstado] = useState(false);
@@ -205,12 +206,24 @@ export default function ViajeDetalle() {
         )}
       </div>
 
-      <div className="flex items-center gap-4 mb-6 text-sm text-ink-secondary">
+      <div className="flex items-center gap-4 mb-2 text-sm text-ink-secondary">
         {editandoChofer ? (
           <div className="flex items-center gap-2">
             <select
               defaultValue={viaje.chofer?.id || ""}
-              onChange={(e) => cambiarChofer(e.target.value)}
+              onChange={(e) => {
+                const cid = e.target.value;
+                setAviso561(null);
+                cambiarChofer(cid);
+                if (cid) {
+                  const nombre = choferes.find((c) => c.id === cid)?.nombre || "El chófer";
+                  getEstado561(cid).then((est) => {
+                    if (est && est.pct7 >= 80) {
+                      setAviso561(`${nombre} cerca del límite semanal: quedan ${est.margen7} h (est.)`);
+                    }
+                  });
+                }
+              }}
               disabled={guardandoChofer}
               className="text-sm border border-border rounded-md px-2 py-1 disabled:opacity-40"
             >
@@ -219,7 +232,7 @@ export default function ViajeDetalle() {
                 <option key={c.id} value={c.id}>{c.nombre} ({c.idioma?.toUpperCase()})</option>
               ))}
             </select>
-            <button onClick={() => setEditandoChofer(false)} disabled={guardandoChofer} className="p-1 text-ink-muted disabled:opacity-40"><X size={14} /></button>
+            <button onClick={() => { setEditandoChofer(false); setAviso561(null); }} disabled={guardandoChofer} className="p-1 text-ink-muted disabled:opacity-40"><X size={14} /></button>
           </div>
         ) : (
           <button onClick={abrirEditChofer} className="flex items-center gap-1 hover:text-ink">
@@ -245,6 +258,14 @@ export default function ViajeDetalle() {
           </span>
         )}
       </div>
+
+      {aviso561 && (
+        <div className="flex items-start gap-2 mb-4 px-3 py-2 rounded-lg bg-yellow-50 border border-yellow-200 text-xs text-yellow-700">
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+          {aviso561}
+          <button onClick={() => setAviso561(null)} className="ml-auto shrink-0"><X size={14} /></button>
+        </div>
+      )}
 
       {error && (
         <div className="flex items-start gap-2 mb-4 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-xs text-estado-incidencia">

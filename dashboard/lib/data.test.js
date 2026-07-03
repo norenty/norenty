@@ -81,6 +81,10 @@ const {
   getInvitaciones,
   createInvitacion,
   deleteInvitacion,
+  kmAproxViaje,
+  getEstado561,
+  LIMITE_561_SEMANAL_H,
+  LIMITE_561_BISEMANAL_H,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -897,5 +901,92 @@ describe("invitaciones (6.9)", () => {
     TABLES.invitacion = [{ id: "i1", email: "a@x.com" }];
     await deleteInvitacion("i1");
     expect(TABLES.invitacion.find((i) => i.id === "i1")).toBeUndefined();
+  });
+});
+
+describe("estado 561 (7A.1)", () => {
+  const MADRID = { lat: 40.4168, lon: -3.7038 };
+  const BARCELONA = { lat: 41.3851, lon: 2.1734 }; // ~504 km Haversine
+
+  function hace(dias) {
+    return new Date(Date.now() - dias * 86400000).toISOString();
+  }
+
+  it("kmAproxViaje suma Haversine × 1.3 entre hitos con coords, ordenados", () => {
+    const km = kmAproxViaje([
+      { orden: 2, ...BARCELONA },
+      { orden: 1, ...MADRID },
+    ]);
+    // ~504 km haversine × 1.3 ≈ 655 km
+    expect(km).toBeGreaterThan(600);
+    expect(km).toBeLessThan(700);
+  });
+
+  it("kmAproxViaje ignora hitos sin coordenadas", () => {
+    const km = kmAproxViaje([
+      { orden: 1, ...MADRID },
+      { orden: 2, lat: null, lon: null },
+    ]);
+    expect(km).toBe(0);
+  });
+
+  it("sin eventos de llegada devuelve todo a cero y margen completo", async () => {
+    TABLES.ejecucion_evento = [];
+    const r = await getEstado561("c1");
+    expect(r.horas7).toBe(0);
+    expect(r.margen7).toBe(LIMITE_561_SEMANAL_H);
+    expect(r.margen14).toBe(LIMITE_561_BISEMANAL_H);
+    expect(r.estimado).toBe(true);
+  });
+
+  it("un viaje con llegada dentro de 7 días cuenta en horas7 y horas14", async () => {
+    TABLES.ejecucion_evento = [
+      { tipo: "llegada", chofer_id: "c1", viaje_id: "v1", ocurrido_en: hace(2) },
+    ];
+    TABLES.hito = [
+      { id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...MADRID },
+      { id: "h2", viaje_id: "v1", orden: 2, estado: "completado", ...BARCELONA },
+    ];
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 75 }];
+    const r = await getEstado561("c1");
+    expect(r.horas7).toBeGreaterThan(0);
+    expect(r.horas7).toBe(r.horas14); // el mismo viaje cuenta en ambos periodos
+    expect(r.margen7).toBeLessThan(LIMITE_561_SEMANAL_H);
+  });
+
+  it("un viaje de hace 10 días cuenta solo en horas14, no en horas7", async () => {
+    TABLES.ejecucion_evento = [
+      { tipo: "llegada", chofer_id: "c1", viaje_id: "v1", ocurrido_en: hace(10) },
+    ];
+    TABLES.hito = [
+      { id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...MADRID },
+      { id: "h2", viaje_id: "v1", orden: 2, estado: "completado", ...BARCELONA },
+    ];
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 75 }];
+    const r = await getEstado561("c1");
+    expect(r.horas7).toBe(0);
+    expect(r.horas14).toBeGreaterThan(0);
+  });
+
+  it("una llegada de hace 20 días queda fuera de la ventana de 14", async () => {
+    TABLES.ejecucion_evento = [
+      { tipo: "llegada", chofer_id: "c1", viaje_id: "v1", ocurrido_en: hace(20) },
+    ];
+    const r = await getEstado561("c1");
+    expect(r.horas14).toBe(0);
+  });
+
+  it("calcula pct y margen coherentes con los límites", async () => {
+    TABLES.ejecucion_evento = [
+      { tipo: "llegada", chofer_id: "c1", viaje_id: "v1", ocurrido_en: hace(1) },
+    ];
+    TABLES.hito = [
+      { id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...MADRID },
+      { id: "h2", viaje_id: "v1", orden: 2, estado: "completado", ...BARCELONA },
+    ];
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 75 }];
+    const r = await getEstado561("c1");
+    expect(r.pct7).toBe(Math.round((r.horas7 / LIMITE_561_SEMANAL_H) * 100));
+    expect(r.margen7).toBeCloseTo(LIMITE_561_SEMANAL_H - r.horas7, 1);
   });
 });
