@@ -12,12 +12,17 @@ completa aquí + el preámbulo de convenciones.**
 ### 0.1 Migraciones
 1. Crear `backend/db/migrations/00NN_nombre.sql` (numeración: la última es 0019
    [`0019_seguridad_columnas.sql`, endurecimiento de GRANT/REVOKE por columna, 2026-07-03]; los
-   ítems de esta fase usan **0020–0023**, asignadas abajo). Comentario de cabecera explicando el
-   porqué. **Nota importante para 7A.3/7A.5/7A.7/7A.14**: la migración 0019 restringió qué
-   columnas puede tocar `authenticated` (dashboard) en `gestor`, `chofer`, `ejecucion_evento` y
-   `ubicacion` — ver esa migración antes de añadir columnas nuevas a esas tablas o de escribir
-   código que actualice `chofer.chat_id`/`gestor.auth_user_id`/`gestor.empresa_id` desde el
-   dashboard (seguirá fallando con "permission denied for column X", por diseño).
+   ítems de esta fase usan **0020–0025**, asignadas abajo: 0020 decision_asignacion (7A.2), 0021
+   notificacion_asignacion (7A.3), 0022 coste_desglosado (7A.5), 0023 gasto_viaje (7A.7), 0024
+   nota_gestor (7A.10), 0025 token_publico (7A.14)). Comentario de cabecera explicando el
+   porqué. **Nota importante para
+   7A.3/7A.5/7A.7/7A.14**: la migración 0019 restringió qué columnas puede tocar `authenticated`
+   (dashboard) en `gestor`, `chofer`, `ejecucion_evento` y `ubicacion` — ver esa migración antes
+   de añadir columnas nuevas a esas tablas o de escribir código que actualice
+   `chofer.chat_id`/`gestor.auth_user_id`/`gestor.empresa_id` desde el dashboard (seguirá
+   fallando con "permission denied for column X", por diseño). `viaje.chofer_id` y
+   `viaje.notificado_asignacion_en` (7A.3) SÍ son escribibles por `authenticated` (no tocados
+   por 0019) — sin problema.
 2. Aplicar vía MCP `apply_migration` (project_id `hloqddmdwinvjksqkhey`), nombre en snake_case.
 3. Registrar checksum:
    `python -c "import hashlib,pathlib; sql=pathlib.Path('backend/db/migrations/00NN_x.sql').read_text(encoding='utf-8'); print(hashlib.sha256(sql.encode('utf-8')).hexdigest())"`
@@ -134,110 +139,193 @@ límites/margen/pct correctos.
 
 ---
 
-## 7A.2 — Motor de asignación v1 (score explicado)
+## 7A.2 — Motor de asignación v1 (score explicado + registro de decisiones)
 
-**Sin migración.**
+**DECISIÓN DE PRODUCTO (usuario, 2026-07-03): la asignación la decide el GESTOR, no el chófer.**
+No hay flujo de "aceptar/rechazar" para el chófer (eso era el diseño original de 7A.3 — se
+descarta explícitamente, ver nota en esa sección más abajo). El sistema sugiere con
+transparencia, el gestor asigna con un clic, el chófer solo se ENTERA (7A.3 nuevo).
 
-### lib/data.js
+### Migración `0020_decision_asignacion.sql`
+```sql
+-- Registro de cada asignación: qué sugirió el sistema vs qué eligió el gestor. Es el
+-- hook de "aprendizaje" — no hay ML todavía, pero sin este registro no habría con qué
+-- entrenar/ajustar nada el día de mañana (7B.7). Cuando el gestor NO sigue la sugerencia
+-- top, se le pide un motivo opcional: esa nota es la señal más valiosa (por qué un score
+-- alto no fue la elección real).
+CREATE TABLE IF NOT EXISTS decision_asignacion (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  empresa_id          uuid NOT NULL REFERENCES empresa(id) ON DELETE CASCADE,
+  viaje_id            uuid NOT NULL REFERENCES viaje(id) ON DELETE CASCADE,
+  chofer_sugerido_id  uuid REFERENCES chofer(id) ON DELETE SET NULL,
+  chofer_elegido_id   uuid NOT NULL REFERENCES chofer(id) ON DELETE CASCADE,
+  score_sugerido      integer,
+  score_elegido       integer,
+  siguio_sugerencia   boolean NOT NULL,
+  motivo              text,
+  created_at          timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_decision_asignacion_empresa ON decision_asignacion (empresa_id);
+CREATE INDEX IF NOT EXISTS idx_decision_asignacion_viaje ON decision_asignacion (viaje_id);
+ALTER TABLE decision_asignacion ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "empresa ve y crea sus decisiones" ON decision_asignacion FOR ALL
+  USING (empresa_id = current_empresa_id()) WITH CHECK (empresa_id = current_empresa_id());
+-- Sin UPDATE con propósito real de negocio, pero FOR ALL es más simple que 3 policies y
+-- el riesgo es nulo (es un log propio de la empresa, no evidencia de terceros como
+-- ejecucion_evento/ubicacion — no aplica el mismo criterio de 0019).
+```
+Aplicar checksum igual que el resto (ver 0.1). Recordar: 0019 ya está aplicada, esta es 0020.
+
+### lib/data.js — scoring
 ```
 export const PESOS_ASIGNACION = {
   disponibilidad: 40, margen561: 25, documentos: 15, proximidad: 10, historial: 10,
 }; // valores iniciales razonables, NO pactados — ajustables
 
 export function scoreChofer({ chofer, tieneViajeActivo, estado561, docsOk, docsCaducados,
-                              distanciaOrigenKm, valoracionMedia, horasViaje }) -> 
+                              distanciaOrigenKm, metricas, horasViaje }) ->
   { score: number, razones: string[], bloqueos: string[] }
 ```
-Reglas EXACTAS de `scoreChofer` (pura, testear exhaustivamente):
-- **Disponibilidad**: `!tieneViajeActivo` → +40, razón "Disponible"; si no → +0, razón "En viaje ahora".
-- **Margen 561**: `estado561 == null` → +12, razón "Sin datos de horas"; si no →
+`metricas` es el objeto de ESE chófer devuelto por `getMetricasChoferes()` (ya existe, ítem 4.5:
+`{viajes, valoracionMedia, incidencias, pctPuntualidad}`) — **reutilizar esa función, no
+reinventar el cálculo**. Reglas EXACTAS de `scoreChofer` (pura, testear exhaustivamente):
+- **Disponibilidad** (máx 40): `!tieneViajeActivo` → +40, razón "Disponible"; si no → +0, razón
+  "En viaje ahora".
+- **Margen 561** (máx 25): `estado561 == null` → +12, razón "Sin datos de horas"; si no →
   `+round(min(1, estado561.margen7 / max(horasViaje ?? 9, 1)) * 25)`, razón
   `"${margen7} h de margen semanal (est.)"`.
-- **Documentos**: `docsCaducados.length > 0` → +0 y `bloqueos.push("Documento caducado: " +
-  docsCaducados.join(", "))`; si no → +15, razón "Documentos en vigor". (docsOk/docsCaducados se
-  calculan FUERA: tipos `licencia`/`cap` del chófer con `fecha_caducidad < hoy`.)
-- **Proximidad**: `distanciaOrigenKm == null` → +5, razón "Ubicación desconocida"; ≤50→+10,
-  ≤200→+6, ≤500→+3, >500→+1, razón `"a ~${round(d)} km del origen"`.
-- **Historial**: `valoracionMedia == null` → +5, razón "Sin valoraciones"; si no →
-  `+round(valoracionMedia/5*10)`, razón `"Valoración ${valoracionMedia}"`.
+- **Documentos** (máx 15): `docsCaducados.length > 0` → +0 y `bloqueos.push("Documento
+  caducado: " + docsCaducados.join(", "))`; si no → +15, razón "Documentos en vigor".
+  (docsOk/docsCaducados se calculan FUERA: tipos `licencia`/`cap` del chófer con
+  `fecha_caducidad < hoy`.)
+- **Proximidad** (máx 10): `distanciaOrigenKm == null` → +5, razón "Ubicación desconocida";
+  ≤50→+10, ≤200→+6, ≤500→+3, >500→+1, razón `"a ~${round(d)} km del origen"`.
+- **Historial real** (máx 10 — ESTA ES LA MEJORA PEDIDA: usar desempeño real, no solo estrellas):
+  `metricas == null || metricas.viajes === 0` → +5, razón "Sin historial de viajes"; si no,
+  suma de 3 componentes:
+  - puntualidad (máx 5): `metricas.pctPuntualidad != null ? round(metricas.pctPuntualidad / 100 * 5) : 2`
+  - incidencias (máx 3): `round(clamp(1 - metricas.incidencias / metricas.viajes, 0, 1) * 3)`
+  - valoración (máx 2): `metricas.valoracionMedia != null ? round(metricas.valoracionMedia / 5 * 2) : 1`
+  Razón compuesta: `"${metricas.viajes} viajes previos"` + si `pctPuntualidad != null`:
+  `", ${pctPuntualidad}% puntual"` + si `incidencias > 0`: `", ${incidencias} incid."`.
+  (Nota de alcance: NO se intenta correlacionar "mismo cliente/misma ruta habitual" en v1 — el
+  esquema no tiene un identificador de ruta/cliente reutilizable en `viaje`, y forzarlo con
+  fuzzy-matching de direcciones sería una fuente de falsos positivos. Queda anotado como
+  posible 7B futuro si el volumen de datos lo justifica.)
 
 `export async function sugerirChofer(viajeId)`:
 1. Cargas paralelas: choferes; viajes con estado in ESTADOS_ACTIVOS (para `tieneViajeActivo`,
    excluyendo el propio viajeId); documentos `.eq("ambito","chofer")` (agrupar por entidad_id,
-   tipos licencia/cap, detectar caducados); valoraciones (media por chofer en JS); ubicaciones
-   (SIN order — el mock no ordena; reducir en JS: max `created_at` por chofer); hitos del viaje
-   (primer hito por `orden` en JS = origen; y `kmAproxViaje`/velocidad → horasViaje).
+   tipos licencia/cap, detectar caducados); `getMetricasChoferes()` (sin rango → usa el default de
+   90 días de `resolveRango`, ya existente); ubicaciones (SIN order — el mock no ordena; reducir
+   en JS: max `created_at` por chofer); hitos del viaje (primer hito por `orden` en JS = origen;
+   y `kmAproxViaje`/velocidad → horasViaje).
 2. Por chófer: `distanciaOrigenKm` = haversine(ultimaUbicacion, origen) si ambos, si no null.
-   Llamar `getEstado561` por chófer (secuencial ok; anotar deuda O(N) en comment).
+   Llamar `getEstado561` por chófer (secuencial ok; anotar deuda O(N) en comment). `metricas` =
+   la entrada de `getMetricasChoferes()` para ese chófer (por id), o null si no aparece.
 3. Return array `{chofer:{id,nombre,idioma}, score, razones, bloqueos}` orden desc por score.
 
-### UI — componente `app/components/SugerenciaChofer.jsx`
-Props `{viajeId, onAsignar(choferId), onOfertar?(choferId)}`. Carga `sugerirChofer` al montar.
-Render: top 5 filas — nombre + score (número grande a la derecha) + razones como chips
-`text-xs bg-surface-alt rounded-full px-2 py-0.5` + bloqueos en chip rojo + botón "Asignar"
-(y "Ofrecer" si `onOfertar`, tras 7A.3). Skeleton mientras carga. Integrar debajo del select de
-chófer en `/viajes/[id]` (editor) y `/viajes/nuevo`.
+### lib/data.js — registro de decisión
+```
+export async function registrarDecisionAsignacion({ viajeId, choferSugeridoId, scoreSugerido,
+  choferElegidoId, scoreElegido, motivo = null }) {
+  const empresaId = await getCurrentEmpresaId();
+  const siguioSugerencia = choferSugeridoId != null && choferSugeridoId === choferElegidoId;
+  await supabase.from("decision_asignacion").insert({
+    empresa_id: empresaId, viaje_id: viajeId,
+    chofer_sugerido_id: choferSugeridoId, chofer_elegido_id: choferElegidoId,
+    score_sugerido: scoreSugerido, score_elegido: scoreElegido,
+    siguio_sugerencia: siguioSugerencia, motivo,
+  }, { returning: "minimal" }); // no necesitamos la fila de vuelta, evita RETURNING/RLS de más
+}
+```
+No lanza si falla (`try/catch` interno + log de consola) — es telemetría de aprendizaje, nunca
+debe bloquear el flujo de asignar un chófer.
 
-### Tests (~10)
-`scoreChofer` puro: cada dimensión aislada + combinación máxima (100) + bloqueo por caducidad.
+### UI — componente `app/components/SugerenciaChofer.jsx`
+Props `{viajeId, onAsignado(choferId)}` (callback tras asignar, para refrescar el padre — YA NO
+hay prop `onOfertar`, se elimina esa rama). Carga `sugerirChofer` al montar. Render: top 5 filas
+— nombre + score (número grande a la derecha) + razones como chips `text-xs bg-surface-alt
+rounded-full px-2 py-0.5` + bloqueos en chip rojo + botón "Asignar" por fila. Al pulsar "Asignar"
+en una fila que NO es la primera (mayor score) de la lista: mostrar un `<input>` inline
+"¿Por qué este chófer y no {top.nombre}? (opcional)" antes de confirmar — botones "Confirmar
+sin motivo" / "Guardar y asignar". Al pulsar "Asignar" en la fila top: asigna directo, sin pedir
+nada. Tras asignar: llama a la función de asignación existente (`cambiarChofer` en
+`/viajes/[id]`) Y a `registrarDecisionAsignacion` con `choferSugeridoId` = el `id` de la fila top
+de la lista (aunque el gestor haya elegido otra), `scoreSugerido`/`scoreElegido` de sus
+respectivas filas. Skeleton mientras carga. Integrar debajo del select de chófer en
+`/viajes/[id]` (editor) — **NOTA de alcance real**: `sugerirChofer(viajeId)` necesita un
+`viaje_id` real (para excluirlo de "activo" y leer sus hitos ya guardados). El formulario plano
+`/viajes/nuevo` de hoy NO tiene ese id hasta el submit final, así que la integración con
+sugerencias ordenadas ahí NO se hizo en la v1 de 7A.2 — llega con el wizard (7A.11), que sí tiene
+un paso 2 dedicado a esto tras capturar los hitos. `/viajes/nuevo` se queda con el chip 561 de
+7A.1 mientras tanto.
+
+### Tests (~12)
+`scoreChofer` puro: cada dimensión aislada (incl. las 3 sub-componentes de historial) +
+combinación máxima (100) + bloqueo por caducidad + sin historial (`metricas` null o `viajes:0`).
 `sugerirChofer` integración: 3 chóferes con perfiles distintos → orden esperado; excluye el
-propio viaje de "activo".
+propio viaje de "activo". `registrarDecisionAsignacion`: inserta con `siguio_sugerencia` correcto
+(true si coincide top, false si no); no lanza si la tabla falla (mock que rechaza el insert).
 
 ---
 
-## 7A.3 — Oferta de viaje al chófer (Uber-style)
+## 7A.3 — Notificación de asignación al chófer (NO oferta/aceptar-rechazar)
 
-### Migración `0020_oferta_viaje.sql`
+**Cambio de diseño (usuario, 2026-07-03): descartado el flujo Uber-style de "ofertar y que el
+chófer acepte/rechace" de la spec original.** Motivo del usuario: la decisión de a quién asignar
+es del GESTOR (que tiene el histórico e info de negocio), no del chófer. El chófer solo necesita
+ENTERARSE de su ruta — cero fricción, cero decisión que tomar, coherente con el principio de
+diseño "el chófer solo carga y conduce". Esto simplifica mucho la spec original: sin
+`InlineKeyboardButton`, sin callbacks de aceptar/rechazar, sin estado "ofertado pero no
+confirmado", sin `ofertado_a`/`ofertado_en`.
+
+### Migración `0021_notificacion_asignacion.sql`
 ```sql
-ALTER TABLE viaje ADD COLUMN IF NOT EXISTS ofertado_a uuid REFERENCES chofer(id) ON DELETE SET NULL;
-ALTER TABLE viaje ADD COLUMN IF NOT EXISTS ofertado_en timestamptz;
-ALTER TABLE viaje ADD COLUMN IF NOT EXISTS ofertado_notificado_en timestamptz;
+ALTER TABLE viaje ADD COLUMN IF NOT EXISTS notificado_asignacion_en timestamptz;
 ```
 
-### Arquitectura del push (decisión tomada — NO reabrir)
-El dashboard NO puede mandar Telegram (el token es server-side y no hay backend HTTP desplegado).
-El proceso del BOT es el único demonio vivo → usar **JobQueue de PTB**: job repetitivo cada 30 s
-que busca ofertas sin notificar y las envía. Requiere extra: en `backend/requirements.txt`
-cambiar a `python-telegram-bot[job-queue]` y `pip install` en el venv.
+### Arquitectura del push (misma decisión de la spec original, se mantiene)
+El dashboard no puede mandar Telegram directamente (el token vive solo en el proceso del bot).
+Se usa **JobQueue de PTB**: job repetitivo cada 30 s que busca viajes con chófer asignado y sin
+notificar, y envía un mensaje informativo. Requiere `python-telegram-bot[job-queue]` en
+`backend/requirements.txt` (si no está ya de una implementación previa de esta spec).
 
 ### backend/app/bot.py
-1. i18n (4 idiomas): `oferta_titulo` ("📦 Nueva oferta de viaje: {ref}"), `oferta_detalle`
-   ("{n} paradas · ~{km} km\nPrimera recogida: {dir}"), `btn_aceptar_viaje` ("✅ Aceptar"),
-   `btn_rechazar_viaje` ("❌ Rechazar"), `oferta_aceptada` ("Viaje {ref} asignado. ¡Buen viaje!"),
-   `oferta_rechazada` ("Has rechazado el viaje {ref}."), `oferta_caducada`
-   ("Esta oferta ya no está disponible.").
-2. `async def procesar_ofertas_pendientes(ctx)`: query viajes `ofertado_a != null` con
-   `ofertado_notificado_en == null` (fake: filtrar en python tras `.execute()` si hace falta —
-   FakeQuery no tiene `.is_()`; en real usar `.is_("ofertado_notificado_en","null")` NO existe en
-   fake → **cargar viajes con `.eq` no sirve para null; solución: `.execute()` de viajes con
-   ofertado_a y filtrar `r.get("ofertado_notificado_en") is None` en Python** — funciona igual en
-   real). Por cada uno: chófer (por id) con chat_id → componer mensaje con hitos (contar + km
-   `kmAproxViaje` equivalente Python: sumar haversine×1.3) → `ctx.bot.send_message` con
-   InlineKeyboardMarkup `oferta_si:{viaje_id}` / `oferta_no:{viaje_id}` → update
-   `ofertado_notificado_en = now`. Si el chófer no tiene chat_id: marcar notificado igualmente y
-   `notificar_gestor_evento` avisando que el chófer no está vinculado.
-3. Callbacks: `cb_oferta_si` — validar que `viaje.ofertado_a == chofer.id` y `chofer_id` aún
-   null (si no → `oferta_caducada`); update viaje `{chofer_id: chofer.id, ofertado_a: None,
-   ofertado_en: None, ofertado_notificado_en: None}`; `edit_message_text(oferta_aceptada)`;
-   `notificar_gestor_evento("✅ {nombre} ha aceptado el viaje {ref}")`; `send_next_hito` si el
-   viaje está en_curso. `cb_oferta_no` — limpiar campos oferta, editar mensaje, notificar gestor
-   ("❌ {nombre} ha rechazado el viaje {ref} — asigna otro desde el dashboard").
-4. Registro: `CallbackQueryHandler(cb_oferta_si, pattern=r"^oferta_si:")`, ídem `oferta_no`;
-   en `create_bot_app`: `if app.job_queue: app.job_queue.run_repeating(
-   procesar_ofertas_pendientes, interval=30, first=10)` (guard para tests sin job-queue).
+1. i18n (4 idiomas): `asignacion_titulo` ("🚚 Se te ha asignado el viaje {ref}"),
+   `asignacion_detalle` ("{n} paradas · ~{km} km\nPrimera parada: {dir}").
+2. `async def procesar_notificaciones_asignacion(ctx)`: cargar viajes con `chofer_id IS NOT
+   NULL` (`.not_.is_("chofer_id","null")` si el cliente real lo soporta; si no, `.execute()` de
+   viajes con `chofer_id` no nulo vía `.neq` no sirve para NULL — cargar TODOS los viajes activos
+   `.in_("estado", ["planificado","en_curso"])` y filtrar en Python `v["chofer_id"] and not
+   v.get("notificado_asignacion_en")`, igual que el patrón ya usado en el bot para otros campos
+   nulos). Por cada uno: chófer por id con chat_id → componer mensaje con hitos (contar + km
+   aproximados sumando haversine×1.3 entre hitos con coords, mismo cálculo que
+   `kmAproxViaje`/`FACTOR_SINUOSIDAD_FALLBACK` pero en Python) → `ctx.bot.send_message` (SIN
+   botones, texto plano) → update `notificado_asignacion_en = now`. Si el chófer no tiene
+   chat_id: marcar notificado igual (evita reintento infinito) y `notificar_gestor_evento`
+   avisando que el chófer no está vinculado a Telegram.
+3. Registro en `create_bot_app`: `if app.job_queue: app.job_queue.run_repeating(
+   procesar_notificaciones_asignacion, interval=30, first=15)` (guard para tests sin job-queue;
+   `first=15` en vez de 10 para no pisar el job de 7A.1/561 si existiera uno — de momento no hay
+   ninguno más, es solo higiene).
+4. **Reasignación**: si un viaje YA notificado cambia de chófer (el gestor reasigna), el
+   dashboard debe resetear `notificado_asignacion_en = null` al hacer el update de `chofer_id`
+   (ver abajo) para que se re-notifique al nuevo chófer. No hace falta avisar al chófer anterior
+   de que se le quitó — fuera de alcance v1 (anótalo como posible mejora, no lo bloquees).
 
 ### dashboard
-`lib/data.js`: `ofertarViaje(viajeId, choferId)` → update viaje `{ofertado_a: choferId,
-ofertado_en: new Date().toISOString(), ofertado_notificado_en: null}` (solo permitir si el viaje
-no tiene chofer_id — validar antes y lanzar Error si no). `cancelarOferta(viajeId)` → limpia los
-3 campos. UI: en `SugerenciaChofer` botón "Ofrecer"; en el detalle del viaje, si `ofertado_a`,
-chip "⏳ Ofertado a {nombre} ({hace X min})" + botón "Cancelar oferta".
+En `cambiarChofer` (`/viajes/[id]/page.jsx`) y en la creación de viaje con chófer preasignado
+(`createViaje` en `/viajes/nuevo`): al hacer `update`/`insert` con un `chofer_id` no nulo, incluir
+también `notificado_asignacion_en: null` en el mismo payload (si la columna ya tenía un valor de
+una notificación anterior, se resetea; si es un alta nueva, ya nace null por defecto, no pasa
+nada escribirlo igual). No hace falta ninguna función nueva en `lib/data.js` para esto — es un
+campo más en los updates/inserts que ya existen.
 
 ### Tests
-pytest (~6): `procesar_ofertas_pendientes` (llamando la coroutine directa con fake ctx.bot
-AsyncMock + fake_db) — envía y marca; chófer sin chat_id; nada pendiente. `cb_oferta_si` feliz +
-caducada; `cb_oferta_no`. E2E: oferta→callback aceptar con Update real. vitest (~3):
-ofertarViaje valida chofer_id null; cancelarOferta limpia.
+pytest (~5): `procesar_notificaciones_asignacion` (coroutine directa con fake ctx.bot AsyncMock +
+fake_db) — envía y marca; chófer sin chat_id; nada pendiente; no reenvía si ya notificado. E2E
+opcional: no crítico (no hay callback que probar, es solo un envío saliente).
 
 ---
 
@@ -274,7 +362,7 @@ no vinculado silencioso.
 
 ## 7A.5 — Coste total de ruta v2 (desglose por capas)
 
-### Migración `0021_coste_desglosado.sql`
+### Migración `0022_coste_desglosado.sql`
 ```sql
 ALTER TABLE vehiculo ADD COLUMN IF NOT EXISTS consumo_l_100km numeric;
 ALTER TABLE empresa  ADD COLUMN IF NOT EXISTS precio_gasoil_litro numeric;
@@ -316,7 +404,7 @@ aunque falte tarifa; fallback blended idéntico a 5.2; total suma solo activos.
 
 ## 7A.6 — Presupuestador instantáneo
 
-**Usa la migración 0021** (`empresa.margen_objetivo_pct`).
+**Usa la migración 0022** (`empresa.margen_objetivo_pct`).
 
 ### lib/data.js
 `export const MARGEN_OBJETIVO_PCT_DEFAULT = 15;` (comentario estándar).
@@ -347,7 +435,7 @@ margen de empresa respetado vs default; <2 puntos → km 0.
 
 ## 7A.7 — Gastos del viaje (multas, repostajes…)
 
-### Migración `0022_gasto_viaje.sql`
+### Migración `0023_gasto_viaje.sql`
 ```sql
 CREATE TABLE IF NOT EXISTS gasto_viaje (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -437,9 +525,29 @@ si conVentana > 0.
 
 ---
 
-## 7A.10 — Centro de mando "Hoy"
+## 7A.10 — Centro de mando "Hoy" (+ notas del gestor)
 
-**Sin migración.** Subsume 6.20.
+**Migración `0024_nota_gestor.sql`** (única migración de este ítem; el resto de "Hoy" es
+solo lectura de tablas existentes). Subsume 6.20. Añade captura de contexto pedida por el
+usuario (2026-07-03): "meter algo de notas o comentarios para coger info de primera mano y
+aprender" — un cuaderno de bitácora ligero, sin estructura, que con el tiempo puede minarse para
+entender criterio del gestor (complementa el registro estructurado de `decision_asignacion`
+de 7A.2, que ya captura el motivo cuando el gestor NO sigue la sugerencia).
+
+```sql
+CREATE TABLE IF NOT EXISTS nota_gestor (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  empresa_id  uuid NOT NULL REFERENCES empresa(id) ON DELETE CASCADE,
+  gestor_id   uuid REFERENCES gestor(id) ON DELETE SET NULL,
+  texto       text NOT NULL,
+  viaje_id    uuid REFERENCES viaje(id) ON DELETE SET NULL, -- opcional: nota atada a un viaje
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_nota_gestor_empresa ON nota_gestor (empresa_id);
+ALTER TABLE nota_gestor ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "empresa gestiona sus notas" ON nota_gestor FOR ALL
+  USING (empresa_id = current_empresa_id()) WITH CHECK (empresa_id = current_empresa_id());
+```
 
 ### lib/data.js — `getResumenHoy()`
 Promise.all: (a) `getDocumentosPorCaducar()` → count; (b) incidencias `.in("estado",
@@ -451,6 +559,24 @@ los de pct7 ≥ 80 → count + nombres; (e) viajes a pérdidas estimadas: viajes
 Return `{docsPorCaducar, incidencias:{count,masAntiguaDias}, viajesEnRiesgo:{count,refs},
 choferes561:{count,nombres}, viajesPerdidas:{count}, todoEnOrden: bool}`.
 
+### lib/data.js — notas
+```
+export async function getNotasRecientes(limite = 10) {
+  const { data } = await supabase.from("nota_gestor")
+    .select("id, texto, viaje_id, created_at, gestor:gestor_id(nombre)")
+    .order("created_at", { ascending: false }).limit(limite);
+  return data || [];
+}
+export async function createNotaGestor({ texto, viajeId = null }) {
+  const empresaId = await getCurrentEmpresaId();
+  const { data: gestor } = await supabase.from("gestor").select("id")
+    .eq("auth_user_id", (await supabase.auth.getSession()).data.session.user.id).single();
+  await supabase.from("nota_gestor").insert({
+    empresa_id: empresaId, gestor_id: gestor?.id || null, texto: texto.trim(), viaje_id: viajeId,
+  });
+}
+```
+
 ### UI — `app/components/ResumenHoy.jsx`, montado ARRIBA en `app/page.jsx` (Kanban debajo, intacto)
 Fila de 5 tarjetas clicables (grid responsive): número grande + label + flecha; color del número
 rojo si >0 (docs ámbar). Hrefs: `/documentos`, `/incidencias`, `/viajes?filtro=riesgo` (o `/`
@@ -458,7 +584,16 @@ con anchor — usar `/incidencias` y `/viajes` simples v1), `/choferes`, `/viaje
 `todoEnOrden`: banner verde único "✅ Todo en orden — nada requiere tu atención ahora mismo."
 (esa frase ES el producto). Skeleton de 5 cajas mientras carga.
 
-### Tests (~4): todoEnOrden true/false; viaje en riesgo detectado; 561 solo chóferes con viaje activo.
+Debajo de las tarjetas, sección "Notas rápidas": textarea corto + botón "Añadir" (llama
+`createNotaGestor`, limpia el campo, refresca la lista) + lista de las últimas 10 (`getNotasRecientes`)
+con autor + fecha relativa + texto. Sin edición ni borrado en v1 (es un log de apuntes, no un
+editor de documentos — si algo se apuntó mal, se añade una nota nueva aclarando). También
+integrar un textarea opcional "Nota (opcional)" en `/viajes/[id]` bajo el detalle del viaje que
+llama `createNotaGestor({texto, viajeId})` — mismas notas, filtrables por viaje si se listan ahí
+con `.eq("viaje_id", id)` en vez de sin filtro.
+
+### Tests (~7): todoEnOrden true/false; viaje en riesgo detectado; 561 solo chóferes con viaje
+activo; createNotaGestor inserta con gestor_id resuelto; getNotasRecientes respeta el límite.
 
 ---
 
@@ -477,9 +612,10 @@ Header de pasos (1 Ruta → 2 Asignación → 3 Confirmar) con check en completa
   (`calcularCosteRuta`), precio sugerido (lógica 7A.6) y margen del precio introducido con
   semáforo. Extraer el cálculo a `lib/data.js: calcularPanelViaje({puntos, vehiculoId, precio})`
   para testearlo (composición de lo ya existente).
-- **Paso 2**: `SugerenciaChofer` (7A.2) + selects vehículo/remolque (con `validarAsignacion`
-  existente) + chip 561 (7A.1) + botón "Ofrecer en vez de asignar" (7A.3) que crea el viaje SIN
-  chofer y con oferta.
+- **Paso 2**: `SugerenciaChofer` (7A.2, ya sin flujo de oferta — el gestor asigna directo) +
+  selects vehículo/remolque (con `validarAsignacion` existente) + chip 561 (7A.1). Al asignar
+  chófer aquí, el mismo `notificado_asignacion_en: null` de 7A.3 se incluye en el insert de
+  `createViaje`.
 - **Paso 3**: resumen completo de todo + botón Crear → `createViaje` existente (extenderlo para
   aceptar `precio` — verificar firma actual y añadir el campo al insert).
 
@@ -531,7 +667,7 @@ incidencias) por `EmptyState` con CTA a la acción de alta correspondiente.
 
 ## 7A.14 — Portal de cliente (tracking público)
 
-### Migración `0023_token_publico.sql`
+### Migración `0025_token_publico.sql`
 ```sql
 ALTER TABLE viaje ADD COLUMN IF NOT EXISTS token_publico uuid UNIQUE;
 

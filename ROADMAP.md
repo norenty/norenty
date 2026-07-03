@@ -495,21 +495,25 @@ pica código. Orden de ejecución con dependencias, al final de ese documento:
   progreso + horas restantes en `/choferes/[id]` y chip de aviso (no bloqueo) al asignar chófer en
   `/viajes/nuevo` y en el cambio de chófer del detalle si la suma con el viaje nuevo supera límites.
   Tests de la función con fixtures de eventos.
-- [ ] `[LOOP]` **7A.2 Motor de asignación v1 — sugerencia con score explicado** — `sugerirChofer(
-  viajeId)` en `lib/data.js`: puntúa cada chófer de la empresa con desglose visible: disponibilidad
-  (sin viaje activo, +40), margen 561 (horas restantes vs. horas del viaje, 0–25), documentos
-  vigentes (licencia/CAP no caducados, +15 / bloqueo visual si caducados), proximidad al origen
-  (última ubicación conocida vs. primer hito, 0–10), historial (valoración media, 0–10). Devuelve
-  ranking con `{chofer, score, razones: ["Disponible", "42h de margen semanal", ...]}`. UI: en
-  `/viajes/nuevo` y en el editor de chófer del detalle, lista ordenada por score con las razones
-  visibles y "Asignar" a 1 clic. Los pesos como constantes exportadas ajustables (mismo patrón que
-  los umbrales existentes). Tests exhaustivos del scoring.
-- [ ] `[LOOP]` **7A.3 Oferta de viaje al chófer (Uber-style)** — Migración: `viaje.ofertado_a uuid
-  NULL` + `viaje.ofertado_en timestamptz`. Botón "Ofrecer viaje" junto a "Asignar" en la UI de
-  asignación: manda al chófer por bot el resumen del viaje (hitos, fechas, km estimados) con
-  botones Aceptar/Rechazar (callback_data `oferta_si:{viaje_id}` / `oferta_no:{viaje_id}`).
-  Aceptar → asigna de verdad + notifica al gestor; rechazar → limpia oferta + notifica con el
-  siguiente del ranking sugerido. i18n 4 idiomas. Tests unitarios + E2E del flujo de oferta.
+- [ ] `[LOOP]` **7A.2 Motor de asignación v1 — sugerencia con score explicado + registro de
+  decisiones** — `sugerirChofer(viajeId)` en `lib/data.js`: puntúa cada chófer de la empresa con
+  desglose visible: disponibilidad (sin viaje activo, +40), margen 561 (horas restantes vs. horas
+  del viaje, 0–25), documentos vigentes (licencia/CAP no caducados, +15 / bloqueo visual si
+  caducados), proximidad al origen (última ubicación conocida vs. primer hito, 0–10), **historial
+  real de desempeño** (puntualidad + tasa de incidencias + valoración, reutilizando
+  `getMetricasChoferes()` — NO solo estrellas, 0–10). Devuelve ranking con `{chofer, score,
+  razones}`. La decisión SIEMPRE es del gestor (nunca del chófer, ver 7A.3): tabla
+  `decision_asignacion` registra qué se sugirió vs. qué se eligió, y pide un motivo opcional
+  cuando el gestor no sigue la sugerencia top — es el hook de aprendizaje para 7B.7. UI: lista
+  ordenada por score con las razones visibles y "Asignar" a 1 clic. Tests exhaustivos del scoring
+  y del registro de decisión. **Ver `SPECS-7A.md` (reescrito 2026-07-03).**
+- [ ] `[LOOP]` **7A.3 Notificación de asignación al chófer** (reemplaza el diseño original
+  "Uber-style" de aceptar/rechazar — descartado a petición del usuario 2026-07-03: la decisión es
+  del gestor, el chófer solo se entera, cero fricción/cero elección para él) — Migración:
+  `viaje.notificado_asignacion_en timestamptz`. Job del bot (cada 30s) que, cuando un viaje tiene
+  chófer asignado y no se le ha avisado aún, le manda un mensaje informativo (ruta, nº paradas,
+  km estimados) SIN botones de aceptar/rechazar. Reasignar resetea el flag para renotificar al
+  nuevo chófer. i18n 4 idiomas. Tests unitarios del job. **Ver `SPECS-7A.md`.**
 - [ ] `[LOOP]` **7A.4 Live location + geo-llegada v1** — Bot: `MessageHandler(filters.LOCATION)`
   que guarda cada ubicación (incluida live location editada — handler de `edited_message`) en la
   tabla `ubicacion`. Al recibir ubicación, si el chófer tiene hito pendiente/en_curso a <300 m
@@ -547,18 +551,21 @@ pica código. Orden de ejecución con dependencias, al final de ese documento:
   vs. llegada real (evento `llegada`), con delta en minutos y color (verde a tiempo / ámbar <1h
   tarde / rojo más). Un mini-resumen arriba: "3/4 hitos a tiempo". Reutiliza datos existentes, sin
   migración. Tests del cálculo de deltas.
-- [ ] `[LOOP]` **7A.10 Centro de mando "Hoy"** (subsume 6.20) — La home (`/`) deja de ser solo el
-  Kanban y abre con una fila de tarjetas accionables: viajes EN RIESGO (fuera de ventana ya, o ETA
-  imposible), incidencias abiertas (con antigüedad), documentos por caducar (N), chóferes cerca del
-  límite 561 (de 7A.1), viajes a pérdidas (margen<0). Cada tarjeta → clic lleva al sitio con el
-  filtro puesto. Kanban debajo, intacto. Es la pantalla que el gestor deja abierta todo el día:
-  si está todo verde, no hay nada que hacer — ese es el producto.
+- [ ] `[LOOP]` **7A.10 Centro de mando "Hoy" + notas del gestor** (subsume 6.20) — La home (`/`)
+  deja de ser solo el Kanban y abre con una fila de tarjetas accionables: viajes EN RIESGO (fuera
+  de ventana ya, o ETA imposible), incidencias abiertas (con antigüedad), documentos por caducar
+  (N), chóferes cerca del límite 561 (de 7A.1), viajes a pérdidas (margen<0). Cada tarjeta → clic
+  lleva al sitio con el filtro puesto. Kanban debajo, intacto. Debajo, "Notas rápidas": cuaderno de
+  bitácora ligero (tabla `nota_gestor`) para que el gestor apunte contexto de primera mano —
+  complementa el registro estructurado de `decision_asignacion` (7A.2) como segunda fuente de
+  aprendizaje futuro. Es la pantalla que el gestor deja abierta todo el día: si está todo verde,
+  no hay nada que hacer — ese es el producto. **Ver `SPECS-7A.md`.**
 - [ ] `[LOOP]` **7A.11 Wizard "Nuevo viaje" con inteligencia inline** — Rehacer `/viajes/nuevo` en
   3 pasos: (1) ruta (hitos, con km/horas/coste/precio-sugerido calculándose en vivo en un panel
-  lateral según añades hitos), (2) chófer+vehículo (ranking de 7A.2 con razones, aviso 561, botón
-  "Ofrecer" de 7A.3), (3) confirmación (resumen completo + viabilidad final). Mantener el flujo
-  actual como fallback hasta que el wizard esté completo (feature por ruta nueva `/viajes/nuevo-w`
-  hasta validar, luego swap). Tests de los cálculos del panel.
+  lateral según añades hitos), (2) chófer+vehículo (ranking de 7A.2 con razones, aviso 561 — el
+  gestor asigna directo, sin flujo de oferta), (3) confirmación (resumen completo + viabilidad
+  final). Mantener el flujo actual como fallback hasta que el wizard esté completo (feature por
+  ruta nueva `/viajes/nuevo-w` hasta validar, luego swap). Tests de los cálculos del panel.
 - [ ] `[LOOP]` **7A.12 Sistema de diseño consolidado** (subsume 6.14) — `dashboard/lib/labels.js`
   (todos los TIPO_LABEL/estados/ámbitos duplicados hoy en 3+ archivos) y `dashboard/lib/format.js`
   (fmtFecha, fmtEuros, fmtKm, badges de caducidad/margen). Componentes compartidos en

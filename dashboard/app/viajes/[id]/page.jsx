@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import PodImage from "../../components/PodImage";
 import DocumentosSection from "../../components/DocumentosSection";
+import SugerenciaChofer from "../../components/SugerenciaChofer";
 import {
   getViaje, getChoferes, validarCambioEstado, validarAsignacion,
   getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje, getEstado561,
@@ -258,6 +259,12 @@ export default function ViajeDetalle() {
           </span>
         )}
       </div>
+
+      {editandoChofer && (
+        <div className="mb-4">
+          <SugerenciaChofer viajeId={id} onAsignado={(choferId) => cambiarChofer(choferId)} />
+        </div>
+      )}
 
       {aviso561 && (
         <div className="flex items-start gap-2 mb-4 px-3 py-2 rounded-lg bg-yellow-50 border border-yellow-200 text-xs text-yellow-700">

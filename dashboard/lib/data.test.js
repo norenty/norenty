@@ -85,6 +85,9 @@ const {
   getEstado561,
   LIMITE_561_SEMANAL_H,
   LIMITE_561_BISEMANAL_H,
+  scoreChofer,
+  sugerirChofer,
+  registrarDecisionAsignacion,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -988,5 +991,116 @@ describe("estado 561 (7A.1)", () => {
     const r = await getEstado561("c1");
     expect(r.pct7).toBe(Math.round((r.horas7 / LIMITE_561_SEMANAL_H) * 100));
     expect(r.margen7).toBeCloseTo(LIMITE_561_SEMANAL_H - r.horas7, 1);
+  });
+});
+
+describe("motor de asignación (7A.2)", () => {
+  const base = {
+    tieneViajeActivo: false,
+    estado561: { margen7: 56 },
+    docsCaducados: [],
+    distanciaOrigenKm: 20,
+    metricas: { viajes: 10, pctPuntualidad: 100, incidencias: 0, valoracionMedia: 5 },
+    horasViaje: 8,
+  };
+
+  it("disponibilidad: +40 si no tiene viaje activo, +0 si sí", () => {
+    const libre = scoreChofer(base);
+    const ocupado = scoreChofer({ ...base, tieneViajeActivo: true });
+    expect(ocupado.score).toBe(libre.score - 40);
+    expect(libre.razones).toContain("Disponible");
+    expect(ocupado.razones).toContain("En viaje ahora");
+  });
+
+  it("margen 561: sin datos da un valor neutro, con margen amplio da máximo", () => {
+    const sinDatos = scoreChofer({ ...base, estado561: null });
+    const margenAmplio = scoreChofer({ ...base, estado561: { margen7: 56 }, horasViaje: 1 });
+    expect(sinDatos.razones).toContain("Sin datos de horas");
+    expect(margenAmplio.razones.some((r) => r.includes("margen semanal"))).toBe(true);
+  });
+
+  it("documentos caducados bloquea en vez de sumar puntos", () => {
+    const ok = scoreChofer(base);
+    const caducado = scoreChofer({ ...base, docsCaducados: ["licencia"] });
+    expect(ok.razones).toContain("Documentos en vigor");
+    expect(caducado.bloqueos[0]).toMatch(/licencia/);
+    expect(caducado.score).toBe(ok.score - 15);
+  });
+
+  it("proximidad: escalones de distancia correctos", () => {
+    expect(scoreChofer({ ...base, distanciaOrigenKm: null }).razones).toContain("Ubicación desconocida");
+    const cerca = scoreChofer({ ...base, distanciaOrigenKm: 10 });
+    const lejos = scoreChofer({ ...base, distanciaOrigenKm: 600 });
+    expect(cerca.score).toBeGreaterThan(lejos.score);
+  });
+
+  it("historial: sin viajes da razón neutra, con buen desempeño puntúa alto", () => {
+    const sinHistorial = scoreChofer({ ...base, metricas: null });
+    const conHistorial = scoreChofer(base);
+    expect(sinHistorial.razones).toContain("Sin historial de viajes");
+    expect(conHistorial.razones.some((r) => r.includes("viajes previos"))).toBe(true);
+  });
+
+  it("historial penaliza incidencias frecuentes frente a un chófer limpio", () => {
+    const limpio = scoreChofer({ ...base, metricas: { viajes: 10, pctPuntualidad: 100, incidencias: 0, valoracionMedia: 5 } });
+    const conIncidencias = scoreChofer({ ...base, metricas: { viajes: 10, pctPuntualidad: 100, incidencias: 8, valoracionMedia: 5 } });
+    expect(conIncidencias.score).toBeLessThan(limpio.score);
+  });
+
+  it("combinación máxima teórica da 100", () => {
+    const r = scoreChofer(base); // disponible, margen máx, docs ok, cerca, historial perfecto
+    expect(r.score).toBeLessThanOrEqual(100);
+    expect(r.score).toBeGreaterThan(90);
+  });
+
+  it("sugerirChofer ordena por score y excluye el propio viaje de 'activo'", async () => {
+    TABLES.chofer = [
+      { id: "c1", nombre: "Ana", idioma: "es" },
+      { id: "c2", nombre: "Bruno", idioma: "es" },
+    ];
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", estado: "en_curso" }];
+    TABLES.documento = [];
+    TABLES.ubicacion = [];
+    TABLES.hito = [
+      { orden: 1, lat: 40.4168, lon: -3.7038, viaje_id: "v-actual" },
+    ];
+    TABLES.valoracion = [];
+    TABLES.incidencia = [];
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 75 }];
+    TABLES.ejecucion_evento = [];
+
+    const ranking = await sugerirChofer("v-actual");
+    expect(ranking).toHaveLength(2);
+    // c1 tiene un viaje activo en OTRO viaje (v1) -> penalizado frente a c2, libre
+    const bruno = ranking.find((r) => r.chofer.id === "c2");
+    const ana = ranking.find((r) => r.chofer.id === "c1");
+    expect(bruno.score).toBeGreaterThan(ana.score);
+  });
+
+  it("registrarDecisionAsignacion marca siguio_sugerencia correctamente", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.decision_asignacion = [];
+
+    await registrarDecisionAsignacion({
+      viajeId: "v1", choferSugeridoId: "c1", scoreSugerido: 90,
+      choferElegidoId: "c1", scoreElegido: 90,
+    });
+    await registrarDecisionAsignacion({
+      viajeId: "v2", choferSugeridoId: "c1", scoreSugerido: 90,
+      choferElegidoId: "c2", scoreElegido: 70, motivo: "conoce la ruta",
+    });
+
+    expect(TABLES.decision_asignacion).toHaveLength(2);
+    expect(TABLES.decision_asignacion[0].siguio_sugerencia).toBe(true);
+    expect(TABLES.decision_asignacion[1].siguio_sugerencia).toBe(false);
+    expect(TABLES.decision_asignacion[1].motivo).toBe("conoce la ruta");
+  });
+
+  it("registrarDecisionAsignacion no lanza si falla (sin sesión)", async () => {
+    SESSION = null;
+    await expect(
+      registrarDecisionAsignacion({ viajeId: "v1", choferSugeridoId: null, choferElegidoId: "c1" })
+    ).resolves.not.toThrow();
   });
 });

@@ -750,6 +750,199 @@ export async function getEstado561(choferId, { ahora = new Date() } = {}) {
   };
 }
 
+// ==========================================================================
+// Motor de asignación v1 (ítem 7A.2) — sugerencia con score explicado +
+// registro de decisiones del gestor.
+//
+// La decisión de a quién asignar es SIEMPRE del gestor, nunca del chófer (el
+// chófer solo se entera de su ruta, ver 7A.3) — el sistema sugiere con el
+// porqué visible, el gestor asigna con un clic.
+// ==========================================================================
+
+export const PESOS_ASIGNACION = {
+  disponibilidad: 40, margen561: 25, documentos: 15, proximidad: 10, historial: 10,
+}; // valores iniciales razonables, NO pactados con cliente real — ajustables
+
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+/**
+ * Puntúa un chófer para un viaje concreto. Pura, sin llamadas a red — toda la
+ * información se resuelve antes en `sugerirChofer` y se le pasa aquí.
+ *
+ * El componente "historial" usa DESEMPEÑO REAL (puntualidad + tasa de
+ * incidencias + valoración media, de `getMetricasChoferes`), no solo estrellas
+ * — es la mejora pedida sobre la v0: "de quién hace qué ruta y cómo lo ha
+ * hecho de bien". No se intenta correlacionar por ruta/cliente concretos en
+ * v1 (el esquema no tiene un identificador reutilizable de ruta habitual y
+ * forzarlo con fuzzy-matching de direcciones daría falsos positivos) — queda
+ * anotado como posible mejora futura (7B) si el volumen de datos lo justifica.
+ */
+export function scoreChofer({ tieneViajeActivo, estado561, docsCaducados, distanciaOrigenKm, metricas, horasViaje }) {
+  const razones = [];
+  const bloqueos = [];
+  let score = 0;
+
+  if (!tieneViajeActivo) {
+    score += 40;
+    razones.push("Disponible");
+  } else {
+    razones.push("En viaje ahora");
+  }
+
+  if (estado561 == null) {
+    score += 12;
+    razones.push("Sin datos de horas");
+  } else {
+    const puntos = Math.round(clamp(estado561.margen7 / Math.max(horasViaje ?? 9, 1), 0, 1) * 25);
+    score += puntos;
+    razones.push(`${estado561.margen7} h de margen semanal (est.)`);
+  }
+
+  if (docsCaducados && docsCaducados.length > 0) {
+    bloqueos.push(`Documento caducado: ${docsCaducados.join(", ")}`);
+  } else {
+    score += 15;
+    razones.push("Documentos en vigor");
+  }
+
+  if (distanciaOrigenKm == null) {
+    score += 5;
+    razones.push("Ubicación desconocida");
+  } else if (distanciaOrigenKm <= 50) {
+    score += 10;
+    razones.push(`a ~${Math.round(distanciaOrigenKm)} km del origen`);
+  } else if (distanciaOrigenKm <= 200) {
+    score += 6;
+    razones.push(`a ~${Math.round(distanciaOrigenKm)} km del origen`);
+  } else if (distanciaOrigenKm <= 500) {
+    score += 3;
+    razones.push(`a ~${Math.round(distanciaOrigenKm)} km del origen`);
+  } else {
+    score += 1;
+    razones.push(`a ~${Math.round(distanciaOrigenKm)} km del origen`);
+  }
+
+  if (!metricas || metricas.viajes === 0) {
+    score += 5;
+    razones.push("Sin historial de viajes");
+  } else {
+    const puntualidadPts = metricas.pctPuntualidad != null ? Math.round((metricas.pctPuntualidad / 100) * 5) : 2;
+    const incidenciasPts = Math.round(clamp(1 - metricas.incidencias / metricas.viajes, 0, 1) * 3);
+    const valoracionPts = metricas.valoracionMedia != null ? Math.round((metricas.valoracionMedia / 5) * 2) : 1;
+    score += puntualidadPts + incidenciasPts + valoracionPts;
+
+    let razon = `${metricas.viajes} viajes previos`;
+    if (metricas.pctPuntualidad != null) razon += `, ${metricas.pctPuntualidad}% puntual`;
+    if (metricas.incidencias > 0) razon += `, ${metricas.incidencias} incid.`;
+    razones.push(razon);
+  }
+
+  return { score, razones, bloqueos };
+}
+
+/**
+ * Ranking de chóferes para un viaje, con score y razones. Reutiliza
+ * `getMetricasChoferes` (4.5) para el componente de historial en vez de
+ * reinventar el cálculo de puntualidad/incidencias.
+ */
+export async function sugerirChofer(viajeId) {
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  const [
+    { data: choferes },
+    { data: viajesActivos },
+    { data: documentos },
+    metricas,
+    { data: ubicaciones },
+    { data: hitos },
+    { data: empresas },
+  ] = await Promise.all([
+    supabase.from("chofer").select("id, nombre, idioma"),
+    supabase.from("viaje").select("id, chofer_id").in("estado", ESTADOS_ACTIVOS).neq("id", viajeId),
+    supabase.from("documento").select("entidad_id, tipo, fecha_caducidad").eq("ambito", "chofer"),
+    getMetricasChoferes(),
+    supabase.from("ubicacion").select("chofer_id, lat, lon, created_at"),
+    supabase.from("hito").select("orden, lat, lon").eq("viaje_id", viajeId),
+    supabase.from("empresa").select("velocidad_planificacion_kmh"),
+  ]);
+
+  const choferesConViajeActivo = new Set((viajesActivos || []).filter((v) => v.chofer_id).map((v) => v.chofer_id));
+
+  const docsCaducadosPorChofer = {};
+  (documentos || []).forEach((d) => {
+    if (!["licencia", "cap"].includes(d.tipo)) return;
+    if (d.fecha_caducidad && d.fecha_caducidad < hoy) {
+      (docsCaducadosPorChofer[d.entidad_id] ||= []).push(d.tipo);
+    }
+  });
+
+  const ultimaUbicacionPorChofer = {};
+  (ubicaciones || []).forEach((u) => {
+    const actual = ultimaUbicacionPorChofer[u.chofer_id];
+    if (!actual || u.created_at > actual.created_at) ultimaUbicacionPorChofer[u.chofer_id] = u;
+  });
+
+  const metricasPorChofer = Object.fromEntries((metricas || []).map((m) => [m.id, m]));
+
+  const hitosOrdenados = (hitos || []).filter((h) => h.lat != null && h.lon != null).sort((a, b) => a.orden - b.orden);
+  const origen = hitosOrdenados[0] || null;
+  const kmViaje = kmAproxViaje(hitos || []);
+  const velocidadViaje = resolveVelocidadPlanificacion((empresas || [])[0] || null);
+  const horasViaje = kmViaje / velocidadViaje;
+
+  const ranking = await Promise.all(
+    (choferes || []).map(async (chofer) => {
+      const ultimaUbicacion = ultimaUbicacionPorChofer[chofer.id];
+      const distanciaOrigenKm = ultimaUbicacion && origen
+        ? haversineKm(ultimaUbicacion, origen)
+        : null;
+      const estado561 = await getEstado561(chofer.id);
+      const { score, razones, bloqueos } = scoreChofer({
+        tieneViajeActivo: choferesConViajeActivo.has(chofer.id),
+        estado561,
+        docsCaducados: docsCaducadosPorChofer[chofer.id] || [],
+        distanciaOrigenKm,
+        metricas: metricasPorChofer[chofer.id] || null,
+        horasViaje,
+      });
+      return { chofer: { id: chofer.id, nombre: chofer.nombre, idioma: chofer.idioma }, score, razones, bloqueos };
+    })
+  );
+
+  return ranking.sort((a, b) => b.score - a.score);
+}
+
+/**
+ * Registra qué se sugirió vs. qué eligió el gestor — hook de aprendizaje
+ * (7B.7). Nunca bloquea el flujo de asignar: si falla, se registra en
+ * consola y se sigue.
+ */
+export async function registrarDecisionAsignacion({
+  viajeId, choferSugeridoId, scoreSugerido, choferElegidoId, scoreElegido, motivo = null,
+}) {
+  try {
+    const empresaId = await getCurrentEmpresaId();
+    const siguioSugerencia = choferSugeridoId != null && choferSugeridoId === choferElegidoId;
+    await supabase.from("decision_asignacion").insert(
+      {
+        empresa_id: empresaId,
+        viaje_id: viajeId,
+        chofer_sugerido_id: choferSugeridoId,
+        chofer_elegido_id: choferElegidoId,
+        score_sugerido: scoreSugerido,
+        score_elegido: scoreElegido,
+        siguio_sugerencia: siguioSugerencia,
+        motivo,
+      },
+      { returning: "minimal" }
+    );
+  } catch (e) {
+    console.error("registrarDecisionAsignacion falló (no bloqueante):", e);
+  }
+}
+
 /**
  * Informe de nómina auto-derivado (ítem 5.1). Para cada chófer de la empresa y
  * un mes/año dados, calcula:
