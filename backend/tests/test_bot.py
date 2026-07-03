@@ -707,3 +707,81 @@ async def test_procesar_notificaciones_ignora_viajes_completados(fake_db):
     ctx = SimpleNamespace(bot=AsyncMock())
     await bot.procesar_notificaciones_asignacion(ctx)
     ctx.bot.send_message.assert_not_awaited()
+
+
+# --- handle_location (7A.4): guarda ubicación + pregunta proactiva de llegada ---
+
+def _location_update(lat, lon, edited=False, chat_id="chat-1"):
+    loc = SimpleNamespace(latitude=lat, longitude=lon)
+    msg = SimpleNamespace(location=loc)
+    return SimpleNamespace(
+        effective_chat=SimpleNamespace(id=chat_id),
+        message=None if edited else msg,
+        edited_message=msg if edited else None,
+    )
+
+
+@pytest.mark.asyncio
+async def test_handle_location_guarda_ubicacion(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["viaje"] = []
+    ctx = SimpleNamespace(bot=AsyncMock(), chat_data={})
+    await bot.handle_location(_location_update(40.0, -3.0), ctx)
+    assert len(fake_db.tables["ubicacion"]) == 1
+    assert fake_db.tables["ubicacion"][0]["chofer_id"] == "c1"
+
+
+@pytest.mark.asyncio
+async def test_handle_location_pregunta_si_cerca_del_hito_pendiente(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "estado": "en_curso"}]
+    fake_db.tables["hito"] = [
+        {"id": "h1", "viaje_id": "v1", "orden": 1, "estado": "pendiente", "lat": 40.0001, "lon": -3.0001, "direccion": "Madrid"},
+    ]
+    ctx = SimpleNamespace(bot=AsyncMock(), chat_data={})
+    await bot.handle_location(_location_update(40.0, -3.0), ctx)
+    ctx.bot.send_message.assert_awaited_once()
+    assert "Madrid" in ctx.bot.send_message.call_args.kwargs["text"]
+    assert ctx.chat_data["geo_preguntado"] == "h1"
+
+
+@pytest.mark.asyncio
+async def test_handle_location_no_pregunta_dos_veces(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "estado": "en_curso"}]
+    fake_db.tables["hito"] = [
+        {"id": "h1", "viaje_id": "v1", "orden": 1, "estado": "pendiente", "lat": 40.0001, "lon": -3.0001, "direccion": "Madrid"},
+    ]
+    ctx = SimpleNamespace(bot=AsyncMock(), chat_data={"geo_preguntado": "h1"})
+    await bot.handle_location(_location_update(40.0, -3.0), ctx)
+    ctx.bot.send_message.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_location_no_pregunta_si_lejos(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "estado": "en_curso"}]
+    fake_db.tables["hito"] = [
+        {"id": "h1", "viaje_id": "v1", "orden": 1, "estado": "pendiente", "lat": 41.0, "lon": -3.0, "direccion": "Madrid"},
+    ]
+    ctx = SimpleNamespace(bot=AsyncMock(), chat_data={})
+    await bot.handle_location(_location_update(40.0, -3.0), ctx)
+    ctx.bot.send_message.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_location_no_vinculado_es_silencioso(fake_db):
+    fake_db.tables["chofer"] = []
+    ctx = SimpleNamespace(bot=AsyncMock(), chat_data={})
+    await bot.handle_location(_location_update(40.0, -3.0), ctx)
+    ctx.bot.send_message.assert_not_awaited()
+    assert fake_db.tables.get("ubicacion", []) == []
+
+
+@pytest.mark.asyncio
+async def test_handle_location_funciona_con_live_location_editada(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["viaje"] = []
+    ctx = SimpleNamespace(bot=AsyncMock(), chat_data={})
+    await bot.handle_location(_location_update(40.0, -3.0, edited=True), ctx)
+    assert len(fake_db.tables["ubicacion"]) == 1

@@ -79,6 +79,7 @@ TEXTOS = {
         "eta_total": "Total: {horas} h",
         "asignacion_titulo": "🚚 Se te ha asignado el viaje {ref}",
         "asignacion_detalle": "{n} paradas · ~{km} km\nPrimera parada: {dir}",
+        "geo_llegada_pregunta": "📍 Parece que has llegado a {dir}. ¿Confirmas?",
     },
     "en": {
         "sin_viaje_activo": "You have no active trip.",
@@ -126,6 +127,7 @@ TEXTOS = {
         "eta_total": "Total: {horas} h",
         "asignacion_titulo": "🚚 Trip {ref} has been assigned to you",
         "asignacion_detalle": "{n} stops · ~{km} km\nFirst stop: {dir}",
+        "geo_llegada_pregunta": "📍 Looks like you've arrived at {dir}. Confirm?",
     },
     "ro": {
         "sin_viaje_activo": "Nu ai nicio cursă activă.",
@@ -173,6 +175,7 @@ TEXTOS = {
         "eta_total": "Total: {horas} h",
         "asignacion_titulo": "🚚 Ți s-a atribuit cursa {ref}",
         "asignacion_detalle": "{n} opriri · ~{km} km\nPrima oprire: {dir}",
+        "geo_llegada_pregunta": "📍 Se pare că ai ajuns la {dir}. Confirmi?",
     },
     "fr": {
         "sin_viaje_activo": "Vous n'avez aucun trajet actif.",
@@ -220,6 +223,7 @@ TEXTOS = {
         "eta_total": "Total : {horas} h",
         "asignacion_titulo": "🚚 Le trajet {ref} vous a été attribué",
         "asignacion_detalle": "{n} arrêts · ~{km} km\nPremier arrêt : {dir}",
+        "geo_llegada_pregunta": "📍 Il semble que vous soyez arrivé à {dir}. Confirmez ?",
     },
 }
 # Idiomas sin traduccion completa: usar ingles como fallback
@@ -558,7 +562,9 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     idioma = chofer.get("idioma", "es").upper()
 
     await update.message.reply_text(
-        f"Vinculado correctamente, {nombre}.\nIdioma: {idioma}",
+        f"Vinculado correctamente, {nombre}.\nIdioma: {idioma}\n\n"
+        "Comparte tu ubicación en tiempo real (clip 📎 → Ubicación → Compartir en tiempo real) "
+        "para activar la llegada automática.",
         reply_markup=menu_keyboard(chofer),
     )
 
@@ -683,6 +689,70 @@ async def cb_cancelar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     await query.edit_message_text(t(chofer, "cancelado"))
     await send_next_hito(chat_id, chofer, ctx.bot)
+
+
+async def handle_location(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Guarda la ubicación del chófer (incluida live location editada, que
+    Telegram manda como `edited_message`) y, si está a menos de
+    UMBRAL_GEO_LLEGADA_M del hito pendiente más próximo en su ruta, le
+    pregunta proactivamente si ha llegado (ítem 7A.4). NO auto-confirma la
+    llegada en v1 — sigue exigiendo el botón de confirmar de siempre
+    (`cb_pre_llegada`, ya registrado), es solo la PREGUNTA la que se dispara
+    sola. Silencioso en cualquier otro caso: live location manda updates cada
+    pocos segundos y no hay nada útil que responder la mayoría de las veces.
+    """
+    msg = update.message or update.edited_message
+    if not msg or not msg.location:
+        return
+
+    chat_id = str(update.effective_chat.id)
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
+        return
+
+    lat, lon = msg.location.latitude, msg.location.longitude
+    supabase.table("ubicacion").insert({"chofer_id": chofer["id"], "lat": lat, "lon": lon}).execute()
+
+    viaje_r = (
+        supabase.table("viaje")
+        .select("id")
+        .eq("chofer_id", chofer["id"])
+        .eq("estado", "en_curso")
+        .execute()
+    )
+    if not viaje_r.data:
+        return
+
+    hitos_r = (
+        supabase.table("hito")
+        .select("id, orden, lat, lon, direccion, estado")
+        .eq("viaje_id", viaje_r.data[0]["id"])
+        .order("orden")
+        .execute()
+    )
+    pendientes = [
+        h for h in (hitos_r.data or [])
+        if h.get("estado") == "pendiente" and h.get("lat") is not None and h.get("lon") is not None
+    ]
+    if not pendientes:
+        return
+
+    hito = pendientes[0]
+    distancia_m = haversine_km(lat, lon, hito["lat"], hito["lon"]) * 1000
+    if distancia_m > UMBRAL_GEO_LLEGADA_M:
+        return
+
+    if ctx.chat_data.get("geo_preguntado") == hito["id"]:
+        return
+    ctx.chat_data["geo_preguntado"] = hito["id"]
+
+    await ctx.bot.send_message(
+        chat_id=chat_id,
+        text=t(chofer, "geo_llegada_pregunta", dir=hito.get("direccion") or t(chofer, "hito_sin_dir")),
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton(t(chofer, "btn_llegado"), callback_data=f"pre_llegada:{hito['id']}")]
+        ]),
+    )
 
 
 async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -819,6 +889,11 @@ async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # como fallback.
 FACTOR_SINUOSIDAD_FALLBACK = 1.3
 VELOCIDAD_PLANIFICACION_KMH_DEFAULT = 75
+
+# Distancia (metros) por debajo de la cual el bot pregunta proactivamente si el
+# chófer ha llegado, al recibir su ubicación en vivo (ítem 7A.4). Valor inicial
+# razonable, NO pactado con cliente real — ajustable.
+UMBRAL_GEO_LLEGADA_M = 300
 
 # Reglamento (CE) 561/2006 — mismos límites y misma simplificación v1
 # CONSERVADORA que calcularEtaConParadas() en dashboard/lib/data.js (siempre
@@ -1151,6 +1226,8 @@ def create_bot_app():
     app.add_handler(CallbackQueryHandler(cb_llegada, pattern=r"^llegada:"))
     app.add_handler(CallbackQueryHandler(cb_cancelar, pattern=r"^cancelar$"))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    app.add_handler(MessageHandler(filters.LOCATION, handle_location))
+    app.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE & filters.LOCATION, handle_location))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_texto))
     if app.job_queue:
         app.job_queue.run_repeating(procesar_notificaciones_asignacion, interval=30, first=15)
