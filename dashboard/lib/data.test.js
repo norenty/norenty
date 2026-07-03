@@ -99,6 +99,8 @@ const {
   deleteGastoViaje,
   getMultasPorChofer,
   getMultasPorVehiculo,
+  getPnlViaje,
+  getMetricasRentabilidad,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -1324,5 +1326,69 @@ describe("gastos del viaje (7A.7)", () => {
     TABLES.gasto_viaje = [{ id: "g1", viaje_id: "v1", tipo: "peaje", importe: 10 }];
     await deleteGastoViaje("g1");
     expect(TABLES.gasto_viaje).toHaveLength(0);
+  });
+});
+
+describe("P&L real del viaje (7A.8)", () => {
+  const MADRID = { lat: 40.4168, lon: -3.7038 };
+  const BARCELONA = { lat: 41.3851, lon: 2.1734 };
+
+  function setupViaje({ precio = 1000, coste_km = 1 } = {}) {
+    TABLES.viaje = [{ id: "v1", precio, vehiculo_id: null }];
+    TABLES.hito = [
+      { orden: 1, ...MADRID, viaje_id: "v1" },
+      { orden: 2, ...BARCELONA, viaje_id: "v1" },
+    ];
+    TABLES.empresa = [{ coste_km, velocidad_planificacion_kmh: 75 }];
+  }
+
+  it("con gastos: calcula margen real y desviación frente al estimado", async () => {
+    setupViaje();
+    TABLES.gasto_viaje = [
+      { id: "g1", viaje_id: "v1", tipo: "repostaje", importe: 100 },
+      { id: "g2", viaje_id: "v1", tipo: "peaje", importe: 50 },
+    ];
+    const pnl = await getPnlViaje("v1");
+    expect(pnl.gastosReales).toBe(150);
+    expect(pnl.margenReal).toBe(pnl.precio - 150);
+    expect(pnl.numGastos).toBe(2);
+    expect(pnl.desviacionPct).not.toBeNull();
+  });
+
+  it("sin gastos: gastosReales es 0 y desviacionPct es null (nada que comparar)", async () => {
+    setupViaje();
+    TABLES.gasto_viaje = [];
+    const pnl = await getPnlViaje("v1");
+    expect(pnl.gastosReales).toBe(0);
+    expect(pnl.desviacionPct).toBeNull();
+    expect(pnl.numGastos).toBe(0);
+  });
+
+  it("sin precio: precio y margenReal son null, pero no lanza", async () => {
+    setupViaje({ precio: null });
+    TABLES.gasto_viaje = [{ id: "g1", viaje_id: "v1", tipo: "multa", importe: 100 }];
+    const pnl = await getPnlViaje("v1");
+    expect(pnl.precio).toBeNull();
+    expect(pnl.margenReal).toBeNull();
+  });
+
+  it("getMetricasRentabilidad agrega margen real medio y detecta pérdidas reales", async () => {
+    const haceUnaHora = new Date(Date.now() - 3600000).toISOString(); // claramente dentro de la ventana, sin empatar con "hasta"
+    TABLES.viaje = [
+      { id: "v1", referencia: "R1", precio: 1000, vehiculo_id: null, created_at: haceUnaHora },
+      { id: "v2", referencia: "R2", precio: 100, vehiculo_id: null, created_at: haceUnaHora },
+    ];
+    TABLES.hito = [
+      { orden: 1, ...MADRID, viaje_id: "v1" }, { orden: 2, ...BARCELONA, viaje_id: "v1" },
+      { orden: 1, ...MADRID, viaje_id: "v2" }, { orden: 2, ...BARCELONA, viaje_id: "v2" },
+    ];
+    TABLES.empresa = [{ coste_km: 1, velocidad_planificacion_kmh: 75 }];
+    TABLES.gasto_viaje = [
+      { id: "g1", viaje_id: "v2", tipo: "multa", importe: 900 }, // v2 se va a pérdidas reales
+    ];
+    const r = await getMetricasRentabilidad();
+    expect(r.viajesAPerdidasReales).toBe(1);
+    expect(r.margenRealMedio).not.toBeNull();
+    expect(r.top5.length).toBeGreaterThan(0);
   });
 });

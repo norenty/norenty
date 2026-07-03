@@ -12,7 +12,7 @@ import SugerenciaChofer from "../../components/SugerenciaChofer";
 import GastosViajeSection from "../../components/GastosViajeSection";
 import {
   getViaje, getChoferes, validarCambioEstado, validarAsignacion,
-  getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje, getEstado561,
+  getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje, getEstado561, getPnlViaje,
 } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
@@ -63,6 +63,7 @@ export default function ViajeDetalle() {
   const [guardandoChofer, setGuardandoChofer] = useState(false);
   const [procesandoPod, setProcesandoPod] = useState(null);
   const [viabilidad, setViabilidad] = useState(null);
+  const [pnl, setPnl] = useState(null);
   const [eta, setEta] = useState(null);
   const [editandoPrecio, setEditandoPrecio] = useState(false);
   const [precioInput, setPrecioInput] = useState("");
@@ -74,6 +75,7 @@ export default function ViajeDetalle() {
     setLoading(false);
     getViabilidadViaje(id).then(setViabilidad);
     getEtaViaje(id).then(setEta);
+    getPnlViaje(id).then(setPnl);
 
     if (d?.viaje) {
       if (d.viaje.vehiculo_id) {
@@ -90,7 +92,7 @@ export default function ViajeDetalle() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
-  useRealtimeRefresh(["viaje", "hito", "ejecucion_evento"], load);
+  useRealtimeRefresh(["viaje", "hito", "ejecucion_evento", "gasto_viaje"], load);
 
   async function cambiarEstado(nuevoEstado) {
     if (guardandoEstado) return;
@@ -428,6 +430,37 @@ export default function ViajeDetalle() {
                 </div>
               );
             })()}
+          </section>
+
+          <section className="bg-surface border border-border rounded-xl p-4">
+            <h2 className="text-sm font-medium text-ink mb-3 flex items-center gap-1.5">
+              <Euro size={15} /> Resultado (P&amp;L)
+            </h2>
+            {!pnl ? (
+              <p className="text-xs text-ink-muted">Calculando…</p>
+            ) : pnl.numGastos === 0 ? (
+              <p className="text-xs text-ink-secondary">Aún sin gastos reales — añádelos en la sección Gastos.</p>
+            ) : (
+              <div className="text-sm">
+                <div className="grid grid-cols-2 gap-3 mb-2">
+                  <div>
+                    <div className="text-xs text-ink-secondary mb-0.5">Estimado</div>
+                    <div className="text-ink">{pnl.costeEstimado != null ? `${pnl.costeEstimado.toLocaleString("es-ES")} €` : "—"}</div>
+                    <div className="text-xs text-ink-muted">margen: {pnl.margenEstimado != null ? `${pnl.margenEstimado.toLocaleString("es-ES")} €` : "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-ink-secondary mb-0.5">Real</div>
+                    <div className="text-ink">{pnl.gastosReales.toLocaleString("es-ES")} €</div>
+                    <div className="text-xs text-ink-muted">margen: {pnl.margenReal != null ? `${pnl.margenReal.toLocaleString("es-ES")} €` : "—"}</div>
+                  </div>
+                </div>
+                {pnl.desviacionPct != null && (
+                  <div className={`text-xs px-2 py-1.5 rounded-md ${pnl.desviacionPct <= 0 ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}>
+                    Desviación real vs. estimado: {pnl.desviacionPct > 0 ? "+" : ""}{pnl.desviacionPct}%
+                  </div>
+                )}
+              </div>
+            )}
           </section>
 
           <section className="bg-surface border border-border rounded-xl p-4">

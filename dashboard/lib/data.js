@@ -1451,6 +1451,81 @@ export async function getMultasPorVehiculo(vehiculoId) {
 }
 
 // ==========================================================================
+// P&L real del viaje (ítem 7A.8) — compara lo estimado con lo que de verdad
+// costó (gastos reales de 7A.7). Es la métrica que dice si el motor de
+// costes (7A.5) acierta o no.
+// ==========================================================================
+
+export async function getPnlViaje(viajeId) {
+  const [viabilidad, gastos] = await Promise.all([
+    getViabilidadViaje(viajeId),
+    getGastosViaje(viajeId),
+  ]);
+
+  const precio = viabilidad?.precio ?? null;
+  const costeEstimado = viabilidad?.coste ?? null;
+  const margenEstimado = viabilidad?.margen ?? null;
+  const gastosReales = gastos.reduce((s, g) => s + Number(g.importe), 0);
+  const margenReal = precio != null ? precio - gastosReales : null;
+  const desviacionPct = (costeEstimado != null && costeEstimado !== 0 && gastos.length > 0)
+    ? Math.round(((gastosReales - costeEstimado) / costeEstimado) * 100)
+    : null;
+
+  return {
+    precio,
+    costeEstimado,
+    margenEstimado,
+    gastosReales,
+    margenReal,
+    desviacionPct,
+    numGastos: gastos.length,
+  };
+}
+
+/**
+ * Rentabilidad real de los viajes con precio en un rango: margen real
+ * (precio − gastos reales agregados), no el estimado. La métrica clave es la
+ * desviación media |real−estimado| — dice si el motor de costes (7A.5) es de
+ * fiar o hay que ajustarlo.
+ */
+export async function getMetricasRentabilidad(rango = {}) {
+  const { desde, hasta } = resolveRango(rango);
+  const { data: viajes } = await supabase
+    .from("viaje")
+    .select("id, referencia, precio")
+    .gte("created_at", desde)
+    .lt("created_at", hasta);
+
+  const conPrecio = (viajes || []).filter((v) => v.precio != null);
+
+  const filas = await Promise.all(
+    conPrecio.map(async (v) => {
+      const pnl = await getPnlViaje(v.id);
+      return { id: v.id, referencia: v.referencia || v.id.slice(0, 8), ...pnl };
+    })
+  );
+
+  const conAmbos = filas.filter((f) => f.desviacionPct != null);
+  const margenRealMedio = filas.length
+    ? Math.round(filas.reduce((s, f) => s + (f.margenReal ?? 0), 0) / filas.length)
+    : null;
+  const viajesAPerdidasReales = filas.filter((f) => f.margenReal != null && f.margenReal < 0).length;
+  const desviacionMedia = conAmbos.length
+    ? Math.round(conAmbos.reduce((s, f) => s + Math.abs(f.desviacionPct), 0) / conAmbos.length)
+    : null;
+
+  const ordenadas = [...filas].filter((f) => f.margenReal != null).sort((a, b) => b.margenReal - a.margenReal);
+
+  return {
+    margenRealMedio,
+    viajesAPerdidasReales,
+    desviacionMedia,
+    top5: ordenadas.slice(0, 5),
+    bottom5: ordenadas.slice(-5).reverse(),
+  };
+}
+
+// ==========================================================================
 // Parkings para camión (ítem 5.4)
 // ==========================================================================
 

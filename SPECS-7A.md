@@ -13,8 +13,10 @@ completa aquí + el preámbulo de convenciones.**
 1. Crear `backend/db/migrations/00NN_nombre.sql` (numeración real ejecutada, actualizar aquí si
    se reordena: 0019 seguridad_columnas, 0020 decision_asignacion (7A.2), 0021
    notificacion_asignacion (7A.3), 0022 nota_gestor (7A.10, se ejecutó antes que 7A.5 en el orden
-   real del loop), 0023 coste_desglosado (7A.5), 0024 gasto_viaje (7A.7), 0025 token_publico
-   (7A.14)). Comentario de cabecera explicando el porqué. **Nota importante para
+   real del loop), 0023 coste_desglosado (7A.5), 0024 gasto_viaje (7A.7), 0025
+   realtime_gasto_viaje (extra de 7A.8, añade la tabla a `supabase_realtime` para que el P&L se
+   refresque solo), 0026 token_publico (7A.14)). Comentario de cabecera explicando el porqué.
+   **Nota importante para
    7A.3/7A.5/7A.7/7A.14**: la migración 0019 restringió qué columnas puede tocar `authenticated`
    (dashboard) en `gestor`, `chofer`, `ejecucion_evento` y `ubicacion` — ver esa migración antes
    de añadir columnas nuevas a esas tablas o de escribir código que actualice
@@ -667,7 +669,7 @@ incidencias) por `EmptyState` con CTA a la acción de alta correspondiente.
 
 ## 7A.14 — Portal de cliente (tracking público)
 
-### Migración `0025_token_publico.sql`
+### Migración `0026_token_publico.sql`
 ```sql
 ALTER TABLE viaje ADD COLUMN IF NOT EXISTS token_publico uuid UNIQUE;
 

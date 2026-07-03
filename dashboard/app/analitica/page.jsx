@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock, AlertTriangle, Users, CarFront } from "lucide-react";
+import { Clock, AlertTriangle, Users, CarFront, TrendingUp } from "lucide-react";
 import {
   getMetricasPuntualidad,
   getMetricasIncidencias,
   getMetricasChoferes,
   getMetricasFlota,
+  getMetricasRentabilidad,
 } from "../../lib/data";
 
 const VISTAS = [
@@ -14,6 +15,7 @@ const VISTAS = [
   { id: "incidencias", label: "Incidencias", icon: AlertTriangle },
   { id: "choferes", label: "Chóferes", icon: Users },
   { id: "flota", label: "Flota", icon: CarFront },
+  { id: "rentabilidad", label: "Rentabilidad", icon: TrendingUp },
 ];
 
 function Card({ label, value, sub }) {
@@ -204,6 +206,48 @@ function VistaFlota({ datos }) {
   );
 }
 
+function TablaRentabilidad({ titulo, filas }) {
+  return (
+    <div className="bg-surface border border-border rounded-xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-border">
+        <h3 className="text-sm font-medium text-ink">{titulo}</h3>
+      </div>
+      {filas.length === 0 ? (
+        <p className="text-sm text-ink-secondary p-4 text-center">Sin datos suficientes.</p>
+      ) : (
+        filas.map((f) => (
+          <div key={f.id} className="flex items-center justify-between px-4 py-2.5 border-b border-border last:border-0 text-sm">
+            <span className="text-ink truncate">{f.referencia}</span>
+            <span className={`font-medium ${f.margenReal < 0 ? "text-estado-incidencia" : "text-green-700"}`}>
+              {f.margenReal.toLocaleString("es-ES")} €
+            </span>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function VistaRentabilidad({ datos }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-3 gap-3">
+        <Card label="Margen real medio" value={datos.margenRealMedio != null ? `${datos.margenRealMedio.toLocaleString("es-ES")} €` : null} />
+        <Card label="Viajes a pérdidas (reales)" value={datos.viajesAPerdidasReales} />
+        <Card
+          label="Desviación media |real−estimado|"
+          value={datos.desviacionMedia != null ? `${datos.desviacionMedia}%` : null}
+          sub="solo viajes con gastos reales registrados — dice si el motor de costes acierta"
+        />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <TablaRentabilidad titulo="Mejor margen real" filas={datos.top5} />
+        <TablaRentabilidad titulo="Peor margen real" filas={datos.bottom5} />
+      </div>
+    </div>
+  );
+}
+
 export default function Analitica() {
   const [vista, setVista] = useState("puntualidad");
   const [datos, setDatos] = useState(null);
@@ -216,6 +260,7 @@ export default function Analitica() {
       incidencias: getMetricasIncidencias,
       choferes: getMetricasChoferes,
       flota: getMetricasFlota,
+      rentabilidad: getMetricasRentabilidad,
     }[vista];
     cargar().then((d) => { setDatos(d); setLoading(false); });
   }, [vista]);
@@ -255,6 +300,7 @@ export default function Analitica() {
           {vista === "incidencias" && <VistaIncidencias datos={datos} />}
           {vista === "choferes" && <VistaChoferes datos={datos} />}
           {vista === "flota" && <VistaFlota datos={datos} />}
+          {vista === "rentabilidad" && <VistaRentabilidad datos={datos} />}
         </>
       )}
     </div>
