@@ -94,6 +94,11 @@ const {
   getResumenHoy,
   getNotasRecientes,
   createNotaGestor,
+  getGastosViaje,
+  createGastoViaje,
+  deleteGastoViaje,
+  getMultasPorChofer,
+  getMultasPorVehiculo,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -1271,5 +1276,53 @@ describe("centro de mando Hoy + notas (7A.10)", () => {
     const r = await getNotasRecientes(2);
     expect(r).toHaveLength(2);
     expect(r[0].texto).toBe("nueva");
+  });
+});
+
+describe("gastos del viaje (7A.7)", () => {
+  it("createGastoViaje inserta con la empresa del gestor logueado", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.gasto_viaje = [];
+    const g = await createGastoViaje({ viajeId: "v1", tipo: "repostaje", importe: 120, litros: 80 });
+    expect(g.empresa_id).toBe("e1");
+    expect(TABLES.gasto_viaje).toHaveLength(1);
+    expect(TABLES.gasto_viaje[0].tipo).toBe("repostaje");
+  });
+
+  it("getGastosViaje filtra por viaje", async () => {
+    TABLES.gasto_viaje = [
+      { id: "g1", viaje_id: "v1", tipo: "peaje", importe: 10, fecha: "2026-01-01" },
+      { id: "g2", viaje_id: "v2", tipo: "multa", importe: 100, fecha: "2026-01-01" },
+    ];
+    const r = await getGastosViaje("v1");
+    expect(r).toHaveLength(1);
+    expect(r[0].id).toBe("g1");
+  });
+
+  it("getMultasPorChofer solo cuenta tipo multa y suma el total", async () => {
+    TABLES.gasto_viaje = [
+      { id: "g1", chofer_id: "c1", tipo: "multa", importe: 100, fecha: "2026-01-01" },
+      { id: "g2", chofer_id: "c1", tipo: "peaje", importe: 10, fecha: "2026-01-01" },
+      { id: "g3", chofer_id: "c1", tipo: "multa", importe: 50, fecha: "2026-02-01" },
+    ];
+    const r = await getMultasPorChofer("c1");
+    expect(r.total).toBe(150);
+    expect(r.ultimas).toHaveLength(2);
+  });
+
+  it("getMultasPorVehiculo funciona igual que por chófer pero filtrando por vehículo", async () => {
+    TABLES.gasto_viaje = [
+      { id: "g1", vehiculo_id: "vh1", tipo: "multa", importe: 200, fecha: "2026-01-01" },
+      { id: "g2", vehiculo_id: "vh2", tipo: "multa", importe: 999, fecha: "2026-01-01" },
+    ];
+    const r = await getMultasPorVehiculo("vh1");
+    expect(r.total).toBe(200);
+  });
+
+  it("deleteGastoViaje borra la fila", async () => {
+    TABLES.gasto_viaje = [{ id: "g1", viaje_id: "v1", tipo: "peaje", importe: 10 }];
+    await deleteGastoViaje("g1");
+    expect(TABLES.gasto_viaje).toHaveLength(0);
   });
 });

@@ -1404,6 +1404,53 @@ export async function calcularPresupuesto({ puntos, vehiculoId = null }) {
 }
 
 // ==========================================================================
+// Gastos del viaje (ítem 7A.7) — repostajes, peajes, multas, dietas reales.
+// Base del P&L real (7A.8): comparar lo estimado con lo que de verdad costó.
+// ==========================================================================
+
+export async function getGastosViaje(viajeId) {
+  const { data } = await supabase.from("gasto_viaje").select("*").eq("viaje_id", viajeId);
+  return (data || []).sort((a, b) => (a.fecha || a.created_at) < (b.fecha || b.created_at) ? 1 : -1);
+}
+
+export async function createGastoViaje({ viajeId, tipo, importe, litros = null, descripcion = null, fecha = null, choferId = null, vehiculoId = null }) {
+  const empresaId = await getCurrentEmpresaId();
+  const { data, error } = await supabase
+    .from("gasto_viaje")
+    .insert({
+      empresa_id: empresaId,
+      viaje_id: viajeId,
+      chofer_id: choferId,
+      vehiculo_id: vehiculoId,
+      tipo,
+      importe,
+      litros,
+      descripcion,
+      fecha,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteGastoViaje(id) {
+  await supabase.from("gasto_viaje").delete().eq("id", id);
+}
+
+export async function getMultasPorChofer(choferId) {
+  const { data } = await supabase.from("gasto_viaje").select("*").eq("chofer_id", choferId);
+  const multas = (data || []).filter((g) => g.tipo === "multa").sort((a, b) => (a.fecha || a.created_at) < (b.fecha || b.created_at) ? 1 : -1);
+  return { total: multas.reduce((s, m) => s + Number(m.importe), 0), ultimas: multas.slice(0, 5) };
+}
+
+export async function getMultasPorVehiculo(vehiculoId) {
+  const { data } = await supabase.from("gasto_viaje").select("*").eq("vehiculo_id", vehiculoId);
+  const multas = (data || []).filter((g) => g.tipo === "multa").sort((a, b) => (a.fecha || a.created_at) < (b.fecha || b.created_at) ? 1 : -1);
+  return { total: multas.reduce((s, m) => s + Number(m.importe), 0), ultimas: multas.slice(0, 5) };
+}
+
+// ==========================================================================
 // Parkings para camión (ítem 5.4)
 // ==========================================================================
 

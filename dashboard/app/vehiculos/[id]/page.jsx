@@ -5,10 +5,10 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Plus, Wrench, CalendarCheck, AlertTriangle,
-  CheckCircle2, Clock, Trash2,
+  CheckCircle2, Clock, Trash2, Siren,
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
-import { getCurrentEmpresaId } from "../../../lib/data";
+import { getCurrentEmpresaId, getMultasPorVehiculo } from "../../../lib/data";
 import DocumentosSection from "../../components/DocumentosSection";
 
 const TIPOS_DOC_VEHICULO = [
@@ -50,6 +50,7 @@ export default function VehiculoDetalle() {
   const [costeKm, setCosteKm] = useState("");
   const [consumoL100km, setConsumoL100km] = useState("");
   const [guardandoCoste, setGuardandoCoste] = useState(false);
+  const [multas, setMultas] = useState(null);
 
   const loadRegistros = useCallback(async () => {
     const { data } = await supabase
@@ -73,6 +74,7 @@ export default function VehiculoDetalle() {
       setConsumoL100km(v?.consumo_l_100km != null ? String(v.consumo_l_100km) : "");
       await loadRegistros();
       setLoading(false);
+      getMultasPorVehiculo(id).then(setMultas);
     }
     load();
   }, [id, loadRegistros]);
@@ -219,6 +221,24 @@ export default function VehiculoDetalle() {
           </p>
         </div>
       </div>
+
+      {/* Multas (7A.7) */}
+      {multas && multas.total > 0 && (
+        <div className="bg-surface border border-border rounded-xl p-4 mb-4">
+          <h2 className="text-sm font-medium text-ink mb-3 flex items-center gap-2">
+            <Siren size={15} className="text-estado-incidencia" /> Multas
+          </h2>
+          <div className="text-lg font-semibold text-ink mb-2">{multas.total.toLocaleString("es-ES")} €</div>
+          <div className="flex flex-col gap-1">
+            {multas.ultimas.map((m) => (
+              <div key={m.id} className="flex justify-between text-xs text-ink-secondary">
+                <span>{m.fecha ? new Date(m.fecha + "T12:00:00").toLocaleDateString("es-ES") : "sin fecha"}{m.descripcion ? ` — ${m.descripcion}` : ""}</span>
+                <span className="font-medium text-ink">{Number(m.importe).toLocaleString("es-ES")} €</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Mantenimiento */}
       <div className="bg-surface border border-border rounded-xl overflow-hidden">

@@ -9,6 +9,7 @@ import {
 import PodImage from "../../components/PodImage";
 import DocumentosSection from "../../components/DocumentosSection";
 import SugerenciaChofer from "../../components/SugerenciaChofer";
+import GastosViajeSection from "../../components/GastosViajeSection";
 import {
   getViaje, getChoferes, validarCambioEstado, validarAsignacion,
   getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje, getEstado561,
@@ -512,6 +513,8 @@ export default function ViajeDetalle() {
               </div>
             )}
           </section>
+
+          <GastosViajeSection viajeId={viaje.id} choferId={viaje.chofer?.id} vehiculoId={vehiculo?.id} />
 
           <DocumentosSection ambito="viaje" entidadId={viaje.id} tipos={TIPOS_DOC_VIAJE} />
         </aside>

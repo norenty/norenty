@@ -8,7 +8,8 @@ import {
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import DocumentosSection from "../../components/DocumentosSection";
-import { getEstado561, LIMITE_561_SEMANAL_H, LIMITE_561_BISEMANAL_H } from "../../../lib/data";
+import { getEstado561, LIMITE_561_SEMANAL_H, LIMITE_561_BISEMANAL_H, getMultasPorChofer } from "../../../lib/data";
+import { Siren } from "lucide-react";
 
 function colorBarra561(pct) {
   if (pct >= 90) return "bg-estado-incidencia";
@@ -43,6 +44,7 @@ export default function ChoferDetalle() {
   const [offset, setOffset] = useState(0);
   const [copiado, setCopiado] = useState(false);
   const [estado561, setEstado561] = useState(null);
+  const [multas, setMultas] = useState(null);
 
   const fetchViajes = useCallback(async (off, append = false) => {
     const { data } = await supabase
@@ -80,6 +82,7 @@ export default function ChoferDetalle() {
       await fetchViajes(0, false);
       setLoading(false);
       getEstado561(id).then(setEstado561);
+      getMultasPorChofer(id).then(setMultas);
     }
     load();
   }, [id, fetchViajes]);
@@ -199,6 +202,24 @@ export default function ChoferDetalle() {
                 <div className={`h-full rounded-full ${colorBarra561(estado561.pct14)}`} style={{ width: `${Math.min(100, estado561.pct14)}%` }} />
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Multas (7A.7) */}
+      {multas && multas.total > 0 && (
+        <div className="bg-surface border border-border rounded-xl p-4 mb-4">
+          <h2 className="text-sm font-medium text-ink mb-3 flex items-center gap-2">
+            <Siren size={15} className="text-estado-incidencia" /> Multas
+          </h2>
+          <div className="text-lg font-semibold text-ink mb-2">{multas.total.toLocaleString("es-ES")} €</div>
+          <div className="flex flex-col gap-1">
+            {multas.ultimas.map((m) => (
+              <div key={m.id} className="flex justify-between text-xs text-ink-secondary">
+                <span>{m.fecha ? new Date(m.fecha + "T12:00:00").toLocaleDateString("es-ES") : "sin fecha"}{m.descripcion ? ` — ${m.descripcion}` : ""}</span>
+                <span className="font-medium text-ink">{Number(m.importe).toLocaleString("es-ES")} €</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
