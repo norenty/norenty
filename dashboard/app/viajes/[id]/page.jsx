@@ -12,7 +12,7 @@ import SugerenciaChofer from "../../components/SugerenciaChofer";
 import GastosViajeSection from "../../components/GastosViajeSection";
 import {
   getViaje, getChoferes, validarCambioEstado, validarAsignacion,
-  getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje, getEstado561, getPnlViaje,
+  getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje, getEstado561, getPnlViaje, getPlanVsReal,
 } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
@@ -64,6 +64,7 @@ export default function ViajeDetalle() {
   const [procesandoPod, setProcesandoPod] = useState(null);
   const [viabilidad, setViabilidad] = useState(null);
   const [pnl, setPnl] = useState(null);
+  const [planVsReal, setPlanVsReal] = useState(null);
   const [eta, setEta] = useState(null);
   const [editandoPrecio, setEditandoPrecio] = useState(false);
   const [precioInput, setPrecioInput] = useState("");
@@ -76,6 +77,7 @@ export default function ViajeDetalle() {
     getViabilidadViaje(id).then(setViabilidad);
     getEtaViaje(id).then(setEta);
     getPnlViaje(id).then(setPnl);
+    getPlanVsReal(id).then(setPlanVsReal);
 
     if (d?.viaje) {
       if (d.viaje.vehiculo_id) {
@@ -290,10 +292,18 @@ export default function ViajeDetalle() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
         <div className="flex flex-col gap-6">
           <section>
-            <h2 className="text-sm font-medium text-ink mb-3">Hitos del viaje</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-medium text-ink">Hitos del viaje</h2>
+              {planVsReal && planVsReal.resumen.conVentana > 0 && (
+                <span className="text-xs text-ink-secondary">
+                  {planVsReal.resumen.aTiempo}/{planVsReal.resumen.conVentana} hitos a tiempo
+                </span>
+              )}
+            </div>
             <div className="flex flex-col gap-2">
               {hitos.map((h) => {
                 const e = estadoHito[h.estado] || estadoHito.pendiente;
+                const pvr = planVsReal?.filas.find((f) => f.hitoId === h.id);
                 return (
                   <div key={h.id} className="bg-surface border border-border rounded-xl p-3 flex items-center gap-3">
                     <div className="text-ink-muted">
@@ -307,6 +317,14 @@ export default function ViajeDetalle() {
                         <div className="flex items-center gap-1 text-xs text-ink-secondary mt-0.5">
                           <Clock size={12} />
                           {h.ventana_inicio || "?"} – {h.ventana_fin || "?"}
+                        </div>
+                      )}
+                      {pvr && pvr.estado !== "sin_datos" && (
+                        <div className={`text-xs mt-0.5 ${
+                          pvr.estado === "a_tiempo" ? "text-green-700" : pvr.estado === "tarde_leve" ? "text-yellow-700" : "text-estado-incidencia"
+                        }`}>
+                          Llegó {new Date(pvr.llegadaReal).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                          {" "}({pvr.deltaMin <= 0 ? "a tiempo" : `+${pvr.deltaMin} min`})
                         </div>
                       )}
                     </div>

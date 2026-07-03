@@ -101,6 +101,7 @@ const {
   getMultasPorVehiculo,
   getPnlViaje,
   getMetricasRentabilidad,
+  getPlanVsReal,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -1390,5 +1391,57 @@ describe("P&L real del viaje (7A.8)", () => {
     expect(r.viajesAPerdidasReales).toBe(1);
     expect(r.margenRealMedio).not.toBeNull();
     expect(r.top5.length).toBeGreaterThan(0);
+  });
+});
+
+describe("plan-vs-real por hito (7A.9)", () => {
+  it("hito a tiempo: delta <= 0", async () => {
+    TABLES.hito = [{ id: "h1", viaje_id: "v1", orden: 1, ventana_fin: "2026-01-01T10:00:00Z" }];
+    TABLES.ejecucion_evento = [{ tipo: "llegada", viaje_id: "v1", hito_id: "h1", ocurrido_en: "2026-01-01T09:50:00Z" }];
+    const r = await getPlanVsReal("v1");
+    expect(r.filas[0].estado).toBe("a_tiempo");
+    expect(r.filas[0].deltaMin).toBeLessThanOrEqual(0);
+    expect(r.resumen.aTiempo).toBe(1);
+  });
+
+  it("tarde leve: entre 1 y 60 minutos de retraso", async () => {
+    TABLES.hito = [{ id: "h1", viaje_id: "v1", orden: 1, ventana_fin: "2026-01-01T10:00:00Z" }];
+    TABLES.ejecucion_evento = [{ tipo: "llegada", viaje_id: "v1", hito_id: "h1", ocurrido_en: "2026-01-01T10:30:00Z" }];
+    const r = await getPlanVsReal("v1");
+    expect(r.filas[0].estado).toBe("tarde_leve");
+    expect(r.filas[0].deltaMin).toBe(30);
+  });
+
+  it("tarde: más de 60 minutos de retraso", async () => {
+    TABLES.hito = [{ id: "h1", viaje_id: "v1", orden: 1, ventana_fin: "2026-01-01T10:00:00Z" }];
+    TABLES.ejecucion_evento = [{ tipo: "llegada", viaje_id: "v1", hito_id: "h1", ocurrido_en: "2026-01-01T12:00:00Z" }];
+    const r = await getPlanVsReal("v1");
+    expect(r.filas[0].estado).toBe("tarde");
+    expect(r.filas[0].deltaMin).toBe(120);
+  });
+
+  it("sin ventana o sin llegada: estado sin_datos, no cuenta en el resumen", async () => {
+    TABLES.hito = [
+      { id: "h1", viaje_id: "v1", orden: 1, ventana_fin: null },
+      { id: "h2", viaje_id: "v1", orden: 2, ventana_fin: "2026-01-01T10:00:00Z" }, // sin llegada
+    ];
+    TABLES.ejecucion_evento = [];
+    const r = await getPlanVsReal("v1");
+    expect(r.filas.every((f) => f.estado === "sin_datos")).toBe(true);
+    expect(r.resumen.conVentana).toBe(0);
+  });
+
+  it("resumen cuenta solo los hitos con datos completos", async () => {
+    TABLES.hito = [
+      { id: "h1", viaje_id: "v1", orden: 1, ventana_fin: "2026-01-01T10:00:00Z" },
+      { id: "h2", viaje_id: "v1", orden: 2, ventana_fin: "2026-01-01T12:00:00Z" },
+    ];
+    TABLES.ejecucion_evento = [
+      { tipo: "llegada", viaje_id: "v1", hito_id: "h1", ocurrido_en: "2026-01-01T09:00:00Z" }, // a tiempo
+      { tipo: "llegada", viaje_id: "v1", hito_id: "h2", ocurrido_en: "2026-01-01T13:00:00Z" }, // tarde
+    ];
+    const r = await getPlanVsReal("v1");
+    expect(r.resumen.conVentana).toBe(2);
+    expect(r.resumen.aTiempo).toBe(1);
   });
 });

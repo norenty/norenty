@@ -1526,6 +1526,43 @@ export async function getMetricasRentabilidad(rango = {}) {
 }
 
 // ==========================================================================
+// Plan-vs-real por hito (ítem 7A.9) — para cada hito, la ventana planificada
+// vs. la llegada real (evento de tipo "llegada"), con el delta en minutos.
+// ==========================================================================
+
+export async function getPlanVsReal(viajeId) {
+  const [{ data: hitos }, { data: eventos }] = await Promise.all([
+    supabase.from("hito").select("id, orden, ventana_fin").eq("viaje_id", viajeId),
+    supabase.from("ejecucion_evento").select("hito_id, ocurrido_en").eq("tipo", "llegada").eq("viaje_id", viajeId),
+  ]);
+
+  const llegadaPorHito = {};
+  (eventos || []).forEach((e) => {
+    const actual = llegadaPorHito[e.hito_id];
+    if (!actual || e.ocurrido_en < actual) llegadaPorHito[e.hito_id] = e.ocurrido_en;
+  });
+
+  const filas = (hitos || [])
+    .slice()
+    .sort((a, b) => a.orden - b.orden)
+    .map((h) => {
+      const llegadaReal = llegadaPorHito[h.id] || null;
+      let deltaMin = null;
+      let estado = "sin_datos";
+      if (h.ventana_fin && llegadaReal) {
+        deltaMin = Math.round((new Date(llegadaReal).getTime() - new Date(h.ventana_fin).getTime()) / 60000);
+        estado = deltaMin <= 0 ? "a_tiempo" : deltaMin <= 60 ? "tarde_leve" : "tarde";
+      }
+      return { hitoId: h.id, orden: h.orden, deltaMin, llegadaReal, estado };
+    });
+
+  const conVentana = filas.filter((f) => f.estado !== "sin_datos").length;
+  const aTiempo = filas.filter((f) => f.estado === "a_tiempo").length;
+
+  return { filas, resumen: { aTiempo, conVentana } };
+}
+
+// ==========================================================================
 // Parkings para camión (ítem 5.4)
 // ==========================================================================
 
