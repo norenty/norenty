@@ -639,3 +639,71 @@ async def test_cmd_eta_en_ingles_y_pluralizacion(fake_db):
     texto = update.message.reply_text.call_args[0][0]
     assert "Estimated remaining time" in texto
     assert "driving" in texto
+
+
+# --- procesar_notificaciones_asignacion (7A.3): job de aviso al chófer, sin
+# aceptar/rechazar — la decisión ya la tomó el gestor (7A.2). ---
+
+@pytest.mark.asyncio
+async def test_procesar_notificaciones_envia_y_marca(fake_db):
+    fake_db.tables["viaje"] = [
+        {"id": "v1", "referencia": "REF1", "chofer_id": "c1", "estado": "planificado", "notificado_asignacion_en": None},
+    ]
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["hito"] = [
+        {"viaje_id": "v1", "orden": 1, "lat": 40.0, "lon": -3.0, "direccion": "Madrid"},
+        {"viaje_id": "v1", "orden": 2, "lat": 40.9, "lon": -3.0, "direccion": "Segovia"},
+    ]
+    ctx = SimpleNamespace(bot=AsyncMock())
+    await bot.procesar_notificaciones_asignacion(ctx)
+
+    ctx.bot.send_message.assert_awaited_once()
+    assert ctx.bot.send_message.call_args.kwargs["chat_id"] == "chat-1"
+    assert "REF1" in ctx.bot.send_message.call_args.kwargs["text"]
+    assert fake_db.tables["viaje"][0]["notificado_asignacion_en"] is not None
+
+
+@pytest.mark.asyncio
+async def test_procesar_notificaciones_chofer_sin_chat_id_notifica_gestor(fake_db, fake_transporte):
+    fake_db.tables["viaje"] = [
+        {"id": "v1", "referencia": "REF1", "chofer_id": "c1", "estado": "planificado", "notificado_asignacion_en": None},
+    ]
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": None, "empresa_id": "e1"}]
+    fake_db.tables["gestor"] = [{"empresa_id": "e1", "telegram_chat_id": "gestor-chat"}]
+    ctx = SimpleNamespace(bot=AsyncMock())
+    await bot.procesar_notificaciones_asignacion(ctx)
+
+    ctx.bot.send_message.assert_not_awaited()
+    assert fake_db.tables["viaje"][0]["notificado_asignacion_en"] is not None
+    assert len(fake_transporte.enviados) == 1
+    assert "Mario" in fake_transporte.enviados[0][1]
+
+
+@pytest.mark.asyncio
+async def test_procesar_notificaciones_nada_pendiente_no_hace_nada(fake_db):
+    fake_db.tables["viaje"] = [
+        {"id": "v1", "referencia": "REF1", "chofer_id": "c1", "estado": "planificado", "notificado_asignacion_en": "2026-01-01T00:00:00+00:00"},
+    ]
+    ctx = SimpleNamespace(bot=AsyncMock())
+    await bot.procesar_notificaciones_asignacion(ctx)
+    ctx.bot.send_message.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_procesar_notificaciones_ignora_viajes_sin_chofer(fake_db):
+    fake_db.tables["viaje"] = [
+        {"id": "v1", "referencia": "REF1", "chofer_id": None, "estado": "planificado", "notificado_asignacion_en": None},
+    ]
+    ctx = SimpleNamespace(bot=AsyncMock())
+    await bot.procesar_notificaciones_asignacion(ctx)
+    ctx.bot.send_message.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_procesar_notificaciones_ignora_viajes_completados(fake_db):
+    fake_db.tables["viaje"] = [
+        {"id": "v1", "referencia": "REF1", "chofer_id": "c1", "estado": "completado", "notificado_asignacion_en": None},
+    ]
+    ctx = SimpleNamespace(bot=AsyncMock())
+    await bot.procesar_notificaciones_asignacion(ctx)
+    ctx.bot.send_message.assert_not_awaited()

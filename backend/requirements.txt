@@ -2,6 +2,6 @@ fastapi
 uvicorn[standard]
 supabase
 python-dotenv
-python-telegram-bot
+python-telegram-bot[job-queue]
 sentry-sdk
 psycopg2-binary

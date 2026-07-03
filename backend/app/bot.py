@@ -77,6 +77,8 @@ TEXTOS = {
         "eta_descansos": "descansos de 11h",
         "eta_sin_paradas": "Sin paradas obligatorias en el resto de la ruta.",
         "eta_total": "Total: {horas} h",
+        "asignacion_titulo": "🚚 Se te ha asignado el viaje {ref}",
+        "asignacion_detalle": "{n} paradas · ~{km} km\nPrimera parada: {dir}",
     },
     "en": {
         "sin_viaje_activo": "You have no active trip.",
@@ -122,6 +124,8 @@ TEXTOS = {
         "eta_descansos": "11h rests",
         "eta_sin_paradas": "No mandatory stops on the rest of the route.",
         "eta_total": "Total: {horas} h",
+        "asignacion_titulo": "🚚 Trip {ref} has been assigned to you",
+        "asignacion_detalle": "{n} stops · ~{km} km\nFirst stop: {dir}",
     },
     "ro": {
         "sin_viaje_activo": "Nu ai nicio cursă activă.",
@@ -167,6 +171,8 @@ TEXTOS = {
         "eta_descansos": "repausuri de 11h",
         "eta_sin_paradas": "Fără opriri obligatorii pe restul traseului.",
         "eta_total": "Total: {horas} h",
+        "asignacion_titulo": "🚚 Ți s-a atribuit cursa {ref}",
+        "asignacion_detalle": "{n} opriri · ~{km} km\nPrima oprire: {dir}",
     },
     "fr": {
         "sin_viaje_activo": "Vous n'avez aucun trajet actif.",
@@ -212,6 +218,8 @@ TEXTOS = {
         "eta_descansos": "repos de 11h",
         "eta_sin_paradas": "Aucun arrêt obligatoire sur le reste du trajet.",
         "eta_total": "Total : {horas} h",
+        "asignacion_titulo": "🚚 Le trajet {ref} vous a été attribué",
+        "asignacion_detalle": "{n} arrêts · ~{km} km\nPremier arrêt : {dir}",
     },
 }
 # Idiomas sin traduccion completa: usar ingles como fallback
@@ -1072,6 +1080,66 @@ async def cmd_eta(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lineas))
 
 
+async def procesar_notificaciones_asignacion(ctx: ContextTypes.DEFAULT_TYPE):
+    """Job repetitivo (7A.3): avisa al chófer cuando el gestor le asigna un
+    viaje. SIN botones de aceptar/rechazar — la decisión de a quién asignar es
+    del gestor (que tiene el histórico e info de negocio, ver 7A.2), el chófer
+    solo se entera de su ruta. Reemplaza el diseño original "Uber-style" de
+    oferta con aceptar/rechazar, descartado a petición del usuario 2026-07-03.
+    """
+    from datetime import datetime, timezone
+
+    viajes_r = supabase.table("viaje").select(
+        "id, referencia, chofer_id, estado, notificado_asignacion_en"
+    ).execute()
+    pendientes = [
+        v for v in (viajes_r.data or [])
+        if v.get("chofer_id") and v.get("estado") in ("planificado", "en_curso")
+        and not v.get("notificado_asignacion_en")
+    ]
+
+    for viaje in pendientes:
+        ref = viaje.get("referencia") or viaje["id"][:8]
+        ahora = datetime.now(timezone.utc).isoformat()
+
+        chofer_r = supabase.table("chofer").select("id, nombre, idioma, chat_id, empresa_id").eq("id", viaje["chofer_id"]).execute()
+        chofer = chofer_r.data[0] if chofer_r.data else None
+        if not chofer:
+            continue
+
+        if not chofer.get("chat_id"):
+            supabase.table("viaje").update({"notificado_asignacion_en": ahora}).eq("id", viaje["id"]).execute()
+            await notificar_gestor_evento(
+                chofer["empresa_id"], viaje["id"],
+                f"⚠️ {chofer['nombre']} no está vinculado a Telegram — no se le pudo avisar del viaje {ref}.",
+            )
+            continue
+
+        hitos_r = supabase.table("hito").select("orden, lat, lon, direccion").eq("viaje_id", viaje["id"]).order("orden").execute()
+        hitos = hitos_r.data or []
+        con_coords = [h for h in hitos if h.get("lat") is not None and h.get("lon") is not None]
+        km = 0.0
+        for i in range(len(con_coords) - 1):
+            km += haversine_km(
+                con_coords[i]["lat"], con_coords[i]["lon"], con_coords[i + 1]["lat"], con_coords[i + 1]["lon"]
+            ) * FACTOR_SINUOSIDAD_FALLBACK
+        direccion = (hitos[0].get("direccion") if hitos else None) or t(chofer, "hito_sin_dir")
+
+        texto = (
+            t(chofer, "asignacion_titulo", ref=ref)
+            + "\n"
+            + t(chofer, "asignacion_detalle", n=len(hitos), km=round(km), dir=direccion)
+        )
+
+        try:
+            await ctx.bot.send_message(chat_id=chofer["chat_id"], text=texto)
+        except Exception as e:
+            logger.error("Error notificando asignación a %s: %s", chofer["chat_id"], e)
+            continue
+
+        supabase.table("viaje").update({"notificado_asignacion_en": ahora}).eq("id", viaje["id"]).execute()
+
+
 def create_bot_app():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))
@@ -1084,4 +1152,6 @@ def create_bot_app():
     app.add_handler(CallbackQueryHandler(cb_cancelar, pattern=r"^cancelar$"))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_texto))
+    if app.job_queue:
+        app.job_queue.run_repeating(procesar_notificaciones_asignacion, interval=30, first=15)
     return app

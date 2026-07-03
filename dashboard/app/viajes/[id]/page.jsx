@@ -124,7 +124,9 @@ export default function ViajeDetalle() {
     }
     setGuardandoChofer(true);
     try {
-      await supabase.from("viaje").update({ chofer_id: newChoferId || null }).eq("id", id);
+      // notificado_asignacion_en se resetea para que el bot avise al chófer
+      // nuevo (7A.3) aunque el viaje ya hubiera notificado antes a otro.
+      await supabase.from("viaje").update({ chofer_id: newChoferId || null, notificado_asignacion_en: null }).eq("id", id);
       setEditandoChofer(false);
       await load();
     } finally {
