@@ -17,6 +17,7 @@ import {
   FileWarning,
   BarChart3,
   Wallet,
+  Calculator,
   Menu,
   X,
 } from "lucide-react";
@@ -30,6 +31,7 @@ const links = [
   { href: "/vehiculos", label: "Vehículos", icon: CarFront },
   { href: "/documentos", label: "Documentos", icon: FileWarning },
   { href: "/analitica", label: "Analítica", icon: BarChart3 },
+  { href: "/presupuesto", label: "Presupuesto", icon: Calculator },
   { href: "/nomina", label: "Nómina", icon: Wallet },
   { href: "/plantillas", label: "Plantillas", icon: Route },
   { href: "/importar", label: "Importar", icon: Upload },

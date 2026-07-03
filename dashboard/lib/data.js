@@ -1345,6 +1345,65 @@ export async function getViabilidadViaje(viajeId) {
 }
 
 // ==========================================================================
+// Presupuestador instantáneo (ítem 7A.6) — "¿me sale a cuenta esta carga?"
+// en menos de un minuto, sin crear el viaje.
+// ==========================================================================
+
+export const MARGEN_OBJETIVO_PCT_DEFAULT = 15; // valor inicial razonable, NO pactado con cliente real
+
+/**
+ * @param {{puntos: {lat:number, lon:number}[], vehiculoId?: string|null}} args
+ * `puntos` en orden de paso (origen → ... → destino), mínimo 2 para tener algo que calcular.
+ */
+export async function calcularPresupuesto({ puntos, vehiculoId = null }) {
+  const hitosFalsos = (puntos || []).map((p, i) => ({ ...p, orden: i + 1 }));
+
+  if (hitosFalsos.length < 2) {
+    return {
+      km: 0, estimado: false, horasConduccion: 0, horasTotales: 0, paradas45min: 0, descansos11h: 0,
+      noches: 0, coste: { modo: null, combustible: null, conductor: null, peajes: null, dietas: null, total: null, capasFaltantes: [] },
+      precioSugerido: null, margenObjetivo: MARGEN_OBJETIVO_PCT_DEFAULT,
+    };
+  }
+
+  const { km, estimado } = await kmCarreteraViaje(hitosFalsos);
+
+  const [{ data: empresas }, vehiculoRes] = await Promise.all([
+    supabase.from("empresa").select("velocidad_planificacion_kmh, coste_km, precio_gasoil_litro, coste_peaje_km, dieta_noche_eur, coste_conductor_km, margen_objetivo_pct"),
+    vehiculoId
+      ? supabase.from("vehiculo").select("coste_km, consumo_l_100km").eq("id", vehiculoId).single()
+      : Promise.resolve({ data: null }),
+  ]);
+  const empresa = (empresas || [])[0] || null;
+  const vehiculo = vehiculoRes.data || null;
+
+  const velocidad = resolveVelocidadPlanificacion(empresa);
+  const horasConduccion = km / velocidad;
+  const eta = calcularEtaConParadas(horasConduccion);
+  const noches = eta.descansos11h;
+
+  const coste = calcularCosteRuta({ km, noches, vehiculo, empresa });
+
+  const margenObjetivo = empresa?.margen_objetivo_pct ?? MARGEN_OBJETIVO_PCT_DEFAULT;
+  const precioSugerido = coste.total != null
+    ? +(coste.total / (1 - margenObjetivo / 100)).toFixed(2)
+    : null;
+
+  return {
+    km: Math.round(km),
+    estimado,
+    horasConduccion: +horasConduccion.toFixed(1),
+    horasTotales: +eta.horasTotales.toFixed(1),
+    paradas45min: eta.paradas45min,
+    descansos11h: eta.descansos11h,
+    noches,
+    coste,
+    precioSugerido,
+    margenObjetivo,
+  };
+}
+
+// ==========================================================================
 // Parkings para camión (ítem 5.4)
 // ==========================================================================
 

@@ -71,6 +71,8 @@ const {
   resolveCosteKm,
   calcularMargen,
   calcularCosteRuta,
+  calcularPresupuesto,
+  MARGEN_OBJETIVO_PCT_DEFAULT,
   kmCarreteraViaje,
   getViabilidadViaje,
   resolveVelocidadPlanificacion,
@@ -658,6 +660,44 @@ describe("calcularCosteRuta (7A.5 — desglose por capas)", () => {
     const r = calcularCosteRuta({ km: 620, noches: 0, vehiculo: null, empresa: {} });
     expect(r.modo).toBeNull();
     expect(r.total).toBeNull();
+  });
+});
+
+describe("calcularPresupuesto (7A.6 — presupuestador instantáneo)", () => {
+  const MADRID = { lat: 40.4168, lon: -3.7038 };
+  const BARCELONA = { lat: 41.3851, lon: 2.1734 };
+
+  it("caso feliz completo: km, coste, precio sugerido con margen objetivo", async () => {
+    TABLES.empresa = [{
+      velocidad_planificacion_kmh: 75, coste_km: 1.2, margen_objetivo_pct: 20,
+    }];
+    osrmMock.mockResolvedValue(300);
+    const r = await calcularPresupuesto({ puntos: [MADRID, BARCELONA] });
+    expect(r.km).toBeGreaterThan(0);
+    expect(r.coste.total).toBeGreaterThan(0);
+    expect(r.precioSugerido).toBeCloseTo(r.coste.total / (1 - 20 / 100), 2);
+    expect(r.margenObjetivo).toBe(20);
+  });
+
+  it("sin costes configurados, precioSugerido es null pero el resto del cálculo no falla", async () => {
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 75 }];
+    osrmMock.mockResolvedValue(300);
+    const r = await calcularPresupuesto({ puntos: [MADRID, BARCELONA] });
+    expect(r.precioSugerido).toBeNull();
+    expect(r.km).toBeGreaterThan(0);
+  });
+
+  it("usa el margen objetivo de la empresa, o el default si no está configurado", async () => {
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 75, coste_km: 1 }];
+    osrmMock.mockResolvedValue(100);
+    const r = await calcularPresupuesto({ puntos: [MADRID, BARCELONA] });
+    expect(r.margenObjetivo).toBe(MARGEN_OBJETIVO_PCT_DEFAULT);
+  });
+
+  it("con menos de 2 puntos, km es 0 y no lanza", async () => {
+    const r = await calcularPresupuesto({ puntos: [MADRID] });
+    expect(r.km).toBe(0);
+    expect(r.precioSugerido).toBeNull();
   });
 });
 
