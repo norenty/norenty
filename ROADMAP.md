@@ -827,6 +827,92 @@ confirmar que el aviso llega).
 
 ---
 
+### Bloque B2 — Roles/permisos y navegación (feedback del usuario, 2026-07-04)
+
+Origen: el usuario detectó en uso real que (a) hoy CUALQUIER gestor vinculado a una empresa
+puede hacer TODO — sin distinción de rol, sin forma de expulsar a alguien que se va de la
+empresa salvo revocar su sesión manualmente — y (b) el sidebar es una lista plana que ha
+dejado de ser intuitiva según ha crecido el número de páginas. No depende del Gate A (es
+código de dashboard/BD local, no de despliegue) — puede construirse ya.
+
+Decisión de modelo de roles cerrada con el usuario (2026-07-04): **3 roles por empresa**:
+- **Admin/Dueño** — todo: gestión de equipo (invitar/expulsar), ver costes/precios/márgenes,
+  exportar nómina, borrar datos.
+- **Gestor operativo** — día a día: asignar viajes/chóferes/vehículos, hitos, incidencias,
+  subir documentos, ver el centro de mando. SIN acceso a coste/precio/margen de viaje, sin
+  exportar nómina, sin gestión de equipo (invitar/expulsar), sin borrar documentos/viajes.
+- **Solo lectura** — ve todo, no puede mutar nada (útil para dueño/gerente que solo quiere
+  mirar sin operar).
+
+Decisión sobre "que alguien se vaya no pueda fastidiar el sistema": lo que falta hoy no es
+más auditoría (`audit_log` de 8.8 ya cubre el rastro) ni más aislamiento (RLS ya lo cubre) —
+es que **no existe un botón para expulsar/desactivar a un gestor de la empresa**, solo
+invitar. Se añade esa capacidad, solo para Admin. Se descarta (por ahora) un flujo de
+aprobación en dos pasos (4-eyes) para acciones destructivas — añade fricción real al día a
+día y solo tiene sentido con 2+ Admins activos; revisar más adelante si hace falta.
+
+- [ ] `[LOOP]` **9.28 SPECS-9-ROLES.md — diseño de roles + expulsión de gestor** (diseño:
+  opus, esfuerzo medio). Antes de tocar código: documento con el diseño exacto, mismo formato
+  que `SPECS-7A.md`/`SPECS-9.md`. Debe cerrar, sin dejar nada abierto para quien ejecute:
+  - **Esquema:** migración `0032` — columna `gestor.rol text NOT NULL DEFAULT 'admin' CHECK
+    (rol IN ('admin','gestor_operativo','solo_lectura'))` (default `'admin'` para que todo
+    gestor YA existente conserve su acceso actual sin sorpresas — no es una restricción
+    retroactiva silenciosa) + columna `gestor.activo boolean NOT NULL DEFAULT true` (o
+    `gestor.expulsado_en timestamptz NULL` — decidir cuál de las dos formas y justificar).
+  - **RLS reforzado por rol, no solo por fila:** qué tablas/columnas necesitan una policy
+    adicional condicionada a `rol = 'admin'` (p.ej. UPDATE de `empresa.coste_km`/
+    `precio_gasoil_litro`/etc., DELETE de `documento`/`viaje`, INSERT/DELETE de `invitacion`,
+    UPDATE de `gestor.rol`/`gestor.activo` — un gestor nunca debe poder auto-promoverse) y
+    cuáles quedan igual (RLS de fila por `empresa_id` ya es suficiente, el rol solo gatea UI).
+    Aplicar el mismo principio de la migración `0019`: defensa en profundidad a nivel de
+    Postgres, no confiar solo en que el dashboard oculte un botón.
+  - **Expulsión:** cómo un gestor con `activo=false` pierde acceso AL INSTANTE (no solo se le
+    oculta la UI) — vía una policy RLS que exige `activo=true` para todo (ver
+    `current_empresa_id()` y evaluar si debe empezar a devolver NULL para un gestor inactivo,
+    o una función nueva `gestor_activo()` reutilizada en las policies), más forzar el cierre
+    de sesión real del `auth.users` correspondiente (Supabase Admin API, requiere qué clave).
+    Su historial (`decision_asignacion`, `audit_log`, eventos donde aparezca como `gestor_id`)
+    permanece intacto — nunca se borra un gestor, solo se desactiva.
+  - **Gating del dashboard:** qué páginas/acciones concretas se ocultan o bloquean para
+    `gestor_operativo` y para `solo_lectura` (lista exhaustiva: Ajustes→coste/precio, Ajustes→
+    Equipo, exportar CSV de nómina, precio editable en `/viajes/[id]`, botones de borrar en
+    documentos/viajes/vehículos/chóferes, wizard de nuevo viaje paso de coste). Un componente
+    de guarda reutilizable (p.ej. `<RequireRol rol="admin">`) en vez de condicionales sueltos
+    repetidos — coherente con el sistema de diseño consolidado de 7A.12.
+  - **Casos de test:** RLS rechaza a un `gestor_operativo` intentando UPDATE directo de
+    `empresa.coste_km`; un gestor `activo=false` no puede leer NADA de su empresa aunque el
+    JWT siga siendo válido; un gestor no puede auto-promoverse a admin.
+- [ ] `[LOOP]` **9.29 Implementar roles + expulsión según SPECS-9-ROLES.md** (picar código:
+  sonnet, esfuerzo bajo — spec ya cerrada por 9.28). Migración, RLS, componente de guarda,
+  sección "Equipo" en Ajustes ampliada (rol de cada gestor, selector de rol solo visible para
+  Admin, botón "Desactivar" con confirmación). Tests de RLS contra BD real (mismo criterio
+  que `isolation.test.js` — no basta con mockear, hay que probarlo contra Postgres de verdad
+  dado que aquí el riesgo es justo que una policy mal escrita no aísle de verdad).
+- [ ] `[LOOP]` **9.30 Reorganización del sidebar en grupos/submenús** (picar código: sonnet,
+  esfuerzo bajo — spec cerrada aquí mismo, no hace falta SPECS-9 aparte). Reagrupar
+  `Sidebar.jsx` de lista plana a grupos colapsables, manteniendo cada enlace existente sin
+  romper ninguna ruta:
+  - **Hoy** (`/`) — suelto arriba, sin grupo (es la pantalla que se deja abierta todo el día).
+  - **Operación** — Viajes, Mapa, Incidencias.
+  - **Maestros** (agrupa lo que pediste explícitamente: "todo lo que sea introducir datos") —
+    Vehículos, Chóferes, Plantillas de ruta, Parkings (si se independiza de Mapa) — evaluar si
+    Parkings se queda dentro de Mapa (hoy es una capa del mapa, no una página propia) o si
+    merece entrada propia en Maestros; decidir por consistencia, no split solo por la palabra.
+  - **Documentos y cumplimiento** — Documentos (caducidades).
+  - **Análisis** — Analítica, Nómina, Presupuesto.
+  - **Ajustes** — suelto abajo, con Equipo/roles visible dentro (tras 9.29).
+  Colapsable con estado persistido (localStorage, sin backend), grupo activo se auto-expande
+  según la ruta actual. Accesibilidad: `aria-expanded` en cada grupo (coherente con el pase
+  de accesibilidad de 6.10). Sin librería nueva. Verificar visualmente en `next dev` (no solo
+  `next build`) que no se rompe ningún enlace ni el resaltado de "página activa".
+
+**GATE B2:** un gestor con rol `gestor_operativo` no ve coste/precio/equipo en la UI Y, si
+intenta la misma operación por una llamada REST directa (saltándose la UI), Postgres la
+rechaza — verificado, no asumido. Sidebar reagrupado sin perder ningún enlace, probado a
+mano en `next dev`.
+
+---
+
 ### Bloque C — Integridad de la evidencia como feature vendible
 
 - [x] `[LOOP]` **9.6 SPECS-9.md — hash-chain de `ejecucion_evento`** (2026-07-04; diseño: opus,
