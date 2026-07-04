@@ -701,7 +701,7 @@ Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servi
 - [x] `[LOOP]` **8.10 ONBOARDING.md** (era 6.16). Guía para que un segundo dev (o tú en 3 meses)
   arranque todo: requisitos, cada variable de `.env` (qué es y dónde se saca), arrancar
   bot/dashboard/OSRM, correr tests, aplicar migraciones, sembrar demo, y las convenciones del repo.
-- [ ] `[LOOP]` **8.11 Checklist de despliegue** (era 6.21). DEPLOY.md: pasos exactos
+- [x] `[LOOP]` **8.11 Checklist de despliegue** (era 6.21). DEPLOY.md: pasos exactos
   Vercel+Railway+dominio, variables por entorno, activar webhook del bot, CSP a enforcing, OSRM en
   prod, Sentry DSN, y smoke tests post-deploy. Deja el despliegue a un clic de tu decisión.
 - [ ] `[LOOP]` **8.12 Pase final de simplificación** (era 6.22). Recorrer los diffs de julio
