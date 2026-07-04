@@ -5,15 +5,9 @@ import dynamic from "next/dynamic";
 import { Plus } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getParkings, createParkingPropio, deleteParkingPropio } from "../../lib/data";
+import { TIPOS_PARKING } from "../../lib/labels";
 
 const MapView = dynamic(() => import("../components/MapView"), { ssr: false });
-
-const TIPOS_PARKING = [
-  { value: "parking", label: "Parking" },
-  { value: "fueling", label: "Gasolinera / Truck stop" },
-  { value: "rest_area", label: "Área de descanso" },
-  { value: "otro", label: "Otro" },
-];
 
 function initParkingForm() {
   return { nombre: "", tipo: "parking", lat: "", lon: "", notas: "" };

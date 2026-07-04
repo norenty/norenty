@@ -4,34 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { FileWarning, Truck, CarFront, Users } from "lucide-react";
 import { getDocumentosPorCaducar } from "../../lib/data";
-
-const TIPO_LABEL = {
-  cmr: "CMR / Carta de porte",
-  albaran: "Albarán",
-  adr: "ADR",
-  itv: "ITV",
-  seguro: "Seguro",
-  autorizacion_transporte: "Autorización de transporte",
-  licencia: "Licencia de conducir",
-  cap: "CAP",
-  otro: "Otro",
-};
+import { TIPO_DOC_LABEL, AMBITO_LABEL } from "../../lib/labels";
+import { fmtFecha, badgeCaducidad } from "../../lib/format";
 
 const AMBITO_ICON = { viaje: Truck, vehiculo: CarFront, chofer: Users };
-const AMBITO_LABEL = { viaje: "Viaje", vehiculo: "Vehículo", chofer: "Chófer" };
-
-function fmtFecha(f) {
-  return new Date(f + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
-}
-
-function urgencia(fechaCaducidad) {
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const caduca = new Date(fechaCaducidad + "T00:00:00");
-  const dias = Math.round((caduca - hoy) / 86400000);
-  if (dias < 0) return { label: "Caducado", cls: "bg-red-50 text-estado-incidencia", dias };
-  return { label: "Caduca pronto", cls: "bg-yellow-50 text-yellow-700", dias };
-}
 
 export default function DocumentosPorCaducar() {
   const [docs, setDocs] = useState([]);
@@ -50,8 +26,8 @@ export default function DocumentosPorCaducar() {
     );
   }
 
-  const caducados = docs.filter((d) => urgencia(d.fecha_caducidad).dias < 0);
-  const porCaducar = docs.filter((d) => urgencia(d.fecha_caducidad).dias >= 0);
+  const caducados = docs.filter((d) => badgeCaducidad(d.fecha_caducidad).dias < 0);
+  const porCaducar = docs.filter((d) => badgeCaducidad(d.fecha_caducidad).dias >= 0);
 
   return (
     <div className="max-w-3xl">
@@ -75,7 +51,7 @@ export default function DocumentosPorCaducar() {
             </div>
           )}
           {docs.map((d) => {
-            const u = urgencia(d.fecha_caducidad);
+            const u = badgeCaducidad(d.fecha_caducidad);
             const Icon = AMBITO_ICON[d.ambito] || FileWarning;
             return (
               <Link
@@ -86,7 +62,7 @@ export default function DocumentosPorCaducar() {
                 <Icon size={16} className="text-ink-muted shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-ink">
-                    {TIPO_LABEL[d.tipo] || d.tipo} — {d.entidadEtiqueta}
+                    {TIPO_DOC_LABEL[d.tipo] || d.tipo} — {d.entidadEtiqueta}
                   </div>
                   <div className="text-xs text-ink-muted">
                     {AMBITO_LABEL[d.ambito]} · Caduca: {fmtFecha(d.fecha_caducidad)}

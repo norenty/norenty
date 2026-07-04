@@ -18,34 +18,7 @@ import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
 import Timeline from "../../components/Timeline";
 import RatingControl from "../../components/RatingControl";
-
-const estadoViaje = {
-  planificado: { t: "Planificado", c: "text-estado-planificado", bg: "bg-blue-50" },
-  en_curso: { t: "En curso", c: "text-estado-en-curso", bg: "bg-indigo-50" },
-  completado: { t: "Completado", c: "text-estado-ok", bg: "bg-green-50" },
-  cancelado: { t: "Cancelado", c: "text-ink-muted", bg: "bg-gray-100" },
-};
-
-const estadoHito = {
-  pendiente: { label: "Pendiente", color: "text-ink-muted" },
-  en_curso: { label: "En curso", color: "text-estado-en-curso" },
-  completado: { label: "Completado", color: "text-estado-ok" },
-  fallido: { label: "Fallido", color: "text-estado-incidencia" },
-};
-
-const TIPOS_DOC_VIAJE = [
-  { value: "cmr", label: "CMR / Carta de porte" },
-  { value: "albaran", label: "Albarán" },
-  { value: "adr", label: "ADR (mercancía peligrosa)" },
-  { value: "otro", label: "Otro" },
-];
-
-const estadoPod = {
-  pendiente: { label: "Sin validar", color: "bg-gray-100 text-ink-secondary" },
-  valido: { label: "Válido", color: "bg-green-50 text-estado-ok" },
-  invalido: { label: "Inválido", color: "bg-red-50 text-estado-incidencia" },
-  dudoso: { label: "Dudoso", color: "bg-orange-50 text-estado-riesgo" },
-};
+import { ESTADO_VIAJE, ESTADO_HITO, ESTADO_POD, TIPOS_DOC_VIAJE, LABEL_CAPA } from "../../../lib/labels";
 
 export default function ViajeDetalle() {
   const { id } = useParams();
@@ -179,7 +152,7 @@ export default function ViajeDetalle() {
 
   const { viaje, hitos, eventos, pods, valoraciones } = data;
   const ref = viaje.referencia || viaje.id.slice(0, 8);
-  const ev = estadoViaje[viaje.estado] || estadoViaje.planificado;
+  const ev = ESTADO_VIAJE[viaje.estado] || ESTADO_VIAJE.planificado;
 
   return (
     <div>
@@ -192,7 +165,7 @@ export default function ViajeDetalle() {
 
         {editandoEstado ? (
           <div className="flex items-center gap-1">
-            {Object.entries(estadoViaje).map(([key, val]) => (
+            {Object.entries(ESTADO_VIAJE).map(([key, val]) => (
               <button
                 key={key}
                 onClick={() => cambiarEstado(key)}
@@ -302,7 +275,7 @@ export default function ViajeDetalle() {
             </div>
             <div className="flex flex-col gap-2">
               {hitos.map((h) => {
-                const e = estadoHito[h.estado] || estadoHito.pendiente;
+                const e = ESTADO_HITO[h.estado] || ESTADO_HITO.pendiente;
                 const pvr = planVsReal?.filas.find((f) => f.hitoId === h.id);
                 return (
                   <div key={h.id} className="bg-surface border border-border rounded-xl p-3 flex items-center gap-3">
@@ -411,7 +384,6 @@ export default function ViajeDetalle() {
                 : margenPct < UMBRAL_MARGEN_AMBAR_PCT
                 ? "bg-yellow-50 text-yellow-700"
                 : "bg-green-50 text-green-700";
-              const LABEL_CAPA = { combustible: "Combustible", conductor: "Conductor", peajes: "Peajes", dietas: "Dietas" };
               return (
                 <div>
                   <div className={`rounded-lg px-3 py-2 mb-2 ${cls}`}>
@@ -531,7 +503,7 @@ export default function ViajeDetalle() {
             ) : (
               <div className="flex flex-col gap-3">
                 {pods.map((p) => {
-                  const ep = estadoPod[p.estado_validacion] || estadoPod.pendiente;
+                  const ep = ESTADO_POD[p.estado_validacion] || ESTADO_POD.pendiente;
                   return (
                     <div key={p.id} className="bg-surface border border-border rounded-xl overflow-hidden">
                       {p.foto_url && (

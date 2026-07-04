@@ -10,6 +10,7 @@ import { supabase } from "../../../lib/supabase";
 import DocumentosSection from "../../components/DocumentosSection";
 import { getEstado561, LIMITE_561_SEMANAL_H, LIMITE_561_BISEMANAL_H, getMultasPorChofer } from "../../../lib/data";
 import { Siren } from "lucide-react";
+import { TIPOS_DOC_CHOFER, IDIOMA_LABEL, ESTADO_VIAJE } from "../../../lib/labels";
 
 function colorBarra561(pct) {
   if (pct >= 90) return "bg-estado-incidencia";
@@ -17,20 +18,7 @@ function colorBarra561(pct) {
   return "bg-brand";
 }
 
-const TIPOS_DOC_CHOFER = [
-  { value: "licencia", label: "Licencia de conducir" },
-  { value: "cap", label: "CAP" },
-  { value: "otro", label: "Otro" },
-];
-
-const IDIOMA_LABEL = { es: "ES", ro: "RO", ar: "AR", fr: "FR", it: "IT", en: "EN", pt: "PT", de: "DE" };
 const BOT = process.env.NEXT_PUBLIC_BOT_USERNAME;
-const ESTADO_LABEL = {
-  planificado: { t: "Planificado", c: "text-estado-planificado", bg: "bg-blue-50" },
-  en_curso: { t: "En curso", c: "text-estado-en-curso", bg: "bg-indigo-50" },
-  completado: { t: "Completado", c: "text-estado-ok", bg: "bg-green-50" },
-  cancelado: { t: "Cancelado", c: "text-ink-muted", bg: "bg-gray-100" },
-};
 const PAGE = 20;
 
 export default function ChoferDetalle() {
@@ -270,7 +258,7 @@ export default function ChoferDetalle() {
         ) : (
           <>
             {viajes.map((v) => {
-              const e = ESTADO_LABEL[v.estado] || ESTADO_LABEL.planificado;
+              const e = ESTADO_VIAJE[v.estado] || ESTADO_VIAJE.planificado;
               const total = (v.hito || []).length;
               const completados = (v.hito || []).filter((h) => h.estado === "completado").length;
               return (

@@ -5,12 +5,11 @@ import Link from "next/link";
 import { Calculator, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { calcularPresupuesto } from "../../lib/data";
 import { supabase } from "../../lib/supabase";
+import { LABEL_CAPA } from "../../lib/labels";
 
 function nuevoPunto() {
   return { label: "", lat: "", lon: "" };
 }
-
-const LABEL_CAPA = { combustible: "Combustible", conductor: "Conductor", peajes: "Peajes", dietas: "Dietas" };
 
 export default function PresupuestoPage() {
   const [puntos, setPuntos] = useState([nuevoPunto(), nuevoPunto()]);

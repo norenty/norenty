@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Plus, Search, Upload, Download, ChevronDown } from "lucide-react";
 import { getViajesLista } from "../../lib/data";
+import { ESTADO_VIAJE } from "../../lib/labels";
 
 const ESTADOS = [
   { key: null, label: "Todos" },
@@ -12,13 +13,6 @@ const ESTADOS = [
   { key: "completado", label: "Completado", c: "text-estado-ok" },
   { key: "cancelado", label: "Cancelado", c: "text-ink-muted" },
 ];
-
-const estadoLabel = {
-  planificado: { t: "Planificado", c: "text-estado-planificado", bg: "bg-blue-50" },
-  en_curso: { t: "En curso", c: "text-estado-en-curso", bg: "bg-indigo-50" },
-  completado: { t: "Completado", c: "text-estado-ok", bg: "bg-green-50" },
-  cancelado: { t: "Cancelado", c: "text-ink-muted", bg: "bg-gray-100" },
-};
 
 export default function ViajesPage() {
   const [viajes, setViajes] = useState([]);
@@ -159,7 +153,7 @@ export default function ViajesPage() {
               <span className="text-right">Estado</span>
             </div>
             {filtrados.map((v) => {
-              const e = estadoLabel[v.estado] || estadoLabel.planificado;
+              const e = ESTADO_VIAJE[v.estado] || ESTADO_VIAJE.planificado;
               return (
                 <Link
                   key={v.id}

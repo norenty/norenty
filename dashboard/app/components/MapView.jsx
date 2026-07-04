@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { TIPO_PARKING_LABEL } from "../../lib/labels";
 
 const ICON_RECOGIDA = new L.DivIcon({
   className: "",
@@ -37,13 +38,6 @@ const ICON_PARKING_PROPIO = new L.DivIcon({
   iconSize: [20, 20],
   iconAnchor: [10, 10],
 });
-
-const TIPO_PARKING_LABEL = {
-  parking: "Parking",
-  fueling: "Gasolinera / Truck stop",
-  rest_area: "Área de descanso",
-  otro: "Otro",
-};
 
 function FitBounds({ points }) {
   const map = useMap();

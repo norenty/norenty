@@ -4,29 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { Plus, FileText, ExternalLink, Trash2 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getCurrentEmpresaId } from "../../lib/data";
+import { badgeCaducidad, fmtFecha } from "../../lib/format";
 
 const SIGNED_URL_TTL = 3600;
 
 function initForm(tipos) {
   return { tipo: tipos[0]?.value || "otro", fecha_emision: "", fecha_caducidad: "", notas: "", archivo: null };
-}
-
-function badgeFor(doc) {
-  if (!doc.fecha_caducidad) return null;
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const caduca = new Date(doc.fecha_caducidad + "T00:00:00");
-  const dias = Math.round((caduca - hoy) / 86400000);
-  if (dias < 0) return { label: "Caducado", cls: "bg-red-50 text-estado-incidencia" };
-  if (dias <= 30) return { label: "Caduca pronto", cls: "bg-yellow-50 text-yellow-700" };
-  // text-estado-ok sobre bg-green-50 no llega al contraste AA (4.5:1) en texto
-  // pequeño (~3.15:1); text-green-700 sí lo cumple.
-  return { label: "Vigente", cls: "bg-green-50 text-green-700" };
-}
-
-function fmtFecha(f) {
-  if (!f) return null;
-  return new Date(f + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 /**
@@ -233,7 +216,7 @@ export default function DocumentosSection({ ambito, entidadId, tipos, titulo = "
       ) : (
         <div>
           {documentos.map((doc) => {
-            const badge = badgeFor(doc);
+            const badge = badgeCaducidad(doc.fecha_caducidad);
             return (
               <div key={doc.id} className="flex items-start gap-3 px-4 py-3 border-b border-border last:border-0">
                 <div className="w-8 h-8 rounded-full bg-surface-alt flex items-center justify-center shrink-0 mt-0.5">

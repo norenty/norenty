@@ -5,12 +5,7 @@ import { useRouter } from "next/navigation";
 import { Bell, AlertTriangle, Check, Truck, X, FileWarning } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getDocumentosPorCaducar } from "../../lib/data";
-
-const TIPO_LABEL = {
-  cmr: "CMR / Carta de porte", albaran: "Albarán", adr: "ADR", itv: "ITV",
-  seguro: "Seguro", autorizacion_transporte: "Autorización de transporte",
-  licencia: "Licencia de conducir", cap: "CAP", otro: "Otro",
-};
+import { TIPO_DOC_LABEL } from "../../lib/labels";
 
 export default function NotificationCenter() {
   const router = useRouter();
@@ -74,7 +69,7 @@ export default function NotificationCenter() {
         type: "documento",
         icon: FileWarning,
         iconColor: "text-yellow-600",
-        title: `${TIPO_LABEL[d.tipo] || d.tipo} por caducar`,
+        title: `${TIPO_DOC_LABEL[d.tipo] || d.tipo} por caducar`,
         sub: d.entidadEtiqueta,
         ref: d.fecha_caducidad,
         href: d.href,
