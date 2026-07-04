@@ -20,6 +20,7 @@ import { useRealtimeRefresh } from "../../../lib/realtime";
 import Timeline from "../../components/Timeline";
 import RatingControl from "../../components/RatingControl";
 import { ESTADO_VIAJE, ESTADO_HITO, ESTADO_POD, TIPOS_DOC_VIAJE, LABEL_CAPA } from "../../../lib/labels";
+import { badgeMargen } from "../../../lib/format";
 
 /** Etiqueta legible de una entrada de audit_log (8.8) — el detalle exacto de
  * cada acción vive en `detalle` (jsonb), esto solo lo traduce a texto. */
@@ -460,14 +461,7 @@ export default function ViajeDetalle() {
               if (viabilidad.km === 0) return <p className="text-xs text-ink-secondary">Sin km calculables: faltan coordenadas en los hitos o el servicio de rutas no responde.</p>;
 
               const { margen, margenPct, km, costeKm, coste, fuenteCoste, estimado, desglose } = viabilidad;
-              // text-estado-ok (#16A34A) sobre bg-green-50 da ~3.15:1 de contraste —
-              // pasa para texto grande (≥3:1) pero NO para el texto pequeño de abajo
-              // (necesita 4.5:1). green-700 sí cumple en ambos tamaños.
-              const cls = margen < 0
-                ? "bg-red-50 text-estado-incidencia"
-                : margenPct < UMBRAL_MARGEN_AMBAR_PCT
-                ? "bg-yellow-50 text-yellow-700"
-                : "bg-green-50 text-green-700";
+              const cls = badgeMargen(margen, margenPct, UMBRAL_MARGEN_AMBAR_PCT);
               return (
                 <div>
                   <div className={`rounded-lg px-3 py-2 mb-2 ${cls}`}>

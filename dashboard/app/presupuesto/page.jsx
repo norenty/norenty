@@ -206,13 +206,15 @@ export default function PresupuestoPage() {
             </div>
           )}
 
-          {/* TODO(7A.11): "Crear viaje con estos datos" precargará el wizard de nuevo viaje
-              con estas paradas/vehículo/precio en vez de solo enlazar a un form vacío. */}
           <Link
-            href="/viajes/nuevo"
+            href={`/viajes/nuevo-w?${new URLSearchParams({
+              puntos: JSON.stringify(puntos.filter((p) => p.lat !== "" && p.lon !== "")),
+              ...(vehiculoId ? { vehiculoId } : {}),
+              ...(resultado.precioSugerido != null ? { precio: String(resultado.precioSugerido) } : {}),
+            }).toString()}`}
             className="mt-4 inline-flex text-sm px-4 py-2 rounded-md border border-border text-ink-secondary hover:bg-surface-alt no-underline"
           >
-            Crear viaje
+            Crear viaje con estos datos
           </Link>
         </div>
       )}

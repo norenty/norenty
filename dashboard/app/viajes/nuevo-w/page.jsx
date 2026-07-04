@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2, AlertTriangle, Check, ChevronRight } from "lucide-react";
-import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561 } from "../../../lib/data";
+import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561, UMBRAL_MARGEN_AMBAR_PCT } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import SugerenciaChofer from "../../components/SugerenciaChofer";
+import { badgeMargen } from "../../../lib/format";
 
 // Wizard "Nuevo viaje" (7A.11) — construido en ruta nueva a propósito, SIN
 // sustituir /viajes/nuevo todavía: el swap (decidir si este pasa a ser el
@@ -24,22 +25,38 @@ const PASOS = [
   { n: 3, label: "Confirmar" },
 ];
 
-function colorMargenPct(pct) {
-  if (pct == null) return "text-ink-muted";
-  if (pct < 0) return "text-estado-incidencia";
-  if (pct < 10) return "text-yellow-700";
-  return "text-green-700";
+/** Lee `?puntos=`/`vehiculoId=`/`precio=` (precarga desde el presupuestador,
+ * 7A.6 → 7A.11) y devuelve los hitos iniciales, o null si no hay nada válido
+ * que precargar. `puntos` es el JSON de `{label, lat, lon}[]` de /presupuesto. */
+function prefillHitosDesdeUrl(searchParams) {
+  try {
+    const raw = searchParams.get("puntos");
+    if (!raw) return null;
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr) || arr.length < 2) return null;
+    return arr.map((p, i) => ({
+      tipo: i === 0 ? "recogida" : "entrega",
+      direccion: p.label || "",
+      lat: p.lat != null ? String(p.lat) : "",
+      lon: p.lon != null ? String(p.lon) : "",
+      ventana_inicio: "",
+      ventana_fin: "",
+    }));
+  } catch {
+    return null;
+  }
 }
 
 export default function NuevoViajeWizard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [paso, setPaso] = useState(1);
   const [referencia, setReferencia] = useState("");
-  const [precio, setPrecio] = useState("");
-  const [hitos, setHitos] = useState([nuevoHito(), nuevoHito()]);
+  const [precio, setPrecio] = useState(() => searchParams.get("precio") || "");
+  const [hitos, setHitos] = useState(() => prefillHitosDesdeUrl(searchParams) || [nuevoHito(), nuevoHito()]);
   const [choferId, setChoferId] = useState("");
   const [choferNombre, setChoferNombre] = useState("");
-  const [vehiculoId, setVehiculoId] = useState("");
+  const [vehiculoId, setVehiculoId] = useState(() => searchParams.get("vehiculoId") || "");
   const [remolqueId, setRemolqueId] = useState("");
   const [vehiculos, setVehiculos] = useState([]);
   const [choferes, setChoferes] = useState([]);
@@ -272,7 +289,7 @@ export default function NuevoViajeWizard() {
                   </div>
                 )}
                 {panel.margenPct != null && (
-                  <div className={`text-xs px-2 py-1.5 rounded-md ${panel.margenPct < 0 ? "bg-red-50" : panel.margenPct < 10 ? "bg-yellow-50" : "bg-green-50"} ${colorMargenPct(panel.margenPct)}`}>
+                  <div className={`text-xs px-2 py-1.5 rounded-md ${badgeMargen(panel.margen, panel.margenPct, UMBRAL_MARGEN_AMBAR_PCT)}`}>
                     Margen con tu precio: {panel.margen.toLocaleString("es-ES")} € ({panel.margenPct}%)
                   </div>
                 )}

@@ -619,7 +619,11 @@ pica código. Orden de ejecución con dependencias, al final de ese documento:
 
 ---
 
-## Fase 8 — Solidez, seguridad y confiabilidad (ABIERTA 2026-07-04, PRIORIDAD del loop sobre features)
+## Fase 8 — Solidez, seguridad y confiabilidad (TODOS LOS `[LOOP]` CERRADOS 2026-07-04)
+
+**Estado: 8.1 a 8.5 y 8.7 a 8.12 hechos.** Solo quedan pendientes cosas que no puede hacer el
+loop: `8.6` (activar "Leaked Password Protection" — un clic en el panel de Supabase, no vía
+SQL/MCP) y las `[DECISIÓN D1/D2/D4]` de más abajo, todas necesitan criterio/acceso del usuario.
 
 **Decisión de dirección (usuario, 2026-07-04):** para este producto la confianza ES el producto
 — es un SaaS de *aseguramiento de ejecución*: el gestor paga por creer que lo que ve (hora de
@@ -704,7 +708,7 @@ Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servi
 - [x] `[LOOP]` **8.11 Checklist de despliegue** (era 6.21). DEPLOY.md: pasos exactos
   Vercel+Railway+dominio, variables por entorno, activar webhook del bot, CSP a enforcing, OSRM en
   prod, Sentry DSN, y smoke tests post-deploy. Deja el despliegue a un clic de tu decisión.
-- [ ] `[LOOP]` **8.12 Pase final de simplificación** (era 6.22). Recorrer los diffs de julio
+- [x] `[LOOP]` **8.12 Pase final de simplificación** (era 6.22). Recorrer los diffs de julio
   buscando duplicación restante, dead code y TODOs; arreglar lo obvio, listar lo dudoso en PROGRESS.
 
 ### Decisiones que solo tú puedes tomar (desbloquean lo de arriba)
