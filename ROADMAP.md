@@ -851,8 +851,8 @@ invitar. Se añade esa capacidad, solo para Admin. Se descarta (por ahora) un fl
 aprobación en dos pasos (4-eyes) para acciones destructivas — añade fricción real al día a
 día y solo tiene sentido con 2+ Admins activos; revisar más adelante si hace falta.
 
-- [ ] `[LOOP]` **9.28 SPECS-9-ROLES.md — diseño de roles + expulsión de gestor** (diseño:
-  opus, esfuerzo medio). Antes de tocar código: documento con el diseño exacto, mismo formato
+- [x] `[LOOP]` **9.28 SPECS-9-ROLES.md — diseño de roles + expulsión de gestor** (2026-07-04;
+  diseño: opus, esfuerzo medio). Antes de tocar código: documento con el diseño exacto, mismo formato
   que `SPECS-7A.md`/`SPECS-9.md`. Debe cerrar, sin dejar nada abierto para quien ejecute:
   - **Esquema:** migración `0032` — columna `gestor.rol text NOT NULL DEFAULT 'admin' CHECK
     (rol IN ('admin','gestor_operativo','solo_lectura'))` (default `'admin'` para que todo
