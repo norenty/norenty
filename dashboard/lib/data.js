@@ -1617,6 +1617,31 @@ export async function getOnboardingEstado() {
 }
 
 // ==========================================================================
+// Portal de cliente — tracking público sin login (ítem 7A.14). El token es
+// la única credencial (uuid impredecible, mismo patrón que usar_invitacion de
+// 6.9); la lectura pasa SIEMPRE por la RPC SECURITY DEFINER `viaje_publico`,
+// que solo expone referencia/estado/hitos/última posición aproximada — nunca
+// precio, coste, nombre del chófer ni matrícula.
+// ==========================================================================
+
+export async function generarTokenPublico(viajeId) {
+  const token = crypto.randomUUID();
+  const { error } = await supabase.from("viaje").update({ token_publico: token }).eq("id", viajeId);
+  if (error) throw error;
+  return token;
+}
+
+export async function revocarTokenPublico(viajeId) {
+  await supabase.from("viaje").update({ token_publico: null }).eq("id", viajeId);
+}
+
+export async function getViajePublico(token) {
+  const { data, error } = await supabase.rpc("viaje_publico", { p_token: token });
+  if (error) throw error;
+  return data || null;
+}
+
+// ==========================================================================
 // Parkings para camión (ítem 5.4)
 // ==========================================================================
 

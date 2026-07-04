@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, MapPin, Package, Clock, Truck, Edit3, Check, X, AlertTriangle, Euro, Gauge,
+  ArrowLeft, MapPin, Package, Clock, Truck, Edit3, Check, X, AlertTriangle, Euro, Gauge, Copy, Share2,
 } from "lucide-react";
 import PodImage from "../../components/PodImage";
 import DocumentosSection from "../../components/DocumentosSection";
@@ -13,6 +13,7 @@ import GastosViajeSection from "../../components/GastosViajeSection";
 import {
   getViaje, getChoferes, validarCambioEstado, validarAsignacion,
   getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje, getEstado561, getPnlViaje, getPlanVsReal,
+  generarTokenPublico, revocarTokenPublico,
 } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
@@ -38,6 +39,8 @@ export default function ViajeDetalle() {
   const [viabilidad, setViabilidad] = useState(null);
   const [pnl, setPnl] = useState(null);
   const [planVsReal, setPlanVsReal] = useState(null);
+  const [generandoToken, setGenerandoToken] = useState(false);
+  const [copiadoEnlace, setCopiadoEnlace] = useState(false);
   const [eta, setEta] = useState(null);
   const [editandoPrecio, setEditandoPrecio] = useState(false);
   const [precioInput, setPrecioInput] = useState("");
@@ -145,6 +148,29 @@ export default function ViajeDetalle() {
     } finally {
       setGuardandoPrecio(false);
     }
+  }
+
+  async function generarEnlace() {
+    setGenerandoToken(true);
+    try {
+      await generarTokenPublico(id);
+      await load();
+    } finally {
+      setGenerandoToken(false);
+    }
+  }
+
+  async function revocarEnlace() {
+    if (!confirm("¿Revocar el enlace? El cliente dejará de poder verlo.")) return;
+    await revocarTokenPublico(id);
+    await load();
+  }
+
+  function copiarEnlacePublico(token) {
+    const url = `${window.location.origin}/t/${token}`;
+    navigator.clipboard.writeText(url);
+    setCopiadoEnlace(true);
+    setTimeout(() => setCopiadoEnlace(false), 2000);
   }
 
   if (loading) return <div className="h-64 bg-surface-alt rounded-lg animate-pulse" />;
@@ -534,6 +560,41 @@ export default function ViajeDetalle() {
                   );
                 })}
               </div>
+            )}
+          </section>
+
+          <section className="bg-surface border border-border rounded-xl p-4">
+            <h2 className="text-sm font-medium text-ink mb-3 flex items-center gap-1.5">
+              <Share2 size={15} /> Compartir con el cliente
+            </h2>
+            {viaje.token_publico ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={typeof window !== "undefined" ? `${window.location.origin}/t/${viaje.token_publico}` : ""}
+                    className="flex-1 text-xs border border-border rounded-md px-2 py-1.5 bg-surface-alt text-ink-secondary"
+                  />
+                  <button
+                    onClick={() => copiarEnlacePublico(viaje.token_publico)}
+                    aria-label="Copiar enlace"
+                    className="p-1.5 text-ink-muted hover:text-ink shrink-0"
+                  >
+                    {copiadoEnlace ? <Check size={15} /> : <Copy size={15} />}
+                  </button>
+                </div>
+                <button onClick={revocarEnlace} className="self-start text-xs text-estado-incidencia hover:underline">
+                  Revocar enlace
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={generarEnlace}
+                disabled={generandoToken}
+                className="text-xs px-3 py-2 rounded-md border border-border text-ink-secondary hover:bg-surface-alt disabled:opacity-40"
+              >
+                {generandoToken ? "Generando…" : "Generar enlace"}
+              </button>
             )}
           </section>
 

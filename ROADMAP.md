@@ -474,7 +474,7 @@ por enlace — lo que convierte a Norenty en algo que los CLIENTES de la flota t
 
 ---
 
-## Fase 7A — Norenty OS, cola ejecutable (ABIERTA 2026-07-02, sin coste por uso, PRIORIDAD del loop)
+## Fase 7A — Norenty OS, cola ejecutable (CERRADA 2026-07-04 — los 14 ítems construidos)
 
 Protocolo del loop: **esta cola va ANTES que los ítems restantes de Fase 6** (6.12, 6.13, 6.16,
 6.17, 6.18, 6.19, 6.21, 6.22, que pasan a cola secundaria). Los ítems 6.14, 6.15 y 6.20 quedan
@@ -488,14 +488,14 @@ convenciones/trampas del repo). Las decisiones de diseño YA están tomadas ahí
 pica código. Orden de ejecución con dependencias, al final de ese documento:
 7A.1→2→3→4→5→6→7→8→9→10→12→13→11→14, y después los 6.x restantes.
 
-- [ ] `[LOOP]` **7A.1 Estado 561 por chófer** (subsume 6.15) — Función `getEstado561(choferId)` en
+- [x] `[LOOP]` **7A.1 Estado 561 por chófer** (subsume 6.15) — Función `getEstado561(choferId)` en
   `lib/data.js`: horas de conducción estimadas de los últimos 7 y 14 días (km Haversine×1.3 de sus
   viajes con eventos de llegada en ese periodo / velocidad de planificación — misma aproximación
   honesta que nómina, etiquetada como estimación), contra límites 56h/90h. Vista: barra de
   progreso + horas restantes en `/choferes/[id]` y chip de aviso (no bloqueo) al asignar chófer en
   `/viajes/nuevo` y en el cambio de chófer del detalle si la suma con el viaje nuevo supera límites.
   Tests de la función con fixtures de eventos.
-- [ ] `[LOOP]` **7A.2 Motor de asignación v1 — sugerencia con score explicado + registro de
+- [x] `[LOOP]` **7A.2 Motor de asignación v1 — sugerencia con score explicado + registro de
   decisiones** — `sugerirChofer(viajeId)` en `lib/data.js`: puntúa cada chófer de la empresa con
   desglose visible: disponibilidad (sin viaje activo, +40), margen 561 (horas restantes vs. horas
   del viaje, 0–25), documentos vigentes (licencia/CAP no caducados, +15 / bloqueo visual si
@@ -507,21 +507,21 @@ pica código. Orden de ejecución con dependencias, al final de ese documento:
   cuando el gestor no sigue la sugerencia top — es el hook de aprendizaje para 7B.7. UI: lista
   ordenada por score con las razones visibles y "Asignar" a 1 clic. Tests exhaustivos del scoring
   y del registro de decisión. **Ver `SPECS-7A.md` (reescrito 2026-07-03).**
-- [ ] `[LOOP]` **7A.3 Notificación de asignación al chófer** (reemplaza el diseño original
+- [x] `[LOOP]` **7A.3 Notificación de asignación al chófer** (reemplaza el diseño original
   "Uber-style" de aceptar/rechazar — descartado a petición del usuario 2026-07-03: la decisión es
   del gestor, el chófer solo se entera, cero fricción/cero elección para él) — Migración:
   `viaje.notificado_asignacion_en timestamptz`. Job del bot (cada 30s) que, cuando un viaje tiene
   chófer asignado y no se le ha avisado aún, le manda un mensaje informativo (ruta, nº paradas,
   km estimados) SIN botones de aceptar/rechazar. Reasignar resetea el flag para renotificar al
   nuevo chófer. i18n 4 idiomas. Tests unitarios del job. **Ver `SPECS-7A.md`.**
-- [ ] `[LOOP]` **7A.4 Live location + geo-llegada v1** — Bot: `MessageHandler(filters.LOCATION)`
+- [x] `[LOOP]` **7A.4 Live location + geo-llegada v1** — Bot: `MessageHandler(filters.LOCATION)`
   que guarda cada ubicación (incluida live location editada — handler de `edited_message`) en la
   tabla `ubicacion`. Al recibir ubicación, si el chófer tiene hito pendiente/en_curso a <300 m
   (Haversine), el bot pregunta proactivamente "¿Has llegado a X?" con el botón de confirmar de
   siempre (NO auto-confirma en v1 — guardrail del principio 2). Mensaje al vincular que explica
   cómo compartir ubicación en tiempo real. `UMBRAL_GEO_LLEGADA_M = 300` configurable. Tests con
   updates reales de location en el arnés E2E.
-- [ ] `[LOOP]` **7A.5 Coste total de ruta v2 — desglose por capas** — Migración: `vehiculo.
+- [x] `[LOOP]` **7A.5 Coste total de ruta v2 — desglose por capas** — Migración: `vehiculo.
   consumo_l_100km numeric`, `empresa.precio_gasoil_litro numeric`, `empresa.coste_peaje_km numeric`,
   `empresa.dieta_noche_eur numeric` (todos nullable). `calcularCosteRuta({km, noches, vehiculo,
   empresa})` puro: combustible (km × consumo/100 × €/l) + conductor (coste_km existente si se
@@ -530,28 +530,28 @@ pica código. Orden de ejecución con dependencias, al final de ese documento:
   cliente "elige hasta dónde llega" poblando datos (decisión de 5.2 extendida). La viabilidad de
   `/viajes/[id]` muestra el desglose en tabla pequeña. Campos nuevos en Ajustes y ficha de
   vehículo. Tests por capa y combinaciones.
-- [ ] `[LOOP]` **7A.6 Presupuestador instantáneo** — Página `/presupuesto`: form origen + destinos
+- [x] `[LOOP]` **7A.6 Presupuestador instantáneo** — Página `/presupuesto`: form origen + destinos
   (direcciones con lat/lon manual o clic en mini-mapa) + vehículo opcional → devuelve al instante:
   km, horas-561 con paradas, noches fuera estimadas (por descansos de 11h del cálculo ETA), coste
   total desglosado (7A.5), y PRECIO SUGERIDO = coste / (1 − margen objetivo) con
   `MARGEN_OBJETIVO_PCT = 15` configurable en Ajustes. Botón "Crear viaje con estos datos" que
   precarga el wizard. Es la respuesta en <60 s a "¿me sale a cuenta esta carga?" — la herramienta
   anti-"comercial se columpió". Tests del cálculo.
-- [ ] `[LOOP]` **7A.7 Multas y repostajes por viaje** — Migración: tabla `gasto_viaje(id, viaje_id,
+- [x] `[LOOP]` **7A.7 Multas y repostajes por viaje** — Migración: tabla `gasto_viaje(id, viaje_id,
   empresa_id, tipo CHECK in ('repostaje','peaje','multa','dieta','otro'), importe numeric, litros
   numeric NULL, descripcion, fecha, chofer_id NULL, created_at)` con RLS empresa. UI: sección
   "Gastos" en `/viajes/[id]` (alta rápida + lista + total). Las multas además se ven agregadas en
   la ficha del chófer (historial de multas) y del vehículo. Tests data.js.
-- [ ] `[LOOP]` **7A.8 P&L real del viaje** — Card en `/viajes/[id]`: ingreso (precio) − gastos
+- [x] `[LOOP]` **7A.8 P&L real del viaje** — Card en `/viajes/[id]`: ingreso (precio) − gastos
   REALES (suma de gasto_viaje) = margen real, lado a lado con el estimado (7A.5/5.2) y la
   desviación en %. En `/analitica`, vista nueva "Rentabilidad": top viajes por margen real, viajes
   a pérdidas reales, desviación media estimado-vs-real (la métrica que dice si nuestro cost engine
   aprende). Tests.
-- [ ] `[LOOP]` **7A.9 Plan-vs-real en el detalle del viaje** — Para cada hito: ventana planificada
+- [x] `[LOOP]` **7A.9 Plan-vs-real en el detalle del viaje** — Para cada hito: ventana planificada
   vs. llegada real (evento `llegada`), con delta en minutos y color (verde a tiempo / ámbar <1h
   tarde / rojo más). Un mini-resumen arriba: "3/4 hitos a tiempo". Reutiliza datos existentes, sin
   migración. Tests del cálculo de deltas.
-- [ ] `[LOOP]` **7A.10 Centro de mando "Hoy" + notas del gestor** (subsume 6.20) — La home (`/`)
+- [x] `[LOOP]` **7A.10 Centro de mando "Hoy" + notas del gestor** (subsume 6.20) — La home (`/`)
   deja de ser solo el Kanban y abre con una fila de tarjetas accionables: viajes EN RIESGO (fuera
   de ventana ya, o ETA imposible), incidencias abiertas (con antigüedad), documentos por caducar
   (N), chóferes cerca del límite 561 (de 7A.1), viajes a pérdidas (margen<0). Cada tarjeta → clic
@@ -560,25 +560,25 @@ pica código. Orden de ejecución con dependencias, al final de ese documento:
   complementa el registro estructurado de `decision_asignacion` (7A.2) como segunda fuente de
   aprendizaje futuro. Es la pantalla que el gestor deja abierta todo el día: si está todo verde,
   no hay nada que hacer — ese es el producto. **Ver `SPECS-7A.md`.**
-- [ ] `[LOOP]` **7A.11 Wizard "Nuevo viaje" con inteligencia inline** — Rehacer `/viajes/nuevo` en
+- [x] `[LOOP]` **7A.11 Wizard "Nuevo viaje" con inteligencia inline** — Rehacer `/viajes/nuevo` en
   3 pasos: (1) ruta (hitos, con km/horas/coste/precio-sugerido calculándose en vivo en un panel
   lateral según añades hitos), (2) chófer+vehículo (ranking de 7A.2 con razones, aviso 561 — el
   gestor asigna directo, sin flujo de oferta), (3) confirmación (resumen completo + viabilidad
   final). Mantener el flujo actual como fallback hasta que el wizard esté completo (feature por
   ruta nueva `/viajes/nuevo-w` hasta validar, luego swap). Tests de los cálculos del panel.
-- [ ] `[LOOP]` **7A.12 Sistema de diseño consolidado** (subsume 6.14) — `dashboard/lib/labels.js`
+- [x] `[LOOP]` **7A.12 Sistema de diseño consolidado** (subsume 6.14) — `dashboard/lib/labels.js`
   (todos los TIPO_LABEL/estados/ámbitos duplicados hoy en 3+ archivos) y `dashboard/lib/format.js`
   (fmtFecha, fmtEuros, fmtKm, badges de caducidad/margen). Componentes compartidos en
   `app/components/ui/`: `Stat` (tarjeta numérica), `Badge` (semáforo consistente), `EmptyState`
   (icono + texto + CTA), `SectionCard`. Migrar las páginas existentes a estos componentes SIN
   cambiar comportamiento (refactor puro, tests siguen verdes). Es lo que hace que todo lo demás se
   vea y se sienta igual de pulido.
-- [ ] `[LOOP]` **7A.13 Onboarding y empty states** — Para una empresa recién creada, la home
+- [x] `[LOOP]` **7A.13 Onboarding y empty states** — Para una empresa recién creada, la home
   muestra un checklist guiado: 1) añade tu primer vehículo → 2) tu primer chófer → 3) vincúlalo a
   Telegram (enlace listo) → 4) crea tu primer viaje → 5) configura costes (€/km, gasoil, base).
   Cada paso con enlace directo y check automático al completarse. Todos los empty states de listas
   pasan de "Sin datos" a explicación + botón de acción (usar `EmptyState` de 7A.12).
-- [ ] `[LOOP]` **7A.14 Portal de cliente — tracking público por enlace** — Migración: `viaje.token_
+- [x] `[LOOP]` **7A.14 Portal de cliente — tracking público por enlace** — Migración: `viaje.token_
   publico uuid NULL UNIQUE`. Botón "Compartir seguimiento" en el detalle genera el token y copia
   `/t/{token}`. Página pública `/t/[token]` (SIN login, fuera del AuthGuard): referencia, estado,
   hitos con check de completados, ETA-561, última posición aproximada del camión en un mini-mapa

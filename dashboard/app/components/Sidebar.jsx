@@ -42,6 +42,9 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  // Portal de cliente (7A.14): /t/[token] es público, sin navegación interna.
+  if (pathname?.startsWith("/t/")) return null;
+
   const content = (
     <>
       <Link

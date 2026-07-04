@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { getSession, onAuthChange } from "../../lib/auth";
 import LoginPage from "./LoginPage";
 
 export default function AuthGuard({ children }) {
+  const pathname = usePathname();
   const [session, setSession] = useState(undefined);
 
   useEffect(() => {
@@ -12,6 +14,9 @@ export default function AuthGuard({ children }) {
     const { data: listener } = onAuthChange(setSession);
     return () => listener?.subscription?.unsubscribe();
   }, []);
+
+  // Portal de cliente (7A.14): páginas /t/[token] son públicas, sin sesión.
+  if (pathname?.startsWith("/t/")) return children;
 
   if (session === undefined) {
     return (

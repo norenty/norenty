@@ -37,16 +37,32 @@ function makeBuilder(table) {
         },
       };
     },
+    update(payload) {
+      return {
+        eq(field, value) {
+          const objetivo = (TABLES[table] || []).filter((r) => r[field] === value);
+          objetivo.forEach((r) => Object.assign(r, payload));
+          return Promise.resolve({ data: objetivo, error: null });
+        },
+      };
+    },
     then(resolve) { resolve({ data: rows, error: null }); },
   };
   return builder;
 }
+
+let rpcResultado = { data: null, error: null };
+const rpcSpy = vi.fn();
 
 vi.mock("./supabase", () => ({
   supabase: {
     from: (table) => makeBuilder(table),
     auth: {
       getSession: () => Promise.resolve({ data: { session: SESSION } }),
+    },
+    rpc: (fn, args) => {
+      rpcSpy(fn, args);
+      return Promise.resolve(rpcResultado);
     },
   },
 }));
@@ -105,6 +121,9 @@ const {
   getOnboardingEstado,
   calcularPanelViaje,
   createViaje,
+  generarTokenPublico,
+  revocarTokenPublico,
+  getViajePublico,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -112,6 +131,8 @@ beforeEach(() => {
   SESSION = null;
   osrmMock.mockReset();
   osrmMock.mockResolvedValue(100);
+  rpcSpy.mockClear();
+  rpcResultado = { data: null, error: null };
 });
 
 describe("validarAsignacion", () => {
@@ -1554,5 +1575,33 @@ describe("createViaje acepta precio (7A.11)", () => {
     TABLES.vehiculo = [];
     const { viaje } = await createViaje({ referencia: "REF2", choferId: null, vehiculoId: null, remolqueId: null, hitos: [] });
     expect(viaje.precio).toBeNull();
+  });
+});
+
+describe("portal de cliente (7A.14)", () => {
+  it("generarTokenPublico crea un uuid y actualiza el viaje", async () => {
+    TABLES.viaje = [{ id: "v1", token_publico: null }];
+    const token = await generarTokenPublico("v1");
+    expect(token).toMatch(/^[0-9a-f-]{36}$/);
+    expect(TABLES.viaje[0].token_publico).toBe(token);
+  });
+
+  it("revocarTokenPublico limpia el token", async () => {
+    TABLES.viaje = [{ id: "v1", token_publico: "abc-123" }];
+    await revocarTokenPublico("v1");
+    expect(TABLES.viaje[0].token_publico).toBeNull();
+  });
+
+  it("getViajePublico devuelve lo que la RPC responde (feliz)", async () => {
+    rpcResultado = { data: { referencia: "REF1", estado: "en_curso", hitos: [] }, error: null };
+    const r = await getViajePublico("token-valido");
+    expect(rpcSpy).toHaveBeenCalledWith("viaje_publico", { p_token: "token-valido" });
+    expect(r.referencia).toBe("REF1");
+  });
+
+  it("getViajePublico devuelve null si el token no existe", async () => {
+    rpcResultado = { data: null, error: null };
+    const r = await getViajePublico("token-invalido");
+    expect(r).toBeNull();
   });
 });

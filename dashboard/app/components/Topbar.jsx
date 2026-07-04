@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Search, LogOut } from "lucide-react";
 import { signOut } from "../../lib/auth";
 import { supabase } from "../../lib/supabase";
@@ -9,6 +9,7 @@ import NotificationCenter from "./NotificationCenter";
 
 export default function Topbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [open, setOpen] = useState(false);
@@ -69,6 +70,9 @@ export default function Topbar() {
     setQuery("");
     router.push(href);
   }
+
+  // Portal de cliente (7A.14): /t/[token] es público, sin topbar interna.
+  if (pathname?.startsWith("/t/")) return null;
 
   return (
     <header className="h-14 shrink-0 flex items-center gap-3 px-3 md:px-5 border-b border-border bg-surface pl-14 md:pl-5 print:hidden">
