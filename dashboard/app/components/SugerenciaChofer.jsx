@@ -9,7 +9,7 @@ import { sugerirChofer, registrarDecisionAsignacion } from "../../lib/data";
  * la sugerida (mayor score), se pide un motivo opcional — es el registro que
  * alimenta el aprendizaje futuro (7B.7), no un candado.
  */
-export default function SugerenciaChofer({ viajeId, onAsignado }) {
+export default function SugerenciaChofer({ viajeId, hitosOverride, onAsignado }) {
   const [ranking, setRanking] = useState(null);
   const [pendiente, setPendiente] = useState(null);
   const [motivo, setMotivo] = useState("");
@@ -17,17 +17,21 @@ export default function SugerenciaChofer({ viajeId, onAsignado }) {
 
   useEffect(() => {
     let activo = true;
-    if (!viajeId) return;
+    if (!viajeId && !hitosOverride) return;
     setRanking(null);
-    sugerirChofer(viajeId).then((r) => {
+    sugerirChofer(viajeId || null, { hitosOverride }).then((r) => {
       if (activo) setRanking(r);
     });
     return () => {
       activo = false;
     };
+    // hitosOverride se usa solo en el montaje inicial (wizard: los hitos ya
+    // están fijados al llegar al paso de asignación) — no re-disparar en
+    // cada render por cambiar de referencia del array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viajeId]);
 
-  if (!viajeId) return null;
+  if (!viajeId && !hitosOverride) return null;
 
   if (!ranking) {
     return (
@@ -49,14 +53,19 @@ export default function SugerenciaChofer({ viajeId, onAsignado }) {
     setAsignando(true);
     try {
       await onAsignado(fila.chofer.id);
-      await registrarDecisionAsignacion({
-        viajeId,
-        choferSugeridoId: top.chofer.id,
-        scoreSugerido: top.score,
-        choferElegidoId: fila.chofer.id,
-        scoreElegido: fila.score,
-        motivo: motivoTexto || null,
-      });
+      // Sin viajeId (wizard, viaje aún no creado) no hay fila a la que
+      // enganchar el registro — decision_asignacion.viaje_id es NOT NULL. Se
+      // omite el registro en ese caso (no bloquea la asignación).
+      if (viajeId) {
+        await registrarDecisionAsignacion({
+          viajeId,
+          choferSugeridoId: top.chofer.id,
+          scoreSugerido: top.score,
+          choferElegidoId: fila.chofer.id,
+          scoreElegido: fila.score,
+          motivo: motivoTexto || null,
+        });
+      }
       setPendiente(null);
       setMotivo("");
     } finally {

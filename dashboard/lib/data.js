@@ -846,9 +846,18 @@ export function scoreChofer({ tieneViajeActivo, estado561, docsCaducados, distan
  * Ranking de chóferes para un viaje, con score y razones. Reutiliza
  * `getMetricasChoferes` (4.5) para el componente de historial en vez de
  * reinventar el cálculo de puntualidad/incidencias.
+ *
+ * `viajeId` puede ser `null` (viaje aún no creado — wizard 7A.11, paso de
+ * asignación antes de guardar). En ese caso hay que pasar `hitosOverride`
+ * (los hitos en memoria del formulario) porque no hay fila en `hito` de la
+ * que leer, y no se excluye ningún viaje de "activo" (no hay id propio que
+ * excluir todavía).
  */
-export async function sugerirChofer(viajeId) {
+export async function sugerirChofer(viajeId, { hitosOverride = null } = {}) {
   const hoy = new Date().toISOString().slice(0, 10);
+
+  let viajesActivosQuery = supabase.from("viaje").select("id, chofer_id").in("estado", ESTADOS_ACTIVOS);
+  if (viajeId) viajesActivosQuery = viajesActivosQuery.neq("id", viajeId);
 
   const [
     { data: choferes },
@@ -856,17 +865,18 @@ export async function sugerirChofer(viajeId) {
     { data: documentos },
     metricas,
     { data: ubicaciones },
-    { data: hitos },
+    hitosResult,
     { data: empresas },
   ] = await Promise.all([
     supabase.from("chofer").select("id, nombre, idioma"),
-    supabase.from("viaje").select("id, chofer_id").in("estado", ESTADOS_ACTIVOS).neq("id", viajeId),
+    viajesActivosQuery,
     supabase.from("documento").select("entidad_id, tipo, fecha_caducidad").eq("ambito", "chofer"),
     getMetricasChoferes(),
     supabase.from("ubicacion").select("chofer_id, lat, lon, created_at"),
-    supabase.from("hito").select("orden, lat, lon").eq("viaje_id", viajeId),
+    hitosOverride ? Promise.resolve({ data: hitosOverride }) : supabase.from("hito").select("orden, lat, lon").eq("viaje_id", viajeId),
     supabase.from("empresa").select("velocidad_planificacion_kmh"),
   ]);
+  const hitos = hitosResult.data;
 
   const choferesConViajeActivo = new Set((viajesActivos || []).filter((v) => v.chofer_id).map((v) => v.chofer_id));
 
@@ -1403,6 +1413,20 @@ export async function calcularPresupuesto({ puntos, vehiculoId = null }) {
   };
 }
 
+/**
+ * Panel de cálculo en vivo del wizard "Nuevo viaje" (ítem 7A.11): mismo
+ * cálculo que el presupuestador (7A.6) más el margen del precio que el
+ * gestor va introduciendo, para el semáforo del panel lateral. Composición
+ * pura sobre `calcularPresupuesto`, sin duplicar el cálculo de coste.
+ */
+export async function calcularPanelViaje({ puntos, vehiculoId = null, precio = null }) {
+  const presupuesto = await calcularPresupuesto({ puntos, vehiculoId });
+  const costeTotal = presupuesto.coste.total;
+  const margen = precio != null && costeTotal != null ? +(precio - costeTotal).toFixed(2) : null;
+  const margenPct = margen != null && precio > 0 ? Math.round((margen / precio) * 100) : null;
+  return { ...presupuesto, margen, margenPct };
+}
+
 // ==========================================================================
 // Gastos del viaje (ítem 7A.7) — repostajes, peajes, multas, dietas reales.
 // Base del P&L real (7A.8): comparar lo estimado con lo que de verdad costó.
@@ -1768,7 +1792,7 @@ export async function validarCambioEstado(viajeId, nuevoEstado) {
   return { errores, ok: errores.length === 0 };
 }
 
-export async function createViaje({ referencia, choferId, vehiculoId, remolqueId, hitos }) {
+export async function createViaje({ referencia, choferId, vehiculoId, remolqueId, hitos, precio = null }) {
   const validacion = await validarAsignacion({ choferId, vehiculoId, remolqueId, referencia });
   if (!validacion.ok) {
     throw new Error(validacion.errores.join(". "));
@@ -1784,6 +1808,7 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
       remolque_id: remolqueId || null,
       empresa_id,
       estado: "planificado",
+      precio: precio != null ? precio : null,
     })
     .select()
     .single();
@@ -1796,6 +1821,11 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
       orden: i + 1,
       tipo: h.tipo,
       direccion: h.direccion || null,
+      // lat/lon opcionales (7A.11: el wizard los captura para el panel de
+      // cálculo en vivo; /viajes/nuevo no los manda y sigue guardando null,
+      // igual que antes).
+      lat: h.lat !== undefined && h.lat !== "" && h.lat != null ? Number(h.lat) : null,
+      lon: h.lon !== undefined && h.lon !== "" && h.lon != null ? Number(h.lon) : null,
       ventana_inicio: h.ventana_inicio || null,
       ventana_fin: h.ventana_fin || null,
       estado: "pendiente",

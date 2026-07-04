@@ -103,6 +103,8 @@ const {
   getMetricasRentabilidad,
   getPlanVsReal,
   getOnboardingEstado,
+  calcularPanelViaje,
+  createViaje,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -1178,6 +1180,28 @@ describe("motor de asignación (7A.2)", () => {
     expect(bruno.score).toBeGreaterThan(ana.score);
   });
 
+  it("sugerirChofer con viajeId null y hitosOverride (wizard 7A.11, viaje aún no creado)", async () => {
+    TABLES.chofer = [{ id: "c1", nombre: "Ana", idioma: "es" }];
+    TABLES.viaje = [];
+    TABLES.documento = [];
+    TABLES.ubicacion = [];
+    TABLES.hito = []; // no se consulta: se usa hitosOverride
+    TABLES.valoracion = [];
+    TABLES.incidencia = [];
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 75 }];
+    TABLES.ejecucion_evento = [];
+
+    const ranking = await sugerirChofer(null, {
+      hitosOverride: [
+        { orden: 1, lat: 40.4168, lon: -3.7038 },
+        { orden: 2, lat: 41.3851, lon: 2.1734 },
+      ],
+    });
+    expect(ranking).toHaveLength(1);
+    expect(ranking[0].chofer.nombre).toBe("Ana");
+    expect(ranking[0].razones).toContain("Disponible"); // sin viajes activos, nada que excluir
+  });
+
   it("registrarDecisionAsignacion marca siguio_sugerencia correctamente", async () => {
     SESSION = { user: { id: "u1" } };
     TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
@@ -1479,5 +1503,56 @@ describe("onboarding (7A.13)", () => {
     const r = await getOnboardingEstado();
     expect(r.completado).toBe(true);
     expect(r.pasos.every((p) => p.done)).toBe(true);
+  });
+});
+
+describe("calcularPanelViaje (7A.11 — panel en vivo del wizard)", () => {
+  const MADRID = { lat: 40.4168, lon: -3.7038 };
+  const BARCELONA = { lat: 41.3851, lon: 2.1734 };
+
+  it("con precio y coste configurados, calcula margen y margenPct", async () => {
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 75, coste_km: 1 }];
+    osrmMock.mockResolvedValue(100);
+    const r = await calcularPanelViaje({ puntos: [MADRID, BARCELONA], precio: 1000 });
+    expect(r.margen).toBe(1000 - r.coste.total);
+    expect(r.margenPct).toBe(Math.round((r.margen / 1000) * 100));
+  });
+
+  it("sin precio, margen y margenPct son null pero el resto del cálculo sigue", async () => {
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 75, coste_km: 1 }];
+    osrmMock.mockResolvedValue(100);
+    const r = await calcularPanelViaje({ puntos: [MADRID, BARCELONA] });
+    expect(r.margen).toBeNull();
+    expect(r.margenPct).toBeNull();
+    expect(r.km).toBeGreaterThan(0);
+  });
+
+  it("sin coste configurado, margen es null aunque haya precio", async () => {
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 75 }];
+    osrmMock.mockResolvedValue(100);
+    const r = await calcularPanelViaje({ puntos: [MADRID, BARCELONA], precio: 1000 });
+    expect(r.margen).toBeNull();
+  });
+});
+
+describe("createViaje acepta precio (7A.11)", () => {
+  it("guarda el precio en el insert del viaje", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.viaje = [];
+    TABLES.chofer = [];
+    TABLES.vehiculo = [];
+    const { viaje } = await createViaje({ referencia: "REF1", choferId: null, vehiculoId: null, remolqueId: null, hitos: [], precio: 1234 });
+    expect(viaje.precio).toBe(1234);
+  });
+
+  it("sin precio, se guarda null (no rompe el alta existente)", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.viaje = [];
+    TABLES.chofer = [];
+    TABLES.vehiculo = [];
+    const { viaje } = await createViaje({ referencia: "REF2", choferId: null, vehiculoId: null, remolqueId: null, hitos: [] });
+    expect(viaje.precio).toBeNull();
   });
 });
