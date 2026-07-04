@@ -692,7 +692,7 @@ Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servi
   importan para "assurance": cambio de estado de viaje, (re)asignación de chófer, cambio de precio,
   borrado de documento, generación/revocación de token público. Vista "Actividad" colapsable en el
   detalle del viaje. Complementa `decision_asignacion` (que ya registra el porqué de la asignación).
-- [ ] `[LOOP]` **8.9 Runbook de backup/restore** (era 6.17). Documentar pg_dump/restore de Supabase,
+- [x] `[LOOP]` **8.9 Runbook de backup/restore** (era 6.17). Documentar pg_dump/restore de Supabase,
   qué cubre (BD sí, storage aparte), frecuencia, y una prueba de restore real. La parte scriptada
   necesita `DATABASE_URL` (D2); sin ella, documentar el procedimiento manual y marcar el script
   como pendiente.
