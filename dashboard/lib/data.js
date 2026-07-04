@@ -1672,6 +1672,40 @@ export async function getBotHeartbeat() {
 }
 
 // ==========================================================================
+// Audit log ligero (ítem 8.8) — quién cambió qué y cuándo. `entidad` sigue
+// la misma convención de ámbito que `documento` (viaje/vehiculo/chofer).
+// ==========================================================================
+
+/** Nunca bloquea la acción que audita: si falla, se registra en consola y se
+ * sigue (mismo criterio que registrarDecisionAsignacion, 7A.2). */
+export async function registrarAuditoria({ entidad, entidadId, accion, detalle = {} }) {
+  try {
+    const empresaId = await getCurrentEmpresaId();
+    const { data: { session } } = await supabase.auth.getSession();
+    let gestorId = null;
+    if (session?.user) {
+      const { data: gestor } = await supabase.from("gestor").select("id").eq("auth_user_id", session.user.id).single();
+      gestorId = gestor?.id || null;
+    }
+    await supabase.from("audit_log").insert(
+      { empresa_id: empresaId, gestor_id: gestorId, entidad, entidad_id: entidadId, accion, detalle },
+      { returning: "minimal" }
+    );
+  } catch (e) {
+    console.error("registrarAuditoria falló (no bloqueante):", e);
+  }
+}
+
+export async function getAuditLog(entidad, entidadId) {
+  const { data } = await supabase
+    .from("audit_log")
+    .select("id, accion, detalle, created_at, gestor:gestor_id(nombre)")
+    .eq("entidad", entidad)
+    .eq("entidad_id", entidadId);
+  return (data || []).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+}
+
+// ==========================================================================
 // Parkings para camión (ítem 5.4)
 // ==========================================================================
 

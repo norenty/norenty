@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, MapPin, Package, Clock, Truck, Edit3, Check, X, AlertTriangle, Euro, Gauge, Copy, Share2,
+  ArrowLeft, MapPin, Package, Clock, Truck, Edit3, Check, X, AlertTriangle, Euro, Gauge, Copy, Share2, History, ChevronDown,
 } from "lucide-react";
 import PodImage from "../../components/PodImage";
 import DocumentosSection from "../../components/DocumentosSection";
@@ -13,13 +13,35 @@ import GastosViajeSection from "../../components/GastosViajeSection";
 import {
   getViaje, getChoferes, validarCambioEstado, validarAsignacion,
   getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje, getEstado561, getPnlViaje, getPlanVsReal,
-  generarTokenPublico, revocarTokenPublico, DIAS_VALIDEZ_TOKEN_PUBLICO_DEFAULT,
+  generarTokenPublico, revocarTokenPublico, DIAS_VALIDEZ_TOKEN_PUBLICO_DEFAULT, registrarAuditoria, getAuditLog,
 } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
 import Timeline from "../../components/Timeline";
 import RatingControl from "../../components/RatingControl";
 import { ESTADO_VIAJE, ESTADO_HITO, ESTADO_POD, TIPOS_DOC_VIAJE, LABEL_CAPA } from "../../../lib/labels";
+
+/** Etiqueta legible de una entrada de audit_log (8.8) — el detalle exacto de
+ * cada acción vive en `detalle` (jsonb), esto solo lo traduce a texto. */
+function describirAuditoria(a) {
+  const d = a.detalle || {};
+  switch (a.accion) {
+    case "cambio_estado":
+      return `Cambió el estado de "${d.de || "—"}" a "${d.a || "—"}"`;
+    case "asignar_chofer":
+      return d.chofer_nuevo ? "Asignó un chófer" : "Quitó la asignación de chófer";
+    case "cambio_precio":
+      return `Cambió el precio de ${d.de ?? "—"} € a ${d.a ?? "—"} €`;
+    case "generar_token_publico":
+      return "Generó el enlace de seguimiento público";
+    case "revocar_token_publico":
+      return "Revocó el enlace de seguimiento público";
+    case "borrar_documento":
+      return `Borró un documento (${d.tipo || "?"})`;
+    default:
+      return a.accion;
+  }
+}
 
 export default function ViajeDetalle() {
   const { id } = useParams();
@@ -39,6 +61,8 @@ export default function ViajeDetalle() {
   const [viabilidad, setViabilidad] = useState(null);
   const [pnl, setPnl] = useState(null);
   const [planVsReal, setPlanVsReal] = useState(null);
+  const [actividad, setActividad] = useState([]);
+  const [mostrarActividad, setMostrarActividad] = useState(false);
   const [generandoToken, setGenerandoToken] = useState(false);
   const [copiadoEnlace, setCopiadoEnlace] = useState(false);
   const [eta, setEta] = useState(null);
@@ -54,6 +78,7 @@ export default function ViajeDetalle() {
     getEtaViaje(id).then(setEta);
     getPnlViaje(id).then(setPnl);
     getPlanVsReal(id).then(setPlanVsReal);
+    getAuditLog("viaje", id).then(setActividad);
 
     if (d?.viaje) {
       if (d.viaje.vehiculo_id) {
@@ -84,6 +109,7 @@ export default function ViajeDetalle() {
         return;
       }
       await supabase.from("viaje").update({ estado: nuevoEstado }).eq("id", id);
+      registrarAuditoria({ entidad: "viaje", entidadId: id, accion: "cambio_estado", detalle: { de: viaje.estado, a: nuevoEstado } });
       setEditandoEstado(false);
       await load();
     } finally {
@@ -108,6 +134,10 @@ export default function ViajeDetalle() {
       // notificado_asignacion_en se resetea para que el bot avise al chófer
       // nuevo (7A.3) aunque el viaje ya hubiera notificado antes a otro.
       await supabase.from("viaje").update({ chofer_id: newChoferId || null, notificado_asignacion_en: null }).eq("id", id);
+      registrarAuditoria({
+        entidad: "viaje", entidadId: id, accion: "asignar_chofer",
+        detalle: { chofer_anterior: viaje.chofer?.id || null, chofer_nuevo: newChoferId || null },
+      });
       setEditandoChofer(false);
       await load();
     } finally {
@@ -143,6 +173,7 @@ export default function ViajeDetalle() {
     setError(null);
     try {
       await supabase.from("viaje").update({ precio }).eq("id", id);
+      registrarAuditoria({ entidad: "viaje", entidadId: id, accion: "cambio_precio", detalle: { de: viaje.precio, a: precio } });
       setEditandoPrecio(false);
       await load();
     } finally {
@@ -154,6 +185,7 @@ export default function ViajeDetalle() {
     setGenerandoToken(true);
     try {
       await generarTokenPublico(id);
+      registrarAuditoria({ entidad: "viaje", entidadId: id, accion: "generar_token_publico" });
       await load();
     } finally {
       setGenerandoToken(false);
@@ -163,6 +195,7 @@ export default function ViajeDetalle() {
   async function revocarEnlace() {
     if (!confirm("¿Revocar el enlace? El cliente dejará de poder verlo.")) return;
     await revocarTokenPublico(id);
+    registrarAuditoria({ entidad: "viaje", entidadId: id, accion: "revocar_token_publico" });
     await load();
   }
 
@@ -355,6 +388,31 @@ export default function ViajeDetalle() {
             <h2 className="text-sm font-medium text-ink mb-3">Log de ejecución</h2>
             <Timeline eventos={eventos} />
           </section>
+
+          {actividad.length > 0 && (
+            <section>
+              <button
+                onClick={() => setMostrarActividad((v) => !v)}
+                className="flex items-center gap-1.5 text-sm font-medium text-ink mb-3"
+              >
+                <History size={15} /> Actividad ({actividad.length})
+                <ChevronDown size={14} className={`text-ink-muted transition-transform ${mostrarActividad ? "rotate-180" : ""}`} />
+              </button>
+              {mostrarActividad && (
+                <div className="flex flex-col gap-2">
+                  {actividad.map((a) => (
+                    <div key={a.id} className="flex items-center gap-3 text-xs bg-surface border border-border rounded-lg px-3 py-2">
+                      <span className="flex-1 text-ink-secondary">{describirAuditoria(a)}</span>
+                      <span className="text-ink-muted shrink-0">
+                        {a.gestor?.nombre ? `${a.gestor.nombre} · ` : ""}
+                        {new Date(a.created_at).toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
         </div>
 
         <aside className="flex flex-col gap-6">

@@ -687,7 +687,7 @@ Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servi
   grants correctos, y que ninguna función SECURITY DEFINER nueva expone de más. Documentar.
 
 ### Bloque C — Trazabilidad y datos
-- [ ] `[LOOP]` **8.8 Audit log** (era 6.13). Tabla `audit_log(id, empresa_id, gestor_id, entidad,
+- [x] `[LOOP]` **8.8 Audit log** (era 6.13). Tabla `audit_log(id, empresa_id, gestor_id, entidad,
   entidad_id, accion, detalle jsonb, created_at)` con RLS por empresa; registrar los cambios que
   importan para "assurance": cambio de estado de viaje, (re)asignación de chófer, cambio de precio,
   borrado de documento, generación/revocación de token público. Vista "Actividad" colapsable en el

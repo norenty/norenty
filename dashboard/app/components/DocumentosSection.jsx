@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, FileText, ExternalLink, Trash2 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { getCurrentEmpresaId } from "../../lib/data";
+import { getCurrentEmpresaId, registrarAuditoria } from "../../lib/data";
 import { badgeCaducidad, fmtFecha } from "../../lib/format";
 
 const SIGNED_URL_TTL = 3600;
@@ -103,6 +103,7 @@ export default function DocumentosSection({ ambito, entidadId, tipos, titulo = "
     try {
       await supabase.storage.from("documentos").remove([doc.archivo_url]);
       await supabase.from("documento").delete().eq("id", doc.id);
+      registrarAuditoria({ entidad: ambito, entidadId, accion: "borrar_documento", detalle: { tipo: doc.tipo, documento_id: doc.id } });
       await load();
     } finally {
       setBorrandoId(null);

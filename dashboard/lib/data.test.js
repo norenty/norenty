@@ -126,6 +126,8 @@ const {
   getViajePublico,
   getBotHeartbeat,
   UMBRAL_HEARTBEAT_S,
+  registrarAuditoria,
+  getAuditLog,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -1697,5 +1699,36 @@ describe("health check del bot (8.3)", () => {
     ];
     const r = await getBotHeartbeat();
     expect(r.segundosDesdeUltimo).toBeLessThan(20);
+  });
+});
+
+describe("audit log (8.8)", () => {
+  it("registrarAuditoria inserta con empresa y gestor resueltos de la sesión", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+    TABLES.audit_log = [];
+    await registrarAuditoria({ entidad: "viaje", entidadId: "v1", accion: "cambio_estado", detalle: { de: "planificado", a: "en_curso" } });
+    expect(TABLES.audit_log).toHaveLength(1);
+    expect(TABLES.audit_log[0].empresa_id).toBe("e1");
+    expect(TABLES.audit_log[0].gestor_id).toBe("g1");
+    expect(TABLES.audit_log[0].accion).toBe("cambio_estado");
+  });
+
+  it("registrarAuditoria no lanza si falla (sin sesión)", async () => {
+    SESSION = null;
+    await expect(
+      registrarAuditoria({ entidad: "viaje", entidadId: "v1", accion: "cambio_estado" })
+    ).resolves.not.toThrow();
+  });
+
+  it("getAuditLog filtra por entidad+entidad_id y ordena por más reciente", async () => {
+    TABLES.audit_log = [
+      { id: "a1", entidad: "viaje", entidad_id: "v1", accion: "cambio_estado", created_at: "2026-01-01T00:00:00Z" },
+      { id: "a2", entidad: "viaje", entidad_id: "v1", accion: "asignar_chofer", created_at: "2026-02-01T00:00:00Z" },
+      { id: "a3", entidad: "viaje", entidad_id: "v2", accion: "cambio_estado", created_at: "2026-03-01T00:00:00Z" }, // otro viaje
+    ];
+    const r = await getAuditLog("viaje", "v1");
+    expect(r).toHaveLength(2);
+    expect(r[0].accion).toBe("asignar_chofer"); // el más reciente primero
   });
 });
