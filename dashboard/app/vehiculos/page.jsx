@@ -5,13 +5,7 @@ import Link from "next/link";
 import { Plus, Truck } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getCurrentEmpresaId } from "../../lib/data";
-
-const TIPOS = [
-  { value: "tractora", label: "Tractora" },
-  { value: "remolque", label: "Remolque" },
-  { value: "rigido", label: "Rígido" },
-  { value: "furgoneta", label: "Furgoneta" },
-];
+import { TIPOS_VEHICULO as TIPOS } from "../../lib/labels";
 
 export default function VehiculosPage() {
   const [vehiculos, setVehiculos] = useState([]);

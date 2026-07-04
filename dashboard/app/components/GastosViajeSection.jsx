@@ -3,11 +3,9 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Fuel, ParkingSquare, Siren, Bed, Receipt } from "lucide-react";
 import { getGastosViaje, createGastoViaje, deleteGastoViaje } from "../../lib/data";
+import { TIPO_GASTO_LABEL as TIPO_LABEL } from "../../lib/labels";
 
 const TIPOS = ["repostaje", "peaje", "multa", "dieta", "otro"];
-const TIPO_LABEL = {
-  repostaje: "Repostaje", peaje: "Peaje", multa: "Multa", dieta: "Dieta", otro: "Otro",
-};
 const TIPO_ICON = {
   repostaje: Fuel, peaje: ParkingSquare, multa: Siren, dieta: Bed, otro: Receipt,
 };

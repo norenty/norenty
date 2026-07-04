@@ -4,24 +4,9 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { AlertTriangle, Clock, CheckCircle2, ExternalLink, ChevronDown } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { ESTADO_INCIDENCIA as ESTADO_LABELS, TIPO_INCIDENCIA_LABEL as TIPO_LABELS } from "../../lib/labels";
 
 const PAGE_SIZE = 20;
-
-const ESTADO_LABELS = {
-  abierta: { label: "Abierta", color: "text-estado-incidencia", bg: "bg-red-50" },
-  en_revision: { label: "En revisión", color: "text-yellow-600", bg: "bg-yellow-50" },
-  resuelta: { label: "Resuelta", color: "text-estado-ok", bg: "bg-green-50" },
-};
-
-const TIPO_LABELS = {
-  fuera_de_ventana: "Fuera de ventana",
-  rechazo_entrega: "Rechazo en entrega",
-  documento_invalido: "Documento inválido",
-  averia: "Avería",
-  accidente: "Accidente",
-  retraso: "Retraso",
-  otro: "Otro",
-};
 
 export default function IncidenciasPage() {
   const [incidencias, setIncidencias] = useState([]);
