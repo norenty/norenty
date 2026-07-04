@@ -669,7 +669,7 @@ Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servi
   supimos" y "un chófer lleva 3h sin poder reportar y nadie lo sabe".
 
 ### Bloque B — Seguridad
-- [ ] `[LOOP]` **8.4 Suite de aislamiento multi-tenant.** Test que crea (o usa) dos empresas y
+- [x] `[LOOP]` **8.4 Suite de aislamiento multi-tenant.** Test que crea (o usa) dos empresas y
   verifica contra la BD REAL que, autenticado como gestor de la empresa A, NINGUNA tabla ni RPC
   devuelve una sola fila de la empresa B (viajes, hitos, choferes, vehículos, documentos, gastos,
   notas, decisiones, invitaciones, incidencidencias, POD). Es la prueba que convierte "las policies
