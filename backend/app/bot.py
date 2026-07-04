@@ -1300,6 +1300,19 @@ async def manejar_error(update, ctx):
             logger.error("No se pudo ni avisar al chófer del error técnico: %s", e)
 
 
+HEARTBEAT_INTERVAL_S = 120  # cada 2 min — el dashboard (8.3) avisa si el último es más viejo que ~2.5x esto
+
+
+async def heartbeat(ctx):
+    """Job repetitivo (8.3): registra que el bot está vivo. Insert-only, sin
+    reintentos (si falla una vez, la siguiente pasada 2 min después ya
+    corrige la señal — no vale la pena la complejidad de reintentar esto)."""
+    try:
+        supabase.table("bot_heartbeat").insert({}).execute()
+    except Exception as e:
+        logger.error("No se pudo registrar el heartbeat: %s", e)
+
+
 def create_bot_app():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_error_handler(manejar_error)
@@ -1317,4 +1330,5 @@ def create_bot_app():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_texto))
     if app.job_queue:
         app.job_queue.run_repeating(procesar_notificaciones_asignacion, interval=30, first=15)
+        app.job_queue.run_repeating(heartbeat, interval=HEARTBEAT_INTERVAL_S, first=1)
     return app

@@ -661,7 +661,7 @@ Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servi
   Sentry con contexto (`update_id`, `chofer_id`, acción) + mensaje de disculpa al chófer en su
   idioma ("estamos teniendo un problema técnico, reinténtalo en un minuto"). Nunca un silencio.
   Tests del wrapper (éxito al 2º intento, fallo tras 3, que no traga excepciones no-red).
-- [ ] `[LOOP]` **8.3 Health check + heartbeat del bot.** Endpoint/tarea que registra "el bot está
+- [x] `[LOOP]` **8.3 Health check + heartbeat del bot.** Endpoint/tarea que registra "el bot está
   vivo" cada N minutos (fila en una tabla `bot_heartbeat` o log a Sentry), y una comprobación que,
   si el último heartbeat es viejo, avisa. En local es una tabla + una vista en Ajustes ("Bot:
   activo hace 30s / SIN SEÑAL desde hace 12 min"); la alerta real por Telegram/email al gestor

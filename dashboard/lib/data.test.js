@@ -124,6 +124,8 @@ const {
   generarTokenPublico,
   revocarTokenPublico,
   getViajePublico,
+  getBotHeartbeat,
+  UMBRAL_HEARTBEAT_S,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -1652,5 +1654,37 @@ describe("portal de cliente (7A.14)", () => {
     rpcResultado = { data: null, error: null };
     const r = await getViajePublico("token-invalido");
     expect(r).toBeNull();
+  });
+});
+
+describe("health check del bot (8.3)", () => {
+  it("activo=true si el último latido es reciente", async () => {
+    TABLES.bot_heartbeat = [{ created_at: new Date(Date.now() - 10000).toISOString() }]; // hace 10s
+    const r = await getBotHeartbeat();
+    expect(r.activo).toBe(true);
+    expect(r.segundosDesdeUltimo).toBeLessThan(UMBRAL_HEARTBEAT_S);
+  });
+
+  it("activo=false si el último latido es más viejo que el umbral", async () => {
+    TABLES.bot_heartbeat = [{ created_at: new Date(Date.now() - (UMBRAL_HEARTBEAT_S + 60) * 1000).toISOString() }];
+    const r = await getBotHeartbeat();
+    expect(r.activo).toBe(false);
+  });
+
+  it("sin ningún latido registrado, activo=false y ultimoLatido=null", async () => {
+    TABLES.bot_heartbeat = [];
+    const r = await getBotHeartbeat();
+    expect(r.activo).toBe(false);
+    expect(r.ultimoLatido).toBeNull();
+    expect(r.segundosDesdeUltimo).toBeNull();
+  });
+
+  it("toma el latido más reciente si hay varios", async () => {
+    TABLES.bot_heartbeat = [
+      { created_at: new Date(Date.now() - 500000).toISOString() },
+      { created_at: new Date(Date.now() - 5000).toISOString() }, // el más reciente
+    ];
+    const r = await getBotHeartbeat();
+    expect(r.segundosDesdeUltimo).toBeLessThan(20);
   });
 });

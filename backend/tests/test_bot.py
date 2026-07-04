@@ -858,3 +858,22 @@ async def test_manejar_error_no_lanza_si_no_hay_chat_identificable():
     ctx = SimpleNamespace(bot=AsyncMock(), error=RuntimeError("boom"))
     await bot.manejar_error(None, ctx)
     ctx.bot.send_message.assert_not_awaited()
+
+
+# --- heartbeat (8.3): "el canal con el chófer nunca se cae en silencio" ---
+
+@pytest.mark.asyncio
+async def test_heartbeat_inserta_una_fila(fake_db):
+    fake_db.tables["bot_heartbeat"] = []
+    await bot.heartbeat(SimpleNamespace())
+    assert len(fake_db.tables["bot_heartbeat"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_no_lanza_si_falla_la_insercion(monkeypatch):
+    class SupabaseRoto:
+        def table(self, _name):
+            raise ConnectionError("sin red")
+
+    monkeypatch.setattr(bot, "supabase", SupabaseRoto())
+    await bot.heartbeat(SimpleNamespace())  # no debe lanzar

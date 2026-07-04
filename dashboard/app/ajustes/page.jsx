@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, User, Building2, Bell, Shield, Send, Copy, Check, MapPin, Euro, Gauge, Users, X } from "lucide-react";
+import { Save, User, Building2, Bell, Shield, Send, Copy, Check, MapPin, Euro, Gauge, Users, X, Activity } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getSession, signOut } from "../../lib/auth";
-import { VELOCIDAD_PLANIFICACION_KMH, getInvitaciones, createInvitacion, deleteInvitacion } from "../../lib/data";
+import { VELOCIDAD_PLANIFICACION_KMH, getInvitaciones, createInvitacion, deleteInvitacion, getBotHeartbeat } from "../../lib/data";
 
 const BOT = process.env.NEXT_PUBLIC_BOT_USERNAME;
 
@@ -30,6 +30,16 @@ export default function AjustesPage() {
   const [invitarEmail, setInvitarEmail] = useState("");
   const [invitando, setInvitando] = useState(false);
   const [codigoCopiadoId, setCodigoCopiadoId] = useState(null);
+  const [heartbeat, setHeartbeat] = useState(null);
+
+  useEffect(() => {
+    function cargarHeartbeat() {
+      getBotHeartbeat().then(setHeartbeat);
+    }
+    cargarHeartbeat();
+    const intervalo = setInterval(cargarHeartbeat, 30000);
+    return () => clearInterval(intervalo);
+  }, []);
 
   useEffect(() => {
     async function init() {
@@ -293,6 +303,28 @@ export default function AjustesPage() {
           </div>
         ) : (
           <p className="text-xs text-ink-muted">Bot no configurado (falta NEXT_PUBLIC_BOT_USERNAME).</p>
+        )}
+      </section>
+
+      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Activity size={18} className="text-brand" />
+          <h2 className="text-sm font-medium text-ink">Estado del bot</h2>
+        </div>
+        <p className="text-xs text-ink-secondary mb-3">
+          Latido cada 2 min mientras el proceso del bot está vivo (ítem 8.3). Si lleva más de 5
+          min sin señal, algo se ha caído y ningún chófer puede reportar hasta que se reinicie.
+        </p>
+        {!heartbeat ? (
+          <p className="text-xs text-ink-muted">Cargando…</p>
+        ) : heartbeat.activo ? (
+          <p className="text-xs text-estado-ok">● Activo — último latido hace {heartbeat.segundosDesdeUltimo}s</p>
+        ) : heartbeat.ultimoLatido ? (
+          <p className="text-xs text-estado-incidencia">
+            ● SIN SEÑAL — último latido hace {Math.round(heartbeat.segundosDesdeUltimo / 60)} min
+          </p>
+        ) : (
+          <p className="text-xs text-estado-incidencia">● SIN SEÑAL — nunca se ha registrado un latido</p>
         )}
       </section>
 

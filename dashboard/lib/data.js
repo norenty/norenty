@@ -1643,6 +1643,26 @@ export async function getViajePublico(token) {
 }
 
 // ==========================================================================
+// Health check del bot (ítem 8.3) — "el canal con el chófer nunca se cae en
+// silencio": el bot inserta un latido cada 2 min (HEARTBEAT_INTERVAL_S en
+// bot.py); si el último es más viejo que este umbral, algo va mal y hay que
+// enterarse desde Ajustes, no cuando un chófer lleve horas sin poder reportar.
+// ==========================================================================
+
+export const UMBRAL_HEARTBEAT_S = 300; // 2.5x el intervalo del bot (120s) — valor inicial razonable
+
+export async function getBotHeartbeat() {
+  const { data } = await supabase.from("bot_heartbeat").select("created_at");
+  const filas = (data || []).slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  const ultimoLatido = filas[0]?.created_at || null;
+  const segundosDesdeUltimo = ultimoLatido
+    ? Math.floor((Date.now() - new Date(ultimoLatido).getTime()) / 1000)
+    : null;
+  const activo = segundosDesdeUltimo != null && segundosDesdeUltimo < UMBRAL_HEARTBEAT_S;
+  return { ultimoLatido, segundosDesdeUltimo, activo };
+}
+
+// ==========================================================================
 // Parkings para camión (ítem 5.4)
 // ==========================================================================
 
