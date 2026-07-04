@@ -698,7 +698,7 @@ Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servi
   como pendiente.
 
 ### Bloque D — Operabilidad (bus factor)
-- [ ] `[LOOP]` **8.10 ONBOARDING.md** (era 6.16). Guía para que un segundo dev (o tú en 3 meses)
+- [x] `[LOOP]` **8.10 ONBOARDING.md** (era 6.16). Guía para que un segundo dev (o tú en 3 meses)
   arranque todo: requisitos, cada variable de `.env` (qué es y dónde se saca), arrancar
   bot/dashboard/OSRM, correr tests, aplicar migraciones, sembrar demo, y las convenciones del repo.
 - [ ] `[LOOP]` **8.11 Checklist de despliegue** (era 6.21). DEPLOY.md: pasos exactos
