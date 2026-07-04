@@ -13,7 +13,7 @@ import GastosViajeSection from "../../components/GastosViajeSection";
 import {
   getViaje, getChoferes, validarCambioEstado, validarAsignacion,
   getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje, getEstado561, getPnlViaje, getPlanVsReal,
-  generarTokenPublico, revocarTokenPublico,
+  generarTokenPublico, revocarTokenPublico, DIAS_VALIDEZ_TOKEN_PUBLICO_DEFAULT,
 } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
@@ -583,9 +583,19 @@ export default function ViajeDetalle() {
                     {copiadoEnlace ? <Check size={15} /> : <Copy size={15} />}
                   </button>
                 </div>
-                <button onClick={revocarEnlace} className="self-start text-xs text-estado-incidencia hover:underline">
-                  Revocar enlace
-                </button>
+                {viaje.token_publico_expira && (
+                  <p className="text-xs text-ink-muted">
+                    Caduca el {new Date(viaje.token_publico_expira).toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" })}
+                  </p>
+                )}
+                <div className="flex gap-3">
+                  <button onClick={generarEnlace} disabled={generandoToken} className="self-start text-xs text-ink-secondary hover:underline disabled:opacity-40">
+                    Renovar (+{DIAS_VALIDEZ_TOKEN_PUBLICO_DEFAULT} días)
+                  </button>
+                  <button onClick={revocarEnlace} className="self-start text-xs text-estado-incidencia hover:underline">
+                    Revocar enlace
+                  </button>
+                </div>
               </div>
             ) : (
               <button

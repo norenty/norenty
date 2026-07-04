@@ -1630,17 +1630,28 @@ describe("createViaje acepta precio (7A.11)", () => {
 });
 
 describe("portal de cliente (7A.14)", () => {
-  it("generarTokenPublico crea un uuid y actualiza el viaje", async () => {
-    TABLES.viaje = [{ id: "v1", token_publico: null }];
-    const token = await generarTokenPublico("v1");
+  it("generarTokenPublico crea un uuid, fija caducidad a 30 días y actualiza el viaje", async () => {
+    TABLES.viaje = [{ id: "v1", token_publico: null, token_publico_expira: null }];
+    const { token, expira } = await generarTokenPublico("v1");
     expect(token).toMatch(/^[0-9a-f-]{36}$/);
     expect(TABLES.viaje[0].token_publico).toBe(token);
+    expect(TABLES.viaje[0].token_publico_expira).toBe(expira);
+    const diasHastaExpira = (new Date(expira) - Date.now()) / 86400000;
+    expect(diasHastaExpira).toBeCloseTo(30, 0);
   });
 
-  it("revocarTokenPublico limpia el token", async () => {
-    TABLES.viaje = [{ id: "v1", token_publico: "abc-123" }];
+  it("generarTokenPublico acepta una validez distinta a la por defecto", async () => {
+    TABLES.viaje = [{ id: "v1", token_publico: null, token_publico_expira: null }];
+    const { expira } = await generarTokenPublico("v1", { diasValidez: 7 });
+    const dias = (new Date(expira) - Date.now()) / 86400000;
+    expect(dias).toBeCloseTo(7, 0);
+  });
+
+  it("revocarTokenPublico limpia el token y la caducidad", async () => {
+    TABLES.viaje = [{ id: "v1", token_publico: "abc-123", token_publico_expira: "2030-01-01T00:00:00Z" }];
     await revocarTokenPublico("v1");
     expect(TABLES.viaje[0].token_publico).toBeNull();
+    expect(TABLES.viaje[0].token_publico_expira).toBeNull();
   });
 
   it("getViajePublico devuelve lo que la RPC responde (feliz)", async () => {

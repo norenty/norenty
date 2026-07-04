@@ -1625,15 +1625,24 @@ export async function getOnboardingEstado() {
 // precio, coste, nombre del chófer ni matrícula.
 // ==========================================================================
 
-export async function generarTokenPublico(viajeId) {
+export const DIAS_VALIDEZ_TOKEN_PUBLICO_DEFAULT = 30; // valor inicial razonable, NO pactado con cliente real
+
+/** Genera (o regenera) el enlace público con caducidad — un enlace compartido
+ * no debe vivir para siempre (8.5). `diasValidez` opcional para casos que
+ * necesiten una ventana distinta (ej. un seguimiento puntual más corto). */
+export async function generarTokenPublico(viajeId, { diasValidez = DIAS_VALIDEZ_TOKEN_PUBLICO_DEFAULT } = {}) {
   const token = crypto.randomUUID();
-  const { error } = await supabase.from("viaje").update({ token_publico: token }).eq("id", viajeId);
+  const expira = new Date(Date.now() + diasValidez * 86400000).toISOString();
+  const { error } = await supabase
+    .from("viaje")
+    .update({ token_publico: token, token_publico_expira: expira })
+    .eq("id", viajeId);
   if (error) throw error;
-  return token;
+  return { token, expira };
 }
 
 export async function revocarTokenPublico(viajeId) {
-  await supabase.from("viaje").update({ token_publico: null }).eq("id", viajeId);
+  await supabase.from("viaje").update({ token_publico: null, token_publico_expira: null }).eq("id", viajeId);
 }
 
 export async function getViajePublico(token) {

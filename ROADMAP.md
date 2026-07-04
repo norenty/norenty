@@ -674,7 +674,7 @@ Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servi
   devuelve una sola fila de la empresa B (viajes, hitos, choferes, vehículos, documentos, gastos,
   notas, decisiones, invitaciones, incidencidencias, POD). Es la prueba que convierte "las policies
   deberían aislar" en "está demostrado que aíslan". Documentar el resultado.
-- [ ] `[LOOP]` **8.5 Endurecer el portal público (7A.14).** El endpoint `viaje_publico` es anónimo:
+- [x] `[LOOP]` **8.5 Endurecer el portal público (7A.14).** El endpoint `viaje_publico` es anónimo:
   (a) caducidad opcional del token (`token_publico_expira timestamptz`; la RPC devuelve null si
   pasó) para que un enlace compartido no viva para siempre; (b) documentar que el token es un uuid
   impredecible (no enumerable) y que la RPC ya no filtra datos internos (verificado en 7A.14);
@@ -723,6 +723,11 @@ Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servi
 ## Despliegue (POSPUESTO — no tocar sin confirmación explícita)
 
 GitHub → Vercel (dashboard) → Railway (backend) → dominio norenty.com vía Cloudflare.
+
+**Pendiente para el checklist de despliegue (8.11):** poner rate-limit a nivel de infra
+(Cloudflare/Vercel) sobre `/rest/v1/rpc/viaje_publico` — es un endpoint anónimo (portal de
+cliente, 7A.14/8.5); el token en sí es impredecible y caduca a los 30 días, pero sin rate-limit
+alguien podría intentar fuerza bruta de tokens contra el endpoint. No aplicable en local.
 
 ---
 
