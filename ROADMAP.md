@@ -619,6 +619,107 @@ pica código. Orden de ejecución con dependencias, al final de ese documento:
 
 ---
 
+## Fase 8 — Solidez, seguridad y confiabilidad (ABIERTA 2026-07-04, PRIORIDAD del loop sobre features)
+
+**Decisión de dirección (usuario, 2026-07-04):** para este producto la confianza ES el producto
+— es un SaaS de *aseguramiento de ejecución*: el gestor paga por creer que lo que ve (hora de
+llegada, POD, km, horas) es VERDAD y nadie lo ha tocado. Por encima de features nuevas y de la
+estética (que para V1 no es imprescindible), la prioridad es que sea **sólido, seguro y
+confiable**. Esta fase reorganiza y AMPLÍA lo que quedaba de Fase 6 alrededor de esos tres
+pilares, y **baja de prioridad** los ítems que son features puras (`6.12 Ctrl+K`, `6.19 i18n
+completo` — se mantienen en backlog pero después de Fase 8).
+
+**Las 6 claves de que este SaaS tenga éxito** (marco de decisión para todo lo de abajo):
+1. **La evidencia es incorruptible.** Nadie reescribe una hora de llegada ni un POD para maquillar
+   un dato. (Empezado: migración 0019 bloquea escribir `ejecucion_evento`/`ubicacion` desde el
+   dashboard.) → audit log + aislamiento probado.
+2. **El sistema no pierde datos y no miente.** Backups probados, y CERO divergencia entre lo que el
+   código asume y lo que la BD tiene de verdad. Los tres bugs que han llegado al usuario (nómina
+   `tipo_evento`, mapa `.rpc().catch()`, y los 2 de RLS bootstrap) pasaron los tests porque los
+   mocks replican el schema ASUMIDO, no el real. → smoke tests contra la BD real.
+3. **El canal con el chófer nunca se cae en silencio.** El bot es el único punto de contacto; si
+   muere, los chóferes no reportan y el gestor no se entera. → reintentos + health check + alerta.
+4. **Aislamiento multi-tenant a prueba de balas.** Una flota jamás ve datos de otra. → suite de
+   aislamiento que lo prueba contra la BD real, no solo confiar en las policies.
+5. **Trazabilidad total.** Quién cambió qué y cuándo. En un producto de "assurance" no es opcional.
+6. **Operable por otra persona.** Si entra otro dev, o vuelves en 3 meses, el sistema se entiende,
+   se arranca y se despliega sin arqueología.
+
+Protocolo igual: EN ORDEN, uno por iteración, `ci.ps1` verde, commit, `[x]` + línea en PROGRESS.
+Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servicio/criterio tuyo).
+
+### Bloque A — Confiabilidad de la verdad (lo de mayor palanca; los bugs que ya te llegaron)
+- [ ] `[LOOP]` **8.1 Smoke tests contra la BD demo real en CI.** El agujero nº1: los mocks no
+  cazan que una columna no exista o que una página crashee en runtime. Script que, con la empresa
+  demo, carga las funciones de datos reales (`getViajes`, `getResumenHoy`, `getViabilidadViaje`,
+  `getInformeNomina`, `getMetricasRentabilidad`, `getPlanVsReal`, y la RPC `viaje_publico`) contra
+  el Supabase real vía anon key y asegura que devuelven sin lanzar y con el shape esperado.
+  Integrar en `ci.ps1` como paso opcional (salta con aviso si no hay `.env`, para no romper CI en
+  máquinas sin credenciales). Esto habría cazado la nómina y el mapa antes que tú.
+- [ ] `[LOOP]` **8.2 Reintentos + captura de errores en el bot** (era 6.18). Wrapper con 3
+  reintentos y backoff exponencial para TODA llamada a Supabase del bot; en fallo definitivo →
+  Sentry con contexto (`update_id`, `chofer_id`, acción) + mensaje de disculpa al chófer en su
+  idioma ("estamos teniendo un problema técnico, reinténtalo en un minuto"). Nunca un silencio.
+  Tests del wrapper (éxito al 2º intento, fallo tras 3, que no traga excepciones no-red).
+- [ ] `[LOOP]` **8.3 Health check + heartbeat del bot.** Endpoint/tarea que registra "el bot está
+  vivo" cada N minutos (fila en una tabla `bot_heartbeat` o log a Sentry), y una comprobación que,
+  si el último heartbeat es viejo, avisa. En local es una tabla + una vista en Ajustes ("Bot:
+  activo hace 30s / SIN SEÑAL desde hace 12 min"); la alerta real por Telegram/email al gestor
+  queda para el deploy (necesita proceso vivo 24/7). Es la diferencia entre "el bot se cayó y lo
+  supimos" y "un chófer lleva 3h sin poder reportar y nadie lo sabe".
+
+### Bloque B — Seguridad
+- [ ] `[LOOP]` **8.4 Suite de aislamiento multi-tenant.** Test que crea (o usa) dos empresas y
+  verifica contra la BD REAL que, autenticado como gestor de la empresa A, NINGUNA tabla ni RPC
+  devuelve una sola fila de la empresa B (viajes, hitos, choferes, vehículos, documentos, gastos,
+  notas, decisiones, invitaciones, incidencidencias, POD). Es la prueba que convierte "las policies
+  deberían aislar" en "está demostrado que aíslan". Documentar el resultado.
+- [ ] `[LOOP]` **8.5 Endurecer el portal público (7A.14).** El endpoint `viaje_publico` es anónimo:
+  (a) caducidad opcional del token (`token_publico_expira timestamptz`; la RPC devuelve null si
+  pasó) para que un enlace compartido no viva para siempre; (b) documentar que el token es un uuid
+  impredecible (no enumerable) y que la RPC ya no filtra datos internos (verificado en 7A.14);
+  (c) nota para el deploy: poner rate-limit a nivel de infra sobre `/rest/v1/rpc/viaje_publico`.
+- [ ] `[ACCIÓN D6]` **8.6 Activar "Leaked Password Protection"** en Supabase (Auth → Providers →
+  Email). 1 clic, gratis, rechaza contraseñas ya filtradas. No tocable por MCP, solo panel — te
+  guío cuando quieras.
+- [ ] `[LOOP]` **8.7 Repaso de advisors + superficies.** Correr los security advisors de Supabase,
+  revisar cada tabla nueva de 7A (decision_asignacion, nota_gestor, gasto_viaje) confirmando RLS y
+  grants correctos, y que ninguna función SECURITY DEFINER nueva expone de más. Documentar.
+
+### Bloque C — Trazabilidad y datos
+- [ ] `[LOOP]` **8.8 Audit log** (era 6.13). Tabla `audit_log(id, empresa_id, gestor_id, entidad,
+  entidad_id, accion, detalle jsonb, created_at)` con RLS por empresa; registrar los cambios que
+  importan para "assurance": cambio de estado de viaje, (re)asignación de chófer, cambio de precio,
+  borrado de documento, generación/revocación de token público. Vista "Actividad" colapsable en el
+  detalle del viaje. Complementa `decision_asignacion` (que ya registra el porqué de la asignación).
+- [ ] `[LOOP]` **8.9 Runbook de backup/restore** (era 6.17). Documentar pg_dump/restore de Supabase,
+  qué cubre (BD sí, storage aparte), frecuencia, y una prueba de restore real. La parte scriptada
+  necesita `DATABASE_URL` (D2); sin ella, documentar el procedimiento manual y marcar el script
+  como pendiente.
+
+### Bloque D — Operabilidad (bus factor)
+- [ ] `[LOOP]` **8.10 ONBOARDING.md** (era 6.16). Guía para que un segundo dev (o tú en 3 meses)
+  arranque todo: requisitos, cada variable de `.env` (qué es y dónde se saca), arrancar
+  bot/dashboard/OSRM, correr tests, aplicar migraciones, sembrar demo, y las convenciones del repo.
+- [ ] `[LOOP]` **8.11 Checklist de despliegue** (era 6.21). DEPLOY.md: pasos exactos
+  Vercel+Railway+dominio, variables por entorno, activar webhook del bot, CSP a enforcing, OSRM en
+  prod, Sentry DSN, y smoke tests post-deploy. Deja el despliegue a un clic de tu decisión.
+- [ ] `[LOOP]` **8.12 Pase final de simplificación** (era 6.22). Recorrer los diffs de julio
+  buscando duplicación restante, dead code y TODOs; arreglar lo obvio, listar lo dudoso en PROGRESS.
+
+### Decisiones que solo tú puedes tomar (desbloquean lo de arriba)
+- `[DECISIÓN D1 — CRÍTICA]` Pegar la `SUPABASE_SERVICE_ROLE_KEY` real en `.env` (te expliqué cómo
+  hacerlo de forma segura). Sin ella el bot EN VIVO no puede escribir con RLS activo. Bloquea 8.3
+  parcialmente y todo el flujo real del bot.
+- `[DECISIÓN D2]` Pegar `DATABASE_URL` para que `migrate.py` y los backups (8.9) sean ejecutables.
+- `[DECISIÓN D4]` Luz verde al despliegue (tras 8.11, es una sesión contigo).
+
+### Diferido a después de Fase 8 (features, no confiabilidad)
+- `6.12 Búsqueda global (Ctrl+K)` · `6.19 i18n real ar/it/pt/de` — útiles, pero no mueven la aguja
+  de sólido/seguro/confiable. Se retoman cuando Fase 8 esté cerrada.
+
+---
+
 ## Despliegue (POSPUESTO — no tocar sin confirmación explícita)
 
 GitHub → Vercel (dashboard) → Railway (backend) → dominio norenty.com vía Cloudflare.
