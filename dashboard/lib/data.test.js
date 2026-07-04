@@ -235,14 +235,63 @@ describe("validarCambioEstado", () => {
     expect(r.errores).toContain("No se puede poner en curso sin chófer asignado");
   });
 
-  it("permite poner en_curso un viaje con chófer asignado", async () => {
-    TABLES.viaje = [{ id: "v1", chofer_id: "c1" }];
+  it("permite poner en_curso un viaje con chófer asignado y documentación vigente", async () => {
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", vehiculo_id: null }];
+    TABLES.documento = [
+      { ambito: "chofer", entidad_id: "c1", tipo: "licencia", fecha_caducidad: null },
+      { ambito: "chofer", entidad_id: "c1", tipo: "cap", fecha_caducidad: "2099-01-01" },
+    ];
     const r = await validarCambioEstado("v1", "en_curso");
     expect(r.ok).toBe(true);
   });
 
   it("no valida nada especial para otros estados (ej. cancelado)", async () => {
     const r = await validarCambioEstado("v1", "cancelado");
+    expect(r.ok).toBe(true);
+  });
+
+  it("bloquea en_curso si al chófer le falta documentación obligatoria (licencia/CAP)", async () => {
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", vehiculo_id: null }];
+    TABLES.documento = [
+      { ambito: "chofer", entidad_id: "c1", tipo: "licencia", fecha_caducidad: null },
+      // sin CAP
+    ];
+    const r = await validarCambioEstado("v1", "en_curso");
+    expect(r.ok).toBe(false);
+    expect(r.errores[0]).toMatch(/chófer.*CAP/i);
+  });
+
+  it("bloquea en_curso si al chófer le caducó un documento obligatorio", async () => {
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", vehiculo_id: null }];
+    TABLES.documento = [
+      { ambito: "chofer", entidad_id: "c1", tipo: "licencia", fecha_caducidad: "2020-01-01" }, // caducada
+      { ambito: "chofer", entidad_id: "c1", tipo: "cap", fecha_caducidad: null },
+    ];
+    const r = await validarCambioEstado("v1", "en_curso");
+    expect(r.ok).toBe(false);
+    expect(r.errores[0]).toMatch(/Licencia/);
+  });
+
+  it("bloquea en_curso si al vehículo asignado le falta documentación obligatoria", async () => {
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", vehiculo_id: "veh1" }];
+    TABLES.documento = [
+      { ambito: "chofer", entidad_id: "c1", tipo: "licencia", fecha_caducidad: null },
+      { ambito: "chofer", entidad_id: "c1", tipo: "cap", fecha_caducidad: null },
+      { ambito: "vehiculo", entidad_id: "veh1", tipo: "itv", fecha_caducidad: null },
+      // sin seguro ni autorización de transporte
+    ];
+    const r = await validarCambioEstado("v1", "en_curso");
+    expect(r.ok).toBe(false);
+    expect(r.errores.find((e) => e.includes("vehículo"))).toMatch(/Seguro/);
+  });
+
+  it("no exige documentación del vehículo si no hay vehículo asignado todavía", async () => {
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", vehiculo_id: null }];
+    TABLES.documento = [
+      { ambito: "chofer", entidad_id: "c1", tipo: "licencia", fecha_caducidad: null },
+      { ambito: "chofer", entidad_id: "c1", tipo: "cap", fecha_caducidad: null },
+    ];
+    const r = await validarCambioEstado("v1", "en_curso");
     expect(r.ok).toBe(true);
   });
 });

@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { distanciaPorCarretera } from "./osrm";
+import { TIPOS_DOC_VEHICULO, TIPOS_DOC_CHOFER } from "./labels";
 
 const ALERTA_ESTADOS = ["abierta", "en_revision"];
 const ESTADOS_ACTIVOS = ["planificado", "en_curso"];
@@ -1789,6 +1790,34 @@ export async function validarAsignacion({ choferId, vehiculoId, remolqueId, refe
   return { avisos, errores, ok: errores.length === 0 };
 }
 
+// Documentación legalmente obligatoria antes de arrancar un viaje (confirmado
+// con el usuario 2026-07-04): ITV, seguro y autorización de transporte del
+// vehículo; licencia de conducir y CAP del chófer. Se exige que exista Y esté
+// vigente (sin fecha_caducidad, o con fecha_caducidad todavía no pasada) — un
+// documento caducado cuenta como si no existiera. No se exige nada del
+// ámbito "viaje" (CMR/albarán/ADR): esos se generan durante la ejecución, no
+// antes de arrancar.
+const DOCS_OBLIGATORIOS_VEHICULO = ["itv", "seguro", "autorizacion_transporte"];
+const DOCS_OBLIGATORIOS_CHOFER = ["licencia", "cap"];
+
+/** Tipos de `tiposRequeridos` que faltan o están caducados para esa entidad. */
+async function documentosFaltantes(ambito, entidadId, tiposRequeridos) {
+  if (!entidadId) return tiposRequeridos;
+  const hoy = new Date().toISOString().slice(0, 10);
+  const { data } = await supabase
+    .from("documento")
+    .select("tipo, fecha_caducidad")
+    .eq("ambito", ambito)
+    .eq("entidad_id", entidadId);
+
+  const vigentes = new Set();
+  (data || []).forEach((d) => {
+    if (!tiposRequeridos.includes(d.tipo)) return;
+    if (!d.fecha_caducidad || d.fecha_caducidad >= hoy) vigentes.add(d.tipo);
+  });
+  return tiposRequeridos.filter((t) => !vigentes.has(t));
+}
+
 export async function validarCambioEstado(viajeId, nuevoEstado) {
   const errores = [];
 
@@ -1806,11 +1835,24 @@ export async function validarCambioEstado(viajeId, nuevoEstado) {
   if (nuevoEstado === "en_curso") {
     const { data: viaje } = await supabase
       .from("viaje")
-      .select("chofer_id")
+      .select("chofer_id, vehiculo_id")
       .eq("id", viajeId)
       .single();
     if (!viaje?.chofer_id) {
       errores.push("No se puede poner en curso sin chófer asignado");
+    } else {
+      const faltantesChofer = await documentosFaltantes("chofer", viaje.chofer_id, DOCS_OBLIGATORIOS_CHOFER);
+      if (faltantesChofer.length > 0) {
+        const labels = faltantesChofer.map((t) => TIPOS_DOC_CHOFER.find((x) => x.value === t)?.label || t);
+        errores.push(`Documentación del chófer incompleta o caducada: ${labels.join(", ")}`);
+      }
+    }
+    if (viaje?.vehiculo_id) {
+      const faltantesVehiculo = await documentosFaltantes("vehiculo", viaje.vehiculo_id, DOCS_OBLIGATORIOS_VEHICULO);
+      if (faltantesVehiculo.length > 0) {
+        const labels = faltantesVehiculo.map((t) => TIPOS_DOC_VEHICULO.find((x) => x.value === t)?.label || t);
+        errores.push(`Documentación del vehículo incompleta o caducada: ${labels.join(", ")}`);
+      }
     }
   }
 
