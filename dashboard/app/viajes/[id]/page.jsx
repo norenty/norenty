@@ -21,6 +21,7 @@ import Timeline from "../../components/Timeline";
 import RatingControl from "../../components/RatingControl";
 import { ESTADO_VIAJE, ESTADO_HITO, ESTADO_POD, TIPOS_DOC_VIAJE, LABEL_CAPA } from "../../../lib/labels";
 import { badgeMargen } from "../../../lib/format";
+import RequireRol from "../../components/RequireRol";
 
 /** Etiqueta legible de una entrada de audit_log (8.8) — el detalle exacto de
  * cada acción vive en `detalle` (jsonb), esto solo lo traduce a texto. */

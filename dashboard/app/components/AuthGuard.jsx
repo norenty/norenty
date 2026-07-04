@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { getSession, onAuthChange } from "../../lib/auth";
 import LoginPage from "./LoginPage";
+import RolProvider from "./RolProvider";
 
 export default function AuthGuard({ children }) {
   const pathname = usePathname();
@@ -30,5 +31,5 @@ export default function AuthGuard({ children }) {
     return <LoginPage />;
   }
 
-  return children;
+  return <RolProvider>{children}</RolProvider>;
 }

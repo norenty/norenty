@@ -353,6 +353,44 @@ export async function deleteInvitacion(id) {
   await supabase.from("invitacion").delete().eq("id", id);
 }
 
+// ==========================================================================
+// Roles de gestor + expulsión (ítem 9.29 — ver SPECS-9-ROLES.md)
+// ==========================================================================
+
+/**
+ * Gestores de la empresa del gestor logueado (RLS ya limita a la empresa,
+ * `gestor_select_empresa` de 0009). Ordenados por nombre en JS: `.order()`
+ * es NO-OP en el mock usado por los tests (0.3 de SPECS-7A).
+ */
+export async function getGestoresEmpresa() {
+  const { data } = await supabase
+    .from("gestor")
+    .select("id, nombre, email, rol, activo, auth_user_id");
+  return (data || []).slice().sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+}
+
+/**
+ * Cambia el rol de un gestor de la empresa. Solo admin puede escribirlo
+ * (GRANT UPDATE (rol,activo) + policy gestor_update_admin de 0032); la propia
+ * policy rechaza si el llamante intenta editar su propia fila.
+ */
+export async function actualizarRolGestor(gestorId, nuevoRol) {
+  const { error } = await supabase.from("gestor").update({ rol: nuevoRol }).eq("id", gestorId);
+  if (error) throw error;
+}
+
+/** Desactiva (expulsa) a un gestor de la empresa. NO borra: solo activo=false. */
+export async function desactivarGestor(gestorId) {
+  const { error } = await supabase.from("gestor").update({ activo: false }).eq("id", gestorId);
+  if (error) throw error;
+}
+
+/** Reactiva a un gestor previamente desactivado. */
+export async function reactivarGestor(gestorId) {
+  const { error } = await supabase.from("gestor").update({ activo: true }).eq("id", gestorId);
+  if (error) throw error;
+}
+
 /**
  * Documentos con fecha de caducidad ya pasada o dentro de los próximos 30
  * días, ordenados por urgencia (los más próximos/caducados primero). Junta

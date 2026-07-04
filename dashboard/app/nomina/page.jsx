@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Moon, Route as RouteIcon, Download, Printer } from "lucide-react";
 import { getInformeNomina } from "../../lib/data";
+import RequireRol from "../components/RequireRol";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -53,12 +54,14 @@ export default function Nomina() {
         <h1 className="text-lg font-medium text-ink">Nómina</h1>
         {informe && (
           <div className="flex gap-2 print:hidden">
-            <button
-              onClick={() => exportarCSV(informe, mes, anio)}
-              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border text-ink-secondary hover:bg-surface-alt"
-            >
-              <Download size={13} /> Exportar CSV
-            </button>
+            <RequireRol roles={["admin"]}>
+              <button
+                onClick={() => exportarCSV(informe, mes, anio)}
+                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border text-ink-secondary hover:bg-surface-alt"
+              >
+                <Download size={13} /> Exportar CSV
+              </button>
+            </RequireRol>
             <button
               onClick={() => window.print()}
               className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border text-ink-secondary hover:bg-surface-alt"

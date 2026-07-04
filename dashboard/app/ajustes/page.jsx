@@ -4,7 +4,17 @@ import { useEffect, useState } from "react";
 import { Save, User, Building2, Bell, Shield, Send, Copy, Check, MapPin, Euro, Gauge, Users, X, Activity } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getSession, signOut } from "../../lib/auth";
-import { VELOCIDAD_PLANIFICACION_KMH, getInvitaciones, createInvitacion, deleteInvitacion, getBotHeartbeat } from "../../lib/data";
+import {
+  VELOCIDAD_PLANIFICACION_KMH, getInvitaciones, createInvitacion, deleteInvitacion, getBotHeartbeat,
+  getGestoresEmpresa, actualizarRolGestor, desactivarGestor, reactivarGestor,
+} from "../../lib/data";
+import RequireRol from "../components/RequireRol";
+
+const ROLES = [
+  { value: "admin", label: "Admin" },
+  { value: "gestor_operativo", label: "Gestor operativo" },
+  { value: "solo_lectura", label: "Solo lectura" },
+];
 
 const BOT = process.env.NEXT_PUBLIC_BOT_USERNAME;
 
@@ -31,6 +41,8 @@ export default function AjustesPage() {
   const [invitando, setInvitando] = useState(false);
   const [codigoCopiadoId, setCodigoCopiadoId] = useState(null);
   const [heartbeat, setHeartbeat] = useState(null);
+  const [gestores, setGestores] = useState([]);
+  const [gestorAccionandoId, setGestorAccionandoId] = useState(null);
 
   useEffect(() => {
     function cargarHeartbeat() {
@@ -77,11 +89,50 @@ export default function AjustesPage() {
           setDietaNoche(emp?.dieta_noche_eur != null ? String(emp.dieta_noche_eur) : "");
           setCosteConductor(emp?.coste_conductor_km != null ? String(emp.coste_conductor_km) : "");
           setInvitaciones(await getInvitaciones());
+          setGestores(await getGestoresEmpresa());
         }
       }
     }
     init();
   }, []);
+
+  async function refrescarGestores() {
+    setGestores(await getGestoresEmpresa());
+  }
+
+  async function cambiarRolGestor(gestorId, nuevoRol) {
+    setGestorAccionandoId(gestorId);
+    try {
+      await actualizarRolGestor(gestorId, nuevoRol);
+      await refrescarGestores();
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
+    setGestorAccionandoId(null);
+  }
+
+  async function onDesactivarGestor(g) {
+    if (!window.confirm(`¿Desactivar a ${g.nombre}? Perderá acceso inmediatamente. Podrás reactivarlo luego.`)) return;
+    setGestorAccionandoId(g.id);
+    try {
+      await desactivarGestor(g.id);
+      await refrescarGestores();
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
+    setGestorAccionandoId(null);
+  }
+
+  async function onReactivarGestor(g) {
+    setGestorAccionandoId(g.id);
+    try {
+      await reactivarGestor(g.id);
+      await refrescarGestores();
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
+    setGestorAccionandoId(null);
+  }
 
   function flash(msg) {
     setMensaje(msg);
@@ -358,6 +409,7 @@ export default function AjustesPage() {
         )}
       </section>
 
+      <RequireRol roles={["admin"]}>
       <section className="bg-surface border border-border rounded-xl p-5 mb-4">
         <div className="flex items-center gap-2 mb-1">
           <Users size={18} className="text-brand" />
@@ -392,7 +444,7 @@ export default function AjustesPage() {
         {invitaciones.length === 0 ? (
           <p className="text-xs text-ink-muted">Sin invitaciones todavía.</p>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 mb-5">
             {invitaciones.map((inv) => (
               <div key={inv.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-md bg-surface-alt">
                 <span className="flex-1 text-ink">{inv.email}</span>
@@ -421,7 +473,59 @@ export default function AjustesPage() {
             ))}
           </div>
         )}
+
+        <h3 className="text-xs font-medium text-ink-secondary mb-2 mt-2">Gestores de la empresa</h3>
+        {gestores.length === 0 ? (
+          <p className="text-xs text-ink-muted">Cargando gestores…</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {gestores.map((g) => {
+              const esUnoMismo = g.auth_user_id === user?.id;
+              return (
+                <div key={g.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-md bg-surface-alt">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-ink truncate">{g.nombre}{esUnoMismo && <span className="text-ink-muted"> (tú)</span>}</div>
+                    <div className="text-xs text-ink-muted truncate">{g.email}</div>
+                  </div>
+                  <select
+                    value={g.rol}
+                    disabled={esUnoMismo || gestorAccionandoId === g.id}
+                    onChange={(e) => cambiarRolGestor(g.id, e.target.value)}
+                    title={esUnoMismo ? "No puedes cambiar tu propio rol" : "Cambiar rol"}
+                    className="text-xs border border-border rounded-md px-2 py-1 disabled:opacity-40"
+                  >
+                    {ROLES.map((r) => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
+                  </select>
+                  {g.activo ? (
+                    <button
+                      onClick={() => onDesactivarGestor(g)}
+                      disabled={esUnoMismo || gestorAccionandoId === g.id}
+                      title={esUnoMismo ? "No puedes desactivarte a ti mismo" : "Desactivar gestor"}
+                      className="text-xs px-2 py-1 rounded-md border border-border text-estado-incidencia hover:bg-red-50 disabled:opacity-40"
+                    >
+                      Desactivar
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onReactivarGestor(g)}
+                      disabled={gestorAccionandoId === g.id}
+                      className="text-xs px-2 py-1 rounded-md border border-border text-estado-ok hover:bg-green-50 disabled:opacity-40"
+                    >
+                      Reactivar
+                    </button>
+                  )}
+                  {!g.activo && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-ink-muted">Desactivado</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
+      </RequireRol>
 
       <section className="bg-surface border border-border rounded-xl p-5 mb-4">
         <div className="flex items-center gap-2 mb-1">
@@ -468,6 +572,7 @@ export default function AjustesPage() {
         </div>
       </section>
 
+      <RequireRol roles={["admin"]}>
       <section className="bg-surface border border-border rounded-xl p-5 mb-4">
         <div className="flex items-center gap-2 mb-1">
           <Euro size={18} className="text-brand" />
@@ -501,6 +606,7 @@ export default function AjustesPage() {
           </button>
         </div>
       </section>
+      </RequireRol>
 
       <section className="bg-surface border border-border rounded-xl p-5 mb-4">
         <div className="flex items-center gap-2 mb-1">
@@ -535,6 +641,7 @@ export default function AjustesPage() {
         </div>
       </section>
 
+      <RequireRol roles={["admin"]}>
       <section className="bg-surface border border-border rounded-xl p-5 mb-4">
         <div className="flex items-center gap-2 mb-1">
           <Euro size={18} className="text-brand" />
@@ -589,6 +696,7 @@ export default function AjustesPage() {
           <Save size={16} /> Guardar coste desglosado
         </button>
       </section>
+      </RequireRol>
 
       <section className="bg-surface border border-border rounded-xl p-5 mb-4">
         <div className="flex items-center gap-2 mb-4">
