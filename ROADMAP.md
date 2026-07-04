@@ -649,7 +649,7 @@ Protocolo igual: EN ORDEN, uno por iteración, `ci.ps1` verde, commit, `[x]` + l
 Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servicio/criterio tuyo).
 
 ### Bloque A — Confiabilidad de la verdad (lo de mayor palanca; los bugs que ya te llegaron)
-- [ ] `[LOOP]` **8.1 Smoke tests contra la BD demo real en CI.** El agujero nº1: los mocks no
+- [x] `[LOOP]` **8.1 Smoke tests contra la BD demo real en CI.** El agujero nº1: los mocks no
   cazan que una columna no exista o que una página crashee en runtime. Script que, con la empresa
   demo, carga las funciones de datos reales (`getViajes`, `getResumenHoy`, `getViabilidadViaje`,
   `getInformeNomina`, `getMetricasRentabilidad`, `getPlanVsReal`, y la RPC `viaje_publico`) contra

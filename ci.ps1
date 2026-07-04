@@ -22,7 +22,10 @@ Push-Location "$root\backend"
 if ($LASTEXITCODE -ne 0) { $fallo = $true; Write-Output "FALLO: tests backend" }
 Pop-Location
 
-# --- Dashboard: vitest ---
+# --- Dashboard: vitest (incluye lib/smoke.test.js, item 8.1: llama a las
+# funciones de lectura reales contra la BD real con la empresa demo; se salta
+# solo -sin fallar- si no hay NEXT_PUBLIC_SUPABASE_*/DEMO_EMAIL/DEMO_PASSWORD
+# en el entorno, para no romper CI en una maquina sin esas credenciales) ---
 Seccion "Dashboard: vitest"
 Push-Location "$root\dashboard"
 $env:Path = "C:\Program Files\nodejs;" + $env:Path
