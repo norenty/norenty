@@ -797,7 +797,7 @@ explícitamente `(bloqueado por Gate A)`.
   migración del esquema (las 30 migraciones ya versionadas hacen esto mecánico una vez
   exista el proyecto). Bloquea: que `seed_demo.py` pueda seguir usándose sin riesgo de tocar
   datos reales.
-- [ ] `[LOOP]` **9.2 Runbook de rotación de secretos** (picar código: sonnet, esfuerzo bajo).
+- [x] `[LOOP]` **9.2 Runbook de rotación de secretos** (picar código: sonnet, esfuerzo bajo).
   `RUNBOOK-SECRETS.md`: procedimiento escrito de 15 min para rotar `SUPABASE_SERVICE_ROLE_KEY`,
   token del bot de Telegram y cualquier clave LLM futura, con el orden exacto de pasos para no
   dejar una ventana sin servicio (rotar en Supabase/BotFather → actualizar en el store de
