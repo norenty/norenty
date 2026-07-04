@@ -682,7 +682,7 @@ Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servi
 - [ ] `[ACCIÓN D6]` **8.6 Activar "Leaked Password Protection"** en Supabase (Auth → Providers →
   Email). 1 clic, gratis, rechaza contraseñas ya filtradas. No tocable por MCP, solo panel — te
   guío cuando quieras.
-- [ ] `[LOOP]` **8.7 Repaso de advisors + superficies.** Correr los security advisors de Supabase,
+- [x] `[LOOP]` **8.7 Repaso de advisors + superficies.** Correr los security advisors de Supabase,
   revisar cada tabla nueva de 7A (decision_asignacion, nota_gestor, gasto_viaje) confirmando RLS y
   grants correctos, y que ninguna función SECURITY DEFINER nueva expone de más. Documentar.
 
