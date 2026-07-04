@@ -42,10 +42,13 @@ export default function MapaPage() {
       const choferMap = {};
       (choferesData || []).forEach((c) => { choferMap[c.id] = c.nombre; });
 
-      const { data: ubicData } = await supabase.rpc("ultimas_ubicaciones").catch(() => ({ data: null }));
+      // Nota: la respuesta de `.rpc()` no es una Promise nativa (es un query
+      // builder "thenable"), así que no admite `.catch()` encadenado —
+      // supabase-js comunica errores vía el campo `error`, no lanzando.
+      const { data: ubicData, error: ubicError } = await supabase.rpc("ultimas_ubicaciones");
 
       let ubicFinal = [];
-      if (ubicData) {
+      if (ubicData && !ubicError) {
         ubicFinal = ubicData.map((u) => ({ ...u, chofer_nombre: choferMap[u.chofer_id] || "Chófer" }));
       } else {
         const { data: rawUbic } = await supabase
