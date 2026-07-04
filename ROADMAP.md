@@ -656,7 +656,7 @@ Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servi
   el Supabase real vía anon key y asegura que devuelven sin lanzar y con el shape esperado.
   Integrar en `ci.ps1` como paso opcional (salta con aviso si no hay `.env`, para no romper CI en
   máquinas sin credenciales). Esto habría cazado la nómina y el mapa antes que tú.
-- [ ] `[LOOP]` **8.2 Reintentos + captura de errores en el bot** (era 6.18). Wrapper con 3
+- [x] `[LOOP]` **8.2 Reintentos + captura de errores en el bot** (era 6.18). Wrapper con 3
   reintentos y backoff exponencial para TODA llamada a Supabase del bot; en fallo definitivo →
   Sentry con contexto (`update_id`, `chofer_id`, acción) + mensaje de disculpa al chófer en su
   idioma ("estamos teniendo un problema técnico, reinténtalo en un minuto"). Nunca un silencio.

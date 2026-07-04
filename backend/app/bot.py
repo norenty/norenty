@@ -3,9 +3,11 @@
 import math
 import os
 import logging
+import time
 import uuid
 from urllib.parse import quote_plus
 
+import httpx
 import sentry_sdk
 
 if _dsn := os.environ.get("SENTRY_DSN"):
@@ -30,6 +32,38 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("norenty.bot")
 
 TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+
+# Errores de red/timeout que SÍ tiene sentido reintentar (un blip transitorio
+# puede resolverse solo). Deliberadamente NO se incluyen errores de
+# validación/lógica (esos fallarán igual en el reintento nº2 que en el nº1).
+_ERRORES_REINTENTABLES = (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError, httpx.RemoteProtocolError)
+
+
+def ejecutar_con_reintentos(fn, *, intentos=3, backoff_base=0.5, contexto=None):
+    """Ejecuta `fn()` (una llamada a Supabase) con reintentos y backoff
+    exponencial (0.5s, 1s) ante errores de red/timeout (ítem 8.2 — "el canal
+    con el chófer nunca se cae en silencio"). Si tras `intentos` sigue
+    fallando, lo manda a Sentry con `contexto` (acción, chofer_id, hito_id...)
+    y relanza — el llamador decide qué hacer (normalmente, disculparse con el
+    chófer vía el error handler global de PTB, no aquí).
+    """
+    ultimo_error = None
+    for intento in range(intentos):
+        try:
+            return fn()
+        except _ERRORES_REINTENTABLES as e:
+            ultimo_error = e
+            logger.warning("Intento %d/%d falló (%s): %s", intento + 1, intentos, contexto, e)
+            if intento < intentos - 1:
+                time.sleep(backoff_base * (2 ** intento))
+
+    if os.environ.get("SENTRY_DSN"):
+        with sentry_sdk.push_scope() as scope:
+            for k, v in (contexto or {}).items():
+                scope.set_tag(k, v)
+            sentry_sdk.capture_exception(ultimo_error)
+    raise ultimo_error
+
 
 # --- i18n ---
 TEXTOS = {
@@ -80,6 +114,7 @@ TEXTOS = {
         "asignacion_titulo": "🚚 Se te ha asignado el viaje {ref}",
         "asignacion_detalle": "{n} paradas · ~{km} km\nPrimera parada: {dir}",
         "geo_llegada_pregunta": "📍 Parece que has llegado a {dir}. ¿Confirmas?",
+        "error_tecnico": "⚠️ Estamos teniendo un problema técnico. Por favor, inténtalo de nuevo en un minuto.",
     },
     "en": {
         "sin_viaje_activo": "You have no active trip.",
@@ -128,6 +163,7 @@ TEXTOS = {
         "asignacion_titulo": "🚚 Trip {ref} has been assigned to you",
         "asignacion_detalle": "{n} stops · ~{km} km\nFirst stop: {dir}",
         "geo_llegada_pregunta": "📍 Looks like you've arrived at {dir}. Confirm?",
+        "error_tecnico": "⚠️ We're having a technical problem. Please try again in a minute.",
     },
     "ro": {
         "sin_viaje_activo": "Nu ai nicio cursă activă.",
@@ -176,6 +212,7 @@ TEXTOS = {
         "asignacion_titulo": "🚚 Ți s-a atribuit cursa {ref}",
         "asignacion_detalle": "{n} opriri · ~{km} km\nPrima oprire: {dir}",
         "geo_llegada_pregunta": "📍 Se pare că ai ajuns la {dir}. Confirmi?",
+        "error_tecnico": "⚠️ Avem o problemă tehnică. Te rugăm încearcă din nou într-un minut.",
     },
     "fr": {
         "sin_viaje_activo": "Vous n'avez aucun trajet actif.",
@@ -224,6 +261,7 @@ TEXTOS = {
         "asignacion_titulo": "🚚 Le trajet {ref} vous a été attribué",
         "asignacion_detalle": "{n} arrêts · ~{km} km\nPremier arrêt : {dir}",
         "geo_llegada_pregunta": "📍 Il semble que vous soyez arrivé à {dir}. Confirmez ?",
+        "error_tecnico": "⚠️ Nous rencontrons un problème technique. Merci de réessayer dans une minute.",
     },
 }
 # Idiomas sin traduccion completa: usar ingles como fallback
@@ -249,7 +287,10 @@ def t(chofer_or_idioma, key, **kwargs):
 
 
 def get_chofer_by_chat(chat_id):
-    r = supabase.table("chofer").select("id, nombre, empresa_id").eq("chat_id", str(chat_id)).execute()
+    r = ejecutar_con_reintentos(
+        lambda: supabase.table("chofer").select("id, nombre, empresa_id").eq("chat_id", str(chat_id)).execute(),
+        contexto={"accion": "get_chofer_by_chat", "chat_id": str(chat_id)},
+    )
     return r.data[0] if r.data else None
 
 
@@ -280,11 +321,12 @@ transporte_gestor = TransporteTelegram(TOKEN)
 
 def verificar_hito_pertenece_a_chofer(hito_id, chofer_id):
     """Verifica que el hito pertenece a un viaje asignado a este chófer."""
-    r = (
-        supabase.table("hito")
+    r = ejecutar_con_reintentos(
+        lambda: supabase.table("hito")
         .select("*, viaje!inner(id, chofer_id, estado, referencia)")
         .eq("id", hito_id)
-        .execute()
+        .execute(),
+        contexto={"accion": "verificar_hito_pertenece_a_chofer", "hito_id": hito_id, "chofer_id": chofer_id},
     )
     if not r.data:
         return None, "Hito no encontrado."
@@ -634,14 +676,23 @@ async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     chofer_id = chofer["id"]
     viaje = hito["viaje"]
 
-    supabase.table("hito").update({"estado": "en_curso"}).eq("id", hito_id).execute()
-    supabase.table("ejecucion_evento").insert({
-        "viaje_id": viaje["id"],
-        "hito_id": hito_id,
-        "chofer_id": chofer_id,
-        "tipo": "llegada",
-        "detalle": hito.get("direccion"),
-    }).execute()
+    # La llegada es el dato más importante del sistema (es lo que el negocio
+    # vende): con reintentos, no se pierde por un blip de red.
+    contexto_llegada = {"accion": "confirmar_llegada", "hito_id": hito_id, "chofer_id": chofer_id}
+    ejecutar_con_reintentos(
+        lambda: supabase.table("hito").update({"estado": "en_curso"}).eq("id", hito_id).execute(),
+        contexto=contexto_llegada,
+    )
+    ejecutar_con_reintentos(
+        lambda: supabase.table("ejecucion_evento").insert({
+            "viaje_id": viaje["id"],
+            "hito_id": hito_id,
+            "chofer_id": chofer_id,
+            "tipo": "llegada",
+            "detalle": hito.get("direccion"),
+        }).execute(),
+        contexto=contexto_llegada,
+    )
 
     # Comprobar si llegó fuera de ventana
     if hito.get("ventana_fin"):
@@ -1215,8 +1266,43 @@ async def procesar_notificaciones_asignacion(ctx: ContextTypes.DEFAULT_TYPE):
         supabase.table("viaje").update({"notificado_asignacion_en": ahora}).eq("id", viaje["id"]).execute()
 
 
+async def manejar_error(update, ctx):
+    """Manejador de errores global de PTB (ítem 8.2) — la última red de
+    seguridad: cualquier excepción no capturada en CUALQUIER handler pasa por
+    aquí en vez de dejar al chófer sin respuesta y sin que nadie se entere.
+    Registra en Sentry con contexto y, si puede identificar el chat, avisa al
+    chófer en su idioma en vez de dejarlo en silencio.
+    """
+    logger.error("Excepción no capturada procesando %s: %s", update, ctx.error, exc_info=ctx.error)
+
+    chat_id = None
+    idioma = "es"
+    if isinstance(update, Update) and update.effective_chat:
+        chat_id = update.effective_chat.id
+        try:
+            chofer = get_chofer_by_chat(chat_id)
+            if chofer:
+                idioma = chofer.get("idioma", "es")
+        except Exception:
+            pass  # si ni esto funciona, seguimos con "es" por defecto
+
+    if os.environ.get("SENTRY_DSN"):
+        with sentry_sdk.push_scope() as scope:
+            scope.set_tag("update_id", getattr(update, "update_id", None))
+            if chat_id:
+                scope.set_tag("chat_id", chat_id)
+            sentry_sdk.capture_exception(ctx.error)
+
+    if chat_id:
+        try:
+            await ctx.bot.send_message(chat_id=chat_id, text=t(idioma, "error_tecnico"))
+        except Exception as e:
+            logger.error("No se pudo ni avisar al chófer del error técnico: %s", e)
+
+
 def create_bot_app():
     app = ApplicationBuilder().token(TOKEN).build()
+    app.add_error_handler(manejar_error)
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("estado", cmd_estado))
     app.add_handler(CommandHandler("incidencia", cmd_incidencia))

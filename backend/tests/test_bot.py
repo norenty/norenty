@@ -785,3 +785,76 @@ async def test_handle_location_funciona_con_live_location_editada(fake_db):
     ctx = SimpleNamespace(bot=AsyncMock(), chat_data={})
     await bot.handle_location(_location_update(40.0, -3.0, edited=True), ctx)
     assert len(fake_db.tables["ubicacion"]) == 1
+
+
+# --- ejecutar_con_reintentos + manejar_error (8.2): "el canal con el chófer
+# nunca se cae en silencio" ---
+
+import httpx  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _sin_esperas_reales(monkeypatch):
+    """Los tests de reintentos no deben esperar de verdad los 0.5s/1s de backoff."""
+    monkeypatch.setattr(bot.time, "sleep", lambda _: None)
+
+
+def test_ejecutar_con_reintentos_exito_al_segundo_intento():
+    llamadas = {"n": 0}
+
+    def fn():
+        llamadas["n"] += 1
+        if llamadas["n"] < 2:
+            raise httpx.ConnectError("blip de red")
+        return "ok"
+
+    resultado = bot.ejecutar_con_reintentos(fn)
+    assert resultado == "ok"
+    assert llamadas["n"] == 2
+
+
+def test_ejecutar_con_reintentos_falla_tras_agotar_intentos():
+    def fn():
+        raise httpx.TimeoutException("timeout")
+
+    with pytest.raises(httpx.TimeoutException):
+        bot.ejecutar_con_reintentos(fn, intentos=3)
+
+
+def test_ejecutar_con_reintentos_no_reintenta_errores_de_logica():
+    """Un ValueError (bug/validación) no se arregla reintentando — debe
+    propagarse inmediatamente, sin backoff."""
+    llamadas = {"n": 0}
+
+    def fn():
+        llamadas["n"] += 1
+        raise ValueError("dato inválido")
+
+    with pytest.raises(ValueError):
+        bot.ejecutar_con_reintentos(fn)
+    assert llamadas["n"] == 1
+
+
+@pytest.mark.asyncio
+async def test_manejar_error_avisa_al_chofer_en_su_idioma(fake_db):
+    from datetime import datetime, timezone
+    from telegram import Chat, Message, Update
+
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "en", "chat_id": "555", "empresa_id": "e1"}]
+    chat = Chat(id=555, type="private")
+    message = Message(message_id=1, date=datetime.now(timezone.utc), chat=chat)
+    update = Update(update_id=123, message=message)
+
+    ctx = SimpleNamespace(bot=AsyncMock(), error=RuntimeError("boom"))
+    await bot.manejar_error(update, ctx)
+
+    ctx.bot.send_message.assert_awaited_once()
+    assert ctx.bot.send_message.call_args.kwargs["chat_id"] == 555
+    assert "technical problem" in ctx.bot.send_message.call_args.kwargs["text"]
+
+
+@pytest.mark.asyncio
+async def test_manejar_error_no_lanza_si_no_hay_chat_identificable():
+    ctx = SimpleNamespace(bot=AsyncMock(), error=RuntimeError("boom"))
+    await bot.manejar_error(None, ctx)
+    ctx.bot.send_message.assert_not_awaited()

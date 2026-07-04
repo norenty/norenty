@@ -1,6 +1,7 @@
 fastapi
 uvicorn[standard]
 supabase
+httpx
 python-dotenv
 python-telegram-bot[job-queue]
 sentry-sdk
