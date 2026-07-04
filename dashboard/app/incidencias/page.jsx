@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AlertTriangle, Clock, CheckCircle2, ExternalLink, ChevronDown } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { ESTADO_INCIDENCIA as ESTADO_LABELS, TIPO_INCIDENCIA_LABEL as TIPO_LABELS } from "../../lib/labels";
+import EmptyState from "../components/ui/EmptyState";
 
 const PAGE_SIZE = 20;
 
@@ -103,14 +104,10 @@ export default function IncidenciasPage() {
           ))}
         </div>
       ) : incidencias.length === 0 ? (
-        <div className="text-center py-12">
-          <AlertTriangle size={32} className="mx-auto text-ink-muted mb-3" />
-          <p className="text-sm text-ink-secondary">
-            {filtro === "abiertas"
-              ? "No hay incidencias abiertas. Todo en orden."
-              : "No hay incidencias con este filtro."}
-          </p>
-        </div>
+        <EmptyState
+          icon={AlertTriangle}
+          texto={filtro === "abiertas" ? "No hay incidencias abiertas. Todo en orden." : "No hay incidencias con este filtro."}
+        />
       ) : (
         <>
           <div className="flex flex-col gap-2">

@@ -102,6 +102,7 @@ const {
   getPnlViaje,
   getMetricasRentabilidad,
   getPlanVsReal,
+  getOnboardingEstado,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -1443,5 +1444,40 @@ describe("plan-vs-real por hito (7A.9)", () => {
     const r = await getPlanVsReal("v1");
     expect(r.resumen.conVentana).toBe(2);
     expect(r.resumen.aTiempo).toBe(1);
+  });
+});
+
+describe("onboarding (7A.13)", () => {
+  it("empresa vacía: ningún paso completado", async () => {
+    TABLES.vehiculo = [];
+    TABLES.chofer = [];
+    TABLES.viaje = [];
+    TABLES.empresa = [{}];
+    const r = await getOnboardingEstado();
+    expect(r.completado).toBe(false);
+    expect(r.pasos.every((p) => !p.done)).toBe(true);
+  });
+
+  it("empresa parcial: algunos pasos completados, otros no", async () => {
+    TABLES.vehiculo = [{ id: "v1" }];
+    TABLES.chofer = [{ id: "c1", chat_id: null }];
+    TABLES.viaje = [];
+    TABLES.empresa = [{}];
+    const r = await getOnboardingEstado();
+    expect(r.completado).toBe(false);
+    expect(r.pasos.find((p) => p.id === "vehiculo").done).toBe(true);
+    expect(r.pasos.find((p) => p.id === "chofer").done).toBe(true);
+    expect(r.pasos.find((p) => p.id === "telegram").done).toBe(false);
+    expect(r.pasos.find((p) => p.id === "viaje").done).toBe(false);
+  });
+
+  it("empresa completa: todos los pasos hechos", async () => {
+    TABLES.vehiculo = [{ id: "v1" }];
+    TABLES.chofer = [{ id: "c1", chat_id: "chat-1" }];
+    TABLES.viaje = [{ id: "vi1" }];
+    TABLES.empresa = [{ coste_km: 1.2 }];
+    const r = await getOnboardingEstado();
+    expect(r.completado).toBe(true);
+    expect(r.pasos.every((p) => p.done)).toBe(true);
   });
 });

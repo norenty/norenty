@@ -1563,6 +1563,36 @@ export async function getPlanVsReal(viajeId) {
 }
 
 // ==========================================================================
+// Onboarding (ítem 7A.13) — checklist guiado para una empresa recién creada.
+// ==========================================================================
+
+export async function getOnboardingEstado() {
+  const [
+    { data: vehiculos },
+    { data: choferes },
+    { data: viajes },
+    { data: empresas },
+  ] = await Promise.all([
+    supabase.from("vehiculo").select("id"),
+    supabase.from("chofer").select("id, chat_id"),
+    supabase.from("viaje").select("id"),
+    supabase.from("empresa").select("coste_km, precio_gasoil_litro"),
+  ]);
+
+  const empresa = (empresas || [])[0] || null;
+
+  const pasos = [
+    { id: "vehiculo", done: (vehiculos || []).length > 0, label: "Añade tu primer vehículo", href: "/vehiculos" },
+    { id: "chofer", done: (choferes || []).length > 0, label: "Añade tu primer chófer", href: "/choferes" },
+    { id: "telegram", done: (choferes || []).some((c) => c.chat_id), label: "Vincula un chófer a Telegram", href: "/choferes" },
+    { id: "viaje", done: (viajes || []).length > 0, label: "Crea tu primer viaje", href: "/viajes/nuevo" },
+    { id: "costes", done: !!(empresa?.coste_km != null || empresa?.precio_gasoil_litro != null), label: "Configura tus costes de operación", href: "/ajustes" },
+  ];
+
+  return { pasos, completado: pasos.every((p) => p.done) };
+}
+
+// ==========================================================================
 // Parkings para camión (ítem 5.4)
 // ==========================================================================
 

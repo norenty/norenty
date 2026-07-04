@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Trash2, Copy, Route } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getCurrentEmpresaId } from "../../lib/data";
+import EmptyState from "../components/ui/EmptyState";
 
 function nuevoHito() {
   return { tipo: "entrega", direccion: "" };
@@ -212,7 +213,7 @@ export default function PlantillasPage() {
           </div>
         ))}
         {plantillas.length === 0 && (
-          <p className="text-sm text-ink-secondary py-4">No hay plantillas todavía.</p>
+          <EmptyState icon={Route} titulo="Todavía no hay plantillas" texto="Crea la primera con el formulario de arriba." />
         )}
       </div>
     </div>

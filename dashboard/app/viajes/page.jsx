@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Search, Upload, Download, ChevronDown } from "lucide-react";
+import { Plus, Search, Upload, Download, ChevronDown, Truck } from "lucide-react";
 import { getViajesLista } from "../../lib/data";
 import { ESTADO_VIAJE } from "../../lib/labels";
+import EmptyState from "../components/ui/EmptyState";
 
 const ESTADOS = [
   { key: null, label: "Todos" },
@@ -188,9 +189,17 @@ export default function ViajesPage() {
               );
             })}
             {filtrados.length === 0 && (
-              <p className="text-sm text-ink-secondary p-4 text-center">
-                {busqueda ? `Sin resultados para "${busqueda}"` : "No hay viajes todavía."}
-              </p>
+              busqueda ? (
+                <p className="text-sm text-ink-secondary p-4 text-center">Sin resultados para "{busqueda}"</p>
+              ) : (
+                <EmptyState
+                  icon={Truck}
+                  titulo="Todavía no hay viajes"
+                  texto="Crea tu primer viaje o impórtalos desde Excel/CSV."
+                  ctaLabel="Nuevo viaje"
+                  ctaHref="/viajes/nuevo"
+                />
+              )
             )}
           </div>
 

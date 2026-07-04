@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Copy, Check, UserPlus } from "lucide-react";
+import { Copy, Check, UserPlus, Users } from "lucide-react";
 import { getChoferes, createChofer } from "../../lib/data";
+import EmptyState from "../components/ui/EmptyState";
 
 const IDIOMAS = ["es", "ro", "ar", "fr", "it", "en", "pt", "de"];
 const BOT = process.env.NEXT_PUBLIC_BOT_USERNAME;
@@ -146,9 +147,7 @@ export default function ChoferesPage() {
           );
         })}
         {choferes.length === 0 && (
-          <p className="text-sm text-ink-secondary py-4">
-            No hay chóferes todavía. Añade el primero arriba.
-          </p>
+          <EmptyState icon={Users} titulo="Todavía no hay chóferes" texto="Añade el primero con el formulario de arriba." />
         )}
       </div>
     </div>

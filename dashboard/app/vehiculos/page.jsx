@@ -6,6 +6,7 @@ import { Plus, Truck } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getCurrentEmpresaId } from "../../lib/data";
 import { TIPOS_VEHICULO as TIPOS } from "../../lib/labels";
+import EmptyState from "../components/ui/EmptyState";
 
 export default function VehiculosPage() {
   const [vehiculos, setVehiculos] = useState([]);
@@ -170,7 +171,11 @@ export default function VehiculosPage() {
           </div>
         ))}
         {filtrados.length === 0 && (
-          <p className="text-sm text-ink-secondary py-4">No hay vehículos {filtro !== "todos" ? `de tipo "${filtro}"` : ""}. Añade el primero arriba.</p>
+          <EmptyState
+            icon={Truck}
+            titulo={`Todavía no hay vehículos${filtro !== "todos" ? ` de tipo "${filtro}"` : ""}`}
+            texto="Añade el primero con el formulario de arriba."
+          />
         )}
       </div>
     </div>

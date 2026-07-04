@@ -9,6 +9,7 @@ import MetricCard from "./components/MetricCard";
 import KanbanColumn from "./components/KanbanColumn";
 import TripCard from "./components/TripCard";
 import ResumenHoy from "./components/ResumenHoy";
+import ChecklistOnboarding from "./components/ChecklistOnboarding";
 
 function classify(trips) {
   const conIncidencia = trips.filter((t) => t.incidencia);
@@ -66,6 +67,7 @@ export default function OperacionPage() {
 
   return (
     <div>
+      <ChecklistOnboarding />
       <ResumenHoy />
 
       <div className="flex items-center justify-between mb-5">
