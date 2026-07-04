@@ -888,7 +888,7 @@ día y solo tiene sentido con 2+ Admins activos; revisar más adelante si hace f
   Admin, botón "Desactivar" con confirmación). Tests de RLS contra BD real (mismo criterio
   que `isolation.test.js` — no basta con mockear, hay que probarlo contra Postgres de verdad
   dado que aquí el riesgo es justo que una policy mal escrita no aísle de verdad).
-- [ ] `[LOOP]` **9.30 Reorganización del sidebar en grupos/submenús** (picar código: sonnet,
+- [x] `[LOOP]` **9.30 Reorganización del sidebar en grupos/submenús** (picar código: sonnet,
   esfuerzo bajo — spec cerrada aquí mismo, no hace falta SPECS-9 aparte). Reagrupar
   `Sidebar.jsx` de lista plana a grupos colapsables, manteniendo cada enlace existente sin
   romper ninguna ruta:
