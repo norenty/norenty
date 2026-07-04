@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { TIPO_PARKING_LABEL } from "../../lib/labels";
+import RequireRol from "./RequireRol";
 
 const ICON_RECOGIDA = new L.DivIcon({
   className: "",
@@ -117,7 +118,7 @@ export default function MapView({ hitos, ubicaciones, parkings, onBorrarParking 
                 </>
               )}
               {p.fuente === "empresa" && onBorrarParking && (
-                <>
+                <RequireRol roles={["admin", "gestor_operativo"]}>
                   <br />
                   <button
                     onClick={() => onBorrarParking(p.id)}
@@ -125,7 +126,7 @@ export default function MapView({ hitos, ubicaciones, parkings, onBorrarParking 
                   >
                     Eliminar
                   </button>
-                </>
+                </RequireRol>
               )}
             </div>
           </Popup>

@@ -5,6 +5,7 @@ import { Plus, FileText, ExternalLink, Trash2 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getCurrentEmpresaId, registrarAuditoria } from "../../lib/data";
 import { badgeCaducidad, fmtFecha } from "../../lib/format";
+import RequireRol from "./RequireRol";
 
 const SIGNED_URL_TTL = 3600;
 
@@ -122,12 +123,14 @@ export default function DocumentosSection({ ambito, entidadId, tipos, titulo = "
     <div className="bg-surface border border-border rounded-xl overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h2 className="text-sm font-medium text-ink">{titulo}</h2>
-        <button
-          onClick={() => setMostrarForm((v) => !v)}
-          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md bg-brand text-white"
-        >
-          <Plus size={13} /> Añadir documento
-        </button>
+        <RequireRol roles={["admin", "gestor_operativo"]}>
+          <button
+            onClick={() => setMostrarForm((v) => !v)}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md bg-brand text-white"
+          >
+            <Plus size={13} /> Añadir documento
+          </button>
+        </RequireRol>
       </div>
 
       {mostrarForm && (
@@ -245,15 +248,17 @@ export default function DocumentosSection({ ambito, entidadId, tipos, titulo = "
                 >
                   <ExternalLink size={14} />
                 </button>
-                <button
-                  onClick={() => borrar(doc)}
-                  disabled={borrandoId === doc.id}
-                  className="text-ink-muted hover:text-estado-incidencia disabled:opacity-40 shrink-0 p-1"
-                  title="Eliminar documento"
-                  aria-label={`Eliminar documento: ${tipoLabel(doc.tipo)}`}
-                >
-                  <Trash2 size={14} />
-                </button>
+                <RequireRol roles={["admin"]}>
+                  <button
+                    onClick={() => borrar(doc)}
+                    disabled={borrandoId === doc.id}
+                    className="text-ink-muted hover:text-estado-incidencia disabled:opacity-40 shrink-0 p-1"
+                    title="Eliminar documento"
+                    aria-label={`Eliminar documento: ${tipoLabel(doc.tipo)}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </RequireRol>
               </div>
             );
           })}

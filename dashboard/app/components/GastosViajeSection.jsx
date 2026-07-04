@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Trash2, Fuel, ParkingSquare, Siren, Bed, Receipt } from "lucide-react";
 import { getGastosViaje, createGastoViaje, deleteGastoViaje } from "../../lib/data";
 import { TIPO_GASTO_LABEL as TIPO_LABEL } from "../../lib/labels";
+import RequireRol from "./RequireRol";
 
 const TIPOS = ["repostaje", "peaje", "multa", "dieta", "otro"];
 const TIPO_ICON = {
@@ -74,12 +75,14 @@ export default function GastosViajeSection({ viajeId, choferId = null, vehiculoI
     <div className="bg-surface border border-border rounded-xl overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h2 className="text-sm font-medium text-ink">Gastos</h2>
-        <button
-          onClick={() => setMostrarForm((v) => !v)}
-          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md bg-brand text-white"
-        >
-          <Plus size={13} /> Añadir gasto
-        </button>
+        <RequireRol roles={["admin", "gestor_operativo"]}>
+          <button
+            onClick={() => setMostrarForm((v) => !v)}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md bg-brand text-white"
+          >
+            <Plus size={13} /> Añadir gasto
+          </button>
+        </RequireRol>
       </div>
 
       {mostrarForm && (
@@ -173,14 +176,16 @@ export default function GastosViajeSection({ viajeId, choferId = null, vehiculoI
                     {g.fecha && <span className="text-ink-muted"> · {new Date(g.fecha + "T12:00:00").toLocaleDateString("es-ES")}</span>}
                   </span>
                   <span className="font-medium text-ink shrink-0">{Number(g.importe).toLocaleString("es-ES")} €</span>
-                  <button
-                    onClick={() => borrar(g.id)}
-                    disabled={borrandoId === g.id}
-                    aria-label="Borrar gasto"
-                    className="p-1 text-ink-muted hover:text-estado-incidencia disabled:opacity-40 shrink-0"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  <RequireRol roles={["admin", "gestor_operativo"]}>
+                    <button
+                      onClick={() => borrar(g.id)}
+                      disabled={borrandoId === g.id}
+                      aria-label="Borrar gasto"
+                      className="p-1 text-ink-muted hover:text-estado-incidencia disabled:opacity-40 shrink-0"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </RequireRol>
                 </div>
               );
             })}

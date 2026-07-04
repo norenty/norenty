@@ -11,6 +11,7 @@ import { supabase } from "../../../lib/supabase";
 import { getCurrentEmpresaId, getMultasPorVehiculo } from "../../../lib/data";
 import DocumentosSection from "../../components/DocumentosSection";
 import { TIPOS_DOC_VEHICULO } from "../../../lib/labels";
+import RequireRol from "../../components/RequireRol";
 
 const TIPO_LABEL = {
   itv: { label: "ITV", icon: CalendarCheck, color: "text-blue-600", bg: "bg-blue-50" },
@@ -176,6 +177,7 @@ export default function VehiculoDetalle() {
             ITV pendiente{proxITV.fecha ? ` — ${new Date(proxITV.fecha + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" })}` : ""}
           </div>
         )}
+        <RequireRol roles={["admin"]}>
         <div className="mt-3 pt-3 border-t border-border flex items-end gap-3">
           <div className="flex-1 max-w-[10rem]">
             <label htmlFor="vehiculo-coste-km" className="block text-xs text-ink-secondary mb-1">Coste por km (€)</label>
@@ -214,6 +216,7 @@ export default function VehiculoDetalle() {
             Sobrescribe el coste/km de la empresa solo para este vehículo. Vacío = usa el de la empresa.
           </p>
         </div>
+        </RequireRol>
       </div>
 
       {/* Multas (7A.7) */}
@@ -238,12 +241,14 @@ export default function VehiculoDetalle() {
       <div className="bg-surface border border-border rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h2 className="text-sm font-medium text-ink">Mantenimiento / Averías</h2>
-          <button
-            onClick={() => setMostrarForm((v) => !v)}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md bg-brand text-white"
-          >
-            <Plus size={13} /> Añadir registro
-          </button>
+          <RequireRol roles={["admin", "gestor_operativo"]}>
+            <button
+              onClick={() => setMostrarForm((v) => !v)}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md bg-brand text-white"
+            >
+              <Plus size={13} /> Añadir registro
+            </button>
+          </RequireRol>
         </div>
 
         {mostrarForm && (
@@ -374,14 +379,16 @@ export default function VehiculoDetalle() {
                       {r.coste && <span>{parseFloat(r.coste).toFixed(2)} €</span>}
                     </div>
                   </div>
-                  <button
-                    onClick={() => borrar(r.id)}
-                    disabled={borrandoId === r.id}
-                    className="text-ink-muted hover:text-estado-incidencia disabled:opacity-40 shrink-0 p-1"
-                    title="Eliminar registro"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <RequireRol roles={["admin", "gestor_operativo"]}>
+                    <button
+                      onClick={() => borrar(r.id)}
+                      disabled={borrandoId === r.id}
+                      className="text-ink-muted hover:text-estado-incidencia disabled:opacity-40 shrink-0 p-1"
+                      title="Eliminar registro"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </RequireRol>
                 </div>
               );
             })}

@@ -8,6 +8,7 @@ import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEst
 import { supabase } from "../../../lib/supabase";
 import SugerenciaChofer from "../../components/SugerenciaChofer";
 import { badgeMargen } from "../../../lib/format";
+import RequireRol from "../../components/RequireRol";
 
 // Wizard "Nuevo viaje" (7A.11) — construido en ruta nueva a propósito, SIN
 // sustituir /viajes/nuevo todavía: el swap (decidir si este pasa a ser el
@@ -188,14 +189,16 @@ export default function NuevoViajeWizard() {
                   className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
                 />
               </div>
-              <div>
-                <label htmlFor="w-precio" className="block text-xs text-ink-secondary mb-1">Precio (€)</label>
-                <input
-                  id="w-precio" type="number" step="any" min="0" value={precio} onChange={(e) => setPrecio(e.target.value)}
-                  placeholder="1200"
-                  className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-                />
-              </div>
+              <RequireRol roles={["admin"]}>
+                <div>
+                  <label htmlFor="w-precio" className="block text-xs text-ink-secondary mb-1">Precio (€)</label>
+                  <input
+                    id="w-precio" type="number" step="any" min="0" value={precio} onChange={(e) => setPrecio(e.target.value)}
+                    placeholder="1200"
+                    className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+                  />
+                </div>
+              </RequireRol>
             </div>
 
             <div>
@@ -276,23 +279,25 @@ export default function NuevoViajeWizard() {
                   <div className="text-xs text-ink-secondary">Noches fuera (est.)</div>
                   <div className="text-ink font-medium">{panel.noches}</div>
                 </div>
-                {panel.coste.total != null && (
-                  <div>
-                    <div className="text-xs text-ink-secondary">Coste estimado</div>
-                    <div className="text-ink font-medium">{panel.coste.total.toLocaleString("es-ES")} €</div>
-                  </div>
-                )}
-                {panel.precioSugerido != null && (
-                  <div>
-                    <div className="text-xs text-ink-secondary">Precio sugerido (margen {panel.margenObjetivo}%)</div>
-                    <div className="text-ink font-medium">{panel.precioSugerido.toLocaleString("es-ES")} €</div>
-                  </div>
-                )}
-                {panel.margenPct != null && (
-                  <div className={`text-xs px-2 py-1.5 rounded-md ${badgeMargen(panel.margen, panel.margenPct, UMBRAL_MARGEN_AMBAR_PCT)}`}>
-                    Margen con tu precio: {panel.margen.toLocaleString("es-ES")} € ({panel.margenPct}%)
-                  </div>
-                )}
+                <RequireRol roles={["admin"]}>
+                  {panel.coste.total != null && (
+                    <div>
+                      <div className="text-xs text-ink-secondary">Coste estimado</div>
+                      <div className="text-ink font-medium">{panel.coste.total.toLocaleString("es-ES")} €</div>
+                    </div>
+                  )}
+                  {panel.precioSugerido != null && (
+                    <div>
+                      <div className="text-xs text-ink-secondary">Precio sugerido (margen {panel.margenObjetivo}%)</div>
+                      <div className="text-ink font-medium">{panel.precioSugerido.toLocaleString("es-ES")} €</div>
+                    </div>
+                  )}
+                  {panel.margenPct != null && (
+                    <div className={`text-xs px-2 py-1.5 rounded-md ${badgeMargen(panel.margen, panel.margenPct, UMBRAL_MARGEN_AMBAR_PCT)}`}>
+                      Margen con tu precio: {panel.margen.toLocaleString("es-ES")} € ({panel.margenPct}%)
+                    </div>
+                  )}
+                </RequireRol>
                 {panel.estimado && (
                   <p className="text-xs text-yellow-700">~ distancia estimada en línea recta corregida.</p>
                 )}

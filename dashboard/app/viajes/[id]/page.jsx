@@ -423,16 +423,19 @@ export default function ViajeDetalle() {
               <h2 className="text-sm font-medium text-ink flex items-center gap-1.5">
                 <Euro size={15} /> Viabilidad
               </h2>
-              {!editandoPrecio && (
-                <button
-                  onClick={() => { setPrecioInput(viaje.precio != null ? String(viaje.precio) : ""); setEditandoPrecio(true); }}
-                  className="text-xs text-ink-secondary hover:text-ink flex items-center gap-1"
-                >
-                  <Edit3 size={12} /> Precio
-                </button>
-              )}
+              <RequireRol roles={["admin"]}>
+                {!editandoPrecio && (
+                  <button
+                    onClick={() => { setPrecioInput(viaje.precio != null ? String(viaje.precio) : ""); setEditandoPrecio(true); }}
+                    className="text-xs text-ink-secondary hover:text-ink flex items-center gap-1"
+                  >
+                    <Edit3 size={12} /> Precio
+                  </button>
+                )}
+              </RequireRol>
             </div>
 
+            <RequireRol roles={["admin"]} fallback={<p className="text-xs text-ink-muted">Coste, precio y margen visibles solo para administradores.</p>}>
             {editandoPrecio ? (
               <div className="flex items-center gap-2 mb-3">
                 <input
@@ -499,6 +502,7 @@ export default function ViajeDetalle() {
                 </div>
               );
             })()}
+            </RequireRol>
           </section>
 
           <section className="bg-surface border border-border rounded-xl p-4">
