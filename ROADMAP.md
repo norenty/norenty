@@ -829,8 +829,8 @@ confirmar que el aviso llega).
 
 ### Bloque C — Integridad de la evidencia como feature vendible
 
-- [ ] `[LOOP]` **9.6 SPECS-9.md — hash-chain de `ejecucion_evento`** (diseño: opus, esfuerzo
-  medio). Antes de tocar código: documento con el diseño exacto — algoritmo del hash
+- [x] `[LOOP]` **9.6 SPECS-9.md — hash-chain de `ejecucion_evento`** (2026-07-04; diseño: opus,
+  esfuerzo medio). Antes de tocar código: documento con el diseño exacto — algoritmo del hash
   (`hash = SHA256(hash_anterior || payload canónico)`), migración `0031` (columna `hash` +
   trigger `BEFORE INSERT` que lo calcula, encadenado por `viaje_id` o global — decidir cuál
   y por qué), función/job de verificación de integridad de la cadena completa por empresa,
