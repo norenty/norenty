@@ -735,6 +735,262 @@ alguien podría intentar fuerza bruta de tokens contra el endpoint. No aplicable
 
 ---
 
+# Fase 9 — Confianza como producto: seguridad, solidez y escala (ABIERTA, 2026-07-04)
+
+Origen: hoja de ruta de arquitectura elaborada por Fable a partir de un snapshot exacto del
+proyecto (código, esquema, ROADMAP/PROGRESS reales), revisada por el ejecutor de este repo y
+adoptada por el usuario. Reestructurada aquí con la convención exacta de este documento
+(`[LOOP]`/`[DECISIÓN]`, gates, protocolo stateless) para que el loop autónomo la pueda ejecutar.
+
+### Principio rector (tesis técnica del producto)
+
+Norenty no vende software; vende **evidencia creíble**. Tres propiedades SON el producto:
+
+1. **Integridad de la evidencia** — `ejecucion_evento`, `pod`, `ubicacion` inviolables:
+   append-only, con cadena de custodia demostrable (hoy: RLS de fila + REVOKE de columna a
+   nivel de esquema, migración `0019`; falta la capa criptográfica, ver Bloque C).
+2. **Aislamiento absoluto entre empresas** — ya existe (RLS + REVOKE de columna + suite de
+   aislamiento `isolation.test.js` contra BD real). Es el mejor activo del proyecto: se
+   protege manteniéndolo **obligatorio en CI, nunca opcional**, no ampliándolo porque sí.
+3. **Disponibilidad honesta** — el gestor deja el teléfono solo si el sistema nunca lo deja
+   tirado, o le avisa en el momento en que no puede.
+
+Todo ítem de esta fase sirve a una de esas tres propiedades. Lo que no sirva a ninguna es
+vanidad y no entra aquí (por eso NO hay microservicios, Kubernetes, Kafka ni multi-región en
+este roadmap — ver "Anti-roadmap" al final de la fase).
+
+### Convención nueva de esta fase: "órdenes de trabajo" modulares + tiering de modelo
+
+Cada ítem lleva anotado el modelo recomendado, siguiendo el protocolo de la sección final de
+este documento (ahora actualizado): `(picar código: sonnet, esfuerzo bajo)` para trabajo
+mecánico con spec cerrada, `(diseño: opus, esfuerzo medio)` cuando el ítem requiere una
+decisión de arquitectura antes de picar código. Para los dos ítems más sensibles de diseño
+(9.5 hash-chain, 9.13 colas) el protocolo es el mismo que ya funcionó en Fase 7A: **opus
+escribe primero un `SPECS-9.md`** (formato SQL literal + firmas de función + casos de test,
+igual que `SPECS-7A.md`) y **solo entonces sonnet ejecuta contra esa spec** — nunca al revés.
+
+---
+
+### Bloque A — Tocar la realidad (GATE previo — YA rastreado, no duplicar)
+
+Equivale 1:1 a las decisiones `D1`/`D2`/`D4`/`D6` de Fase 8 (service role key real → probar
+el bot contra Telegram real de punta a punta con un viaje completo y POD visible en el
+dashboard → activar leaked-password-protection → desplegar). **No crear ítems nuevos aquí**:
+seguir marcando el progreso en la sección "Decisiones que solo tú puedes tomar" de Fase 8.
+
+**GATE A (= gate de entrada a todo lo de abajo):** un viaje real recorrido end-to-end contra
+Telegram real, en el entorno desplegado, con POD subido y visible en el dashboard. Sin esto,
+el resto de esta fase es trabajo de preparación, no de producción.
+
+*Nota de secuencia:* los ítems `[LOOP]` de los Bloques B-C que NO dependen de estar
+desplegado (documentación, triggers de BD, scripts) pueden picarse ya, antes del Gate A, para
+no tener al loop parado esperando. Los que sí dependen de infra desplegada quedan marcados
+explícitamente `(bloqueado por Gate A)`.
+
+---
+
+### Bloque B — Endurecer lo desplegado (semana 1-3 tras el Gate A)
+
+- [ ] `[DECISIÓN]` **9.1 Proyecto Supabase de producción separado del de desarrollo.** Hoy
+  demo y "real" viven en el mismo proyecto Supabase — riesgo real no señalado hasta ahora.
+  Requiere crear el proyecto nuevo (cuenta/plan Supabase) y decidir el procedimiento de
+  migración del esquema (las 30 migraciones ya versionadas hacen esto mecánico una vez
+  exista el proyecto). Bloquea: que `seed_demo.py` pueda seguir usándose sin riesgo de tocar
+  datos reales.
+- [ ] `[LOOP]` **9.2 Runbook de rotación de secretos** (picar código: sonnet, esfuerzo bajo).
+  `RUNBOOK-SECRETS.md`: procedimiento escrito de 15 min para rotar `SUPABASE_SERVICE_ROLE_KEY`,
+  token del bot de Telegram y cualquier clave LLM futura, con el orden exacto de pasos para no
+  dejar una ventana sin servicio (rotar en Supabase/BotFather → actualizar en el store de
+  secretos de Railway/Vercel → redeploy → verificar heartbeat). No depende del Gate A.
+- [ ] `[LOOP]` **9.3 De CSP Report-Only a enforcing** (picar código: sonnet, esfuerzo bajo;
+  bloqueado por Gate A). Script/checklist que, tras una semana recogiendo reports reales en
+  producción, resume las violaciones y propone el allowlist final; cambiar
+  `Content-Security-Policy-Report-Only` a `Content-Security-Policy` en `next.config.js` una
+  vez confirmado. Preparar el checklist ya; ejecutarlo solo tras el Gate A.
+- [ ] `[LOOP]` **9.4 Simulacro de restore + RPO/RTO documentado** (picar código: sonnet,
+  esfuerzo bajo; bloqueado por `D2` — necesita `DATABASE_URL`). Activar Point-in-Time
+  Recovery en el proyecto de producción; script de restore a un entorno de prueba +
+  checklist de verificación (¿cuántas filas, hasta qué timestamp?); documento con objetivo
+  RPO ≤ 24h / RTO ≤ 4h para el piloto y el tiempo medido real del último simulacro.
+  Calendarlo mensual (recordatorio, no automatización todavía).
+- [ ] `[LOOP]` **9.5 Observabilidad mínima seria** (picar código: sonnet, esfuerzo bajo).
+  Sentry ya está cableado (opt-in) — solo falta pegar un DSN real (`[DECISIÓN]` ligera, como
+  D6). Lo `[LOOP]` de verdad: configurar un monitor externo gratuito (UptimeRobot/Better
+  Stack) contra `/db/health` + home del dashboard + lectura del `bot_heartbeat`, con alerta a
+  un chat de Telegram propio; y logging estructurado (JSON) en `bot.py` con `empresa_id`/
+  `viaje_id`/`update_id` en cada línea relevante, para poder responder en minutos a "ayer a
+  las 18:40 no me llegó la alerta".
+
+**GATE B:** CSP enforcing sin romper nada en producción; un restore de backup ejecutado con
+éxito y cronometrado; una alerta de caída del bot probada de verdad (matarlo adrede y
+confirmar que el aviso llega).
+
+---
+
+### Bloque C — Integridad de la evidencia como feature vendible
+
+- [ ] `[LOOP]` **9.6 SPECS-9.md — hash-chain de `ejecucion_evento`** (diseño: opus, esfuerzo
+  medio). Antes de tocar código: documento con el diseño exacto — algoritmo del hash
+  (`hash = SHA256(hash_anterior || payload canónico)`), migración `0031` (columna `hash` +
+  trigger `BEFORE INSERT` que lo calcula, encadenado por `viaje_id` o global — decidir cuál
+  y por qué), función/job de verificación de integridad de la cadena completa por empresa,
+  qué pasa si la verificación falla (alerta, nunca "arreglo silencioso"), y los casos de
+  test (inserción normal, intento de alterar una fila histórica → detectado, cadena rota a
+  mitad → localiza el punto exacto). Mismo formato que `SPECS-7A.md`.
+- [ ] `[LOOP]` **9.7 Implementar hash-chain según SPECS-9.md** (picar código: sonnet,
+  esfuerzo bajo — spec ya cerrada por 9.6). Migración + trigger + job de verificación diaria
+  (puede vivir como script Python en `backend/db/` ejecutado por cron del propio proceso, o
+  documentado como pendiente de un scheduler real si no existe uno todavía — mismo criterio
+  honesto que se aplicó en 4.4). Tests. Este es el ítem que sostiene el pitch "ni nosotros
+  podemos falsificar una hora de llegada".
+- [ ] `[LOOP]` **9.8 Hash SHA-256 de cada POD al subirlo** (picar código: sonnet, esfuerzo
+  bajo). Columna `pod.hash_sha256`; calcular el hash del fichero en el momento de la subida
+  (bot, que es quien sube) y guardarlo junto al `foto_url`. Verificación bajo demanda:
+  función que recalcula el hash del fichero en Storage y lo compara. Tests.
+- [ ] `[LOOP]` **9.9 Endurecer el perímetro del bot** (picar código: sonnet, esfuerzo bajo;
+  activación en producción bloqueada por Gate A). Validar `X-Telegram-Bot-Api-Secret-Token`
+  en cada request cuando se use modo webhook (ya soportado, no activado); rate limiting
+  simple por `chat_id` (ventana deslizante en memoria o tabla, anti-flood); validación de
+  tamaño/tipo de fichero en las fotos de POD antes de subir; dedupe por `update_id` de
+  Telegram para que un reintento de la propia Telegram no duplique eventos de ejecución.
+  Tests de cada guardrail con el arnés E2E existente.
+- [ ] `[LOOP]` **9.10 Mínimos de AuthN/AuthZ del dashboard** (picar código: sonnet, esfuerzo
+  bajo). MFA opcional para gestores (Supabase Auth ya lo soporta, activar + UI en Ajustes);
+  expiración/revocación explícita de invitaciones ya vencidas; botón "cerrar todas las
+  sesiones" del gestor. Mantener `isolation.test.js` como **check obligatorio en `ci.ps1`**
+  (ya lo es — dejar explícito aquí que nunca se debe hacer opcional ni saltable).
+
+**GATE C:** demo grabada de 2 minutos enseñando la cadena de custodia (intento de alterar un
+evento histórico → detectado por la verificación); suite de aislamiento + verificación de
+cadena corriendo en `ci.ps1` en verde de forma sostenida.
+
+---
+
+### Bloque D — GDPR y compliance como argumento comercial (en paralelo al piloto)
+
+Los datos de geolocalización de un chófer son datos personales sensibles en la práctica.
+Cualquier cliente serio lo va a preguntar; mejor llegar con los deberes hechos que a remolque.
+
+- [ ] `[DECISIÓN]` **9.11 Consulta de 1h con abogado laboralista/privacidad** — base
+  jurídica del tracking del chófer (interés legítimo del empleador + información al
+  trabajador; el consentimiento NO es la base correcta en una relación laboral). Es una
+  consulta puntual, no un retainer — desbloquea el resto del bloque con criterio real en
+  vez de una suposición del loop.
+- [ ] `[LOOP]` **9.12 Registro de actividades de tratamiento (art. 30) — borrador** (picar
+  código: sonnet, esfuerzo bajo). Documento `PRIVACIDAD-RAT.md` con el borrador basado en el
+  esquema real (qué tabla guarda qué dato personal, con qué finalidad, cuánto se retiene) —
+  el loop puede redactar el borrador técnico; la base jurídica final la cierra 9.11.
+- [ ] `[LOOP]` **9.13 Política de retención automatizada** (picar código: sonnet, esfuerzo
+  bajo). Job de purga: `ubicacion` (dato granular de posición) se agrega o borra pasados N
+  días (default 90, configurable); `ejecucion_evento` y `pod` se retienen años (son la
+  evidencia contractual del servicio, no se purgan). Documentar la política junto al código.
+  Tests del job de purga (con fixtures de fechas).
+- [ ] `[LOOP]` **9.14 Página "Subprocesadores" + plantilla de DPA** (picar código: sonnet,
+  esfuerzo bajo). Lista pública de subencargados de tratamiento (Supabase, Vercel, Railway,
+  Sentry — todos con DPA estándar propio, enlazarlos) y una plantilla de DPA lista para
+  firmar con cada cliente (Norenty como encargado/processor, la flota como responsable/
+  controller). Fijar región UE explícitamente en la configuración de Supabase/Vercel/Railway
+  y documentarlo.
+- [ ] `[LOOP]` **9.15 Procedimiento de derechos ARCO** (picar código: sonnet, esfuerzo bajo).
+  Documento + función de soporte en `lib/data.js` (aunque el procedimiento sea manual al
+  principio) para exportar o borrar todos los datos de un chófer concreto a petición suya:
+  qué tablas tocar, en qué orden (respetando FKs), qué NO se puede borrar sin romper la
+  cadena de custodia de 9.7 (documentar esa tensión explícitamente, no ocultarla).
+
+**GATE D:** una página pública "Seguridad y privacidad" en norenty.com + DPA firmable +
+una respuesta escrita de una página al cuestionario típico de un responsable de compliance.
+
+---
+
+### Bloque E — Solidez operativa multi-cliente (con 2-3 flotas reales activas)
+
+- [ ] `[LOOP]` **9.16 Migraciones con red** (picar código: sonnet, esfuerzo bajo). Entorno de
+  staging con datos sintéticos (reutilizar `seed_demo.py`) donde cada migración corre antes
+  que en producción; por cada migración nueva a partir de aquí, documentar también su
+  reversión (aunque sea "restaurar backup + replay de eventos posteriores").
+- [ ] `[LOOP]` **9.17 SPECS-9.md (bloque colas) — colas para lo asíncrono** (diseño: opus,
+  esfuerzo medio). Cuando haya volumen real: sacar de la request del bot lo lento
+  (validación de POD con visión LLM cuando se apruebe D3/7B, notificaciones) a un worker con
+  reintentos persistentes. Diseño recomendado: **Postgres como cola** (`SELECT ... FOR
+  UPDATE SKIP LOCKED`) antes que añadir Redis — menos piezas nuevas, más sólido, coherente
+  con el "anti-roadmap" de no añadir infraestructura que no haga falta todavía.
+- [ ] `[LOOP]` **9.18 Implementar colas según SPECS-9.md** (picar código: sonnet, esfuerzo
+  bajo — spec ya cerrada por 9.17). Tabla de cola, worker, tests de reintentos y de que un
+  fallo del worker no pierde el mensaje.
+- [ ] `[LOOP]` **9.19 SLOs internos medidos con lo que ya se loguea** (picar código: sonnet,
+  esfuerzo bajo). Definir 2-3 objetivos concretos ("el bot responde en <5s el 99% de las
+  veces", "la notificación de asignación llega en <60s") y un script/vista que los calcule a
+  partir de los logs estructurados de 9.5 y el propio `bot_heartbeat`. Nada de infra nueva.
+- [ ] `[LOOP]` **9.20 Runbooks de los 5 incidentes más probables** (picar código: sonnet,
+  esfuerzo bajo). `RUNBOOKS.md`: bot caído, Supabase degradado, webhook roto, proveedor LLM
+  caído (cuando exista), clave rotada a medias — pasos escritos y concretos para cada uno.
+- [ ] `[DECISIÓN]` **9.21 Simulacro de incidente real** — un sábado, romper algo a propósito
+  (con aviso y ventana acordada) y operar el runbook correspondiente de 9.20. Necesita que
+  el usuario fije la fecha/ventana; el loop no decide cuándo interrumpir un sistema en uso.
+- [ ] `[LOOP]` **9.22 OSRM: probarlo de verdad o degradarlo oficialmente** (picar código:
+  sonnet, esfuerzo bajo). O se levanta el contenedor Docker con el extracto de España y se
+  verifica el camino feliz real una vez (medio día), o se documenta explícitamente en
+  `ROADMAP.md`/UI que el cálculo de km/ETA es "Haversine×1.3, no probado contra routing real"
+  hasta tener presupuesto para HERE. Lo que no se ha ejecutado nunca no se vende como si
+  funcionara — cerrar esta ambigüedad en un sentido u otro, no dejarla flotando más tiempo.
+
+**GATE E:** 30 días seguidos con 2+ flotas activas sin intervención manual no planificada;
+runbooks probados al menos una vez cada uno; SLOs medidos y publicables.
+
+---
+
+### Bloque F — La arquitectura escala con el negocio (gated por ingresos, NO antes)
+
+Nada de este bloque se empieza sin (a) un cliente que lo pida explícitamente + (b) ingreso
+real que lo pague + (c) el ítem anterior de la cadena en producción estable. Todo `[DECISIÓN]`.
+
+- [ ] `[DECISIÓN]` **9.23 API propia entre dashboard y datos.** Hoy el dashboard habla
+  directo a Supabase (por diseño, más simple). Migrar solo cuando: integraciones TMS de
+  terceros, app móvil nativa, o lógica que no quepa en RLS lo exijan. Ventaja ya pagada por
+  cómo está construido: `dashboard/lib/data.js` son funciones puras y testeadas — moverlas
+  detrás de FastAPI el día que haga falta es mecánico, no una reescritura.
+- [ ] `[DECISIÓN]` **9.24 Particionado de `ubicacion`/`ejecucion_evento`** — cuando superen
+  del orden de 10M de filas, no antes (prematuro hoy).
+- [ ] `[DECISIÓN]` **9.25 Réplica de lectura para analítica** — cuando los informes
+  (`/analitica`, `/nomina`, rentabilidad) empiecen a competir de verdad con el tráfico
+  transaccional del bot/dashboard.
+- [ ] `[DECISIÓN]` **9.26 SOC 2 Type I / ISO 27001** — solo si un cliente enterprise lo pide
+  por escrito. Los Bloques B-D de esta fase ya dejan el grueso del camino hecho (evidencias,
+  runbooks, control de acceso).
+- [ ] `[DECISIÓN]` **9.27 Voz (D3/7B.1), triaje LLM (7B.2), HERE truck-aware (7B.6),
+  auto-dispatch (7B.7)** — ya estaban en Fase 7B; entran en este orden por demanda real de
+  cliente, no por elección interna. Auto-dispatch en particular: SIEMPRE con humano en el
+  loop hasta que `decision_asignacion` (7A.2) demuestre estadísticamente que el motor elige
+  igual o mejor que el mejor gestor humano — nunca antes, sin excepción.
+
+**GATE F:** cada ítem de este bloque entra solo con las tres condiciones (a)+(b)+(c) cumplidas
+a la vez, documentadas en `PROGRESS.md` con el nombre del cliente/ingreso que lo desbloqueó.
+
+---
+
+### Anti-roadmap de la Fase 9 (lo que NO se hace, y por qué)
+
+- **Microservicios, Kubernetes, Kafka, multi-región: no.** Un monolito Python + Next.js +
+  Postgres bien operado aguanta cientos de flotas. La complejidad añadida es enemiga directa
+  de la solidez que este producto vende.
+- **Reescrituras.** El código ya está bien estructurado (lógica en funciones puras, migraciones
+  con checksum, tests de aislamiento). Esta fase ENDURECE, no reescribe.
+- **Herramientas de seguridad de pago antes de agotar lo gratis.** Supabase PITR, Sentry,
+  UptimeRobot/Better Stack, GitHub Dependabot + secret-scanning — activar esto es gratis y
+  mecánico (candidatos claros para `sonnet, esfuerzo bajo` en cuanto se decida 9.1).
+- **Features nuevas mientras un gate de esta fase esté en rojo.** Julio 2026 ya estableció
+  "solidez antes que features"; esta fase es su continuación, no su sustituto — el loop NO
+  debe volver a Fase 7B/backlog de features mientras un Bloque A-D esté abierto.
+
+### El pitch que compra esta fase (para la reunión con la empresa piloto)
+
+"Cada hora de llegada, cada albarán y cada kilómetro que ves lleva una cadena criptográfica
+que ni nosotros podemos alterar. Tus datos están aislados por diseño y lo probamos en cada
+despliegue con tests automáticos. Todo en servidores de la UE, con contrato de tratamiento de
+datos listo para tu asesoría. Y si el sistema se cae, lo sabemos antes que tú."
+
+---
+
 ## Protocolo del loop autónomo (optimizado para tokens / operación prolongada)
 
 **Principio: cada iteración es STATELESS.** No depende del historial de conversación, solo de
@@ -751,10 +1007,32 @@ Cada despertar:
 7. Tras 3 fallos seguidos en el mismo ítem o si hay presión de cuota: parar, anotar `NECESITA HUMANO`, dormir más largo.
 8. Dormir con `ScheduleWakeup`, 1500–1800s por defecto. Nunca <300s (desperdicia caché).
 
-**Tiering de modelos** (el orquestador se mantiene barato por ser stateless):
-- Mecánico/repetitivo → subagente `model: haiku`.
-- Seguridad/arquitectura/bug difícil → subagente `model: opus`.
-- Delegar la EXPLORACIÓN de código a subagentes para que el hilo principal no se llene de contenido de archivos.
+**Tiering de modelos** (el orquestador se mantiene barato por ser stateless; actualizado
+2026-07-04 para maximizar el uso de la IA sin gastar de más — vigente desde Fase 9 en
+adelante, aplica también con carácter retroactivo a cualquier fase anterior aún abierta):
+- **Picar código con spec ya cerrada** (mecánico, repetitivo, sin ambigüedad de diseño) →
+  subagente `model: sonnet`, esfuerzo/reasoning **bajo**. Es el caso por defecto: la mayoría
+  de ítems `[LOOP]` de este documento ya traen la decisión de diseño tomada en su propia
+  descripción.
+- **Decisión de arquitectura, seguridad, o cualquier ítem que module el comportamiento de
+  varias piezas del sistema a la vez** → subagente `model: opus`, esfuerzo/reasoning
+  **medio**. Antes de picar código, opus produce primero una spec corta y cerrada (mismo
+  patrón que `SPECS-7A.md`: SQL literal, firmas de función, reglas numéricas, casos de test)
+  cuando el ítem lo amerite — ver la convención de "SPECS-9.md" explicada al inicio de la
+  Fase 9. Una vez la spec existe, la EJECUCIÓN vuelve a ser trabajo de `sonnet` esfuerzo bajo.
+- **Bug difícil / diagnóstico con causa no obvia** → `model: opus`, esfuerzo medio (mismo
+  criterio que ya cazó los bugs reales de `tipo_evento`, el `RETURNING` vs RLS, y el
+  `.rpc().catch()` del mapa — todos requerían leer varias piezas del sistema a la vez, no
+  picar una línea).
+- Delegar la EXPLORACIÓN de código a subagentes (cualquier tier) para que el hilo principal
+  no se llene de contenido de archivos.
+
+**Órdenes de trabajo modulares:** cada ítem `[LOOP]` de este documento debe poder entregarse
+a un subagente SIN que necesite leer el resto de la conversación — el propio texto del ítem
+(o su `SPECS-*.md` asociado) es la orden de trabajo completa: qué construir, qué archivos
+toca, cómo se verifica, y qué modelo usar. Si un ítem no se puede resumir así, es señal de
+que hace falta escribir su SPECS-*.md antes de ejecutarlo, no de improvisar sobre la marcha.
 
 **STOPS duros (nunca en autónomo):** desplegar, features que gastan dinero (LLM visión/voz sin
-rate-limit+presupuesto), cambios de esquema destructivos, cualquier `[DECISIÓN]`.
+rate-limit+presupuesto), cambios de esquema destructivos, cualquier `[DECISIÓN]`, romper algo
+a propósito para un simulacro de incidente sin ventana acordada con el usuario (9.21).
