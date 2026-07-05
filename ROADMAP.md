@@ -1069,11 +1069,21 @@ Cualquier cliente serio lo va a preguntar; mejor llegar con los deberes hechos q
   (base jurídica definitiva → 9.11; purga de `ubicacion` → 9.13; ARCO → 9.15; DPA → 9.14).
   Marcado como BORRADOR TÉCNICO, no asesoramiento legal — pendiente de revisión por abogado
   (9.11). Sin código — ci.ps1 verde de control (100 pytest, 202 vitest, build).
-- [ ] `[LOOP]` **9.13 Política de retención automatizada** (picar código: sonnet, esfuerzo
-  bajo). Job de purga: `ubicacion` (dato granular de posición) se agrega o borra pasados N
-  días (default 90, configurable); `ejecucion_evento` y `pod` se retienen años (son la
-  evidencia contractual del servicio, no se purgan). Documentar la política junto al código.
-  Tests del job de purga (con fixtures de fechas).
+- [x] `[LOOP]` **9.13 Política de retención automatizada** (2026-07-05) — `backend/db/purgar_ubicacion.py`:
+  borra filas de `ubicacion` con más de `UBICACION_RETENCION_DIAS_DEFAULT=90` días (`--dias` para
+  umbral custom, `--dry-run` para solo contar). Decisión documentada en el propio script: BORRAR
+  y no agregar, porque nada en el producto consume un histórico agregado de `ubicacion` (bot y
+  dashboard solo leen la ÚLTIMA posición conocida) — añadir agregación sería complejidad sin
+  consumidor; se puede introducir después sin tocar este script si hiciera falta. `ejecucion_evento`/
+  `pod` no se tocan (evidencia contractual, retención indefinida por diseño de 9.6-9.8). 5 tests
+  en memoria (`test_purgar_ubicacion.py`, cursor fake: cuenta antes de borrar, respeta `--dry-run`,
+  no ejecuta DELETE si no hay nada que purgar, umbral parametrizado no interpolado en el SQL).
+  **Verificado contra la BD real** (ya con `DATABASE_URL` funcionando, D2): 4 filas de prueba
+  (120/100/10/0 días) en un chófer real de la empresa demo — `--dry-run` detectó las 2 de +90 días
+  sin borrar nada (confirmado: seguían las 4), la purga real borró exactamente esas 2 y dejó las 2
+  recientes intactas; datos de prueba limpiados después. **Nota honesta**: sin scheduler que lo
+  ejecute solo (no existe infraestructura de cron en el proyecto hoy, mismo motivo que 4.4/9.7) —
+  ejecutar manualmente o vía Tarea Programada mientras tanto. 105 pytest, 202 vitest, ci.ps1 verde.
 - [ ] `[LOOP]` **9.14 Página "Subprocesadores" + plantilla de DPA** (picar código: sonnet,
   esfuerzo bajo). Lista pública de subencargados de tratamiento (Supabase, Vercel, Railway,
   Sentry — todos con DPA estándar propio, enlazarlos) y una plantilla de DPA lista para

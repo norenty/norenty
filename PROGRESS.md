@@ -8,7 +8,28 @@ depender del historial de conversación.
 
 ---
 
-2026-07-05 | Rotación de contraseña de BD tras exposición accidental | (por commitear) | HECHO.
+2026-07-05 | Fase 9.13: Política de retención automatizada (purga de ubicacion) | (por commitear) | HECHO.
+`backend/db/purgar_ubicacion.py`: borra filas de `ubicacion` (dato de geolocalización granular,
+el más sensible del sistema según `PRIVACIDAD-RAT.md`) con más de 90 días por defecto (`--dias`
+custom, `--dry-run` para solo contar sin borrar). Decisión documentada en el propio script:
+BORRAR sin agregar, porque hoy nada en el producto consume un histórico agregado de posiciones
+(bot y dashboard solo leen la última ubicación conocida vía `.order().limit(1)`) — introducir
+agregación sería complejidad sin consumidor real; queda anotado como posible mejora futura si
+cambia. `ejecucion_evento`/`pod` quedan fuera a propósito (evidencia contractual, retención
+indefinida ya decidida en 9.6-9.8). 5 tests en memoria con cursor fake (cuenta antes de borrar,
+`--dry-run` no ejecuta DELETE, sin filas que purgar no ejecuta DELETE innecesario, umbral
+parametrizado). **Verificado contra la BD real** (primera vez que se pudo, gracias a que
+`DATABASE_URL` ya funciona tras D2): insertadas 4 filas de prueba en un chófer real de la
+empresa demo con antigüedades de 120/100/10/0 días — `--dry-run` detectó correctamente las 2 de
+más de 90 días sin tocar nada (confirmado que las 4 seguían ahí), la purga real borró exactamente
+esas 2 y dejó intactas las 2 recientes; datos de prueba limpiados después, tabla `ubicacion`
+vuelta a 0 filas como estaba. Nota honesta: sin scheduler que lo ejecute solo todavía (no hay
+infraestructura de cron en el proyecto) — ejecutar a mano o vía Tarea Programada mientras tanto,
+mismo criterio que 4.4/9.7. ci.ps1 verde (105 pytest, 202 vitest, build).
+
+---
+
+2026-07-05 | Rotación de contraseña de BD tras exposición accidental | 88be113 | HECHO.
 El usuario reseteó la contraseña de la base de datos en Supabase (higiene correcta tras el
 incidente de exposición del turno anterior) y actualizó `DATABASE_URL` en `.env` limpiamente
 (una sola línea, formato correcto). Verificado con `migrate.py --check`: el primer intento dio
