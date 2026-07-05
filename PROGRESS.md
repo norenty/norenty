@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-05 | Fase 9.10: Mínimos de AuthN/AuthZ del dashboard | (por commitear) | HECHO. Los 4
+2026-07-05 | Fase 9.10: Mínimos de AuthN/AuthZ del dashboard | ce52068 | HECHO. Los 4
 sub-ítems: (1) **MFA opcional (TOTP)** — sección nueva "Verificación en dos pasos" en
 `ajustes/page.jsx` (enroll con QR + secreto manual, verify con código de 6 dígitos, listar/
 desactivar factores). `AuthGuard.jsx` extendido: además de sesión, comprueba
