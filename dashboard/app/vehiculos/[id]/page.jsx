@@ -10,21 +10,23 @@ import {
 import { supabase } from "../../../lib/supabase";
 import { getCurrentEmpresaId, getMultasPorVehiculo } from "../../../lib/data";
 import DocumentosSection from "../../components/DocumentosSection";
-import { TIPOS_DOC_VEHICULO } from "../../../lib/labels";
+import { TIPOS_DOC_VEHICULO, TIPO_MANTENIMIENTO_LABEL, ESTADO_MANTENIMIENTO_CHIP } from "../../../lib/labels";
 import RequireRol from "../../components/RequireRol";
 
-const TIPO_LABEL = {
-  itv: { label: "ITV", icon: CalendarCheck, color: "text-blue-600", bg: "bg-blue-50" },
-  revision: { label: "Revisión", icon: Wrench, color: "text-indigo-600", bg: "bg-indigo-50" },
-  averia: { label: "Avería", icon: AlertTriangle, color: "text-estado-incidencia", bg: "bg-red-50" },
-  reparacion: { label: "Reparación", icon: Wrench, color: "text-yellow-600", bg: "bg-yellow-50" },
-  otro: { label: "Otro", icon: Wrench, color: "text-ink-secondary", bg: "bg-surface-alt" },
+// Iconos por tipo (lucide-react no puede vivir en labels.js, que es texto/color puro
+// reutilizable — ver 7A.12); el resto de cada entrada viene de TIPO_MANTENIMIENTO_LABEL.
+const ICONO_TIPO = {
+  itv: CalendarCheck,
+  revision: Wrench,
+  averia: AlertTriangle,
+  reparacion: Wrench,
+  otro: Wrench,
 };
+const TIPO_LABEL = Object.fromEntries(
+  Object.entries(TIPO_MANTENIMIENTO_LABEL).map(([tipo, v]) => [tipo, { ...v, icon: ICONO_TIPO[tipo] }])
+);
 
-const ESTADO_CHIP = {
-  completado: "bg-green-50 text-estado-ok",
-  pendiente: "bg-yellow-50 text-yellow-700",
-};
+const ESTADO_CHIP = ESTADO_MANTENIMIENTO_CHIP;
 
 const TIPOS = ["itv", "revision", "averia", "reparacion", "otro"];
 

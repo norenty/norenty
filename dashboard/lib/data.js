@@ -366,7 +366,8 @@ export async function createInvitacion(email) {
 
 /** Revoca (borra) una invitación pendiente. */
 export async function deleteInvitacion(id) {
-  await supabase.from("invitacion").delete().eq("id", id);
+  const { error } = await supabase.from("invitacion").delete().eq("id", id);
+  if (error) throw error;
 }
 
 // ==========================================================================
@@ -1514,7 +1515,8 @@ export async function createGastoViaje({ viajeId, tipo, importe, litros = null, 
 }
 
 export async function deleteGastoViaje(id) {
-  await supabase.from("gasto_viaje").delete().eq("id", id);
+  const { error } = await supabase.from("gasto_viaje").delete().eq("id", id);
+  if (error) throw error;
 }
 
 export async function getMultasPorChofer(choferId) {
@@ -1696,7 +1698,11 @@ export async function generarTokenPublico(viajeId, { diasValidez = DIAS_VALIDEZ_
 }
 
 export async function revocarTokenPublico(viajeId) {
-  await supabase.from("viaje").update({ token_publico: null, token_publico_expira: null }).eq("id", viajeId);
+  const { error } = await supabase
+    .from("viaje")
+    .update({ token_publico: null, token_publico_expira: null })
+    .eq("id", viajeId);
+  if (error) throw error;
 }
 
 export async function getViajePublico(token) {
@@ -1822,7 +1828,13 @@ export async function getExportacionChofer(choferId) {
  *    propia operación, se dejan intactos a propósito (pendiente de 9.11).
  */
 export async function anonimizarChofer(choferId) {
-  await supabase.from("documento").delete().eq("ambito", "chofer").eq("entidad_id", choferId);
+  const { error: errorDocumento } = await supabase
+    .from("documento")
+    .delete()
+    .eq("ambito", "chofer")
+    .eq("entidad_id", choferId);
+  if (errorDocumento) throw errorDocumento;
+
   const { error } = await supabase
     .from("chofer")
     .update({ nombre: "Chófer eliminado a petición propia", telefono: null })
@@ -1852,7 +1864,8 @@ export async function createParkingPropio({ nombre, tipo, lat, lon, notas }) {
 
 /** Borra un parking propio. RLS impide borrar los del dataset abierto. */
 export async function deleteParkingPropio(id) {
-  await supabase.from("parking").delete().eq("id", id);
+  const { error } = await supabase.from("parking").delete().eq("id", id);
+  if (error) throw error;
 }
 
 export async function getChoferes() {
