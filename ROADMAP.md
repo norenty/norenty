@@ -393,11 +393,15 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
   duplicación restante, dead code y TODOs; arreglar lo obvio, listar lo dudoso en PROGRESS.
 
 ### Decisiones pendientes del usuario (bloquean lo marcado)
-- [ ] `[DECISIÓN D1 — CRÍTICA]` **Pegar la SUPABASE_SERVICE_ROLE_KEY real en `.env`** (Supabase →
-  Project Settings → API). Sin ella el bot EN VIVO no funciona con RLS. Tras pegarla: probar flujo
-  real con un chófer de prueba en Telegram (yo preparo el guion de prueba cuando confirmes).
+- [x] `[DECISIÓN D1 — CRÍTICA]` **Pegar la SUPABASE_SERVICE_ROLE_KEY real en `.env`** (2026-07-05).
+  Verificado sin imprimir la clave (script desechable que confirma que ve las 2 empresas y los 4
+  gestores reales sin RLS, en vez de solo 1 empresa como pasaría con la anon key). Pendiente:
+  probar el flujo real con un chófer de prueba en Telegram (guion de prueba cuando el usuario
+  confirme que quiere hacerlo).
 - [ ] `[DECISIÓN D2]` **Pegar DATABASE_URL en `.env`** (connection string con contraseña) para
-  `migrate.py` y backups locales.
+  `migrate.py` y backups locales. En curso 2026-07-05: la variante "Direct connection" no resuelve
+  DNS desde este entorno (Supabase la dejó IPv6-only sin el add-on de IPv4) — el usuario está
+  cambiando a la variante "Session pooler" (IPv4), pendiente de reintentar.
 - [ ] `[DECISIÓN D3]` **Presupuesto voz (Whisper)** — sigue siendo la feature #1 validada por el
   gestor; en cuanto haya cifra mensual aceptable, se especifica y entra en cola.
 - [ ] `[DECISIÓN D4]` **Luz verde al despliegue** — con 6.21 hecho, desplegar es una sesión contigo.
@@ -709,10 +713,9 @@ Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servi
   buscando duplicación restante, dead code y TODOs; arreglar lo obvio, listar lo dudoso en PROGRESS.
 
 ### Decisiones que solo tú puedes tomar (desbloquean lo de arriba)
-- `[DECISIÓN D1 — CRÍTICA]` Pegar la `SUPABASE_SERVICE_ROLE_KEY` real en `.env` (te expliqué cómo
-  hacerlo de forma segura). Sin ella el bot EN VIVO no puede escribir con RLS activo. Bloquea 8.3
-  parcialmente y todo el flujo real del bot.
-- `[DECISIÓN D2]` Pegar `DATABASE_URL` para que `migrate.py` y los backups (8.9) sean ejecutables.
+- [x] `[DECISIÓN D1 — CRÍTICA]` `SUPABASE_SERVICE_ROLE_KEY` real puesta y verificada (2026-07-05).
+- [ ] `[DECISIÓN D2]` Pegar `DATABASE_URL` para que `migrate.py` y los backups (8.9) sean ejecutables
+  (en curso, ver Fase 6 más arriba — falta la variante "Session pooler").
 - `[DECISIÓN D4]` Luz verde al despliegue (tras 8.11, es una sesión contigo).
 
 ### Diferido a después de Fase 8 (features, no confiabilidad)

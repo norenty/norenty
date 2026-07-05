@@ -8,6 +8,19 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | D1 resuelta: SUPABASE_SERVICE_ROLE_KEY real puesta y verificada | (por commitear) | HECHO.
+El usuario pegó la clave directo en `.env` (nunca la compartió en el chat, verificado solo por
+longitud). Verificación funcional sin imprimir el valor (script desechable en scratchpad): un
+cliente Supabase con esa clave ve las 2 empresas reales y los 4 gestores reales sin filtrar por
+RLS — confirma que es la clave de servicio de verdad, no la anon key. Esto desbloquea el flujo
+real del bot en producción (antes corría con la anon key y no podía leer/escribir con RLS activo).
+D2 (`DATABASE_URL`) en curso: la variante "Direct connection" no resuelve DNS desde este entorno
+(Supabase la dejó IPv6-only sin el add-on de IPv4, error `could not translate host name`) —
+el usuario está cambiando a la variante "Session pooler" (IPv4), pendiente de reintentar la
+verificación con `migrate.py --check`.
+
+---
+
 2026-07-05 | D6/8.6 confirmado + aviso de rebote de emails de Supabase investigado | fbd2681 | HECHO.
 El usuario recibió un email de Supabase avisando de alta tasa de rebotes en el proyecto y
 amenazando con restringir el envío. Investigado contra el proyecto real: solo existen 3 usuarios
