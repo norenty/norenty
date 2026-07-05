@@ -8,6 +8,25 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | D6/8.6 confirmado + aviso de rebote de emails de Supabase investigado | fbd2681 | HECHO.
+El usuario recibió un email de Supabase avisando de alta tasa de rebotes en el proyecto y
+amenazando con restringir el envío. Investigado contra el proyecto real: solo existen 3 usuarios
+en `auth.users`, todos `@norenty.com` (`demo@`, y los dos fixtures de 9.31). El panel de Rate
+Limits confirma el límite real: **2 emails/hora** en el plan gratis — el "email rate limit
+exceeded" que salió durante la verificación de 9.31 era justo esto, no abuso real. Causa
+probable del rebote: el signUp de `roles931.operativo@norenty.com` (creado ese día) sí disparó un
+email de confirmación real de Supabase hacia una dirección que probablemente no tiene buzón real
+— el segundo fixture (`lectura`) se creó directo por SQL precisamente para evitar repetir esto,
+así que ya no debería volver a pasar por trabajo futuro de este proyecto. De paso, el usuario
+confirmó con captura de pantalla que **D6 (Leaked Password Protection) ya está activado** en
+Authentication → Providers → Email — Fase 8 queda 100% cerrada (antes solo faltaba esto).
+Recomendado al usuario no hacer clic en los enlaces del email de aviso y verificar directo en
+supabase.com — hizo eso, encontró además una incidencia general de infraestructura de Supabase
+(capacidad en varias regiones, ajena a nuestro proyecto) que probablemente explicaba el "me echa"
+del login. Sin cambios de código.
+
+---
+
 2026-07-05 | Fase 9.12: Registro de Actividades de Tratamiento (borrador) | 36b367b | HECHO.
 `PRIVACIDAD-RAT.md` nuevo: inventario de tratamiento tabla por tabla, leído del esquema REAL de
 Supabase (`list_tables` para las 23 tablas del proyecto + SQL directo sobre `information_schema.columns`
