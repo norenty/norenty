@@ -8,6 +8,68 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | AUDITORÍA CTO COMPLETA (seguridad, arquitectura, calidad) a petición del usuario | 64b8576,
+0838fc7,e06d89b,e25db7f,b00fd6e,b1d9f28,be31e74,961cd41,2a6adfd | HECHO. 3 subagentes en paralelo
+(seguridad; arquitectura/escalabilidad; calidad de código+cobertura+honestidad del roadmap),
+cada uno leyendo el código real y verificando contra la BD real vía MCP, no confiando en
+comentarios ni en descripciones. Hallazgos y arreglos, por prioridad:
+
+**CRÍTICO (arreglado, mismo día)**: la migración 0011 (bucket `pods` privado) nunca eliminó la
+policy permisiva de 0008 (`authenticated_select_pods`, SELECT abierto a cualquier autenticado sin
+scope de empresa) — Postgres combina policies permisivas del mismo comando con OR, así que
+CUALQUIER gestor de CUALQUIER empresa podía leer fotos de POD (albaranes, firmas) de otra empresa
+vía Storage API directo, sin pasar por la UI. Migración `0036` (DROP de la policy), verificado
+antes/después contra la BD real, test de regresión permanente (`test_storage_policies.py`).
+
+**HIGH (arreglados)**: (1) `audit_log` tenía una única policy `FOR ALL` sin restricción de
+operación ni de rol — cualquier gestor, incluido `solo_lectura`, podía UPDATE/DELETE el registro
+de auditoría, contradiciendo su propósito. Migración `0037`: solo SELECT+INSERT, sin
+UPDATE/DELETE, más el trigger de `solo_lectura` que se había omitido. (2) `sugerirChofer` llamaba
+a `getEstado561` una vez POR CHOFER dentro de un `Promise.all` (200+ consultas con 100+
+conductores) y escaneaba `ubicacion` sin límite de fecha — refactorizado con
+`getEstado561ParaChoferes` (2 consultas totales) y acotada la consulta de `ubicacion` a 2 días;
+`getEstado561` individual queda con el MISMO comportamiento exacto (155 tests existentes sin
+tocar, 3 nuevos para la versión por lotes). (3) el job del bot
+`procesar_notificaciones_asignacion` traía la tabla `viaje` ENTERA de TODAS las empresas cada 30s
+(service role, salta RLS) y filtraba en Python — el coste crecía con el histórico total de la
+plataforma; filtro empujado a la query, verificado contra la BD real (9 de 26 filas, exacto).
+(4) `deleteGastoViaje`/`revocarTokenPublico`/`deleteInvitacion`/`deleteParkingPropio`/el borrado
+de documento en `anonimizarChofer` no comprobaban `error` en absoluto — un fallo silencioso podía
+dejar un gasto "borrado" contando en el P&L o un token público revocado en UI pero vivo de
+verdad; todas ahora comprueban y lanzan. (5) cero cobertura de test en
+`getGestoresEmpresa`/`actualizarRolGestor`/`desactivarGestor`/`reactivarGestor` (mutación de roles,
+9.29) — 6 tests nuevos, mock ampliado para simular errores de UPDATE.
+
+**MEDIUM (arreglados)**: (1) `vehiculos/[id]/page.jsx` tenía un `TIPO_LABEL`/`ESTADO_CHIP` local
+idéntico a `labels.js` (exactamente la duplicación que 7A.12 debía haber eliminado) — unificado.
+(2) los índices `idx_ubicacion_chofer`/`idx_ubicacion_chofer_reciente` existían en producción
+pero en NINGÚN archivo de migración (aplicados ad-hoc por MCP en algún momento sin capturar) —
+migración `0038` los captura (idempotente). (3) `vehiculo`/`plantilla_ruta`/`plantilla_hito`/
+`ubicacion` se crearon en `0003` sin `ENABLE ROW LEVEL SECURITY`; está activo en producción (a
+mano, nunca versionado) — migración `0039` lo captura, para que un proyecto nuevo reconstruido
+solo desde las migraciones no arranque con RLS desactivado en la tabla de GPS.
+
+**Pendiente, no arreglado hoy (recomendaciones para más adelante, no urgentes)**: la página "Hoy"
+(`/`) hace una consulta sin límite de `viaje` + un abanico de llamadas a OSRM secuenciales en cada
+tick de realtime — candidato a paginar/cachear cuando haya más volumen. Varias funciones más
+(`getDocumentosPorCaducar`, `getParkings`, `getAuditLog`, `getMetricasRentabilidad`) leen tablas
+enteras sin límite, mismo patrón que 6.4 ya corrigió para analítica en su momento — mismo
+tratamiento pendiente. El patrón sistémico de "leer `data` e ignorar `error`" en decenas de sitios
+de `data.js` puede convertir un fallo real de BD en un número financiero silenciosamente
+incorrecto (p.ej. margen/nómina) en vez de un estado visible de error — merece una conversación
+de diseño, no un parche masivo a ciegas. `migrate.py --check` solo avisa (no falla) ante un
+checksum que no coincide — el caso conocido de 0002-0011 es benigno (backfill), pero la
+herramienta no distingue eso de un hand-edit accidental futuro. Migraciones como 0031/0032 mezclan
+schema+backfill+hardening en un solo archivo (ya causó que un subagente muriera a mitad en 9.29) —
+para migraciones futuras de ese tamaño, separar en pasos independientes. `format.js` tiene
+formateadores (`fmtEur`, `fmtKm`, etc.) con cero adopción real — 9 archivos siguen con el patrón
+duplicado que debían reemplazar. Ninguno de estos bloquea nada ni es urgente.
+
+CI verde en cada paso (109 pytest, 215 vitest, build) — 8 commits en total documentando cada
+arreglo por separado para que el historial sea auditable.
+
+---
+
 2026-07-05 | Fase 9.15: Procedimiento de derechos ARCO — BLOQUE D CERRADO | 03b354b | HECHO.
 `PRIVACIDAD-ARCO.md`: procedimiento por derecho, con la tensión documentada SIN esconderla: el
 hash-chain de `ejecucion_evento` (9.6/9.7) y el hash de `pod` (9.8) incluyen `chofer_id` en el
