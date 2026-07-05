@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-05 | Fase 9.7: Hash-chain de ejecucion_evento (implementación de SPECS-9.md) | (por commitear) | HECHO.
+2026-07-05 | Fase 9.7: Hash-chain de ejecucion_evento (implementación de SPECS-9.md) | c850d8d | HECHO.
 Migración `0031_hash_chain_ejecucion_evento.sql` aplicada vía MCP (checksum registrado en
 `schema_migrations`): columnas `hash_prev`/`hash` en `ejecucion_evento`, función
 `ejecucion_evento_calc_hash` (SHA-256 builtin de PG15+, sin pgcrypto), trigger `BEFORE INSERT`
