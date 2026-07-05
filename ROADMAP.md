@@ -1098,11 +1098,20 @@ Cualquier cliente serio lo va a preguntar; mejor llegar con los deberes hechos q
   `mcp__Claude_Preview__*` ya documentado en el ítem 6.6: su "workspace" sigue anclado a una
   carpeta ajena al proyecto, confirmado de nuevo intentándolo). 105 pytest, 202 vitest, ci.ps1
   verde.
-- [ ] `[LOOP]` **9.15 Procedimiento de derechos ARCO** (picar código: sonnet, esfuerzo bajo).
-  Documento + función de soporte en `lib/data.js` (aunque el procedimiento sea manual al
-  principio) para exportar o borrar todos los datos de un chófer concreto a petición suya:
-  qué tablas tocar, en qué orden (respetando FKs), qué NO se puede borrar sin romper la
-  cadena de custodia de 9.7 (documentar esa tensión explícitamente, no ocultarla).
+- [x] `[LOOP]` **9.15 Procedimiento de derechos ARCO** (2026-07-05) — `PRIVACIDAD-ARCO.md`:
+  procedimiento completo por derecho (acceso/rectificación/cancelación-oposición), con la
+  **tensión documentada explícitamente, no ocultada**: el hash-chain de `ejecucion_evento`
+  (9.6/9.7) y el hash de `pod` (9.8) incluyen `chofer_id` en el payload hasheado — tocarlo para
+  anonimizar rompería la verificación de integridad, indistinguible de manipulación real. Por
+  eso esas dos tablas NUNCA se tocan en una cancelación. `dashboard/lib/data.js`:
+  `getExportacionChofer(choferId)` (recopila chofer/viajes/ubicaciones/valoraciones/documentos/
+  decisiones, solo lectura) y `anonimizarChofer(choferId)` (borra `documento` del chófer,
+  anonimiza `nombre`/`telefono` — las únicas columnas de `chofer` escribibles por el dashboard
+  según 0019 — sin tocar `chat_id`/`ubicacion`/`ejecucion_evento`/`pod`, documentado por qué).
+  4 tests nuevos en `data.test.js`; el mock de tests se amplió (`delete()` ahora acumula
+  múltiples `.eq()` encadenados antes de ejecutar, y nuevo `.or()`) porque nadie había necesitado
+  hasta ahora un DELETE con más de una condición — más fiel al builder real de Supabase. 206
+  vitest, 105 pytest, ci.ps1 verde.
 
 **GATE D:** una página pública "Seguridad y privacidad" en norenty.com + DPA firmable +
 una respuesta escrita de una página al cuestionario típico de un responsable de compliance.

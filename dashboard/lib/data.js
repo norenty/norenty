@@ -1776,6 +1776,60 @@ export async function getParkings() {
   return data || [];
 }
 
+// ==========================================================================
+// Derechos ARCO (ítem 9.15 — ver PRIVACIDAD-ARCO.md para el procedimiento
+// completo y la tensión con la cadena de custodia de 9.6-9.8)
+// ==========================================================================
+
+/**
+ * Derecho de ACCESO: recopila todo lo que el esquema real tiene ligado a un
+ * chófer, tal cual existe hoy. Solo lectura, sin privilegios especiales.
+ */
+export async function getExportacionChofer(choferId) {
+  const [chofer, viajes, ubicaciones, valoraciones, documentos, decisiones] = await Promise.all([
+    supabase.from("chofer").select("*").eq("id", choferId).single(),
+    supabase.from("viaje").select("id, referencia, estado, created_at").eq("chofer_id", choferId),
+    supabase.from("ubicacion").select("lat, lon, velocidad, rumbo, created_at").eq("chofer_id", choferId),
+    supabase.from("valoracion").select("puntuacion, nota, created_at, viaje_id").eq("chofer_id", choferId),
+    supabase.from("documento").select("tipo, fecha_emision, fecha_caducidad, estado, created_at").eq("ambito", "chofer").eq("entidad_id", choferId),
+    supabase.from("decision_asignacion").select("viaje_id, siguio_sugerencia, motivo, created_at").or(`chofer_sugerido_id.eq.${choferId},chofer_elegido_id.eq.${choferId}`),
+  ]);
+  return {
+    chofer: chofer.data || null,
+    viajes: viajes.data || [],
+    ubicaciones: ubicaciones.data || [],
+    valoraciones: valoraciones.data || [],
+    documentos: documentos.data || [],
+    decisiones: decisiones.data || [],
+  };
+}
+
+/**
+ * Derechos de CANCELACIÓN/OPOSICIÓN: borra/anonimiza lo que SÍ se puede
+ * tocar sin romper la cadena de custodia ni chocar con los GRANT de columna
+ * de 0019 (ver PRIVACIDAD-ARCO.md §3 para la tensión completa):
+ *  - `documento` (licencia/CAP del chófer): se borra por completo.
+ *  - `chofer.nombre`/`telefono`: se anonimizan (únicas columnas de `chofer`
+ *    que el dashboard puede escribir, 0019).
+ * NO toca (a propósito, documentado, no un olvido):
+ *  - `chofer.chat_id`: el dashboard no tiene permiso de escritura (0019).
+ *  - `ubicacion`: el dashboard tiene REVOKE total de escritura (0019); un
+ *    borrado inmediato requiere `backend/db/purgar_ubicacion.py` con
+ *    DATABASE_URL, no esta función.
+ *  - `ejecucion_evento`/`pod`: tocar su `chofer_id` invalidaría el hash
+ *    guardado (9.6-9.8) — indistinguible de una manipulación real.
+ *  - `valoracion`/`decision_asignacion`: registros de la empresa sobre su
+ *    propia operación, se dejan intactos a propósito (pendiente de 9.11).
+ */
+export async function anonimizarChofer(choferId) {
+  await supabase.from("documento").delete().eq("ambito", "chofer").eq("entidad_id", choferId);
+  const { error } = await supabase
+    .from("chofer")
+    .update({ nombre: "Chófer eliminado a petición propia", telefono: null })
+    .eq("id", choferId);
+  if (error) throw error;
+}
+
 /** Alta de un parking propio de la empresa (su mapa curado). */
 export async function createParkingPropio({ nombre, tipo, lat, lon, notas }) {
   const empresaId = await getCurrentEmpresaId();

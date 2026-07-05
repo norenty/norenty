@@ -8,6 +8,28 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | Fase 9.15: Procedimiento de derechos ARCO — BLOQUE D CERRADO | (por commitear) | HECHO.
+`PRIVACIDAD-ARCO.md`: procedimiento por derecho, con la tensión documentada SIN esconderla: el
+hash-chain de `ejecucion_evento` (9.6/9.7) y el hash de `pod` (9.8) incluyen `chofer_id` en el
+payload hasheado — anonimizarlo rompería la verificación de integridad (indistinguible de
+manipulación real), así que esas dos tablas nunca se tocan en una cancelación/oposición. En
+`dashboard/lib/data.js`: `getExportacionChofer(choferId)` (recopila chofer/viajes/ubicaciones/
+valoraciones/documentos/decisiones donde aparece, solo lectura) y `anonimizarChofer(choferId)`
+(borra `documento` del chófer por completo — sin cadena de integridad —, anonimiza `nombre`/
+`telefono` de `chofer` porque son las ÚNICAS columnas que el dashboard puede escribir según
+0019; documentado explícitamente qué NO toca y por qué: `chat_id` — sin permiso de escritura
+del dashboard —, `ubicacion` — revoke total de escritura en 0019, requeriría
+`purgar_ubicacion.py` con `DATABASE_URL` —, `valoracion`/`decision_asignacion` — registros de la
+empresa sobre su propia operación, se dejan intactos a propósito hasta que 9.11 diga lo
+contrario). 4 tests nuevos en `data.test.js`. El mock compartido de tests se amplió de paso:
+`delete()` ahora acumula varios `.eq()` encadenados antes de ejecutar (nadie había necesitado un
+DELETE con más de una condición hasta ahora) y se añadió `.or()` — ambos más fieles al builder
+real de `@supabase/supabase-js`. **Con esto se cierra el Bloque D completo (9.12-9.15)** — solo
+queda `9.11` (`[DECISIÓN]`, consulta con abogado) para cerrar GATE D del todo. 206 vitest, 105
+pytest, ci.ps1 verde.
+
+---
+
 2026-07-05 | Fase 9.14: Página "Subprocesadores" + plantilla de DPA | d7b7195 | HECHO.
 `dashboard/app/subprocesadores/page.jsx`: página pública (bypaseada de `AuthGuard`, mismo patrón
 que el portal de cliente 7A.14) con tabla de subencargados de tratamiento — Supabase (Postgres/

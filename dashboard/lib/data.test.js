@@ -13,6 +13,15 @@ function makeBuilder(table) {
     in(field, values) { rows = rows.filter((r) => values.includes(r[field])); return builder; },
     gte(field, value) { rows = rows.filter((r) => r[field] != null && r[field] >= value); return builder; },
     lt(field, value) { rows = rows.filter((r) => r[field] != null && r[field] < value); return builder; },
+    or(condStr) {
+      // Solo soporta el patrón usado hoy: "campo.eq.valor,campo2.eq.valor2".
+      const conds = condStr.split(",").map((c) => {
+        const [field, op, ...resto] = c.split(".");
+        return { field, op, value: resto.join(".") };
+      });
+      rows = rows.filter((r) => conds.some(({ field, op, value }) => op === "eq" && String(r[field]) === value));
+      return builder;
+    },
     order() { return builder; },
     limit(n) { rows = rows.slice(0, n); return builder; },
     single() {
@@ -30,12 +39,22 @@ function makeBuilder(table) {
       };
     },
     delete() {
-      return {
+      // Acumula todos los .eq() encadenados (p.ej. .delete().eq("ambito","chofer").eq("entidad_id",id))
+      // y solo aplica el borrado al resolverse (thenable) -- fiel al builder real de Supabase,
+      // que no ejecuta nada hasta el await final.
+      const filtros = [];
+      const delChain = {
         eq(field, value) {
-          TABLES[table] = (TABLES[table] || []).filter((r) => r[field] !== value);
-          return Promise.resolve({ data: null, error: null });
+          filtros.push([field, value]);
+          return delChain;
+        },
+        then(resolve) {
+          const coincide = (r) => filtros.every(([f, v]) => r[f] === v);
+          TABLES[table] = (TABLES[table] || []).filter((r) => !coincide(r));
+          resolve({ data: null, error: null });
         },
       };
+      return delChain;
     },
     update(payload) {
       return {
@@ -97,6 +116,8 @@ const {
   VELOCIDAD_PLANIFICACION_KMH,
   getParkings,
   createParkingPropio,
+  getExportacionChofer,
+  anonimizarChofer,
   getInvitaciones,
   createInvitacion,
   deleteInvitacion,
@@ -1757,5 +1778,55 @@ describe("audit log (8.8)", () => {
     const r = await getAuditLog("viaje", "v1");
     expect(r).toHaveLength(2);
     expect(r[0].accion).toBe("asignar_chofer"); // el más reciente primero
+  });
+});
+
+describe("derechos ARCO (9.15)", () => {
+  beforeEach(() => {
+    TABLES.chofer = [{ id: "c1", nombre: "Mario", telefono: "600111222", idioma: "es", chat_id: "chat-1" }];
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", referencia: "VJ-1", estado: "completado", created_at: "2026-01-01" }];
+    TABLES.ubicacion = [{ chofer_id: "c1", lat: 40.1, lon: -3.1, created_at: "2026-01-01" }];
+    TABLES.valoracion = [{ chofer_id: "c1", puntuacion: 5, nota: "bien", created_at: "2026-01-01", viaje_id: "v1" }];
+    TABLES.documento = [
+      { id: "d1", ambito: "chofer", entidad_id: "c1", tipo: "licencia", estado: "vigente", created_at: "2026-01-01" },
+      { id: "d2", ambito: "viaje", entidad_id: "v1", tipo: "cmr", estado: "vigente", created_at: "2026-01-01" },
+    ];
+    TABLES.decision_asignacion = [
+      { viaje_id: "v1", chofer_sugerido_id: "c1", chofer_elegido_id: "c1", siguio_sugerencia: true, created_at: "2026-01-01" },
+      { viaje_id: "v2", chofer_sugerido_id: "otro", chofer_elegido_id: "otro", siguio_sugerencia: true, created_at: "2026-01-01" },
+    ];
+  });
+
+  it("getExportacionChofer recopila todas las tablas ligadas al chófer", async () => {
+    const r = await getExportacionChofer("c1");
+    expect(r.chofer.nombre).toBe("Mario");
+    expect(r.viajes).toHaveLength(1);
+    expect(r.ubicaciones).toHaveLength(1);
+    expect(r.valoraciones).toHaveLength(1);
+    expect(r.documentos).toHaveLength(1); // solo el de ámbito chofer, no el de viaje
+    expect(r.decisiones).toHaveLength(1); // solo donde aparece c1, no "otro"
+  });
+
+  it("anonimizarChofer borra el documento del chófer pero no el de otro ámbito", async () => {
+    await anonimizarChofer("c1");
+    const restantes = TABLES.documento.map((d) => d.id);
+    expect(restantes).not.toContain("d1");
+    expect(restantes).toContain("d2");
+  });
+
+  it("anonimizarChofer anonimiza nombre/telefono pero NO toca chat_id", async () => {
+    await anonimizarChofer("c1");
+    const c = TABLES.chofer[0];
+    expect(c.nombre).toBe("Chófer eliminado a petición propia");
+    expect(c.telefono).toBeNull();
+    expect(c.chat_id).toBe("chat-1"); // 0019: el dashboard no puede tocar chat_id, no se intenta
+  });
+
+  it("anonimizarChofer NO toca ubicacion ni ejecucion_evento (tensión de 9.6-9.8, ver PRIVACIDAD-ARCO.md)", async () => {
+    TABLES.ejecucion_evento = [{ chofer_id: "c1", tipo: "llegada", hash: "abc" }];
+    await anonimizarChofer("c1");
+    expect(TABLES.ubicacion).toHaveLength(1);
+    expect(TABLES.ejecucion_evento).toHaveLength(1);
+    expect(TABLES.ejecucion_evento[0].chofer_id).toBe("c1");
   });
 });
