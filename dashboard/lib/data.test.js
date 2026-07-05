@@ -59,6 +59,9 @@ function makeBuilder(table) {
     update(payload) {
       return {
         eq(field, value) {
+          if (UPDATE_ERRORS[table]) {
+            return Promise.resolve({ data: null, error: UPDATE_ERRORS[table] });
+          }
           const objetivo = (TABLES[table] || []).filter((r) => r[field] === value);
           objetivo.forEach((r) => Object.assign(r, payload));
           return Promise.resolve({ data: objetivo, error: null });
@@ -72,6 +75,10 @@ function makeBuilder(table) {
 
 let rpcResultado = { data: null, error: null };
 const rpcSpy = vi.fn();
+// Simula un UPDATE que Supabase rechaza (RLS, etc.) para una tabla concreta;
+// se resetea en beforeEach. UPDATE_ERRORS.gestor = {message: "..."} -> el
+// próximo .update().eq() sobre "gestor" devuelve ese error en vez de mutar.
+let UPDATE_ERRORS = {};
 
 vi.mock("./supabase", () => ({
   supabase: {
@@ -122,6 +129,10 @@ const {
   createInvitacion,
   deleteInvitacion,
   INVITACION_VALIDEZ_DIAS,
+  getGestoresEmpresa,
+  actualizarRolGestor,
+  desactivarGestor,
+  reactivarGestor,
   kmAproxViaje,
   getEstado561,
   getEstado561ParaChoferes,
@@ -160,6 +171,7 @@ beforeEach(() => {
   osrmMock.mockResolvedValue(100);
   rpcSpy.mockClear();
   rpcResultado = { data: null, error: null };
+  UPDATE_ERRORS = {};
 });
 
 describe("validarAsignacion", () => {
@@ -1130,6 +1142,47 @@ describe("invitaciones (6.9)", () => {
     TABLES.invitacion = [{ id: "i1", email: "a@x.com" }];
     await deleteInvitacion("i1");
     expect(TABLES.invitacion.find((i) => i.id === "i1")).toBeUndefined();
+  });
+});
+
+describe("gestión de roles del equipo (9.29 — sin cobertura hasta la auditoría CTO 2026-07-05)", () => {
+  it("getGestoresEmpresa devuelve los gestores ordenados por nombre", async () => {
+    TABLES.gestor = [
+      { id: "g1", nombre: "Zoe", email: "z@x.com", rol: "admin", activo: true, auth_user_id: "u1" },
+      { id: "g2", nombre: "Ana", email: "a@x.com", rol: "gestor_operativo", activo: true, auth_user_id: "u2" },
+    ];
+    const r = await getGestoresEmpresa();
+    expect(r.map((g) => g.nombre)).toEqual(["Ana", "Zoe"]);
+  });
+
+  it("actualizarRolGestor cambia el rol de la fila indicada", async () => {
+    TABLES.gestor = [{ id: "g1", nombre: "Ana", rol: "admin", activo: true }];
+    await actualizarRolGestor("g1", "solo_lectura");
+    expect(TABLES.gestor[0].rol).toBe("solo_lectura");
+  });
+
+  it("actualizarRolGestor lanza si Supabase devuelve error (p.ej. RLS rechaza auto-promoción)", async () => {
+    TABLES.gestor = [{ id: "g1", nombre: "Ana", rol: "admin", activo: true }];
+    UPDATE_ERRORS.gestor = { message: "no puedes editar tu propia fila" };
+    await expect(actualizarRolGestor("g1", "admin")).rejects.toThrow(/no puedes editar tu propia fila/);
+  });
+
+  it("desactivarGestor pone activo=false", async () => {
+    TABLES.gestor = [{ id: "g1", nombre: "Ana", rol: "gestor_operativo", activo: true }];
+    await desactivarGestor("g1");
+    expect(TABLES.gestor[0].activo).toBe(false);
+  });
+
+  it("reactivarGestor pone activo=true", async () => {
+    TABLES.gestor = [{ id: "g1", nombre: "Ana", rol: "gestor_operativo", activo: false }];
+    await reactivarGestor("g1");
+    expect(TABLES.gestor[0].activo).toBe(true);
+  });
+
+  it("desactivarGestor lanza si Supabase devuelve error", async () => {
+    TABLES.gestor = [{ id: "g1", nombre: "Ana", rol: "admin", activo: true }];
+    UPDATE_ERRORS.gestor = { message: "no puedes desactivarte a ti mismo" };
+    await expect(desactivarGestor("g1")).rejects.toThrow(/no puedes desactivarte a ti mismo/);
   });
 });
 
