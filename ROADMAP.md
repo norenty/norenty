@@ -1120,10 +1120,14 @@ una respuesta escrita de una página al cuestionario típico de un responsable d
 
 ### Bloque E — Solidez operativa multi-cliente (con 2-3 flotas reales activas)
 
-- [ ] `[LOOP]` **9.16 Migraciones con red** (picar código: sonnet, esfuerzo bajo). Entorno de
-  staging con datos sintéticos (reutilizar `seed_demo.py`) donde cada migración corre antes
-  que en producción; por cada migración nueva a partir de aquí, documentar también su
-  reversión (aunque sea "restaurar backup + replay de eventos posteriores").
+- [x] `[LOOP]` **9.16 Migraciones con red** (2026-07-05) — HECHO con alcance honesto: la parte de
+  documentar la reversión de cada migración nueva queda como convención escrita en
+  `ONBOARDING.md` §7 (no retroactiva). La parte de "entorno de staging real" NO se pudo construir:
+  el branching de Supabase no está disponible en el plan actual (`list_branches` devuelve error de
+  permisos) y un proyecto de staging separado depende de la misma decisión que 9.1 (separar
+  dev/prod), pospuesta por el usuario hasta el primer cliente piloto. Mientras tanto, cada
+  migración nueva se sigue probando contra la BD real de desarrollo y verificando con una consulta
+  real antes de darla por buena (mismo criterio ya seguido desde la 0031).
 - [ ] `[LOOP]` **9.17 SPECS-9.md (bloque colas) — colas para lo asíncrono** (diseño: opus,
   esfuerzo medio). Cuando haya volumen real: sacar de la request del bot lo lento
   (validación de POD con visión LLM cuando se apruebe D3/7B, notificaciones) a un worker con

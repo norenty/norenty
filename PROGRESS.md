@@ -8,6 +8,19 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | Fase 9.16: Migraciones con red (alcance honesto) | (por commitear) | HECHO. Convención
+escrita en `ONBOARDING.md` §7: toda migración nueva a partir de ahora debe documentar en su propia
+cabecera SQL cómo deshacerla (no retroactiva sobre migraciones ya aplicadas). La parte de "entorno
+de staging real" NO se pudo construir: comprobé el branching de Supabase vía `list_branches` y
+devuelve error de permisos (no disponible en el plan actual); un proyecto de staging separado
+depende de la misma decisión que 9.1 (separar dev/prod), que el usuario ya decidió posponer hasta
+el primer cliente piloto. De paso actualicé `ONBOARDING.md` (D1/D2 ya no aparecían como pendientes,
+estaban resueltas desde antes en esta misma sesión) y añadí la pestaña "Session pooler" a la
+instrucción de `DATABASE_URL`. Sin cambios de código — ci.ps1 verde de control (109 pytest, 215
+vitest, build).
+
+---
+
 2026-07-05 | AUDITORÍA CTO COMPLETA (seguridad, arquitectura, calidad) a petición del usuario | 64b8576,
 0838fc7,e06d89b,e25db7f,b00fd6e,b1d9f28,be31e74,961cd41,2a6adfd | HECHO. 3 subagentes en paralelo
 (seguridad; arquitectura/escalabilidad; calidad de código+cobertura+honestidad del roadmap),
