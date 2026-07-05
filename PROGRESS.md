@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-05 | D2 resuelta: DATABASE_URL real puesta y verificada | (por commitear) | HECHO. El
+2026-07-05 | D2 resuelta: DATABASE_URL real puesta y verificada | cabfaa0 | HECHO. El
 primer pegado del usuario vino en formato "Parameters" de Supabase (varias líneas sueltas) en vez
 de la URI de una pieza, rompiendo el parseo de `.env` — corregido a mano guiando al usuario. El
 segundo intento sí trajo la URI de la variante "Session pooler" pero repartida en líneas
@@ -26,7 +26,7 @@ retroactivo de antes de que existiera el runner) — no bloquea, solo avisa.
 
 ---
 
-2026-07-05 | D1 resuelta: SUPABASE_SERVICE_ROLE_KEY real puesta y verificada | (por commitear) | HECHO.
+2026-07-05 | D1 resuelta: SUPABASE_SERVICE_ROLE_KEY real puesta y verificada | 61a0c53 | HECHO.
 El usuario pegó la clave directo en `.env` (nunca la compartió en el chat, verificado solo por
 longitud). Verificación funcional sin imprimir el valor (script desechable en scratchpad): un
 cliente Supabase con esa clave ve las 2 empresas reales y los 4 gestores reales sin filtrar por
