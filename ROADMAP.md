@@ -977,10 +977,19 @@ mano en `next dev`.
   `verificar_cadena.py` manualmente antes de enseñar la evidencia a un cliente mientras tanto.
   93 pytest, 196 vitest, ci.ps1 verde. Este ítem sostiene el pitch "ni nosotros podemos
   falsificar una hora de llegada".
-- [ ] `[LOOP]` **9.8 Hash SHA-256 de cada POD al subirlo** (picar código: sonnet, esfuerzo
-  bajo). Columna `pod.hash_sha256`; calcular el hash del fichero en el momento de la subida
-  (bot, que es quien sube) y guardarlo junto al `foto_url`. Verificación bajo demanda:
-  función que recalcula el hash del fichero en Storage y lo compara. Tests.
+- [x] `[LOOP]` **9.8 Hash SHA-256 de cada POD al subirlo** (2026-07-05) — migración
+  `0034_pod_hash_sha256.sql`: columna `pod.hash_sha256 text NOT NULL` (tabla vacía, 0 filas,
+  sin backfill necesario). `backend/app/bot.py` (`handle_photo`) calcula el SHA-256 sobre los
+  bytes tal cual llegan de Telegram, ANTES de subir a Storage, y lo guarda junto a `foto_url`.
+  `backend/db/verificar_pod.py`: descarga el fichero real de Storage y recalcula su hash bajo
+  demanda (`--todos` o `<pod_id>`), solo-lectura. **Gap de seguridad cerrado de paso** (nombrado
+  en el principio de Fase 9 — "ejecucion_evento, pod, ubicacion inviolables" — pero nunca cerrado
+  para `pod`, a diferencia de la 0019 que sí protegió las otras dos): `REVOKE UPDATE` completo +
+  `GRANT UPDATE (estado_validacion)` solamente a `authenticated`, cerrando el hueco por el que
+  cualquier gestor podía sobrescribir `foto_url`/`hash_sha256` por REST directo. 4 tests nuevos
+  de la lógica de verificación (`test_verificar_pod.py`, con cliente Storage fake) + la
+  aserción E2E existente (`test_bot_e2e.py`) extendida para confirmar que el hash guardado
+  coincide con el SHA-256 real de los bytes subidos. 97 pytest, 196 vitest, ci.ps1 verde.
 - [ ] `[LOOP]` **9.9 Endurecer el perímetro del bot** (picar código: sonnet, esfuerzo bajo;
   activación en producción bloqueada por Gate A). Validar `X-Telegram-Bot-Api-Secret-Token`
   en cada request cuando se use modo webhook (ya soportado, no activado); rate limiting

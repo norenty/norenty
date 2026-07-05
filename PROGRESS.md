@@ -8,6 +8,36 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | Fase 9.8: Hash SHA-256 de cada POD al subirlo | (por commitear) | HECHO. Migración
+`0034_pod_hash_sha256.sql` aplicada vía MCP (checksum registrado): `pod.hash_sha256 text NOT
+NULL` (la tabla estaba vacía — 0 filas — así que no hizo falta backfill, se pudo poner NOT NULL
+directamente). `backend/app/bot.py` (`handle_photo`) calcula `hashlib.sha256(file_bytes)` sobre
+los bytes descargados de Telegram ANTES de subir a Storage (el hash es de la foto real que llegó
+del chófer, no de una copia potencialmente ya tocada en Storage) y lo incluye en el insert de
+`pod` junto a `foto_url`. `backend/db/verificar_pod.py`: script de solo-lectura que descarga el
+fichero real desde Storage y recalcula su hash para compararlo con el guardado (`<pod_id>` o
+`--todos`) — mismo patrón que `verificar_cadena.py` de 9.7. HALLAZGO Y CIERRE DE GAP DE
+SEGURIDAD (no pedido explícitamente por el ítem, pero directamente dentro del principio de Fase
+9 — "ejecucion_evento, pod, ubicacion inviolables" — que nunca se había cerrado para `pod`: la
+0019 protegió `ejecucion_evento`/`ubicacion` pero dejó fuera `pod`, cuya policy `empresa_scoped_pod`
+es `FOR ALL` sin restricción de columna. Confirmado por SQL: cualquier gestor autenticado podía
+hacer `UPDATE` de `foto_url` por REST directo, pisando la evidencia sin pasar por la UI). Cerrado
+en la misma migración: `REVOKE UPDATE` completo + `GRANT UPDATE (estado_validacion)` solamente
+(única columna que el dashboard escribe de verdad, confirmado grep — `viajes/[id]/page.jsx:154`,
+`validarPod`). El bucket de Storage "pods" YA estaba bien (verificado: solo `service_role` tiene
+INSERT/UPDATE/DELETE sobre los objetos, `authenticated` solo SELECT — el fichero en sí ya estaba
+protegido desde la 0011, el gap era solo en la fila de la tabla). 4 tests nuevos en memoria
+(`test_verificar_pod.py`, con cliente Storage fake: hash determinista, coincide, detecta fichero
+sustituido, detecta fichero ausente) + la aserción E2E existente de subida de POD
+(`test_bot_e2e.py`) extendida para confirmar que `hash_sha256` guardado == SHA-256 real de los
+bytes subidos. Verificación contra Storage real (Grupo B, descargar un fichero de verdad) queda
+BLOQUEADA por el mismo D1 de siempre: sin `SUPABASE_SERVICE_ROLE_KEY` ni sesión de gestor en este
+entorno no pude crear un objeto de prueba en el bucket (solo `service_role` tiene INSERT) para
+verificar la descarga+comparación de extremo a extremo — documentado tal cual en el docstring del
+script, no fingido. 97 pytest (93→97), 196 vitest, ci.ps1 verde.
+
+---
+
 2026-07-05 | Fase 9.7: Hash-chain de ejecucion_evento (implementación de SPECS-9.md) | c850d8d | HECHO.
 Migración `0031_hash_chain_ejecucion_evento.sql` aplicada vía MCP (checksum registrado en
 `schema_migrations`): columnas `hash_prev`/`hash` en `ejecucion_evento`, función

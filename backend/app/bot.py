@@ -1,5 +1,6 @@
 """Norenty Telegram Bot — operación de hitos, POD, y alertas al gestor."""
 
+import hashlib
 import math
 import os
 import logging
@@ -853,6 +854,12 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     # empresa_id como primer segmento permite RLS de storage empresa-scoped.
     file_path = f"{chofer['empresa_id']}/{viaje['id']}/{hito['id']}/{uuid.uuid4()}.jpg"
 
+    # Hash de INTEGRIDAD (ítem 9.8, evidencia igual que el hash-chain de
+    # ejecucion_evento): se calcula sobre los bytes tal cual llegan de
+    # Telegram, ANTES de subir — así el hash guardado es el de la foto real,
+    # no de una copia que ya haya podido tocarse en Storage.
+    hash_sha256 = hashlib.sha256(bytes(file_bytes)).hexdigest()
+
     supabase.storage.from_("pods").upload(
         path=file_path,
         file=bytes(file_bytes),
@@ -864,6 +871,7 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "viaje_id": viaje["id"],
         "foto_url": file_path,
         "estado_validacion": "pendiente",
+        "hash_sha256": hash_sha256,
     }).execute()
 
     supabase.table("hito").update({"estado": "completado"}).eq("id", hito["id"]).execute()

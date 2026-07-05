@@ -13,6 +13,7 @@ del bot (`send_message`, `edit_message_text`, `answer_callback_query`,
 `get_file`) se sustituyen por fakes que capturan lo que se habría enviado.
 `FakeSupabase` (misma que en los tests unitarios) sustituye la BD.
 """
+import hashlib
 from datetime import datetime, timezone
 
 import pytest
@@ -250,6 +251,8 @@ async def test_e2e_flujo_completo_start_hito_llegada_pod_completar(monkeypatch):
         assert len(fake_db.storage.uploads) == 1
         assert fake_db.storage.uploads[0]["bucket"] == "pods"
         assert fake_db.tables["pod"][0]["hito_id"] == "h2"
+        # ítem 9.8: el hash se calcula sobre los bytes reales subidos (evidencia).
+        assert fake_db.tables["pod"][0]["hash_sha256"] == hashlib.sha256(b"fake-jpg-bytes").hexdigest()
         assert fake_db.tables["hito"][1]["estado"] == "completado"
         assert fake_db.tables["viaje"][0]["estado"] == "completado"
         assert any("completado" in s.get("text", "").lower() for s in api.sent)
