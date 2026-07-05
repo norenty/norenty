@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-05 | Fase 9.13: Política de retención automatizada (purga de ubicacion) | (por commitear) | HECHO.
+2026-07-05 | Fase 9.13: Política de retención automatizada (purga de ubicacion) | b563eb2 | HECHO.
 `backend/db/purgar_ubicacion.py`: borra filas de `ubicacion` (dato de geolocalización granular,
 el más sensible del sistema según `PRIVACIDAD-RAT.md`) con más de 90 días por defecto (`--dias`
 custom, `--dry-run` para solo contar sin borrar). Decisión documentada en el propio script:
