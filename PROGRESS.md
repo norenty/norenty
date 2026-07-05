@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-05 | Fase 9.8: Hash SHA-256 de cada POD al subirlo | (por commitear) | HECHO. Migración
+2026-07-05 | Fase 9.8: Hash SHA-256 de cada POD al subirlo | 90105a7 | HECHO. Migración
 `0034_pod_hash_sha256.sql` aplicada vía MCP (checksum registrado): `pod.hash_sha256 text NOT
 NULL` (la tabla estaba vacía — 0 filas — así que no hizo falta backfill, se pudo poner NOT NULL
 directamente). `backend/app/bot.py` (`handle_photo`) calcula `hashlib.sha256(file_bytes)` sobre
