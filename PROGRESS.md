@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-05 | Fase 9.31: Test automático de aislamiento por rol | (por commitear) | HECHO.
+2026-07-05 | Fase 9.31: Test automático de aislamiento por rol | 7d7f13d | HECHO.
 `dashboard/lib/roles-isolation.test.js` (mismo patrón que `isolation.test.js` de 8.4: NO mockea
 Supabase, corre contra el proyecto real, se salta si no hay credenciales). Dos gestores de prueba
 fijos en la empresa demo (`roles931.operativo@norenty.com`, `roles931.lectura@norenty.com`),
