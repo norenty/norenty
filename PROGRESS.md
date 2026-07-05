@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-05 | Fase 9.12: Registro de Actividades de Tratamiento (borrador) | (por commitear) | HECHO.
+2026-07-05 | Fase 9.12: Registro de Actividades de Tratamiento (borrador) | 36b367b | HECHO.
 `PRIVACIDAD-RAT.md` nuevo: inventario de tratamiento tabla por tabla, leído del esquema REAL de
 Supabase (`list_tables` para las 23 tablas del proyecto + SQL directo sobre `information_schema.columns`
 para las 13 con dato personal relevante — no un RAT genérico de plantilla). Cubre `chofer`,
