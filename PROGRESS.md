@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-05 | Fase 9.16: Migraciones con red (alcance honesto) | (por commitear) | HECHO. Convención
+2026-07-05 | Fase 9.16: Migraciones con red (alcance honesto) | bc2a3be | HECHO. Convención
 escrita en `ONBOARDING.md` §7: toda migración nueva a partir de ahora debe documentar en su propia
 cabecera SQL cómo deshacerla (no retroactiva sobre migraciones ya aplicadas). La parte de "entorno
 de staging real" NO se pudo construir: comprobé el branching de Supabase vía `list_branches` y
