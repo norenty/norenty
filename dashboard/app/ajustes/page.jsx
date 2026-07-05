@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, User, Building2, Bell, Shield, Send, Copy, Check, MapPin, Euro, Gauge, Users, X, Activity } from "lucide-react";
+import { Save, User, Building2, Bell, Shield, Send, Copy, Check, MapPin, Euro, Gauge, Users, X, Activity, KeyRound } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { getSession, signOut } from "../../lib/auth";
+import { getSession, signOut, signOutTodasLasSesiones } from "../../lib/auth";
 import {
   VELOCIDAD_PLANIFICACION_KMH, getInvitaciones, createInvitacion, deleteInvitacion, getBotHeartbeat,
-  getGestoresEmpresa, actualizarRolGestor, desactivarGestor, reactivarGestor,
+  getGestoresEmpresa, actualizarRolGestor, desactivarGestor, reactivarGestor, INVITACION_VALIDEZ_DIAS,
 } from "../../lib/data";
 import RequireRol from "../components/RequireRol";
 
@@ -43,6 +43,15 @@ export default function AjustesPage() {
   const [heartbeat, setHeartbeat] = useState(null);
   const [gestores, setGestores] = useState([]);
   const [gestorAccionandoId, setGestorAccionandoId] = useState(null);
+  const [mfaFactores, setMfaFactores] = useState([]);
+  const [mfaEnrolando, setMfaEnrolando] = useState(false);
+  const [mfaQr, setMfaQr] = useState(null);
+  const [mfaSecret, setMfaSecret] = useState(null);
+  const [mfaFactorId, setMfaFactorId] = useState(null);
+  const [mfaCodigo, setMfaCodigo] = useState("");
+  const [mfaError, setMfaError] = useState(null);
+  const [mfaOcupado, setMfaOcupado] = useState(false);
+  const [cerrandoSesiones, setCerrandoSesiones] = useState(false);
 
   useEffect(() => {
     function cargarHeartbeat() {
@@ -51,6 +60,15 @@ export default function AjustesPage() {
     cargarHeartbeat();
     const intervalo = setInterval(cargarHeartbeat, 30000);
     return () => clearInterval(intervalo);
+  }, []);
+
+  async function cargarFactoresMfa() {
+    const { data } = await supabase.auth.mfa.listFactors();
+    setMfaFactores((data?.totp || []).filter((f) => f.status === "verified"));
+  }
+
+  useEffect(() => {
+    cargarFactoresMfa();
   }, []);
 
   useEffect(() => {
@@ -254,6 +272,79 @@ export default function AjustesPage() {
     setGuardando(false);
   }
 
+  // --- Verificación en dos pasos / MFA (ítem 9.10) ---
+  async function iniciarEnrolamientoMfa() {
+    setMfaError(null);
+    setMfaOcupado(true);
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "Norenty" });
+    setMfaOcupado(false);
+    if (error) {
+      setMfaError(error.message);
+      return;
+    }
+    setMfaQr(data.totp.qr_code);
+    setMfaSecret(data.totp.secret);
+    setMfaFactorId(data.id);
+    setMfaEnrolando(true);
+  }
+
+  async function confirmarEnrolamientoMfa() {
+    setMfaError(null);
+    setMfaOcupado(true);
+    const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: mfaFactorId });
+    if (challengeError) {
+      setMfaError(challengeError.message);
+      setMfaOcupado(false);
+      return;
+    }
+    const { error: verifyError } = await supabase.auth.mfa.verify({
+      factorId: mfaFactorId, challengeId: challenge.id, code: mfaCodigo,
+    });
+    setMfaOcupado(false);
+    if (verifyError) {
+      setMfaError(verifyError.message);
+      return;
+    }
+    flash("Verificación en dos pasos activada");
+    setMfaEnrolando(false);
+    setMfaQr(null);
+    setMfaSecret(null);
+    setMfaFactorId(null);
+    setMfaCodigo("");
+    await cargarFactoresMfa();
+  }
+
+  async function cancelarEnrolamientoMfa() {
+    if (mfaFactorId) {
+      await supabase.auth.mfa.unenroll({ factorId: mfaFactorId }); // limpia el factor sin verificar a medias
+    }
+    setMfaEnrolando(false);
+    setMfaQr(null);
+    setMfaSecret(null);
+    setMfaFactorId(null);
+    setMfaCodigo("");
+    setMfaError(null);
+  }
+
+  async function desactivarMfa(factorId) {
+    if (!window.confirm("¿Desactivar la verificación en dos pasos? Volverás a entrar solo con tu contraseña.")) return;
+    setMfaOcupado(true);
+    await supabase.auth.mfa.unenroll({ factorId });
+    setMfaOcupado(false);
+    await cargarFactoresMfa();
+  }
+
+  async function onCerrarTodasLasSesiones() {
+    if (!window.confirm("Se cerrará tu sesión en TODOS los dispositivos, incluido este. Tendrás que volver a iniciar sesión. ¿Continuar?")) return;
+    setCerrandoSesiones(true);
+    try {
+      await signOutTodasLasSesiones();
+    } catch (err) {
+      flash("Error: " + err.message.replace(/[<>]/g, ""));
+      setCerrandoSesiones(false);
+    }
+  }
+
   function copiarEnlaceTelegram() {
     if (!gestor || !BOT) return;
     navigator.clipboard.writeText(`https://t.me/${BOT}?start=gestor_${gestor.id}`);
@@ -329,6 +420,93 @@ export default function AjustesPage() {
             Cambiar
           </button>
         </div>
+      </section>
+
+      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+        <div className="flex items-center gap-2 mb-4">
+          <KeyRound size={18} className="text-brand" />
+          <h2 className="text-sm font-medium text-ink">Verificación en dos pasos</h2>
+        </div>
+        <p className="text-xs text-ink-secondary mb-4">
+          Opcional. Además de tu contraseña, pide un código de 6 dígitos de una app de
+          autenticación (Google Authenticator, Authy...) al iniciar sesión.
+        </p>
+
+        {mfaError && (
+          <div className="mb-3 text-xs text-estado-incidencia bg-red-50 rounded-md p-2">{mfaError}</div>
+        )}
+
+        {mfaEnrolando ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-xs text-ink-secondary">
+              Escanea este código QR con tu app de autenticación, o introduce el código manual.
+            </p>
+            {mfaQr && (
+              <img
+                src={`data:image/svg+xml;utf-8,${encodeURIComponent(mfaQr)}`}
+                alt="Código QR de verificación en dos pasos"
+                className="w-40 h-40 border border-border rounded-md"
+              />
+            )}
+            {mfaSecret && (
+              <div className="text-xs text-ink-muted font-mono bg-surface-alt rounded-md px-2 py-1.5 break-all">
+                {mfaSecret}
+              </div>
+            )}
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="block text-xs text-ink-secondary mb-1">Código de 6 dígitos</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={mfaCodigo}
+                  onChange={(e) => setMfaCodigo(e.target.value.replace(/\D/g, ""))}
+                  placeholder="123456"
+                  className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+                />
+              </div>
+              <button
+                onClick={confirmarEnrolamientoMfa}
+                disabled={mfaOcupado || mfaCodigo.length !== 6}
+                className="text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
+              >
+                Confirmar
+              </button>
+              <button
+                onClick={cancelarEnrolamientoMfa}
+                disabled={mfaOcupado}
+                className="text-sm px-3 py-2 rounded-md border border-border text-ink-secondary hover:bg-surface-alt disabled:opacity-40"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : mfaFactores.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            {mfaFactores.map((f) => (
+              <div key={f.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-md bg-surface-alt">
+                <span className="flex-1 text-ink">{f.friendly_name || "Verificación en dos pasos"}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-estado-ok">Activa</span>
+                <button
+                  onClick={() => desactivarMfa(f.id)}
+                  disabled={mfaOcupado}
+                  className="text-xs px-2 py-1 rounded-md border border-border text-estado-incidencia hover:bg-red-50 disabled:opacity-40"
+                >
+                  Desactivar
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <button
+            onClick={iniciarEnrolamientoMfa}
+            disabled={mfaOcupado}
+            className="text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
+          >
+            Activar verificación en dos pasos
+          </button>
+        )}
       </section>
 
       <section className="bg-surface border border-border rounded-xl p-5 mb-4">
@@ -450,6 +628,19 @@ export default function AjustesPage() {
                 <span className="flex-1 text-ink">{inv.email}</span>
                 {inv.usada_at ? (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-estado-ok">Usada</span>
+                ) : inv.vencida ? (
+                  <>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-ink-muted" title={`Han pasado más de ${INVITACION_VALIDEZ_DIAS} días — el enlace ya no funciona`}>
+                      Vencida
+                    </span>
+                    <button
+                      onClick={() => revocarInvitacion(inv.id)}
+                      className="p-1.5 text-ink-muted hover:text-estado-incidencia"
+                      title="Eliminar invitación vencida"
+                    >
+                      <X size={14} />
+                    </button>
+                  </>
                 ) : (
                   <>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700">Pendiente</span>
@@ -747,12 +938,22 @@ export default function AjustesPage() {
         )}
       </section>
 
-      <button
-        onClick={() => signOut()}
-        className="text-sm text-estado-incidencia hover:underline"
-      >
-        Cerrar sesión
-      </button>
+      <div className="flex items-center gap-4">
+        <button
+          onClick={() => signOut()}
+          className="text-sm text-estado-incidencia hover:underline"
+        >
+          Cerrar sesión
+        </button>
+        <button
+          onClick={onCerrarTodasLasSesiones}
+          disabled={cerrandoSesiones}
+          className="text-sm text-estado-incidencia hover:underline disabled:opacity-40"
+          title="Cierra tu sesión en todos los dispositivos, no solo este"
+        >
+          Cerrar sesión en todos los dispositivos
+        </button>
+      </div>
     </div>
   );
 }

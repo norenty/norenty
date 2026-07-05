@@ -100,6 +100,7 @@ const {
   getInvitaciones,
   createInvitacion,
   deleteInvitacion,
+  INVITACION_VALIDEZ_DIAS,
   kmAproxViaje,
   getEstado561,
   LIMITE_561_SEMANAL_H,
@@ -1062,6 +1063,32 @@ describe("invitaciones (6.9)", () => {
     ];
     const r = await getInvitaciones();
     expect(r.length).toBe(2);
+  });
+
+  it("(9.10) marca vencida=true una invitación pendiente más vieja que INVITACION_VALIDEZ_DIAS", async () => {
+    const haceMucho = new Date(Date.now() - (INVITACION_VALIDEZ_DIAS + 1) * 86400000).toISOString();
+    TABLES.invitacion = [
+      { id: "i1", email: "a@x.com", codigo: "c1", usada_at: null, created_at: haceMucho },
+    ];
+    const r = await getInvitaciones();
+    expect(r[0].vencida).toBe(true);
+  });
+
+  it("(9.10) vencida=false para una invitación pendiente reciente", async () => {
+    TABLES.invitacion = [
+      { id: "i1", email: "a@x.com", codigo: "c1", usada_at: null, created_at: new Date().toISOString() },
+    ];
+    const r = await getInvitaciones();
+    expect(r[0].vencida).toBe(false);
+  });
+
+  it("(9.10) una invitación USADA nunca se marca vencida, aunque sea vieja", async () => {
+    const haceMucho = new Date(Date.now() - (INVITACION_VALIDEZ_DIAS + 30) * 86400000).toISOString();
+    TABLES.invitacion = [
+      { id: "i1", email: "a@x.com", codigo: "c1", usada_at: haceMucho, created_at: haceMucho },
+    ];
+    const r = await getInvitaciones();
+    expect(r[0].vencida).toBe(false);
   });
 
   it("createInvitacion inserta con la empresa del gestor logueado", async () => {

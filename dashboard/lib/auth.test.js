@@ -15,6 +15,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const insertEmpresaSpy = vi.fn();
 const insertGestorSpy = vi.fn();
 const rpcSpy = vi.fn();
+const signOutSpy = vi.fn(async () => ({ error: null }));
 let existingGestor = null;
 let signUpUser = { id: "user-1" };
 let rpcResultado = { data: null, error: null };
@@ -23,6 +24,7 @@ vi.mock("./supabase", () => ({
   supabase: {
     auth: {
       signUp: vi.fn(async () => ({ data: { user: signUpUser }, error: null })),
+      signOut: signOutSpy,
     },
     rpc: (fn, args) => {
       rpcSpy(fn, args);
@@ -66,12 +68,13 @@ vi.mock("./supabase", () => ({
   },
 }));
 
-const { signUp } = await import("./auth.js");
+const { signUp, signOut, signOutTodasLasSesiones } = await import("./auth.js");
 
 beforeEach(() => {
   insertEmpresaSpy.mockClear();
   insertGestorSpy.mockClear();
   rpcSpy.mockClear();
+  signOutSpy.mockClear();
   existingGestor = null;
   signUpUser = { id: "user-1" };
   rpcResultado = { data: null, error: null };
@@ -140,5 +143,22 @@ describe("signUp con invitacionCodigo (ítem 6.9 — unirse a empresa existente)
       signUp("nuevo@empresa.com", "password123", "", "codigo-invalido")
     ).rejects.toThrow(/no es válida o ya ha sido usada/);
     expect(insertGestorSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("signOut — scope explícito (ítem 9.10)", () => {
+  it("signOut() normal usa scope local (NO cierra otros dispositivos)", async () => {
+    await signOut();
+    expect(signOutSpy).toHaveBeenCalledWith({ scope: "local" });
+  });
+
+  it("signOutTodasLasSesiones() usa scope global explícito", async () => {
+    await signOutTodasLasSesiones();
+    expect(signOutSpy).toHaveBeenCalledWith({ scope: "global" });
+  });
+
+  it("signOutTodasLasSesiones() lanza si Supabase devuelve error", async () => {
+    signOutSpy.mockResolvedValueOnce({ error: { message: "fallo de red" } });
+    await expect(signOutTodasLasSesiones()).rejects.toThrow(/fallo de red/);
   });
 });

@@ -18,6 +18,12 @@ export const UMBRAL_NOCHE_FUERA_KM = 50;
 // inicial RAZONABLE, NO pactado con un cliente real (igual que UMBRAL_NOCHE_FUERA_KM).
 export const UMBRAL_MARGEN_AMBAR_PCT = 10;
 
+// --- Invitaciones de equipo (ítem 9.10) — expiración explícita ---
+// Debe coincidir EXACTAMENTE con el intervalo de la función usar_invitacion()
+// (migración 0035) — es solo para mostrar el estado "Vencida" en la UI; la
+// seguridad real (que el canje falle) la impone la función en Postgres.
+export const INVITACION_VALIDEZ_DIAS = 7;
+
 // --- ETA "cumple-561" (ítem 5.3) — parámetros ajustables ---
 // Velocidad de planificación por defecto. 75 km/h es un HEURÍSTICO de flota
 // (absorbe urbano/tráfico/repechos de un camión limitado legalmente a 90 km/h),
@@ -327,13 +333,23 @@ export async function getCurrentEmpresaId() {
 // Invitaciones multi-gestor (ítem 6.9)
 // ==========================================================================
 
-/** Invitaciones pendientes/usadas de la empresa del gestor logueado. */
+/**
+ * Invitaciones pendientes/usadas de la empresa del gestor logueado, con
+ * `vencida` calculado en cliente para mostrarlo en la UI (ítem 9.10). El
+ * cierre real de una invitación vencida lo hace `usar_invitacion()` en
+ * Postgres (migración 0035); esto es solo para no enseñar como "Pendiente"
+ * un enlace que ya no funciona.
+ */
 export async function getInvitaciones() {
   const { data } = await supabase
     .from("invitacion")
     .select("id, email, codigo, usada_at, created_at")
     .order("created_at", { ascending: false });
-  return data || [];
+  const limite = Date.now() - INVITACION_VALIDEZ_DIAS * 24 * 60 * 60 * 1000;
+  return (data || []).map((inv) => ({
+    ...inv,
+    vencida: !inv.usada_at && new Date(inv.created_at).getTime() < limite,
+  }));
 }
 
 /** Crea una invitación para `email` en la empresa del gestor logueado. */

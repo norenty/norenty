@@ -8,6 +8,52 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | Fase 9.10: Mínimos de AuthN/AuthZ del dashboard | (por commitear) | HECHO. Los 4
+sub-ítems: (1) **MFA opcional (TOTP)** — sección nueva "Verificación en dos pasos" en
+`ajustes/page.jsx` (enroll con QR + secreto manual, verify con código de 6 dígitos, listar/
+desactivar factores). `AuthGuard.jsx` extendido: además de sesión, comprueba
+`supabase.auth.mfa.getAuthenticatorAssuranceLevel()` — si el gestor tiene un factor verificado
+y la sesión sigue en aal1 (recién logueado solo con password), muestra `MfaChallenge.jsx`
+(componente nuevo) en vez del dashboard hasta resolver el código. **Verificado de extremo a
+extremo contra Supabase REAL** (no solo compilado): script Python desechable
+(`verificar_mfa_9_10.py`, scratchpad) que calcula el TOTP de verdad a partir del `secret` que
+devuelve `enroll()` (RFC 6238, HMAC-SHA1, sin librerías nuevas — implementado a mano porque
+`pyotp` no está instalado) sobre la cuenta demo: enrolar+verificar eleva la sesión de aal1 a
+aal2; cerrar sesión local y volver a entrar solo con password confirma aal1 con
+`nextLevel=aal2` — EXACTAMENTE la condición que usa `AuthGuard` para decidir mostrar el reto;
+resolver el reto con `challengeAndVerify` (mismo método que usa `MfaChallenge.jsx`) vuelve a
+elevar a aal2. Cuenta demo limpiada al final (`unenroll` + confirmado por SQL directo que
+`auth.mfa_factors` queda sin filas para ese usuario) — crítico para no dejar el gestor demo con
+MFA activado y romper `smoke.test.js`/`isolation.test.js`/`roles-isolation.test.js`/
+`seed_demo.py`, que solo inician sesión con email+password. (2) **Expiración de invitaciones**
+— migración `0035_invitacion_expiracion.sql`: `usar_invitacion()` ya no canjea invitaciones con
+más de `INVITACION_VALIDEZ_DIAS=7` días desde `created_at` (valor inicial razonable, no pactado
+con cliente real, mismo criterio que otros umbrales v1 del proyecto). Verificado contra la BD
+real: una invitación de prueba con `created_at` de hace 10 días → `usar_invitacion` devuelve
+NULL; una fresca → devuelve el `empresa_id` correcto (ambas limpiadas después).
+`getInvitaciones()` en `data.js` añade `vencida` calculado en cliente (mismo umbral, solo para
+UI); Ajustes muestra badge "Vencida" distinto de "Pendiente"/"Usada" (con botón para
+eliminarla, ya no para copiar un enlace que no funciona). (3) **Cerrar todas las sesiones** —
+HALLAZGO REAL no documentado hasta ahora: `supabase.auth.signOut()` sin argumentos usa
+`scope:"global"` **por defecto** (cierra la sesión en TODOS los dispositivos, no solo el
+actual) — confirmado leyendo el código fuente instalado de `@supabase/auth-js`. El botón
+normal de "Cerrar sesión" del Topbar/Ajustes llevaba TODO este tiempo cerrando sesión en todos
+los dispositivos sin que nadie lo supiera ni lo hubiera pedido. Corregido: `signOut()` ahora
+pasa `{scope:"local"}` explícito (comportamiento esperado de un logout normal — cerrar sesión
+en el móvil no debería expulsarte del portátil); nueva función `signOutTodasLasSesiones()`
+(`{scope:"global"}` explícito) con su propio botón en Ajustes, con confirmación clara de lo que
+va a pasar. (4) **`isolation.test.js` obligatorio** — confirmado (sin cambios de código):
+`ci.ps1` ejecuta `npm run test` sin condicionales; el único auto-salto es por falta de
+credenciales de entorno, nunca por una opción desactivable. 7 tests nuevos vitest (3 de scope
+de `signOut`, 3 de `vencida` de invitaciones) — sin tests de componente interactivos para
+`MfaChallenge`/`AuthGuard` (nota honesta: el proyecto no tiene jsdom/testing-library, solo
+`renderToStaticMarkup` para componentes puros como `RequireRol`; estos dos usan `useEffect`/
+estado async que esa herramienta no ejercita — verificados por `next build` + el script Python
+de extremo a extremo contra Supabase real, que es más fuerte que un test de render superficial).
+100 pytest, 202 vitest, ci.ps1 verde.
+
+---
+
 2026-07-05 | Fase 9.9: Endurecer el perímetro del bot | 84bd989 | HECHO. Los 4
 guardrails del ítem: (1) secret token del webhook — NO se picó código: leí el fuente instalado
 de `python-telegram-bot` 22.8 (`telegram/ext/_utils/webhookhandler.py`, método

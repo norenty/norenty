@@ -1010,11 +1010,33 @@ mano en `next dev`.
   3 tests E2E nuevos (dedupe no duplica, flood se corta en el límite exacto, foto inválida
   rechazada sin tocar Storage) + fixture `autouse` que resetea el estado de módulo entre tests
   para no contaminar por reutilizar `chat_id`. 100 pytest, 196 vitest, ci.ps1 verde.
-- [ ] `[LOOP]` **9.10 Mínimos de AuthN/AuthZ del dashboard** (picar código: sonnet, esfuerzo
-  bajo). MFA opcional para gestores (Supabase Auth ya lo soporta, activar + UI en Ajustes);
-  expiración/revocación explícita de invitaciones ya vencidas; botón "cerrar todas las
-  sesiones" del gestor. Mantener `isolation.test.js` como **check obligatorio en `ci.ps1`**
-  (ya lo es — dejar explícito aquí que nunca se debe hacer opcional ni saltable).
+- [x] `[LOOP]` **9.10 Mínimos de AuthN/AuthZ del dashboard** (2026-07-05). **MFA opcional
+  (TOTP)**: sección "Verificación en dos pasos" en Ajustes (`supabase.auth.mfa.enroll/
+  challenge/verify/unenroll/listFactors`, QR + secreto manual); `AuthGuard.jsx` ahora también
+  gatea por `getAuthenticatorAssuranceLevel()` — una sesión en aal1 con un factor verificado
+  (nextLevel=aal2) ve `MfaChallenge.jsx` (nuevo) en vez del dashboard hasta resolver el código
+  de 6 dígitos. **Verificado de extremo a extremo contra Supabase real** (script Python
+  desechable que genera el código TOTP de verdad a partir del secreto devuelto por `enroll()`,
+  igual que haría una app de autenticador): enrolar → verificar eleva la sesión a aal2 →
+  re-login solo con password vuelve a aal1/nextLevel=aal2 (exactamente la condición que usa
+  `AuthGuard`) → resolver el reto con `challengeAndVerify` eleva a aal2 otra vez. Factor de
+  prueba desenrolado al terminar, cuenta demo confirmada limpia (`auth.mfa_factors` sin filas).
+  **Expiración de invitaciones**: migración `0035` — `usar_invitacion()` ya no canjea
+  invitaciones con más de `INVITACION_VALIDEZ_DIAS=7` días desde su creación (verificado contra
+  la BD real: una invitación con `created_at` de hace 10 días devuelve NULL, una fresca
+  funciona); `getInvitaciones()` marca `vencida` en cliente y la UI muestra un badge "Vencida"
+  distinto de "Pendiente"/"Usada". **Cerrar todas las sesiones**: hallazgo real no documentado
+  antes — `supabase.auth.signOut()` sin argumentos usa scope `"global"` por defecto (cierra
+  TODOS los dispositivos), así que el botón normal de "Cerrar sesión" ya hacía esto sin que
+  nadie lo supiera. Corregido: `signOut()` ahora pasa `{scope:"local"}` explícito (comportamiento
+  esperado de un logout normal), y se añadió `signOutTodasLasSesiones()` (`{scope:"global"}`)
+  con su propio botón, explícito y con confirmación. **`isolation.test.js` como check
+  obligatorio**: confirmado — `ci.ps1` corre `npm run test` sin condicionales, solo se
+  autosalta si faltan credenciales de entorno (no es una opción activable/desactivable).
+  7 tests nuevos (3 de `signOut`/scope, 3 de `vencida`, más los ya existentes de RequireRol
+  sin tocar). 100 pytest, 202 vitest, ci.ps1 verde. Sin tests de componente interactivos para
+  `MfaChallenge`/`AuthGuard` (el proyecto no tiene jsdom/testing-library todavía — verificado
+  por `next build` + el script Python contra Supabase real, no por render de componente).
 
 **GATE C:** demo grabada de 2 minutos enseñando la cadena de custodia (intento de alterar un
 evento histórico → detectado por la verificación); suite de aislamiento + verificación de

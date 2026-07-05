@@ -81,8 +81,23 @@ export async function signUp(email, password, empresaNombre, invitacionCodigo) {
   return data;
 }
 
+/**
+ * ítem 9.10: `supabase.auth.signOut()` sin argumentos usa scope "global" POR
+ * DEFECTO (cierra la sesión en TODOS los dispositivos, no solo este) — un
+ * comportamiento real que nadie había anotado hasta ahora. Un botón normal
+ * de "Cerrar sesión" no debería expulsar al gestor de su móvil solo porque
+ * cerró sesión en el portátil; scope "local" es lo que la mayoría de apps
+ * esperan de un logout normal. Ver `signOutTodasLasSesiones` para el caso
+ * explícito de "he perdido el control de mi cuenta, cierra todo".
+ */
 export async function signOut() {
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: "local" });
+}
+
+/** Cierra la sesión en TODOS los dispositivos (scope "global" explícito). */
+export async function signOutTodasLasSesiones() {
+  const { error } = await supabase.auth.signOut({ scope: "global" });
+  if (error) throw error;
 }
 
 export async function getSession() {
