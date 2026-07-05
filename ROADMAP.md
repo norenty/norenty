@@ -1155,6 +1155,79 @@ runbooks probados al menos una vez cada uno; SLOs medidos y publicables.
 
 ---
 
+### Bloque E2 — Hallazgos de la auditoría CTO 2026-07-05 (no bloqueantes, sin gated por ingresos)
+
+Origen: auditoría completa a petición del usuario (seguridad + arquitectura/escalabilidad + calidad
+de código, 3 subagentes independientes leyendo el código real y verificando contra la BD real).
+Lo crítico/alto se arregló el mismo día (ver `PROGRESS.md` 2026-07-05, migraciones 0036-0039).
+Esto es lo que quedó identificado pero NO arreglado — para que "casi perfecto" tenga una lista
+concreta en vez de quedar solo en la conversación. Nada de aquí es urgente ni bloquea el uso
+actual; se prioriza por impacto, no por orden de descubrimiento.
+
+- [ ] `[LOOP]` **9.32 Paginar/acotar las lecturas sin límite añadidas después de 6.4** — item 6.4
+  ya resolvió esto para las agregaciones de analítica; varias funciones añadidas en fases
+  posteriores reintrodujeron el mismo patrón (tabla entera sin `.range()`/`.limit()`):
+  `getDocumentosPorCaducar`, `getParkings`, `getAuditLog`, `getMetricasRentabilidad`, y la propia
+  `getViajes()` que alimenta la home. Aplicar el mismo tratamiento (rango server-side o paginación)
+  caso por caso.
+- [ ] `[LOOP]` **9.33 Página "Hoy" — evitar que cada evento de realtime relance todo el abanico de
+  cálculos** (`getResumenHoy` → hasta 20 `getViabilidadViaje` en paralelo → cada una con su propio
+  abanico secuencial de llamadas a OSRM, sin caché ni debounce). Cachear el resultado de
+  viabilidad/OSRM por viaje mientras sus hitos no cambien, y debounce del refresh disparado por
+  `useRealtimeRefresh`. Relacionado con que OSRM nunca se ha probado bajo carga real (9.22) —
+  este ítem reduce cuánto tráfico le llega mientras esa duda siga abierta.
+- [ ] `[DECISIÓN]` **9.34 Patrón de manejo de errores de lectura en `dashboard/lib/data.js`** —
+  decenas de sitios hacen `const { data } = await supabase...` sin comprobar `error`, así que un
+  fallo real de BD se confunde con "sin datos" en vez de mostrarse como error. Antes de tocar
+  40+ sitios hace falta decidir CÓMO debe verse un fallo de lectura en cada pantalla (¿aviso
+  visible? ¿estado "no se pudo cargar" distinto de "vacío"?) — es una decisión de UX/producto, no
+  solo técnica. El loop no la toma unilateralmente.
+- [ ] `[LOOP]` **9.35 Aplicar el patrón de 9.34 primero a las funciones financieras** (una vez
+  cerrada la decisión) — `getViabilidadViaje`, `getInformeNomina`, `getEstado561`,
+  `getMetricasRentabilidad`, `calcularPresupuesto`, `sugerirChofer`: son las de mayor riesgo si un
+  error de lectura se confunde con "coste cero"/"margen 100%" en vez de mostrarse como tal.
+- [ ] `[LOOP]` **9.36 `migrate.py --check` debe FALLAR ante un checksum inesperado, no solo
+  avisar** — hoy un hand-edit accidental de una migración ya aplicada produce el mismo aviso
+  cosmético que el caso conocido y benigno de `0002`-`0011` (backfill de antes de que existiera
+  el runner). Añadir un allowlist explícito para ese caso conocido y hacer que cualquier OTRO
+  checksum distinto sea un `exit 1` real.
+- [ ] `[LOOP]` **9.37 Guía de "una migración, una responsabilidad" en `ONBOARDING.md`** — las
+  migraciones más grandes de este proyecto (`0031` hash-chain, `0032` roles) mezclan DDL +
+  backfill de datos + hardening de columnas en un solo archivo; ya causó un problema real (9.29:
+  un subagente murió a mitad de aplicar `0032`, hubo que recuperar de commits WIP a mano).
+  Documentar como convención a partir de ahora: separar en migraciones sucesivas cuando el cambio
+  mezcle esos 3 tipos de operación. No retroactivo sobre migraciones ya aplicadas.
+- [ ] `[LOOP]` **9.38 Consolidar o eliminar los formateadores sin uso de `format.js`** —
+  `fmtEur`/`fmtKm`/`fmtFechaLarga`/`fmtFechaCorta`/`fmtFechaHora`/`fmtHora` tienen cero adopción
+  real; 9 páginas siguen duplicando inline el patrón (`.toLocaleString("es-ES")` + sufijo) que
+  debían reemplazar. Decidir por función: adoptarla en esos sitios, o borrar el export si de
+  verdad no aporta sobre el inline actual.
+- [ ] `[LOOP]` **9.39 Mover la lógica de `ajustes/page.jsx` a `lib/data.js`** —
+  `guardarCosteKm`/`guardarVelocidad`/`guardarDesglose` hacen `supabase.from("empresa").update(...)`
+  con validación numérica inline, rompiendo la convención del resto del código base (toda
+  escritura pasa por una función nombrada de `data.js`). Extraer a funciones testeadas, igual
+  patrón que `createGastoViaje`/`actualizarRolGestor`/etc.
+- [ ] `[LOOP]` **9.40 Dividir `ajustes/page.jsx` (908 líneas) en subcomponentes** — perfil, empresa,
+  MFA, equipo/roles y estado del bot hoy conviven en un único archivo. Sin urgencia, solo
+  mantenibilidad; extraer siguiendo el mismo patrón que ya se usó para `RequireRol`/`MfaChallenge`.
+- [ ] `[DECISIÓN]` **9.41 ¿Merece una pantalla dedicada para derechos ARCO?** — hoy
+  `getExportacionChofer`/`anonimizarChofer` (9.15) solo son invocables desde la consola del
+  navegador por un ingeniero; documentado como limitación honesta en `PRIVACIDAD-ARCO.md`.
+  Decidir si construir una pantalla en Ajustes cuando el volumen real de solicitudes lo justifique,
+  o mantenerlo así mientras sea infrecuente.
+- [ ] `[LOOP]` **9.42 Plan de módulo compartido para el Reglamento CE 561/2006 antes de una v2** —
+  `calcularEtaConParadas` (JS) y `calcular_eta_con_paradas` (Python) son implementaciones
+  independientes, sincronizadas a mano, con tests de paridad que hoy confirman que coinciden. Bajo
+  riesgo mientras nadie las toque, pero el primer cambio real (p.ej. límites semanales/bisemanales)
+  sin un módulo compartido puede divergir en silencio. No requiere acción ahora; sí un plan escrito
+  de cómo se compartirá esa lógica antes de tocarla la próxima vez.
+
+**GATE E2:** 9.34 decidido y 9.35 aplicado a las funciones financieras (lo de mayor riesgo real);
+`migrate.py --check` falla de verdad ante drift no documentado (9.36); el resto son mejoras de
+mantenibilidad sin gate estricto — se pueden cerrar en cualquier orden.
+
+---
+
 ### Bloque F — La arquitectura escala con el negocio (gated por ingresos, NO antes)
 
 Nada de este bloque se empieza sin (a) un cliente que lo pida explícitamente + (b) ingreso
