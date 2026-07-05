@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-05 | Fase 9.9: Endurecer el perímetro del bot | (por commitear) | HECHO. Los 4
+2026-07-05 | Fase 9.9: Endurecer el perímetro del bot | 84bd989 | HECHO. Los 4
 guardrails del ítem: (1) secret token del webhook — NO se picó código: leí el fuente instalado
 de `python-telegram-bot` 22.8 (`telegram/ext/_utils/webhookhandler.py`, método
 `TelegramHandler._validate_post()`) y confirmé que la librería YA valida
