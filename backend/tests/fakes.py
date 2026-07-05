@@ -8,6 +8,23 @@ class FakeResponse:
         self.data = data
 
 
+class _FakeNotWrapper:
+    """Espejo mínimo de `.not_` de postgrest-py: niega el siguiente filtro."""
+    def __init__(self, query):
+        self._query = query
+
+    def is_(self, field, value):
+        if value == "null":
+            self._query._rows = [r for r in self._query._rows if r.get(field) is not None]
+        else:
+            self._query._rows = [r for r in self._query._rows if r.get(field) != value]
+        return self._query
+
+    def eq(self, field, value):
+        self._query._rows = [r for r in self._query._rows if r.get(field) != value]
+        return self._query
+
+
 class FakeQuery:
     def __init__(self, rows):
         self._rows = list(rows)
@@ -18,6 +35,22 @@ class FakeQuery:
     def eq(self, field, value):
         self._rows = [r for r in self._rows if r.get(field) == value]
         return self
+
+    def in_(self, field, values):
+        self._rows = [r for r in self._rows if r.get(field) in values]
+        return self
+
+    def is_(self, field, value):
+        # Espejo mínimo de postgrest-py: `.is_(col, "null")` == IS NULL.
+        if value == "null":
+            self._rows = [r for r in self._rows if r.get(field) is None]
+        else:
+            self._rows = [r for r in self._rows if r.get(field) == value]
+        return self
+
+    @property
+    def not_(self):
+        return _FakeNotWrapper(self)
 
     def order(self, field, desc=False):
         self._rows = sorted(self._rows, key=lambda r: (r.get(field) is None, r.get(field)), reverse=desc)

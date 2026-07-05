@@ -1309,14 +1309,21 @@ async def procesar_notificaciones_asignacion(ctx: ContextTypes.DEFAULT_TYPE):
     """
     from datetime import datetime, timezone
 
-    viajes_r = supabase.table("viaje").select(
-        "id, referencia, chofer_id, estado, notificado_asignacion_en"
-    ).execute()
-    pendientes = [
-        v for v in (viajes_r.data or [])
-        if v.get("chofer_id") and v.get("estado") in ("planificado", "en_curso")
-        and not v.get("notificado_asignacion_en")
-    ]
+    # Filtro en servidor (auditoría de arquitectura 2026-07-05): antes traía
+    # la tabla `viaje` ENTERA de TODAS las empresas en cada tick de 30s (el
+    # bot usa service role, salta RLS) y filtraba en Python — el coste crecía
+    # con el total histórico de viajes de toda la plataforma, no solo los
+    # pendientes de notificar. Empujar el filtro a la query evita traer filas
+    # que nunca iban a usarse.
+    viajes_r = (
+        supabase.table("viaje")
+        .select("id, referencia, chofer_id, estado, notificado_asignacion_en")
+        .not_.is_("chofer_id", "null")
+        .in_("estado", ["planificado", "en_curso"])
+        .is_("notificado_asignacion_en", "null")
+        .execute()
+    )
+    pendientes = viajes_r.data or []
 
     for viaje in pendientes:
         ref = viaje.get("referencia") or viaje["id"][:8]
