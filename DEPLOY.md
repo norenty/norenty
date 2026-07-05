@@ -16,6 +16,10 @@ habiendo leído este archivo.** Arquitectura decidida: GitHub → Vercel (dashbo
 ## 1. Dashboard → Vercel
 
 1. Conectar el repo de GitHub a un proyecto nuevo de Vercel, root directory `dashboard/`.
+1b. **Fijar región UE explícitamente** (ítem 9.14, compromiso de `PRIVACIDAD-SUBPROCESADORES.md`):
+   en Project Settings → Functions → Region, seleccionar Frankfurt (`fra1`) — no dejar la región
+   por defecto sin confirmar. Documentar la región real elegida en
+   `PRIVACIDAD-SUBPROCESADORES.md` una vez desplegado.
 2. Variables de entorno en Vercel (Production + Preview, ver `ONBOARDING.md` §2 para el detalle
    de cada una):
    - `NEXT_PUBLIC_SUPABASE_URL`
@@ -36,6 +40,10 @@ habiendo leído este archivo.** Arquitectura decidida: GitHub → Vercel (dashbo
 ## 2. Backend/bot → Railway
 
 1. Nuevo servicio en Railway apuntando a `backend/` del repo.
+1b. **Fijar región UE explícitamente** (ítem 9.14): en el servicio → Settings → Region,
+   seleccionar una región europea (Railway ofrece EU-West/Amsterdam según el plan) — no dejar la
+   región por defecto de EE.UU. sin confirmar. Documentar la región real en
+   `PRIVACIDAD-SUBPROCESADORES.md` una vez desplegado.
 2. Variables de entorno (mismas que `.env`, ver `ONBOARDING.md` §2):
    `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (la real, no la anon — el bot necesita saltar RLS),
    `TELEGRAM_BOT_TOKEN`, `SENTRY_DSN`, y si aplican `ANTHROPIC_API_KEY`/`OPENAI_API_KEY`.

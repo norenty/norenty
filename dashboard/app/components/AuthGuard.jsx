@@ -31,8 +31,8 @@ export default function AuthGuard({ children }) {
     supabase.auth.mfa.getAuthenticatorAssuranceLevel().then(({ data }) => setAal(data));
   }, [session]);
 
-  // Portal de cliente (7A.14): páginas /t/[token] son públicas, sin sesión.
-  if (pathname?.startsWith("/t/")) return children;
+  // Portal de cliente (7A.14) y página de subprocesadores (9.14): públicas, sin sesión.
+  if (pathname?.startsWith("/t/") || pathname === "/subprocesadores") return children;
 
   if (session === undefined) {
     return (

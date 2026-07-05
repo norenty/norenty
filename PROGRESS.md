@@ -8,6 +8,30 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | Fase 9.14: Página "Subprocesadores" + plantilla de DPA | (por commitear) | HECHO.
+`dashboard/app/subprocesadores/page.jsx`: página pública (bypaseada de `AuthGuard`, mismo patrón
+que el portal de cliente 7A.14) con tabla de subencargados de tratamiento — Supabase (Postgres/
+Auth/Storage), Vercel (dashboard), Railway (backend/bot), Sentry (errores, opt-in) — cada uno con
+función, región y referencia a su DPA estándar. `PRIVACIDAD-SUBPROCESADORES.md` es la fuente de
+verdad (git-trackeado); la página debe mantenerse en sincronía con él si cambia algo real.
+`PRIVACIDAD-DPA-PLANTILLA.md`: plantilla de Acuerdo de Encargado del Tratamiento (art. 28 RGPD)
+con el contenido técnico ya relleno a partir de `PRIVACIDAD-RAT.md` (naturaleza/finalidad del
+tratamiento, categorías de interesados/datos, medidas de seguridad), huecos `[RELLENAR]` para
+datos específicos de cada cliente, marcada explícitamente como NO firmable sin revisión legal
+(pendiente de 9.11, mismo criterio honesto que el RAT). Confirmado con `get_project` (MCP de
+Supabase) que el proyecto real ya está en región UE (`eu-west-1`, Irlanda) — sin acción
+pendiente ahí. `DEPLOY.md` actualizado con pasos explícitos para fijar región UE en Vercel
+(Frankfurt/`fra1`) y Railway al desplegar — no ejecutable hoy porque esos proyectos de
+producción todavía no existen (deploy pospuesto). Intenté verificar la página nueva en un
+navegador real vía `mcp__Claude_Preview__*` (creando `.claude/launch.json`) — falla exactamente
+igual que en el ítem 6.6: el "workspace" de la herramienta sigue anclado a una carpeta que no es
+la del proyecto (`Escritorio\Git` en vez de `Escritorio\Claude code`), confirmado de nuevo con
+dos intentos (ruta absoluta y relativa). Verificación de respaldo: `next build` compila sin
+errores e incluye `/subprocesadores` en las rutas generadas. ci.ps1 verde (105 pytest, 202
+vitest, build).
+
+---
+
 2026-07-05 | Fase 9.13: Política de retención automatizada (purga de ubicacion) | b563eb2 | HECHO.
 `backend/db/purgar_ubicacion.py`: borra filas de `ubicacion` (dato de geolocalización granular,
 el más sensible del sistema según `PRIVACIDAD-RAT.md`) con más de 90 días por defecto (`--dias`

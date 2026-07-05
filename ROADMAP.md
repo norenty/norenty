@@ -1084,12 +1084,20 @@ Cualquier cliente serio lo va a preguntar; mejor llegar con los deberes hechos q
   recientes intactas; datos de prueba limpiados después. **Nota honesta**: sin scheduler que lo
   ejecute solo (no existe infraestructura de cron en el proyecto hoy, mismo motivo que 4.4/9.7) —
   ejecutar manualmente o vía Tarea Programada mientras tanto. 105 pytest, 202 vitest, ci.ps1 verde.
-- [ ] `[LOOP]` **9.14 Página "Subprocesadores" + plantilla de DPA** (picar código: sonnet,
-  esfuerzo bajo). Lista pública de subencargados de tratamiento (Supabase, Vercel, Railway,
-  Sentry — todos con DPA estándar propio, enlazarlos) y una plantilla de DPA lista para
-  firmar con cada cliente (Norenty como encargado/processor, la flota como responsable/
-  controller). Fijar región UE explícitamente en la configuración de Supabase/Vercel/Railway
-  y documentarlo.
+- [x] `[LOOP]` **9.14 Página "Subprocesadores" + plantilla de DPA** (2026-07-05) — página pública
+  `dashboard/app/subprocesadores/page.jsx` (bypaseada de `AuthGuard`, igual patrón que el portal
+  de cliente 7A.14) con tabla de subencargados (Supabase, Vercel, Railway, Sentry: función,
+  región, referencia a su DPA estándar). Fuente de verdad en `PRIVACIDAD-SUBPROCESADORES.md`
+  (git-trackeado, ambos sitios deben coincidir). `PRIVACIDAD-DPA-PLANTILLA.md`: plantilla de DPA
+  art. 28 RGPD con los datos técnicos ya rellenos desde `PRIVACIDAD-RAT.md`, huecos `[RELLENAR]`
+  marcados por cliente, explícitamente NO firmable sin revisión legal (9.11). Supabase ya
+  confirmado en región UE (`eu-west-1`, verificado con `get_project`); `DEPLOY.md` actualizado
+  con pasos explícitos para fijar región UE en Vercel (Frankfurt) y Railway al desplegar — no se
+  puede fijar hoy porque esos proyectos aún no existen (sin deploy). Build verde confirma que la
+  página compila; **no se pudo verificar visualmente en navegador** (mismo bug de entorno de
+  `mcp__Claude_Preview__*` ya documentado en el ítem 6.6: su "workspace" sigue anclado a una
+  carpeta ajena al proyecto, confirmado de nuevo intentándolo). 105 pytest, 202 vitest, ci.ps1
+  verde.
 - [ ] `[LOOP]` **9.15 Procedimiento de derechos ARCO** (picar código: sonnet, esfuerzo bajo).
   Documento + función de soporte en `lib/data.js` (aunque el procedimiento sea manual al
   principio) para exportar o borrar todos los datos de un chófer concreto a petición suya:
