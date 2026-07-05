@@ -1,0 +1,24 @@
+-- ============================================================
+-- Norenty — FIX CRÍTICO: fuga de aislamiento multi-tenant en el bucket "pods".
+--
+-- Hallado en auditoria de seguridad 2026-07-05: la migracion 0011 (bucket
+-- pods privado) anadio la policy "empresa ve sus pods" (SELECT scoped por
+-- empresa via storage.foldername(name)) pero NUNCA elimino la policy previa
+-- "authenticated_select_pods" de 0008 (SELECT abierto a CUALQUIER usuario
+-- autenticado, sin scope de empresa). Postgres RLS combina policies
+-- permisivas del MISMO comando con OR -- con las dos vivas, la permisiva
+-- (0008) por si sola ya satisface el check para cualquier gestor de
+-- CUALQUIER empresa, anulando por completo el scope de empresa de la de
+-- 0011. Efecto real: cualquier gestor autenticado podia listar/leer las
+-- fotos de POD (albaranes, firmas) de CUALQUIER otra empresa via
+-- storage.from('pods').list()/createSignedUrl() directo, sin pasar por la
+-- UI. El bucket "documentos" (0012) NO tiene este problema (nunca tuvo una
+-- policy equivalente de 0008).
+--
+-- Fix: eliminar la policy permisiva, dejar solo la que SI filtra por
+-- empresa. Nada mas cambia -- ningun flujo legitimo (PodImage.jsx via
+-- createSignedUrl, subida del bot con service_role) dependia de la policy
+-- eliminada.
+-- ============================================================
+
+DROP POLICY IF EXISTS "authenticated_select_pods" ON storage.objects;
