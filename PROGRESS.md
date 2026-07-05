@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-05 | Fase 9.15: Procedimiento de derechos ARCO — BLOQUE D CERRADO | (por commitear) | HECHO.
+2026-07-05 | Fase 9.15: Procedimiento de derechos ARCO — BLOQUE D CERRADO | 03b354b | HECHO.
 `PRIVACIDAD-ARCO.md`: procedimiento por derecho, con la tensión documentada SIN esconderla: el
 hash-chain de `ejecucion_evento` (9.6/9.7) y el hash de `pod` (9.8) incluyen `chofer_id` en el
 payload hasheado — anonimizarlo rompería la verificación de integridad (indistinguible de
