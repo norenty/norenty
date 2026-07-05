@@ -8,6 +8,16 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | Rotación de contraseña de BD tras exposición accidental | (por commitear) | HECHO.
+El usuario reseteó la contraseña de la base de datos en Supabase (higiene correcta tras el
+incidente de exposición del turno anterior) y actualizó `DATABASE_URL` en `.env` limpiamente
+(una sola línea, formato correcto). Verificado con `migrate.py --check`: el primer intento dio
+"password authentication failed" (probablemente el cambio de contraseña aún no había propagado
+del todo), un segundo intento ~8s después conectó bien — 35/35 migraciones aplicadas, 0
+pendientes. La contraseña vista en la conversación anterior queda inútil.
+
+---
+
 2026-07-05 | D2 resuelta: DATABASE_URL real puesta y verificada | cabfaa0 | HECHO. El
 primer pegado del usuario vino en formato "Parameters" de Supabase (varias líneas sueltas) en vez
 de la URI de una pieza, rompiendo el parseo de `.env` — corregido a mano guiando al usuario. El
