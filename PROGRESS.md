@@ -8,6 +8,29 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | Fase 9.5: Logging estructurado en JSON (parcial, alcance honesto) | (por commitear) | HECHO.
+`backend/app/bot.py`: `JsonFormatter` nueva (clase `logging.Formatter`) que vuelca a JSON
+`timestamp`/`level`/`logger`/`message` + CUALQUIER campo pasado por `extra={...}` sin lista
+blanca rígida (así un log futuro con `extra={"empresa_id":...}` queda buscable automáticamente,
+sin tener que tocar el formatter). `default=str` en el `json.dumps` para que un objeto no
+serializable nunca reviente el propio logging. Aplicado con contexto real a los puntos de log
+que ya tenían empresa_id/viaje_id/chofer_id/hito_id/update_id/chat_id a mano: el wrapper de
+reintentos (8.2), el dedupe/rate-limit del perímetro (9.9), vinculación de gestor/chófer,
+confirmación de llegada, subida de POD (incl. rechazo por validación), incidencia manual,
+notificación de asignación, y el error handler global de PTB. 5 tests nuevos
+(`test_logging_estructurado.py`: JSON válido, campos de extra incluidos tal cual, ausentes si no
+se pasan, traceback incluido con `exc_info`, nunca revienta con un valor no serializable —
+verificado con una clase de prueba sin `__dict__` serializable). **NO hecho, alcance honesto**:
+el monitor externo (UptimeRobot/Better Stack) contra `/db/health`+home+`bot_heartbeat` — no hay
+nada desplegado que monitorizar todavía (mismo bloqueo que el resto de Gate A); el DSN real de
+Sentry sigue pendiente de una decisión ligera del usuario, igual que D6 lo estuvo. De paso
+(mismo turno): delegué a un subagente `model: opus` el diseño de un sistema de colas sobre
+Postgres (ítem 9.17, `SELECT ... FOR UPDATE SKIP LOCKED`, sin Redis) — apareció como una nueva
+sección en `SPECS-9.md` ("Bloque colas"), pendiente de revisar antes de picar 9.18. ci.ps1 verde
+(114 pytest, 215 vitest, build).
+
+---
+
 2026-07-05 | Fase 9.16: Migraciones con red (alcance honesto) | bc2a3be | HECHO. Convención
 escrita en `ONBOARDING.md` §7: toda migración nueva a partir de ahora debe documentar en su propia
 cabecera SQL cómo deshacerla (no retroactiva sobre migraciones ya aplicadas). La parte de "entorno

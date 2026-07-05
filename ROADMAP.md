@@ -815,13 +815,17 @@ explícitamente `(bloqueado por Gate A)`.
   checklist de verificación (¿cuántas filas, hasta qué timestamp?); documento con objetivo
   RPO ≤ 24h / RTO ≤ 4h para el piloto y el tiempo medido real del último simulacro.
   Calendarlo mensual (recordatorio, no automatización todavía).
-- [ ] `[LOOP]` **9.5 Observabilidad mínima seria** (picar código: sonnet, esfuerzo bajo).
-  Sentry ya está cableado (opt-in) — solo falta pegar un DSN real (`[DECISIÓN]` ligera, como
-  D6). Lo `[LOOP]` de verdad: configurar un monitor externo gratuito (UptimeRobot/Better
-  Stack) contra `/db/health` + home del dashboard + lectura del `bot_heartbeat`, con alerta a
-  un chat de Telegram propio; y logging estructurado (JSON) en `bot.py` con `empresa_id`/
-  `viaje_id`/`update_id` en cada línea relevante, para poder responder en minutos a "ayer a
-  las 18:40 no me llegó la alerta".
+- [x] `[LOOP]` **9.5 Observabilidad mínima seria (parcial, alcance honesto)** (2026-07-05) —
+  logging estructurado en JSON en `bot.py`: `JsonFormatter` (clase nueva) vuelca cualquier campo
+  pasado por `extra={...}` (empresa_id/viaje_id/chofer_id/hito_id/update_id/chat_id/intento...)
+  a cada línea, sin whitelist rígida — así cualquier log futuro con contexto real queda
+  buscable sin parsear texto libre. Aplicado a las ~13 líneas de log con contexto real del
+  archivo (reintentos, dedupe/rate-limit del perímetro 9.9, vinculación de gestor/chófer,
+  llegada, POD, incidencia, notificación de asignación, error handler global). 5 tests nuevos
+  (`test_logging_estructurado.py`). **NO hecho**: el monitor externo (UptimeRobot/Better Stack)
+  contra un endpoint público — no hay nada desplegado todavía que monitorizar (bloqueado por
+  Gate A, igual que otros ítems de deploy); y el DSN real de Sentry sigue pendiente de una
+  decisión ligera del usuario. 114 pytest, 215 vitest, ci.ps1 verde.
 
 **GATE B:** CSP enforcing sin romper nada en producción; un restore de backup ejecutado con
 éxito y cronometrado; una alerta de caída del bot probada de verdad (matarlo adrede y

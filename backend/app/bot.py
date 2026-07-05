@@ -1,6 +1,7 @@
 """Norenty Telegram Bot — operación de hitos, POD, y alertas al gestor."""
 
 import hashlib
+import json
 import math
 import os
 import logging
@@ -31,7 +32,39 @@ from telegram.ext import (
 )
 from .db import supabase
 
-logging.basicConfig(level=logging.INFO)
+# Campos propios de LogRecord (ítem 9.5): cualquier clave que NO esté aquí y
+# se pase por `extra={...}` se vuelca tal cual al JSON de salida. Así
+# empresa_id/viaje_id/chofer_id/update_id (o lo que sea relevante en cada
+# línea) queda buscable sin depender de parsear texto libre — el objetivo es
+# poder responder en minutos a "ayer a las 18:40 no me llegó la alerta".
+_LOG_RECORD_RESERVADOS = {
+    "name", "msg", "args", "levelname", "levelno", "pathname", "filename", "module",
+    "exc_info", "exc_text", "stack_info", "lineno", "funcName", "created", "msecs",
+    "relativeCreated", "thread", "threadName", "processName", "process", "message", "taskName",
+}
+
+
+class JsonFormatter(logging.Formatter):
+    def format(self, record):
+        base = {
+            "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        for key, value in record.__dict__.items():
+            if key not in _LOG_RECORD_RESERVADOS and not key.startswith("_"):
+                base[key] = value
+        if record.exc_info:
+            base["exception"] = self.formatException(record.exc_info)
+        # default=str: nunca debe reventar el logging por un objeto no serializable
+        # (UUID, excepción, etc.) — un logger que lanza es peor que uno impreciso.
+        return json.dumps(base, default=str, ensure_ascii=False)
+
+
+_handler = logging.StreamHandler()
+_handler.setFormatter(JsonFormatter())
+logging.basicConfig(level=logging.INFO, handlers=[_handler])
 logger = logging.getLogger("norenty.bot")
 
 TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
@@ -56,7 +89,10 @@ def ejecutar_con_reintentos(fn, *, intentos=3, backoff_base=0.5, contexto=None):
             return fn()
         except _ERRORES_REINTENTABLES as e:
             ultimo_error = e
-            logger.warning("Intento %d/%d falló (%s): %s", intento + 1, intentos, contexto, e)
+            logger.warning(
+                "Intento %d/%d falló (%s): %s", intento + 1, intentos, contexto, e,
+                extra={**(contexto or {}), "intento": intento + 1, "intentos_totales": intentos},
+            )
             if intento < intentos - 1:
                 time.sleep(backoff_base * (2 ** intento))
 
@@ -98,7 +134,7 @@ def _update_ya_procesado(update_id: int) -> bool:
 
 async def descartar_update_duplicado(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if update.update_id is not None and _update_ya_procesado(update.update_id):
-        logger.warning("Update duplicado descartado: %s", update.update_id)
+        logger.warning("Update duplicado descartado: %s", update.update_id, extra={"update_id": update.update_id})
         raise ApplicationHandlerStop
 
 
@@ -123,7 +159,7 @@ async def limitar_flujo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if chat is None:
         return
     if _rate_limit_excedido(str(chat.id)):
-        logger.warning("Rate limit excedido para chat_id=%s", chat.id)
+        logger.warning("Rate limit excedido para chat_id=%s", chat.id, extra={"chat_id": chat.id, "update_id": update.update_id})
         raise ApplicationHandlerStop
 
 
@@ -440,7 +476,10 @@ async def alertar_gestor(empresa_id, viaje_id, tipo, descripcion):
                     f"⚠️ ALERTA — {tipo.replace('_', ' ').upper()}\n\nViaje: {ref}\n{descripcion}",
                 )
             except Exception as e:
-                logger.error("Error notificando gestor %s: %s", chat, e)
+                logger.error(
+                    "Error notificando gestor %s: %s", chat, e,
+                    extra={"empresa_id": empresa_id, "viaje_id": viaje_id, "tipo": tipo, "chat_id": chat},
+                )
 
 
 async def notificar_gestor_evento(empresa_id, viaje_id, mensaje):
@@ -452,7 +491,10 @@ async def notificar_gestor_evento(empresa_id, viaje_id, mensaje):
             try:
                 await transporte_gestor.enviar_texto(chat, mensaje)
             except Exception as e:
-                logger.error("Error notificando gestor %s: %s", chat, e)
+                logger.error(
+                    "Error notificando gestor %s: %s", chat, e,
+                    extra={"empresa_id": empresa_id, "viaje_id": viaje_id, "chat_id": chat},
+                )
 
 
 def nav_buttons(hito):
@@ -635,7 +677,7 @@ async def vincular_gestor(update: Update, gestor_id: str, chat_id: str):
         f"Vinculado correctamente, {nombre}.\n"
         "A partir de ahora recibirás aquí las alertas de incidencias, entregas y avisos de Norenty."
     )
-    logger.info("Gestor %s vinculado al chat %s", gestor_id, chat_id)
+    logger.info("Gestor %s vinculado al chat %s", gestor_id, chat_id, extra={"gestor_id": gestor_id, "chat_id": chat_id})
 
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -690,7 +732,10 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         reply_markup=menu_keyboard(chofer),
     )
 
-    logger.info("Chofer %s vinculado al chat %s", codigo, chat_id)
+    logger.info(
+        "Chofer %s vinculado al chat %s", codigo, chat_id,
+        extra={"chofer_id": codigo, "chat_id": chat_id, "empresa_id": chofer.get("empresa_id")},
+    )
     await send_next_hito(chat_id, chofer, ctx.bot)
 
 
@@ -790,7 +835,10 @@ async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         except (ValueError, TypeError):
             pass
 
-    logger.info("Llegada registrada: hito %s, chofer %s", hito_id, chofer_id)
+    logger.info(
+        "Llegada registrada: hito %s, chofer %s", hito_id, chofer_id,
+        extra={"hito_id": hito_id, "chofer_id": chofer_id, "viaje_id": viaje.get("id"), "empresa_id": chofer.get("empresa_id")},
+    )
 
     dir_hito = hito.get("direccion", "?")
     if hito["tipo"] == "entrega":
@@ -932,7 +980,10 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     # ítem 9.9: validar tamaño y firma (magic bytes) antes de subir nada —
     # nunca confiar en que "photo" de Telegram implica un JPEG válido.
     if not _foto_pod_valida(file_bytes):
-        logger.warning("Foto de POD rechazada (tamaño=%d) para hito %s", len(file_bytes), hito["id"])
+        logger.warning(
+            "Foto de POD rechazada (tamaño=%d) para hito %s", len(file_bytes), hito["id"],
+            extra={"hito_id": hito["id"], "viaje_id": viaje["id"], "chofer_id": chofer_id, "tamano_bytes": len(file_bytes)},
+        )
         await update.message.reply_text(t(chofer, "foto_invalida"))
         return
 
@@ -976,7 +1027,10 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "tipo": "salida",
     }).execute()
 
-    logger.info("POD subido: hito %s", hito["id"])
+    logger.info(
+        "POD subido: hito %s", hito["id"],
+        extra={"hito_id": hito["id"], "viaje_id": viaje["id"], "chofer_id": chofer_id, "empresa_id": chofer["empresa_id"]},
+    )
 
     ref = viaje.get("referencia") or viaje["id"][:8]
     dir_hito = hito.get("direccion", "?")
@@ -1026,7 +1080,10 @@ async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(t(chofer, "incidencia_ok", ref=ref))
-    logger.info("Incidencia manual: chofer %s, viaje %s", chofer["id"], viaje["id"])
+    logger.info(
+        "Incidencia manual: chofer %s, viaje %s", chofer["id"], viaje["id"],
+        extra={"chofer_id": chofer["id"], "viaje_id": viaje["id"], "empresa_id": chofer["empresa_id"]},
+    )
 
 
 # Mismo factor que dashboard/lib/data.js (FACTOR_SINUOSIDAD_FALLBACK): el bot
@@ -1361,7 +1418,10 @@ async def procesar_notificaciones_asignacion(ctx: ContextTypes.DEFAULT_TYPE):
         try:
             await ctx.bot.send_message(chat_id=chofer["chat_id"], text=texto)
         except Exception as e:
-            logger.error("Error notificando asignación a %s: %s", chofer["chat_id"], e)
+            logger.error(
+                "Error notificando asignación a %s: %s", chofer["chat_id"], e,
+                extra={"chofer_id": chofer["id"], "viaje_id": viaje["id"], "empresa_id": chofer["empresa_id"], "chat_id": chofer["chat_id"]},
+            )
             continue
 
         supabase.table("viaje").update({"notificado_asignacion_en": ahora}).eq("id", viaje["id"]).execute()
@@ -1374,7 +1434,10 @@ async def manejar_error(update, ctx):
     Registra en Sentry con contexto y, si puede identificar el chat, avisa al
     chófer en su idioma en vez de dejarlo en silencio.
     """
-    logger.error("Excepción no capturada procesando %s: %s", update, ctx.error, exc_info=ctx.error)
+    logger.error(
+        "Excepción no capturada procesando %s: %s", update, ctx.error, exc_info=ctx.error,
+        extra={"update_id": getattr(update, "update_id", None)},
+    )
 
     chat_id = None
     idioma = "es"
@@ -1398,7 +1461,10 @@ async def manejar_error(update, ctx):
         try:
             await ctx.bot.send_message(chat_id=chat_id, text=t(idioma, "error_tecnico"))
         except Exception as e:
-            logger.error("No se pudo ni avisar al chófer del error técnico: %s", e)
+            logger.error(
+                "No se pudo ni avisar al chófer del error técnico: %s", e,
+                extra={"chat_id": chat_id, "update_id": getattr(update, "update_id", None)},
+            )
 
 
 HEARTBEAT_INTERVAL_S = 120  # cada 2 min — el dashboard (8.3) avisa si el último es más viejo que ~2.5x esto
