@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-05 | Fase 9.5: Logging estructurado en JSON (parcial, alcance honesto) | (por commitear) | HECHO.
+2026-07-05 | Fase 9.5: Logging estructurado en JSON (parcial, alcance honesto) | fd9ea14 | HECHO.
 `backend/app/bot.py`: `JsonFormatter` nueva (clase `logging.Formatter`) que vuelca a JSON
 `timestamp`/`level`/`logger`/`message` + CUALQUIER campo pasado por `extra={...}` sin lista
 blanca rígida (así un log futuro con `extra={"empresa_id":...}` queda buscable automáticamente,
