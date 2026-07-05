@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-05 | Fase 9.14: Página "Subprocesadores" + plantilla de DPA | (por commitear) | HECHO.
+2026-07-05 | Fase 9.14: Página "Subprocesadores" + plantilla de DPA | d7b7195 | HECHO.
 `dashboard/app/subprocesadores/page.jsx`: página pública (bypaseada de `AuthGuard`, mismo patrón
 que el portal de cliente 7A.14) con tabla de subencargados de tratamiento — Supabase (Postgres/
 Auth/Storage), Vercel (dashboard), Railway (backend/bot), Sentry (errores, opt-in) — cada uno con
