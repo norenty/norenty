@@ -8,6 +8,24 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | D2 resuelta: DATABASE_URL real puesta y verificada | (por commitear) | HECHO. El
+primer pegado del usuario vino en formato "Parameters" de Supabase (varias líneas sueltas) en vez
+de la URI de una pieza, rompiendo el parseo de `.env` — corregido a mano guiando al usuario. El
+segundo intento sí trajo la URI de la variante "Session pooler" pero repartida en líneas
+separadas por el propio `.env` (valor vacío en `DATABASE_URL=`, el string real 3 líneas más abajo).
+**Incidente de seguridad menor, autoinfligido**: al diagnosticar por qué fallaba, un comando de
+PowerShell mío imprimió el contenido completo de esa línea suelta para poder ver su forma —
+expuso la connection string (con la contraseña de la BD) en la propia conversación, exactamente lo
+que se quería evitar desde el principio. Recomendado al usuario rotar la contraseña de la BD por
+precaución (Supabase → Database → Reset database password) — pendiente de que lo haga. Arreglado
+el `.env` (todo en una sola línea, sin los corchetes literales `[...]` que Supabase mostraba
+alrededor de la contraseña recién generada — no son parte del valor real). Verificado con
+`migrate.py --check`: conecta de verdad, 35/35 migraciones aplicadas, 0 pendientes. Hallazgo menor
+de paso: checksum registrado de `0002`-`0011` no coincide con el archivo local (backfill
+retroactivo de antes de que existiera el runner) — no bloquea, solo avisa.
+
+---
+
 2026-07-05 | D1 resuelta: SUPABASE_SERVICE_ROLE_KEY real puesta y verificada | (por commitear) | HECHO.
 El usuario pegó la clave directo en `.env` (nunca la compartió en el chat, verificado solo por
 longitud). Verificación funcional sin imprimir el valor (script desechable en scratchpad): un

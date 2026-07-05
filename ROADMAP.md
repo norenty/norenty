@@ -398,10 +398,12 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
   gestores reales sin RLS, en vez de solo 1 empresa como pasaría con la anon key). Pendiente:
   probar el flujo real con un chófer de prueba en Telegram (guion de prueba cuando el usuario
   confirme que quiere hacerlo).
-- [ ] `[DECISIÓN D2]` **Pegar DATABASE_URL en `.env`** (connection string con contraseña) para
-  `migrate.py` y backups locales. En curso 2026-07-05: la variante "Direct connection" no resuelve
-  DNS desde este entorno (Supabase la dejó IPv6-only sin el add-on de IPv4) — el usuario está
-  cambiando a la variante "Session pooler" (IPv4), pendiente de reintentar.
+- [x] `[DECISIÓN D2]` **Pegar DATABASE_URL en `.env`** (2026-07-05) — variante "Session pooler"
+  (IPv4; la "Direct connection" no resuelve DNS sin el add-on de IPv4 de Supabase). Verificado con
+  `migrate.py --check`: conecta de verdad, 35/35 migraciones aplicadas, 0 pendientes. **Hallazgo
+  menor**: aviso de checksum distinto al registrado para `0002`-`0011` (backfill retroactivo de
+  cuando esas migraciones se aplicaron ad-hoc por MCP antes de que existiera el runner, ítem 3 de
+  Fase 3) — no bloquea nada, el runner solo avisa; revisar con calma si molesta, no urgente.
 - [ ] `[DECISIÓN D3]` **Presupuesto voz (Whisper)** — sigue siendo la feature #1 validada por el
   gestor; en cuanto haya cifra mensual aceptable, se especifica y entra en cola.
 - [ ] `[DECISIÓN D4]` **Luz verde al despliegue** — con 6.21 hecho, desplegar es una sesión contigo.
@@ -714,8 +716,8 @@ Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servi
 
 ### Decisiones que solo tú puedes tomar (desbloquean lo de arriba)
 - [x] `[DECISIÓN D1 — CRÍTICA]` `SUPABASE_SERVICE_ROLE_KEY` real puesta y verificada (2026-07-05).
-- [ ] `[DECISIÓN D2]` Pegar `DATABASE_URL` para que `migrate.py` y los backups (8.9) sean ejecutables
-  (en curso, ver Fase 6 más arriba — falta la variante "Session pooler").
+- [x] `[DECISIÓN D2]` `DATABASE_URL` real puesta y verificada (2026-07-05) — `migrate.py`/backups
+  (8.9) ya son ejecutables de verdad.
 - `[DECISIÓN D4]` Luz verde al despliegue (tras 8.11, es una sesión contigo).
 
 ### Diferido a después de Fase 8 (features, no confiabilidad)
