@@ -403,10 +403,9 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
 - [ ] `[DECISIÓN D4]` **Luz verde al despliegue** — con 6.21 hecho, desplegar es una sesión contigo.
 - [ ] `[DECISIÓN D5]` **BD pública de consumos de camiones** — dijiste que la montaste hace meses;
   pásala (archivo o enlace) y especifico la capa de coste por combustible de viabilidad v2.
-- [ ] `[ACCIÓN D6 — ligera, sin criterio]` **Activar "Leaked Password Protection"** en Supabase
-  (Authentication → Providers → Email). Encontrado por el advisor de seguridad el 2026-07-02
-  (item 6.5); un toggle de un clic, gratis, rechaza contraseñas ya filtradas (HaveIBeenPwned) en el
-  signup/cambio de contraseña. No tocable por SQL/MCP, solo desde el panel.
+- [x] `[ACCIÓN D6]` **Activar "Leaked Password Protection"** en Supabase (2026-07-05, confirmado
+  por el usuario con captura de pantalla del panel: toggle "Prevent use of leaked passwords" en
+  verde en Authentication → Providers → Email).
 
 ---
 
@@ -619,11 +618,10 @@ pica código. Orden de ejecución con dependencias, al final de ese documento:
 
 ---
 
-## Fase 8 — Solidez, seguridad y confiabilidad (TODOS LOS `[LOOP]` CERRADOS 2026-07-04)
+## Fase 8 — Solidez, seguridad y confiabilidad (100% CERRADA 2026-07-05, incl. 8.6/D6)
 
-**Estado: 8.1 a 8.5 y 8.7 a 8.12 hechos.** Solo quedan pendientes cosas que no puede hacer el
-loop: `8.6` (activar "Leaked Password Protection" — un clic en el panel de Supabase, no vía
-SQL/MCP) y las `[DECISIÓN D1/D2/D4]` de más abajo, todas necesitan criterio/acceso del usuario.
+**Estado: TODO hecho (8.1-8.12).** Solo quedan las `[DECISIÓN D1/D2/D4]` de más abajo, que
+necesitan criterio/acceso del usuario y no bloquean el resto del roadmap.
 
 **Decisión de dirección (usuario, 2026-07-04):** para este producto la confianza ES el producto
 — es un SaaS de *aseguramiento de ejecución*: el gestor paga por creer que lo que ve (hora de
@@ -683,9 +681,8 @@ Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servi
   pasó) para que un enlace compartido no viva para siempre; (b) documentar que el token es un uuid
   impredecible (no enumerable) y que la RPC ya no filtra datos internos (verificado en 7A.14);
   (c) nota para el deploy: poner rate-limit a nivel de infra sobre `/rest/v1/rpc/viaje_publico`.
-- [ ] `[ACCIÓN D6]` **8.6 Activar "Leaked Password Protection"** en Supabase (Auth → Providers →
-  Email). 1 clic, gratis, rechaza contraseñas ya filtradas. No tocable por MCP, solo panel — te
-  guío cuando quieras.
+- [x] `[ACCIÓN D6]` **8.6 Activar "Leaked Password Protection"** en Supabase (2026-07-05,
+  confirmado por captura de pantalla del usuario — toggle en verde). **Fase 8 100% cerrada.**
 - [x] `[LOOP]` **8.7 Repaso de advisors + superficies.** Correr los security advisors de Supabase,
   revisar cada tabla nueva de 7A (decision_asignacion, nota_gestor, gasto_viaje) confirmando RLS y
   grants correctos, y que ninguna función SECURITY DEFINER nueva expone de más. Documentar.
