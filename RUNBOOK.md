@@ -1,9 +1,10 @@
 # Norenty — Runbook de backup / restore
 
-Estado actual: **`DATABASE_URL` no está puesta en `.env`** (`[DECISIÓN D2]`, pendiente). Sin ella,
-`backend/db/migrate.py` y los comandos `pg_dump`/`psql` de este documento no son ejecutables desde
-esta máquina. Lo de abajo es el procedimiento MANUAL a seguir hoy vía el panel de Supabase, y el
-comando exacto a correr en cuanto D2 esté resuelta.
+Estado actual (actualizado 2026-07-05): **`DATABASE_URL` ya está puesta y verificada** (`[DECISIÓN D2]`
+resuelta — `migrate.py --check` conecta de verdad, 39/39 migraciones aplicadas). `backend/db/migrate.py`
+y los comandos `pg_dump`/`psql` de este documento ya son ejecutables desde esta máquina. La prueba de
+restore real (sección más abajo) sigue sin hacerse — eso sigue pendiente, no es automático solo por
+tener la connection string.
 
 ## Qué cubre un backup y qué no
 
@@ -18,7 +19,7 @@ comando exacto a correr en cuanto D2 esté resuelta.
 
 ## Backup de la base de datos
 
-### Hoy (sin `DATABASE_URL`): backup automático de Supabase
+### Backup automático de Supabase (siempre activo, con o sin `DATABASE_URL`)
 
 Supabase hace backups automáticos diarios de los proyectos (retención según el plan). Para
 comprobar/descargar uno:
@@ -29,7 +30,7 @@ comprobar/descargar uno:
 3. **Esto ya está pasando sin que nadie tenga que hacer nada** — pero nadie lo ha probado (ver
    "Prueba de restore" más abajo). Un backup que nunca se ha restaurado no es un backup de fiar.
 
-### Cuando D2 esté resuelta (`DATABASE_URL` puesta): backup manual desde local
+### Backup manual desde local (D2 ya resuelta, `DATABASE_URL` puesta)
 
 ```powershell
 # Backup completo (schema + datos) a un archivo con fecha en el nombre
