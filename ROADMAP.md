@@ -958,12 +958,25 @@ mano en `next dev`.
   qué pasa si la verificación falla (alerta, nunca "arreglo silencioso"), y los casos de
   test (inserción normal, intento de alterar una fila histórica → detectado, cadena rota a
   mitad → localiza el punto exacto). Mismo formato que `SPECS-7A.md`.
-- [ ] `[LOOP]` **9.7 Implementar hash-chain según SPECS-9.md** (picar código: sonnet,
-  esfuerzo bajo — spec ya cerrada por 9.6). Migración + trigger + job de verificación diaria
-  (puede vivir como script Python en `backend/db/` ejecutado por cron del propio proceso, o
-  documentado como pendiente de un scheduler real si no existe uno todavía — mismo criterio
-  honesto que se aplicó en 4.4). Tests. Este es el ítem que sostiene el pitch "ni nosotros
-  podemos falsificar una hora de llegada".
+- [x] `[LOOP]` **9.7 Implementar hash-chain según SPECS-9.md** (2026-07-05) — migración
+  `0031_hash_chain_ejecucion_evento.sql` aplicada (columnas `hash_prev`/`hash`, función
+  `ejecucion_evento_calc_hash`, trigger `BEFORE INSERT` que encadena por `viaje_id`, backfill de
+  las 69 filas existentes — verificado 69/69 con hash tras aplicar, 15 cadenas/raíces = 15
+  viajes con eventos). Script `backend/db/verificar_cadena.py` (solo-lectura, recorre cada
+  partición, recomputa y compara; `--viaje <uuid>` opcional; alerta a Sentry si `SENTRY_DSN`).
+  Grupo A (`backend/tests/test_hash_chain.py`, 7 tests): algoritmo de hashing/verificación en
+  memoria. Grupo B verificado A MANO contra la BD real (dos viajes desechables, borrados
+  después): el trigger encadena bien 2 y 3 eventos seguidos, dos viajes son cadenas
+  independientes, alterar `ocurrido_en` de un evento histórico por UPDATE directo hace que el
+  hash recalculado ya no coincida con el guardado, y borrar el evento intermedio de una cadena
+  de 3 rompe el enlace `hash_prev` del siguiente — los 5 casos de SPECS-9.md §5 confirmados.
+  **Bonus de verificación**: el hash recomputado por el mirror Python coincide BYTE A BYTE con
+  el que calculó el trigger de Postgres para los mismos eventos (mismo algoritmo, confirmado, no
+  asumido). Job de verificación periódica (cron/scheduler) queda pendiente de que exista
+  infraestructura de scheduler real — mismo criterio honesto que 4.4; ejecutar
+  `verificar_cadena.py` manualmente antes de enseñar la evidencia a un cliente mientras tanto.
+  93 pytest, 196 vitest, ci.ps1 verde. Este ítem sostiene el pitch "ni nosotros podemos
+  falsificar una hora de llegada".
 - [ ] `[LOOP]` **9.8 Hash SHA-256 de cada POD al subirlo** (picar código: sonnet, esfuerzo
   bajo). Columna `pod.hash_sha256`; calcular el hash del fichero en el momento de la subida
   (bot, que es quien sube) y guardarlo junto al `foto_url`. Verificación bajo demanda:

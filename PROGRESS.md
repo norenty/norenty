@@ -8,6 +8,35 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | Fase 9.7: Hash-chain de ejecucion_evento (implementación de SPECS-9.md) | (por commitear) | HECHO.
+Migración `0031_hash_chain_ejecucion_evento.sql` aplicada vía MCP (checksum registrado en
+`schema_migrations`): columnas `hash_prev`/`hash` en `ejecucion_evento`, función
+`ejecucion_evento_calc_hash` (SHA-256 builtin de PG15+, sin pgcrypto), trigger `BEFORE INSERT`
+`trg_ejecucion_evento_hash_chain` que encadena por `viaje_id` (partición elegida en 9.6: cada
+viaje es su propia cadena, sin cuello de botella global), backfill de las filas existentes.
+Verificado tras aplicar: 69/69 eventos con hash, 15 raíces de cadena (= 15 viajes con eventos en
+la demo). `backend/db/verificar_cadena.py`: script de solo-lectura que recorre cada partición,
+recomputa el hash con el mismo algoritmo del trigger y compara, señalando el PRIMER evento roto
+(`--viaje <uuid>` opcional, alerta a Sentry si `SENTRY_DSN`). Grupo A (`test_hash_chain.py`, 7
+tests, en memoria): hash conocido hardcodeado, encadenado de 2/3 eventos, viajes independientes,
+detección de manipulación de `ocurrido_en`, detección de borrado del evento intermedio, hash_prev
+inicial no nulo, cadena vacía. Grupo B verificado A MANO contra la BD real (dos viajes
+desechables `TEST-9.7-A`/`TEST-9.7-B`, borrados al terminar — cascada limpió sus eventos, 0
+residuos confirmados, y los 69 eventos reales de la demo quedaron intactos): el trigger encadenó
+correctamente 2 y 3 eventos seguidos con `hash_prev` real; alterar `ocurrido_en` de un evento
+histórico por `UPDATE` directo (salta el trigger, que es solo `BEFORE INSERT`) hizo que
+`ejecucion_evento_calc_hash` recalculado ya NO coincidiera con el `hash` guardado; borrar el
+evento intermedio de una cadena de 3 dejó el `hash_prev` del tercero apuntando a un hash que ya
+no existe, detectado comparándolo con el hash actual del primero (`coincide: false`). **Bonus**:
+recomputé a mano en Python los mismos hashes que puso el trigger de Postgres para los eventos de
+prueba — coinciden BYTE A BYTE, confirmando que el mirror del script es fiel al algoritmo real,
+no solo una aproximación. Job de verificación periódica (cron) queda pendiente de que exista un
+scheduler real en el proyecto — mismo criterio honesto aplicado en 4.4 (alertas Telegram de
+documentos por caducar); ejecutar `verificar_cadena.py` a mano mientras tanto, sobre todo antes
+de enseñar la evidencia a un cliente/piloto. ci.ps1 verde (93 pytest, 196 vitest, build).
+
+---
+
 2026-07-05 | Fase 9.31: Test automático de aislamiento por rol | 7d7f13d | HECHO.
 `dashboard/lib/roles-isolation.test.js` (mismo patrón que `isolation.test.js` de 8.4: NO mockea
 Supabase, corre contra el proyecto real, se salta si no hay credenciales). Dos gestores de prueba
