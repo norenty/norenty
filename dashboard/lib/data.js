@@ -749,18 +749,11 @@ export function kmAproxViaje(hitos) {
  * llegada. Es una cota razonable para avisar, no una cifra legal. La versión con
  * horas reales llega con la integración de tacógrafo (7B.4).
  */
-export async function getEstado561(choferId, { ahora = new Date() } = {}) {
-  const desde14 = new Date(ahora.getTime() - 14 * 86400000).toISOString();
-  const desde7 = new Date(ahora.getTime() - 7 * 86400000).toISOString();
-
-  const { data: llegadas } = await supabase
-    .from("ejecucion_evento")
-    .select("viaje_id, ocurrido_en")
-    .eq("tipo", "llegada")
-    .eq("chofer_id", choferId)
-    .gte("ocurrido_en", desde14);
-
-  if (!llegadas || llegadas.length === 0) {
+/** Núcleo puro de getEstado561 — separado para que getEstado561ParaChoferes
+ * (auditoría de arquitectura 2026-07-05) pueda calcular el estado de VARIOS
+ * choferes con una sola tanda de consultas, sin duplicar esta lógica. */
+function _calcularEstado561(llegadasChofer, hitosPorViaje, velocidad, desde7) {
+  if (!llegadasChofer || llegadasChofer.length === 0) {
     return {
       horas7: 0, horas14: 0,
       margen7: LIMITE_561_SEMANAL_H, margen14: LIMITE_561_BISEMANAL_H,
@@ -770,19 +763,10 @@ export async function getEstado561(choferId, { ahora = new Date() } = {}) {
 
   const viajeIds7 = new Set();
   const viajeIds14 = new Set();
-  llegadas.forEach((e) => {
+  llegadasChofer.forEach((e) => {
     viajeIds14.add(e.viaje_id);
     if (e.ocurrido_en >= desde7) viajeIds7.add(e.viaje_id);
   });
-
-  const [{ data: hitos }, { data: empresas }] = await Promise.all([
-    supabase.from("hito").select("id, viaje_id, orden, estado, lat, lon").in("viaje_id", [...viajeIds14]),
-    supabase.from("empresa").select("velocidad_planificacion_kmh"),
-  ]);
-
-  const velocidad = resolveVelocidadPlanificacion((empresas || [])[0] || null);
-  const hitosPorViaje = {};
-  (hitos || []).forEach((h) => { (hitosPorViaje[h.viaje_id] ||= []).push(h); });
 
   let horas7 = 0;
   let horas14 = 0;
@@ -804,6 +788,78 @@ export async function getEstado561(choferId, { ahora = new Date() } = {}) {
     pct14: Math.round((horas14 / LIMITE_561_BISEMANAL_H) * 100),
     estimado: true,
   };
+}
+
+export async function getEstado561(choferId, { ahora = new Date() } = {}) {
+  const desde14 = new Date(ahora.getTime() - 14 * 86400000).toISOString();
+  const desde7 = new Date(ahora.getTime() - 7 * 86400000).toISOString();
+
+  const { data: llegadas } = await supabase
+    .from("ejecucion_evento")
+    .select("viaje_id, ocurrido_en")
+    .eq("tipo", "llegada")
+    .eq("chofer_id", choferId)
+    .gte("ocurrido_en", desde14);
+
+  if (!llegadas || llegadas.length === 0) {
+    return _calcularEstado561([], {}, 1, desde7);
+  }
+
+  const viajeIds14 = [...new Set(llegadas.map((e) => e.viaje_id))];
+  const [{ data: hitos }, { data: empresas }] = await Promise.all([
+    supabase.from("hito").select("id, viaje_id, orden, estado, lat, lon").in("viaje_id", viajeIds14),
+    supabase.from("empresa").select("velocidad_planificacion_kmh"),
+  ]);
+
+  const velocidad = resolveVelocidadPlanificacion((empresas || [])[0] || null);
+  const hitosPorViaje = {};
+  (hitos || []).forEach((h) => { (hitosPorViaje[h.viaje_id] ||= []).push(h); });
+
+  return _calcularEstado561(llegadas, hitosPorViaje, velocidad, desde7);
+}
+
+/**
+ * Versión por lotes de getEstado561 para VARIOS choferes a la vez (ítem
+ * introducido en la auditoría de arquitectura 2026-07-05): `sugerirChofer`
+ * llamaba a `getEstado561` una vez POR CHOFER dentro de un `Promise.all` —
+ * a la escala que persigue el producto (100+ conductores) son 200+
+ * consultas en paralelo solo para rankear UNA asignación. Misma lógica que
+ * `getEstado561`, pero en 2 consultas totales en vez de 2×N.
+ */
+export async function getEstado561ParaChoferes(choferIds, { ahora = new Date() } = {}) {
+  const ids = [...new Set(choferIds)];
+  if (!ids.length) return {};
+
+  const desde14 = new Date(ahora.getTime() - 14 * 86400000).toISOString();
+  const desde7 = new Date(ahora.getTime() - 7 * 86400000).toISOString();
+
+  const { data: llegadas } = await supabase
+    .from("ejecucion_evento")
+    .select("chofer_id, viaje_id, ocurrido_en")
+    .eq("tipo", "llegada")
+    .in("chofer_id", ids)
+    .gte("ocurrido_en", desde14);
+
+  const llegadasPorChofer = {};
+  (llegadas || []).forEach((e) => { (llegadasPorChofer[e.chofer_id] ||= []).push(e); });
+
+  const viajeIdsTotal = [...new Set((llegadas || []).map((e) => e.viaje_id))];
+  const [{ data: hitos }, { data: empresas }] = await Promise.all([
+    viajeIdsTotal.length
+      ? supabase.from("hito").select("id, viaje_id, orden, estado, lat, lon").in("viaje_id", viajeIdsTotal)
+      : Promise.resolve({ data: [] }),
+    supabase.from("empresa").select("velocidad_planificacion_kmh"),
+  ]);
+
+  const velocidad = resolveVelocidadPlanificacion((empresas || [])[0] || null);
+  const hitosPorViaje = {};
+  (hitos || []).forEach((h) => { (hitosPorViaje[h.viaje_id] ||= []).push(h); });
+
+  const resultado = {};
+  ids.forEach((choferId) => {
+    resultado[choferId] = _calcularEstado561(llegadasPorChofer[choferId] || [], hitosPorViaje, velocidad, desde7);
+  });
+  return resultado;
 }
 
 // ==========================================================================
@@ -915,6 +971,12 @@ export async function sugerirChofer(viajeId, { hitosOverride = null } = {}) {
   let viajesActivosQuery = supabase.from("viaje").select("id, chofer_id").in("estado", ESTADOS_ACTIVOS);
   if (viajeId) viajesActivosQuery = viajesActivosQuery.neq("id", viajeId);
 
+  // ubicacion acotada a los últimos 2 días (auditoría de arquitectura
+  // 2026-07-05): antes traía la tabla ENTERA de la empresa sin límite de
+  // fecha, creciendo para siempre con cada ping GPS histórico. Una posición
+  // de hace más de 2 días tampoco sirve ya para "proximidad al origen".
+  const haceDosDias = new Date(Date.now() - 2 * 86400000).toISOString();
+
   const [
     { data: choferes },
     { data: viajesActivos },
@@ -928,11 +990,16 @@ export async function sugerirChofer(viajeId, { hitosOverride = null } = {}) {
     viajesActivosQuery,
     supabase.from("documento").select("entidad_id, tipo, fecha_caducidad").eq("ambito", "chofer"),
     getMetricasChoferes(),
-    supabase.from("ubicacion").select("chofer_id, lat, lon, created_at"),
+    supabase.from("ubicacion").select("chofer_id, lat, lon, created_at").gte("created_at", haceDosDias),
     hitosOverride ? Promise.resolve({ data: hitosOverride }) : supabase.from("hito").select("orden, lat, lon").eq("viaje_id", viajeId),
     supabase.from("empresa").select("velocidad_planificacion_kmh"),
   ]);
   const hitos = hitosResult.data;
+
+  // 1 sola tanda de consultas para el estado 561 de TODOS los choferes, en
+  // vez de 1 por chófer (ver getEstado561ParaChoferes) — antes esto eran
+  // 2×N consultas dentro del Promise.all del ranking de abajo.
+  const estado561PorChofer = await getEstado561ParaChoferes((choferes || []).map((c) => c.id));
 
   const choferesConViajeActivo = new Set((viajesActivos || []).filter((v) => v.chofer_id).map((v) => v.chofer_id));
 
@@ -958,24 +1025,22 @@ export async function sugerirChofer(viajeId, { hitosOverride = null } = {}) {
   const velocidadViaje = resolveVelocidadPlanificacion((empresas || [])[0] || null);
   const horasViaje = kmViaje / velocidadViaje;
 
-  const ranking = await Promise.all(
-    (choferes || []).map(async (chofer) => {
-      const ultimaUbicacion = ultimaUbicacionPorChofer[chofer.id];
-      const distanciaOrigenKm = ultimaUbicacion && origen
-        ? haversineKm(ultimaUbicacion, origen)
-        : null;
-      const estado561 = await getEstado561(chofer.id);
-      const { score, razones, bloqueos } = scoreChofer({
-        tieneViajeActivo: choferesConViajeActivo.has(chofer.id),
-        estado561,
-        docsCaducados: docsCaducadosPorChofer[chofer.id] || [],
-        distanciaOrigenKm,
-        metricas: metricasPorChofer[chofer.id] || null,
-        horasViaje,
-      });
-      return { chofer: { id: chofer.id, nombre: chofer.nombre, idioma: chofer.idioma }, score, razones, bloqueos };
-    })
-  );
+  const ranking = (choferes || []).map((chofer) => {
+    const ultimaUbicacion = ultimaUbicacionPorChofer[chofer.id];
+    const distanciaOrigenKm = ultimaUbicacion && origen
+      ? haversineKm(ultimaUbicacion, origen)
+      : null;
+    const estado561 = estado561PorChofer[chofer.id];
+    const { score, razones, bloqueos } = scoreChofer({
+      tieneViajeActivo: choferesConViajeActivo.has(chofer.id),
+      estado561,
+      docsCaducados: docsCaducadosPorChofer[chofer.id] || [],
+      distanciaOrigenKm,
+      metricas: metricasPorChofer[chofer.id] || null,
+      horasViaje,
+    });
+    return { chofer: { id: chofer.id, nombre: chofer.nombre, idioma: chofer.idioma }, score, razones, bloqueos };
+  });
 
   return ranking.sort((a, b) => b.score - a.score);
 }

@@ -124,6 +124,7 @@ const {
   INVITACION_VALIDEZ_DIAS,
   kmAproxViaje,
   getEstado561,
+  getEstado561ParaChoferes,
   LIMITE_561_SEMANAL_H,
   LIMITE_561_BISEMANAL_H,
   scoreChofer,
@@ -1216,6 +1217,53 @@ describe("estado 561 (7A.1)", () => {
     const r = await getEstado561("c1");
     expect(r.pct7).toBe(Math.round((r.horas7 / LIMITE_561_SEMANAL_H) * 100));
     expect(r.margen7).toBeCloseTo(LIMITE_561_SEMANAL_H - r.horas7, 1);
+  });
+
+  describe("getEstado561ParaChoferes (auditoría arquitectura 2026-07-05 — versión por lotes)", () => {
+    it("devuelve el mismo resultado que getEstado561 individual, para varios choferes a la vez", async () => {
+      TABLES.ejecucion_evento = [
+        { tipo: "llegada", chofer_id: "c1", viaje_id: "v1", ocurrido_en: hace(1) },
+        { tipo: "llegada", chofer_id: "c2", viaje_id: "v2", ocurrido_en: hace(10) },
+      ];
+      TABLES.hito = [
+        { id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...MADRID },
+        { id: "h2", viaje_id: "v1", orden: 2, estado: "completado", ...BARCELONA },
+        { id: "h3", viaje_id: "v2", orden: 1, estado: "completado", ...MADRID },
+        { id: "h4", viaje_id: "v2", orden: 2, estado: "completado", ...BARCELONA },
+      ];
+      TABLES.empresa = [{ velocidad_planificacion_kmh: 75 }];
+
+      const individual1 = await getEstado561("c1");
+      const individual2 = await getEstado561("c2");
+      const porLotes = await getEstado561ParaChoferes(["c1", "c2"]);
+
+      expect(porLotes.c1).toEqual(individual1);
+      expect(porLotes.c2).toEqual(individual2);
+    });
+
+    it("un chófer sin ninguna llegada devuelve el resultado por defecto (margen completo)", async () => {
+      TABLES.ejecucion_evento = [
+        { tipo: "llegada", chofer_id: "c1", viaje_id: "v1", ocurrido_en: hace(1) },
+      ];
+      TABLES.hito = [
+        { id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...MADRID },
+        { id: "h2", viaje_id: "v1", orden: 2, estado: "completado", ...BARCELONA },
+      ];
+      TABLES.empresa = [{ velocidad_planificacion_kmh: 75 }];
+
+      const r = await getEstado561ParaChoferes(["c1", "c-sin-viajes"]);
+      expect(r["c-sin-viajes"]).toEqual({
+        horas7: 0, horas14: 0,
+        margen7: LIMITE_561_SEMANAL_H, margen14: LIMITE_561_BISEMANAL_H,
+        pct7: 0, pct14: 0, estimado: true,
+      });
+      expect(r.c1.horas7).toBeGreaterThan(0);
+    });
+
+    it("lista vacía de choferes devuelve objeto vacío sin consultar nada", async () => {
+      const r = await getEstado561ParaChoferes([]);
+      expect(r).toEqual({});
+    });
   });
 });
 
