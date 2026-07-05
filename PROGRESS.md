@@ -8,6 +8,39 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | Fase 9.9: Endurecer el perímetro del bot | (por commitear) | HECHO. Los 4
+guardrails del ítem: (1) secret token del webhook — NO se picó código: leí el fuente instalado
+de `python-telegram-bot` 22.8 (`telegram/ext/_utils/webhookhandler.py`, método
+`TelegramHandler._validate_post()`) y confirmé que la librería YA valida
+`X-Telegram-Bot-Api-Secret-Token` contra el `secret_token` pasado a `run_webhook()` (rechaza con
+403 si falta o no coincide), y que `run_bot.py:45` ya se lo pasa correctamente — cerrado por
+verificación, no por código nuevo. (2) Rate limiting por `chat_id`: `limitar_flujo` en
+`bot.py`, ventana deslizante en memoria (`RATE_LIMIT_MAX_UPDATES=15` cada `RATE_LIMIT_VENTANA_S=10s`).
+(3) Validación de fotos POD: `_foto_pod_valida` rechaza por tamaño (`POD_MAX_BYTES=10MB`) o
+firma JPEG inválida (magic bytes `FF D8 FF`) ANTES de subir a Storage — mensaje `foto_invalida`
+nuevo en i18n es/en/ro/fr. (4) Dedupe por `update_id`: `descartar_update_duplicado`, FIFO de los
+últimos 2000 vistos en memoria — un reintento de Telegram con el mismo `update_id` no duplica
+efectos. Los guardas (2)/(4) son `TypeHandler(Update, ...)` registrados en grupos negativos de
+`Application`, corren antes que cualquier handler real y cortan con `ApplicationHandlerStop`.
+**BUG REAL CAZADO POR EL PROPIO ARNÉS E2E** (exactamente la clase de regresión que este arnés
+existe para cazar, ver 6.11): el primer intento registró dedupe y rate-limit en el MISMO
+`group=-1` — PTB solo ejecuta 0-1 handler POR GRUPO (rompe tras el primero que matchea,
+confirmado leyendo `_application.py:1316`, comentario literal "Only a max of 1 handler per group
+is handled"), así que el segundo `TypeHandler` (rate-limit) quedaba registrado pero MUERTO,
+nunca se ejecutaba. El test de flood lo detectó al instante: esperaba 15 mensajes (el límite) y
+recibió 20 (ninguno bloqueado). Corregido separando dedupe (`group=-2`) y rate-limit
+(`group=-1`) en grupos distintos — cada grupo procesa su propio handler y sigue al siguiente.
+3 tests E2E nuevos en `test_bot_e2e.py` (dedupe no duplica el mismo `update_id`, el flood se
+corta en el límite exacto, una foto con firma inválida se rechaza sin llegar a Storage/BD) +
+fixture `autouse=True` que resetea el estado de módulo (dedupe/rate-limit) antes de cada test —
+necesario porque varios tests reutilizan el mismo `chat_id` y el estado vive a nivel de módulo.
+El fixture de la foto JPEG fake del E2E existente (`fake-jpg-bytes` sin firma real) tuvo que
+actualizarse con magic bytes reales (`\xff\xd8\xff` + resto) para no romperse con la nueva
+validación — el hash esperado en el test de 9.8 se actualizó a la vez. 100 pytest (97→100), 196
+vitest, ci.ps1 verde.
+
+---
+
 2026-07-05 | Fase 9.8: Hash SHA-256 de cada POD al subirlo | 90105a7 | HECHO. Migración
 `0034_pod_hash_sha256.sql` aplicada vía MCP (checksum registrado): `pod.hash_sha256 text NOT
 NULL` (la tabla estaba vacía — 0 filas — así que no hizo falta backfill, se pudo poner NOT NULL

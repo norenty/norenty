@@ -39,6 +39,17 @@ _next_update_id = [1000]
 _next_message_id = [2000]
 
 
+@pytest.fixture(autouse=True)
+def _reset_guardas_perimetro():
+    """Los guardas de perímetro (ítem 9.9, dedupe/rate-limit) guardan estado a
+    nivel de MÓDULO en bot.py — resetearlo antes de cada test evita que uno
+    contamine al siguiente por reutilizar el mismo chat_id/update_id."""
+    bot_module._update_ids_vistos.clear()
+    bot_module._update_ids_orden.clear()
+    bot_module._historial_por_chat.clear()
+    yield
+
+
 def _uid():
     _next_update_id[0] += 1
     return _next_update_id[0]
@@ -77,7 +88,9 @@ class FakeTelegramAPI:
     async def get_file(self, file_id, **kwargs):
         class FakeFile:
             async def download_as_bytearray(self_inner, *a, **kw):
-                return bytearray(b"fake-jpg-bytes")
+                # Magic bytes JPEG reales (FF D8 FF) — ítem 9.9 valida la firma
+                # antes de subir, así que un fake sin ella sería rechazado.
+                return bytearray(b"\xff\xd8\xfffake-jpg-bytes")
         return FakeFile()
 
 
@@ -252,7 +265,7 @@ async def test_e2e_flujo_completo_start_hito_llegada_pod_completar(monkeypatch):
         assert fake_db.storage.uploads[0]["bucket"] == "pods"
         assert fake_db.tables["pod"][0]["hito_id"] == "h2"
         # ítem 9.8: el hash se calcula sobre los bytes reales subidos (evidencia).
-        assert fake_db.tables["pod"][0]["hash_sha256"] == hashlib.sha256(b"fake-jpg-bytes").hexdigest()
+        assert fake_db.tables["pod"][0]["hash_sha256"] == hashlib.sha256(b"\xff\xd8\xfffake-jpg-bytes").hexdigest()
         assert fake_db.tables["hito"][1]["estado"] == "completado"
         assert fake_db.tables["viaje"][0]["estado"] == "completado"
         assert any("completado" in s.get("text", "").lower() for s in api.sent)
@@ -294,5 +307,83 @@ async def test_e2e_comando_desconocido_no_rompe_nada(monkeypatch):
     try:
         await app.process_update(command_update(app, "/comando_que_no_existe"))
         assert api.sent == []
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_e2e_dedupe_update_id_no_duplica_procesamiento(monkeypatch):
+    """ítem 9.9: Telegram reintenta la entrega con el MISMO update_id si el bot
+    tardó en responder. Procesar el mismo Update dos veces no debe duplicar el
+    efecto (aquí: la respuesta enviada), gracias al guarda de dedupe (group=-1)."""
+    fake_db = FakeSupabase()
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        update = command_update(app, "/estado", chat_id=901000001)
+        await app.process_update(update)
+        await app.process_update(update)  # "reintento" de Telegram: mismo update_id
+
+        respuestas_no_vinculado = [s for s in api.sent if "No estás vinculado" in s.get("text", "")]
+        assert len(respuestas_no_vinculado) == 1
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_e2e_rate_limit_corta_el_flood(monkeypatch):
+    """ítem 9.9: más de RATE_LIMIT_MAX_UPDATES updates del mismo chat_id en la
+    ventana deslizante se descartan (ApplicationHandlerStop en group=-1) —
+    ningún handler "de verdad" llega a ejecutarse para los que sobran."""
+    fake_db = FakeSupabase()
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        chat_flood = 901000002
+        total_intentos = bot_module.RATE_LIMIT_MAX_UPDATES + 5
+        for _ in range(total_intentos):
+            await app.process_update(command_update(app, "/estado", chat_id=chat_flood))
+
+        # Cada /estado sin chófer vinculado responde "No estás vinculado" — los
+        # que exceden el límite ni siquiera llegan a cmd_estado.
+        assert len(api.sent) == bot_module.RATE_LIMIT_MAX_UPDATES
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_e2e_foto_pod_invalida_se_rechaza(monkeypatch):
+    """ítem 9.9: una "foto" cuyos bytes no empiezan con la firma JPEG (o que
+    supera el tamaño máximo) se rechaza ANTES de subir nada a Storage."""
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": str(CHAT_ID),
+    }]
+    fake_db.tables["viaje"] = [{
+        "id": "v1", "chofer_id": CHOFER_ID, "empresa_id": "e1", "estado": "en_curso", "referencia": "VJ-1",
+    }]
+    fake_db.tables["hito"] = [{
+        "id": "h2", "viaje_id": "v1", "orden": 2, "tipo": "entrega", "direccion": "Destino",
+        "estado": "en_curso",
+    }]
+
+    app, api = make_app(monkeypatch, fake_db)
+
+    async def get_file_invalido(self, file_id, **kwargs):
+        class FakeFileInvalido:
+            async def download_as_bytearray(self_inner, *a, **kw):
+                return bytearray(b"esto-no-es-un-jpeg-de-verdad")
+        return FakeFileInvalido()
+
+    monkeypatch.setattr(type(app.bot), "get_file", get_file_invalido)
+
+    await app.initialize()
+    try:
+        await app.process_update(photo_update(app))
+
+        assert fake_db.storage.uploads == []
+        assert fake_db.tables.get("pod", []) == []
+        assert fake_db.tables["hito"][0]["estado"] == "en_curso"  # sin completar
+        assert any("no parece válida" in s.get("text", "") for s in api.sent)
     finally:
         await app.shutdown()

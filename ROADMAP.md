@@ -990,13 +990,26 @@ mano en `next dev`.
   de la lógica de verificación (`test_verificar_pod.py`, con cliente Storage fake) + la
   aserción E2E existente (`test_bot_e2e.py`) extendida para confirmar que el hash guardado
   coincide con el SHA-256 real de los bytes subidos. 97 pytest, 196 vitest, ci.ps1 verde.
-- [ ] `[LOOP]` **9.9 Endurecer el perímetro del bot** (picar código: sonnet, esfuerzo bajo;
-  activación en producción bloqueada por Gate A). Validar `X-Telegram-Bot-Api-Secret-Token`
-  en cada request cuando se use modo webhook (ya soportado, no activado); rate limiting
-  simple por `chat_id` (ventana deslizante en memoria o tabla, anti-flood); validación de
-  tamaño/tipo de fichero en las fotos de POD antes de subir; dedupe por `update_id` de
-  Telegram para que un reintento de la propia Telegram no duplique eventos de ejecución.
-  Tests de cada guardrail con el arnés E2E existente.
+- [x] `[LOOP]` **9.9 Endurecer el perímetro del bot** (2026-07-05). **(1) Secret token del
+  webhook**: verificado leyendo el código instalado de `python-telegram-bot` 22.8
+  (`telegram/ext/_utils/webhookhandler.py`, `TelegramHandler._validate_post()`) — la librería YA
+  valida `X-Telegram-Bot-Api-Secret-Token` contra el `secret_token` pasado a `run_webhook()`,
+  rechazando con 403 si falta o no coincide; `run_bot.py:45` ya lo pasa correctamente. Nada que
+  picar aquí, solo confirmar (no asumir) que ya está cerrado. **(2) Rate limiting por
+  `chat_id`** (`limitar_flujo`, ventana deslizante en memoria, `RATE_LIMIT_MAX_UPDATES=15`/
+  `RATE_LIMIT_VENTANA_S=10`) y **(4) dedupe por `update_id`** (`descartar_update_duplicado`,
+  FIFO de los últimos 2000 vistos) — ambos como `TypeHandler(Update, ...)` en grupos negativos
+  separados (`group=-2` dedupe, `group=-1` rate-limit) que cortan con `ApplicationHandlerStop`
+  antes de que corran los handlers reales. **(3) Validación de fotos de POD**: `_foto_pod_valida`
+  comprueba tamaño (`POD_MAX_BYTES=10MB`) y firma JPEG (magic bytes `FF D8 FF`) ANTES de subir a
+  Storage; mensaje `foto_invalida` (i18n es/en/ro/fr) si falla. **Bug real cazado por el propio
+  arnés E2E**: el primer intento registró dedupe y rate-limit en el MISMO `group=-1` — PTB solo
+  ejecuta 0-1 handler POR GRUPO (`break` tras el primero que matchea, ver
+  `_application.py:1316`), así que el segundo `TypeHandler` quedaba muerto en silencio; el test
+  de rate-limit lo detectó al instante (20 enviados en vez de 15). Corregido a grupos separados.
+  3 tests E2E nuevos (dedupe no duplica, flood se corta en el límite exacto, foto inválida
+  rechazada sin tocar Storage) + fixture `autouse` que resetea el estado de módulo entre tests
+  para no contaminar por reutilizar `chat_id`. 100 pytest, 196 vitest, ci.ps1 verde.
 - [ ] `[LOOP]` **9.10 Mínimos de AuthN/AuthZ del dashboard** (picar código: sonnet, esfuerzo
   bajo). MFA opcional para gestores (Supabase Auth ya lo soporta, activar + UI en Ajustes);
   expiración/revocación explícita de invitaciones ya vencidas; botón "cerrar todas las

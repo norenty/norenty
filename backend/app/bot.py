@@ -21,9 +21,11 @@ if _dsn := os.environ.get("SENTRY_DSN"):
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
+    ApplicationHandlerStop,
     CommandHandler,
     CallbackQueryHandler,
     MessageHandler,
+    TypeHandler,
     filters,
     ContextTypes,
 )
@@ -66,6 +68,79 @@ def ejecutar_con_reintentos(fn, *, intentos=3, backoff_base=0.5, contexto=None):
     raise ultimo_error
 
 
+# --- Endurecimiento del perímetro (ítem 9.9) ---
+# Dos guardas registradas como handlers de máxima prioridad (group=-1, ver
+# create_bot_app): corren ANTES que cualquier comando/callback/mensaje real y,
+# si detectan un problema, cortan con ApplicationHandlerStop — el resto de
+# grupos (los handlers "de verdad") ni se ejecutan para ese update. Cubren
+# TODOS los tipos de update (mensaje, callback_query, ubicación...) porque se
+# registran con TypeHandler(Update, ...), no con un filtro de mensaje.
+
+# 1) Dedupe por update_id: Telegram reintenta la entrega si el bot tarda en
+#    responder (timeout de su lado), reenviando el MISMO update_id. Sin esto,
+#    un reintento duplicaría ejecucion_evento (dos "llegada" para el mismo
+#    hito). FIFO simple en memoria — un proceso solo, sin necesidad de tabla.
+_MAX_UPDATE_IDS_RECORDADOS = 2000
+_update_ids_vistos: set[int] = set()
+_update_ids_orden: list[int] = []
+
+
+def _update_ya_procesado(update_id: int) -> bool:
+    if update_id in _update_ids_vistos:
+        return True
+    _update_ids_vistos.add(update_id)
+    _update_ids_orden.append(update_id)
+    if len(_update_ids_orden) > _MAX_UPDATE_IDS_RECORDADOS:
+        mas_viejo = _update_ids_orden.pop(0)
+        _update_ids_vistos.discard(mas_viejo)
+    return False
+
+
+async def descartar_update_duplicado(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if update.update_id is not None and _update_ya_procesado(update.update_id):
+        logger.warning("Update duplicado descartado: %s", update.update_id)
+        raise ApplicationHandlerStop
+
+
+# 2) Rate limiting por chat_id: ventana deslizante en memoria, anti-flood
+#    (un chófer con el bot enloquecido, o un tercero abusando de un chat_id
+#    filtrado, no debe poder inundar de comandos/callbacks).
+RATE_LIMIT_VENTANA_S = 10
+RATE_LIMIT_MAX_UPDATES = 15
+_historial_por_chat: dict[str, list[float]] = {}
+
+
+def _rate_limit_excedido(chat_id: str) -> bool:
+    ahora = time.monotonic()
+    historial = _historial_por_chat.setdefault(chat_id, [])
+    historial[:] = [t for t in historial if ahora - t < RATE_LIMIT_VENTANA_S]
+    historial.append(ahora)
+    return len(historial) > RATE_LIMIT_MAX_UPDATES
+
+
+async def limitar_flujo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
+    if chat is None:
+        return
+    if _rate_limit_excedido(str(chat.id)):
+        logger.warning("Rate limit excedido para chat_id=%s", chat.id)
+        raise ApplicationHandlerStop
+
+
+# 3) Validación de fotos de POD antes de subir: Telegram ya comprime/limita
+#    las fotos de tipo "photo", pero se valida igual tamaño y firma de
+#    fichero (magic bytes JPEG) por defensa en profundidad — nunca confiar
+#    ciegamente en el tipo de contenido que dice el cliente.
+POD_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
+POD_JPEG_MAGIC = b"\xff\xd8\xff"
+
+
+def _foto_pod_valida(datos: bytes) -> bool:
+    if len(datos) > POD_MAX_BYTES:
+        return False
+    return bytes(datos[:3]) == POD_JPEG_MAGIC
+
+
 # --- i18n ---
 TEXTOS = {
     "es": {
@@ -87,6 +162,7 @@ TEXTOS = {
         "foto_subiendo": "Recibida. Subiendo foto...",
         "sin_entrega_esperando": "No hay ninguna entrega esperando albarán.\nUsa /estado para ver tu siguiente hito.",
         "pod_ok": "Albarán recibido para {dir}.\nEntrega completada.",
+        "foto_invalida": "Esa foto no parece válida. Mándame una foto normal del albarán (no un fichero ni un vídeo).",
         "incidencia_ayuda": "Escribe qué ha pasado: /incidencia avería en la rueda trasera",
         "incidencia_ok": "Incidencia reportada para viaje {ref}. Tu gestor ha sido notificado.",
         "btn_incidencia": "📍 Reportar incidencia",
@@ -136,6 +212,7 @@ TEXTOS = {
         "foto_subiendo": "Received. Uploading...",
         "sin_entrega_esperando": "No delivery is waiting for a proof of delivery.\nUse /estado to see your next stop.",
         "pod_ok": "Proof of delivery received for {dir}.\nDelivery completed.",
+        "foto_invalida": "That photo doesn't look valid. Send me a normal photo of the proof of delivery (not a file or a video).",
         "incidencia_ayuda": "Describe what happened: /incidencia flat tyre on rear wheel",
         "incidencia_ok": "Incident reported for trip {ref}. Your manager has been notified.",
         "btn_incidencia": "📍 Report incident",
@@ -185,6 +262,7 @@ TEXTOS = {
         "foto_subiendo": "Primit. Se încarcă...",
         "sin_entrega_esperando": "Nicio livrare nu așteaptă document.\nFolosește /estado pentru a vedea următoarea oprire.",
         "pod_ok": "Document primit pentru {dir}.\nLivrare finalizată.",
+        "foto_invalida": "Fotografia nu pare validă. Trimite-mi o fotografie normală a documentului (nu un fișier sau un videoclip).",
         "incidencia_ayuda": "Descrie ce s-a întâmplat: /incidencia pană la roata din spate",
         "incidencia_ok": "Incident raportat pentru cursa {ref}. Managerul tău a fost notificat.",
         "btn_incidencia": "📍 Raportează un incident",
@@ -234,6 +312,7 @@ TEXTOS = {
         "foto_subiendo": "Reçu. Envoi en cours...",
         "sin_entrega_esperando": "Aucune livraison n'attend de bon.\nUtilisez /estado pour voir votre prochain arrêt.",
         "pod_ok": "Bon de livraison reçu pour {dir}.\nLivraison terminée.",
+        "foto_invalida": "Cette photo ne semble pas valide. Envoyez-moi une photo normale du bon de livraison (pas un fichier ni une vidéo).",
         "incidencia_ayuda": "Décrivez ce qui s'est passé : /incidencia crevaison roue arrière",
         "incidencia_ok": "Incident signalé pour le trajet {ref}. Votre responsable a été notifié.",
         "btn_incidencia": "📍 Signaler un incident",
@@ -850,6 +929,13 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     file = await ctx.bot.get_file(photo.file_id)
     file_bytes = await file.download_as_bytearray()
 
+    # ítem 9.9: validar tamaño y firma (magic bytes) antes de subir nada —
+    # nunca confiar en que "photo" de Telegram implica un JPEG válido.
+    if not _foto_pod_valida(file_bytes):
+        logger.warning("Foto de POD rechazada (tamaño=%d) para hito %s", len(file_bytes), hito["id"])
+        await update.message.reply_text(t(chofer, "foto_invalida"))
+        return
+
     # Ruta: {empresa_id}/{viaje_id}/{hito_id}/{uuid}.jpg
     # empresa_id como primer segmento permite RLS de storage empresa-scoped.
     file_path = f"{chofer['empresa_id']}/{viaje['id']}/{hito['id']}/{uuid.uuid4()}.jpg"
@@ -1324,6 +1410,15 @@ async def heartbeat(ctx):
 def create_bot_app():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_error_handler(manejar_error)
+    # ítem 9.9: guardas de perímetro, cada una en su PROPIO grupo negativo —
+    # corren ANTES que cualquier handler "de verdad" (group 0, por defecto).
+    # PTB solo ejecuta 0-1 handler POR GRUPO (rompe tras el primero que
+    # matchea), así que dos TypeHandler(Update) en el MISMO grupo dejarían el
+    # segundo muerto: cada guarda necesita su propio grupo para que ambas
+    # corran siempre. -2 (dedupe) antes que -1 (rate-limit): no tiene sentido
+    # contar un reintento duplicado contra la cuota de flood del chófer.
+    app.add_handler(TypeHandler(Update, descartar_update_duplicado), group=-2)
+    app.add_handler(TypeHandler(Update, limitar_flujo), group=-1)
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("estado", cmd_estado))
     app.add_handler(CommandHandler("incidencia", cmd_incidencia))
