@@ -903,14 +903,26 @@ día y solo tiene sentido con 2+ Admins activos; revisar más adelante si hace f
   son rechazadas. Ver 9.31. Nota de proceso: el subagente que picó este código murió a mitad
   (proceso cortado) y el MCP de Supabase se desconectó a la vez — el trabajo se salvó en 2
   commits WIP y se verificó/cerró manualmente cuando el MCP reconectó.
-- [ ] `[LOOP]` **9.31 Test automático de aislamiento por rol** (mismo patrón que
-  `isolation.test.js` de 8.4, pero para rol en vez de solo empresa). Crear 2-3 gestores de
+- [x] `[LOOP]` **9.31 Test automático de aislamiento por rol** (2026-07-05) — mismo patrón que
+  `isolation.test.js` de 8.4, pero para rol en vez de solo empresa. Crear 2-3 gestores de
   prueba reales (uno por rol) en la empresa demo, confirmar contra Supabase real que: un
   `gestor_operativo` recibe error al intentar `UPDATE` directo de `empresa.coste_km`/
   `viaje.precio` por REST; un `solo_lectura` recibe error en CUALQUIER mutación; un gestor con
   `activo=false` no lee ni una fila de su empresa aunque su JWT siga siendo válido; un gestor
   no puede auto-promoverse ni auto-desactivarse. Limpiar los datos de prueba después (mismo
   criterio que la verificación de invitaciones en 6.9). Cierra el pendiente honesto de 9.29.
+  `dashboard/lib/roles-isolation.test.js`: fixtures fijos `roles931.operativo@norenty.com` /
+  `roles931.lectura@norenty.com` en la empresa demo, auto-curados en cada ejecución (rol/activo
+  se normalizan siempre, así B8 puede desactivar "lectura" a propósito sin dejar el fixture
+  roto para la siguiente vez). 12 casos (B1-B11) verificados en verde contra la BD real; B12
+  (bypass de service role) queda `it.skip` documentado — no automatizable sin
+  `SUPABASE_SERVICE_ROLE_KEY` (D1 sigue vacía). Hallazgo de infraestructura: el proyecto SÍ
+  exige confirmación de email para signUp (contrario a lo asumido en sesiones anteriores) y el
+  envío de emails de confirmación tiene rate-limit — bloqueó el alta del segundo fixture por
+  agotar la cuota. Resuelto sin depender de service role: usuario de Auth creado directamente
+  por SQL (pgcrypto `crypt()`/`gen_salt('bf')`, mismo hash que usa GoTrue) con fila espejo en
+  `auth.identities`, evitando el envío de email por completo. Es un bootstrap de una sola vez
+  por fixture; las siguientes ejecuciones solo hacen `signInWithPassword`.
 - [x] `[LOOP]` **9.30 Reorganización del sidebar en grupos/submenús** (picar código: sonnet,
   esfuerzo bajo — spec cerrada aquí mismo, no hace falta SPECS-9 aparte). Reagrupar
   `Sidebar.jsx` de lista plana a grupos colapsables, manteniendo cada enlace existente sin

@@ -8,6 +8,33 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | Fase 9.31: Test automático de aislamiento por rol | (por commitear) | HECHO.
+`dashboard/lib/roles-isolation.test.js` (mismo patrón que `isolation.test.js` de 8.4: NO mockea
+Supabase, corre contra el proyecto real, se salta si no hay credenciales). Dos gestores de prueba
+fijos en la empresa demo (`roles931.operativo@norenty.com`, `roles931.lectura@norenty.com`),
+auto-curados en cada ejecución (rol/activo se normalizan siempre al arrancar, así son idempotentes
+incluso después de que el propio test B8 desactive a "lectura" a propósito). 12 casos verificados
+en verde contra la BD real (B1-B11 de SPECS-9-ROLES.md §6.2: operativo rechazado en costes de
+empresa/vehículo/precio de viaje, permitido en otros campos y en chofer_id/estado del viaje,
+rechazado creando/borrando invitaciones; solo_lectura rechazado en cualquier mutación, permitido en
+SELECT; expulsión corta el acceso al instante con el MISMO JWT sin re-login; admin no puede
+desactivarse/auto-editarse a sí mismo; admin sí puede cambiar el rol de otro gestor; el gestor
+admin pre-existente conserva rol=admin/activo=true). B12 (bypass de service role en los triggers)
+queda `it.skip` documentado — no automatizable sin `SUPABASE_SERVICE_ROLE_KEY` (D1 sigue vacía).
+HALLAZGO DE INFRAESTRUCTURA (no documentado en sesiones anteriores): el proyecto SÍ exige
+confirmación de email para `signUp` — un `signUp` nuevo NO deja sesión activa hasta confirmar, y
+sin service role key no hay Admin API para confirmar por software. Además el envío de emails de
+confirmación tiene rate-limit propio de Supabase, que salté al intentar de más para el segundo
+fixture. Resuelto sin depender de D1: creé el segundo usuario de Auth directamente por SQL
+(`extensions.crypt(password, extensions.gen_salt('bf'))`, el mismo algoritmo bcrypt que usa GoTrue
+internamente) con su fila espejo en `auth.identities`, saltándome el envío de email por completo.
+Es un bootstrap de una sola vez por fixture — las siguientes ejecuciones de la suite solo hacen
+`signInWithPassword` contra una cuenta ya confirmada, sin tocar el límite de emails. ci.ps1 verde
+(86 pytest, 197 vitest incl. los 12 nuevos + 1 skip, next build). Cierra el pendiente honesto
+dejado por 9.29.
+
+---
+
 2026-07-05 | Fase 9.29: Implementacion de roles verificada + migracion 0033 (advisors) | 8bae2548 (0033) | HECHO. El subagente que picaba 9.29 murio a mitad de proceso (background agent cortado) justo cuando el MCP de Supabase se desconecto de la sesion -- el trabajo parcial se salvo en 2 commits WIP (d025c5c, 019563c: migracion 0032, RequireRol/RolProvider + test, gating extendido a Ajustes/AuthGuard/nomina/viaje/documentos/gastos/mapa/vehiculos/wizard, seccion Equipo con selector de rol + boton Desactivar). Al reconectar el MCP se verifico TODO contra la BD real antes de dar nada por bueno (principio de "verificar de verdad" del protocolo): (1) columnas gestor.rol/activo con los defaults correctos (rol='admin', activo=true) -- ningun gestor existente pierde acceso; (2) current_empresa_id() confirmada con pg_get_functiondef, incluye `AND activo = true` -- la expulsion instantanea funciona exactamente como diseño 9.28 (un gestor desactivado pierde current_empresa_id()=NULL en su siguiente query, sin tocar 17 policies una por una); (3) los 8 triggers de la spec (trg_rol_sensibles_*/trg_solo_lectura_* en empresa/vehiculo/viaje/invitacion/gestor) existen; (4) checksum SHA-256 del archivo local 0032 IDENTICO al registrado en schema_migrations -- sin drift de esquema (el tipo de bug que este proyecto ya sufrio mas de una vez). HALLAZGO Y FIX en la propia verificacion: get_advisors senalo 2 funciones de trigger (rol_bloquea_columnas_sensibles, solo_lectura_bloquea_escritura) con EXECUTE expuesto por RPC a anon/authenticated -- el primer REVOKE (solo de esos 2 roles) NO tuvo efecto real (verificado con has_function_privilege antes/despues), porque Postgres concede EXECUTE a PUBLIC por defecto y esos roles heredan de ahi; corregido revocando tambien de PUBLIC, migracion 0033_revoke_execute_triggers_rol.sql, checksum registrado, confirmado con has_function_privilege que ahora es false para ambos roles en ambas funciones. ci.ps1 verde (86 pytest, 184 vitest incl. los 4 nuevos de RequireRol, next build). PENDIENTE HONESTO: la verificacion de esta noche fue manual por SQL directo contra Supabase, no un test automatico repetible -- anadido como item nuevo 9.31 en ROADMAP (mismo patron que isolation.test.js de 8.4 pero para rol en vez de solo empresa). Bloque B2 (roles+sidebar) queda: 9.28 hecho, 9.29 hecho (con 9.31 de seguimiento), 9.30 hecho. Siguiente sesion: 9.31, o retomar el bloque de mayor prioridad segun ROADMAP.md.
 
 ---
