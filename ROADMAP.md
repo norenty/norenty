@@ -1054,10 +1054,19 @@ Cualquier cliente serio lo va a preguntar; mejor llegar con los deberes hechos q
   trabajador; el consentimiento NO es la base correcta en una relación laboral). Es una
   consulta puntual, no un retainer — desbloquea el resto del bloque con criterio real en
   vez de una suposición del loop.
-- [ ] `[LOOP]` **9.12 Registro de actividades de tratamiento (art. 30) — borrador** (picar
-  código: sonnet, esfuerzo bajo). Documento `PRIVACIDAD-RAT.md` con el borrador basado en el
-  esquema real (qué tabla guarda qué dato personal, con qué finalidad, cuánto se retiene) —
-  el loop puede redactar el borrador técnico; la base jurídica final la cierra 9.11.
+- [x] `[LOOP]` **9.12 Registro de actividades de tratamiento (art. 30) — borrador** (2026-07-05)
+  — `PRIVACIDAD-RAT.md`: inventario tabla por tabla leído del esquema REAL de Supabase (no
+  supuesto — 23 tablas listadas vía `list_tables`, columnas de las 13 relevantes vía SQL
+  directo), con interesado/dato personal/finalidad/base jurídica provisional/retención por
+  tabla (`chofer`, `gestor`, `ubicacion`, `ejecucion_evento`, `pod`, `incidencia`, `valoracion`,
+  `decision_asignacion`, `nota_gestor`, `audit_log`, `invitacion`, `documento`, `empresa`).
+  Roles RGPD (Norenty=encargado, empresa cliente=responsable), categorías de interesados,
+  datos del portal público (7A.14, confirma que NO expone precio/coste/nombre/matrícula),
+  transferencias internacionales (ninguna, región UE), medidas de seguridad ya implementadas
+  (RLS+aislamiento, hash-chain, MFA, audit log...), y sección explícita de pendientes honestos
+  (base jurídica definitiva → 9.11; purga de `ubicacion` → 9.13; ARCO → 9.15; DPA → 9.14).
+  Marcado como BORRADOR TÉCNICO, no asesoramiento legal — pendiente de revisión por abogado
+  (9.11). Sin código — ci.ps1 verde de control (100 pytest, 202 vitest, build).
 - [ ] `[LOOP]` **9.13 Política de retención automatizada** (picar código: sonnet, esfuerzo
   bajo). Job de purga: `ubicacion` (dato granular de posición) se agrega o borra pasados N
   días (default 90, configurable); `ejecucion_evento` y `pod` se retienen años (son la

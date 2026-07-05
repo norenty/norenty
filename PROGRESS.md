@@ -8,6 +8,25 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | Fase 9.12: Registro de Actividades de Tratamiento (borrador) | (por commitear) | HECHO.
+`PRIVACIDAD-RAT.md` nuevo: inventario de tratamiento tabla por tabla, leído del esquema REAL de
+Supabase (`list_tables` para las 23 tablas del proyecto + SQL directo sobre `information_schema.columns`
+para las 13 con dato personal relevante — no un RAT genérico de plantilla). Cubre `chofer`,
+`gestor`, `ubicacion` (el dato más sensible: geolocalización en tiempo real), `ejecucion_evento`/
+`pod` (evidencia contractual, retención de años, no se purgan — coherente con el hash-chain de
+9.6-9.8), `incidencia`, `valoracion`, `decision_asignacion`, `nota_gestor`, `audit_log`,
+`invitacion`, `documento` (licencia/CAP del chófer), `empresa`. Cada fila con interesado/dato/
+finalidad/base jurídica (marcada PROVISIONAL, pendiente de 9.11)/retención. Roles RGPD explícitos
+(Norenty=encargado, cada empresa cliente=responsable, coherente con cómo 9.14 va a plantear el DPA).
+Confirma qué expone el portal público (7A.14): nunca precio/coste/nombre completo/matrícula, solo
+posición aproximada redondeada. Sección de pendientes honestos explícita (no fingir que el
+documento cierra nada que no cierra): base jurídica real depende de 9.11, la purga de 90 días de
+`ubicacion` todavía no existe (depende de 9.13), ARCO depende de 9.15, DPA depende de 9.14.
+Marcado en la cabecera como BORRADOR TÉCNICO, no asesoramiento legal. Sin cambios de código —
+ci.ps1 verde de control (100 pytest, 202 vitest, build).
+
+---
+
 2026-07-05 | Fase 9.10: Mínimos de AuthN/AuthZ del dashboard | ce52068 | HECHO. Los 4
 sub-ítems: (1) **MFA opcional (TOTP)** — sección nueva "Verificación en dos pasos" en
 `ajustes/page.jsx` (enroll con QR + secreto manual, verify con código de 6 dígitos, listar/
