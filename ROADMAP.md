@@ -1294,11 +1294,19 @@ actual; se prioriza por impacto, no por orden de descubrimiento.
   timestamp con hora ya incluida — p.ej. `token_publico_expira` en `viajes/[id]`), y
   `.toLocaleDateString("es-ES")` sin opciones (formato distinto, sin equivalente en format.js).
   219+1 skip vitest, build sin errores, ci.ps1 completo verde (139 pytest).
-- [ ] `[LOOP]` **9.39 Mover la lógica de `ajustes/page.jsx` a `lib/data.js`** —
+- [x] `[LOOP]` **9.39 Mover la lógica de `ajustes/page.jsx` a `lib/data.js`** —
   `guardarCosteKm`/`guardarVelocidad`/`guardarDesglose` hacen `supabase.from("empresa").update(...)`
   con validación numérica inline, rompiendo la convención del resto del código base (toda
   escritura pasa por una función nombrada de `data.js`). Extraer a funciones testeadas, igual
   patrón que `createGastoViaje`/`actualizarRolGestor`/etc.
+  Se encontraron 5 (no 3): `guardarEmpresa`/`guardarBase`/`guardarCoste`/`guardarVelocidad`/
+  `guardarDesglose` — las 5 extraídas a `dashboard/lib/data.js` como `guardarNombreEmpresa`/
+  `guardarBaseEmpresa`/`guardarCosteKmEmpresa`/`guardarVelocidadEmpresa`/
+  `guardarDesgloseCosteEmpresa`, cada una con la validación numérica que antes vivía inline en
+  el componente, lanzando `Error` con el mismo texto que antes mostraba `flash()` (comportamiento
+  visible sin cambios). `ajustes/page.jsx` ahora solo hace `try { await guardarX(...) } catch`.
+  11 tests nuevos Grupo A (válidos, inválidos, ambas vacías, no-escribe-nada-si-hay-error).
+  230+1 skip vitest, build sin errores, ci.ps1 completo verde (139 pytest).
 - [ ] `[LOOP]` **9.40 Dividir `ajustes/page.jsx` (908 líneas) en subcomponentes** — perfil, empresa,
   MFA, equipo/roles y estado del bot hoy conviven en un único archivo. Sin urgencia, solo
   mantenibilidad; extraer siguiendo el mismo patrón que ya se usó para `RequireRol`/`MfaChallenge`.

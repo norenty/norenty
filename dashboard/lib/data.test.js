@@ -148,6 +148,11 @@ const {
   actualizarRolGestor,
   desactivarGestor,
   reactivarGestor,
+  guardarNombreEmpresa,
+  guardarBaseEmpresa,
+  guardarCosteKmEmpresa,
+  guardarVelocidadEmpresa,
+  guardarDesgloseCosteEmpresa,
   kmAproxViaje,
   getEstado561,
   getEstado561ParaChoferes,
@@ -1158,6 +1163,71 @@ describe("invitaciones (6.9)", () => {
     TABLES.invitacion = [{ id: "i1", email: "a@x.com" }];
     await deleteInvitacion("i1");
     expect(TABLES.invitacion.find((i) => i.id === "i1")).toBeUndefined();
+  });
+});
+
+describe("ajustes de empresa (9.39 — extraído de ajustes/page.jsx a data.js)", () => {
+  beforeEach(() => {
+    TABLES.empresa = [{ id: "e1", nombre: "Norenty" }];
+  });
+
+  it("guardarNombreEmpresa recorta espacios y guarda", async () => {
+    await guardarNombreEmpresa("e1", "  Nueva SL  ");
+    expect(TABLES.empresa[0].nombre).toBe("Nueva SL");
+  });
+
+  it("guardarBaseEmpresa guarda lat/lon válidas", async () => {
+    await guardarBaseEmpresa("e1", "40.4", "-3.7");
+    expect(TABLES.empresa[0].base_lat).toBe(40.4);
+    expect(TABLES.empresa[0].base_lon).toBe(-3.7);
+  });
+
+  it("guardarBaseEmpresa acepta ambas vacías (borra la base)", async () => {
+    await guardarBaseEmpresa("e1", "", "");
+    expect(TABLES.empresa[0].base_lat).toBeNull();
+    expect(TABLES.empresa[0].base_lon).toBeNull();
+  });
+
+  it("guardarBaseEmpresa rechaza coordenadas fuera de rango", async () => {
+    await expect(guardarBaseEmpresa("e1", "200", "-3.7")).rejects.toThrow("coordenadas inválidas");
+  });
+
+  it("guardarBaseEmpresa rechaza que solo una de las dos esté vacía", async () => {
+    await expect(guardarBaseEmpresa("e1", "40.4", "")).rejects.toThrow("rellena latitud y longitud");
+  });
+
+  it("guardarCosteKmEmpresa guarda un coste válido", async () => {
+    await guardarCosteKmEmpresa("e1", "1.5");
+    expect(TABLES.empresa[0].coste_km).toBe(1.5);
+  });
+
+  it("guardarCosteKmEmpresa rechaza negativos", async () => {
+    await expect(guardarCosteKmEmpresa("e1", "-1")).rejects.toThrow("número positivo");
+  });
+
+  it("guardarVelocidadEmpresa rechaza cero o negativo", async () => {
+    await expect(guardarVelocidadEmpresa("e1", "0")).rejects.toThrow("mayor que 0");
+  });
+
+  it("guardarVelocidadEmpresa guarda un valor válido", async () => {
+    await guardarVelocidadEmpresa("e1", "80");
+    expect(TABLES.empresa[0].velocidad_planificacion_kmh).toBe(80);
+  });
+
+  it("guardarDesgloseCosteEmpresa guarda las 4 columnas parseadas", async () => {
+    await guardarDesgloseCosteEmpresa("e1", {
+      precio_gasoil_litro: "1.5", coste_peaje_km: "0.1", dieta_noche_eur: "30", coste_conductor_km: "0.4",
+    });
+    expect(TABLES.empresa[0]).toMatchObject({
+      precio_gasoil_litro: 1.5, coste_peaje_km: 0.1, dieta_noche_eur: 30, coste_conductor_km: 0.4,
+    });
+  });
+
+  it("guardarDesgloseCosteEmpresa no escribe nada si algún valor es inválido", async () => {
+    await expect(
+      guardarDesgloseCosteEmpresa("e1", { precio_gasoil_litro: "-1", coste_peaje_km: "0.1", dieta_noche_eur: "", coste_conductor_km: "" })
+    ).rejects.toThrow("números positivos");
+    expect(TABLES.empresa[0].precio_gasoil_litro).toBeUndefined();
   });
 });
 

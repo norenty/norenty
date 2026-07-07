@@ -7,6 +7,8 @@ import { getSession, signOut, signOutTodasLasSesiones } from "../../lib/auth";
 import {
   VELOCIDAD_PLANIFICACION_KMH, getInvitaciones, createInvitacion, deleteInvitacion, getBotHeartbeat,
   getGestoresEmpresa, actualizarRolGestor, desactivarGestor, reactivarGestor, INVITACION_VALIDEZ_DIAS,
+  guardarNombreEmpresa, guardarBaseEmpresa, guardarCosteKmEmpresa, guardarVelocidadEmpresa,
+  guardarDesgloseCosteEmpresa,
 } from "../../lib/data";
 import RequireRol from "../components/RequireRol";
 
@@ -160,75 +162,63 @@ export default function AjustesPage() {
   async function guardarEmpresa() {
     if (!empresa) return;
     setGuardando(true);
-    await supabase.from("empresa").update({ nombre: empresaNombre.trim() }).eq("id", empresa.id);
-    flash("Guardado");
+    try {
+      await guardarNombreEmpresa(empresa.id, empresaNombre);
+      flash("Guardado");
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
     setGuardando(false);
   }
 
   async function guardarBase() {
     if (!empresa) return;
-    const lat = baseLat.trim() === "" ? null : Number(baseLat);
-    const lon = baseLon.trim() === "" ? null : Number(baseLon);
-    if ((lat != null && (Number.isNaN(lat) || lat < -90 || lat > 90)) ||
-        (lon != null && (Number.isNaN(lon) || lon < -180 || lon > 180))) {
-      flash("Error: coordenadas inválidas");
-      return;
-    }
-    // Ambas o ninguna: una base a medias no sirve para el cálculo.
-    if ((lat == null) !== (lon == null)) {
-      flash("Error: rellena latitud y longitud, o deja ambas vacías");
-      return;
-    }
     setGuardando(true);
-    await supabase.from("empresa").update({ base_lat: lat, base_lon: lon }).eq("id", empresa.id);
-    flash("Ubicación base guardada");
+    try {
+      await guardarBaseEmpresa(empresa.id, baseLat, baseLon);
+      flash("Ubicación base guardada");
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
     setGuardando(false);
   }
 
   async function guardarCoste() {
     if (!empresa) return;
-    const coste = costeKm.trim() === "" ? null : Number(costeKm);
-    if (coste != null && (Number.isNaN(coste) || coste < 0)) {
-      flash("Error: el coste por km debe ser un número positivo");
-      return;
-    }
     setGuardando(true);
-    await supabase.from("empresa").update({ coste_km: coste }).eq("id", empresa.id);
-    flash("Coste por km guardado");
+    try {
+      await guardarCosteKmEmpresa(empresa.id, costeKm);
+      flash("Coste por km guardado");
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
     setGuardando(false);
   }
 
   async function guardarVelocidad() {
     if (!empresa) return;
-    const velocidad = velocidadPlanificacion.trim() === "" ? null : Number(velocidadPlanificacion);
-    if (velocidad != null && (Number.isNaN(velocidad) || velocidad <= 0)) {
-      flash("Error: la velocidad debe ser un número mayor que 0");
-      return;
-    }
     setGuardando(true);
-    await supabase.from("empresa").update({ velocidad_planificacion_kmh: velocidad }).eq("id", empresa.id);
-    flash("Velocidad de planificación guardada");
+    try {
+      await guardarVelocidadEmpresa(empresa.id, velocidadPlanificacion);
+      flash("Velocidad de planificación guardada");
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
     setGuardando(false);
   }
 
   async function guardarDesglose() {
     if (!empresa) return;
-    const campos = {
-      precio_gasoil_litro: precioGasoil, coste_peaje_km: costePeaje,
-      dieta_noche_eur: dietaNoche, coste_conductor_km: costeConductor,
-    };
-    const valores = {};
-    for (const [campo, valorStr] of Object.entries(campos)) {
-      const v = valorStr.trim() === "" ? null : Number(valorStr);
-      if (v != null && (Number.isNaN(v) || v < 0)) {
-        flash("Error: los valores deben ser números positivos");
-        return;
-      }
-      valores[campo] = v;
-    }
     setGuardando(true);
-    await supabase.from("empresa").update(valores).eq("id", empresa.id);
-    flash("Coste desglosado guardado");
+    try {
+      await guardarDesgloseCosteEmpresa(empresa.id, {
+        precio_gasoil_litro: precioGasoil, coste_peaje_km: costePeaje,
+        dieta_noche_eur: dietaNoche, coste_conductor_km: costeConductor,
+      });
+      flash("Coste desglosado guardado");
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
     setGuardando(false);
   }
 

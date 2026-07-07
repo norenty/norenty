@@ -378,6 +378,68 @@ export async function deleteInvitacion(id) {
 }
 
 // ==========================================================================
+// Ajustes de empresa (ítem 9.39) — extraído de ajustes/page.jsx para seguir
+// la convención del resto del código: toda escritura pasa por una función
+// nombrada y testeada de data.js, nunca un `supabase.from(...).update(...)`
+// inline en un componente. Cada función valida y lanza Error con el mismo
+// mensaje que antes mostraba `flash()`, para no cambiar el texto visible.
+// ==========================================================================
+
+export async function guardarNombreEmpresa(empresaId, nombre) {
+  const { error } = await supabase.from("empresa").update({ nombre: nombre.trim() }).eq("id", empresaId);
+  if (error) throw error;
+}
+
+export async function guardarBaseEmpresa(empresaId, baseLatStr, baseLonStr) {
+  const lat = baseLatStr.trim() === "" ? null : Number(baseLatStr);
+  const lon = baseLonStr.trim() === "" ? null : Number(baseLonStr);
+  if ((lat != null && (Number.isNaN(lat) || lat < -90 || lat > 90)) ||
+      (lon != null && (Number.isNaN(lon) || lon < -180 || lon > 180))) {
+    throw new Error("coordenadas inválidas");
+  }
+  // Ambas o ninguna: una base a medias no sirve para el cálculo.
+  if ((lat == null) !== (lon == null)) {
+    throw new Error("rellena latitud y longitud, o deja ambas vacías");
+  }
+  const { error } = await supabase.from("empresa").update({ base_lat: lat, base_lon: lon }).eq("id", empresaId);
+  if (error) throw error;
+}
+
+export async function guardarCosteKmEmpresa(empresaId, costeKmStr) {
+  const coste = costeKmStr.trim() === "" ? null : Number(costeKmStr);
+  if (coste != null && (Number.isNaN(coste) || coste < 0)) {
+    throw new Error("el coste por km debe ser un número positivo");
+  }
+  const { error } = await supabase.from("empresa").update({ coste_km: coste }).eq("id", empresaId);
+  if (error) throw error;
+}
+
+export async function guardarVelocidadEmpresa(empresaId, velocidadStr) {
+  const velocidad = velocidadStr.trim() === "" ? null : Number(velocidadStr);
+  if (velocidad != null && (Number.isNaN(velocidad) || velocidad <= 0)) {
+    throw new Error("la velocidad debe ser un número mayor que 0");
+  }
+  const { error } = await supabase.from("empresa").update({ velocidad_planificacion_kmh: velocidad }).eq("id", empresaId);
+  if (error) throw error;
+}
+
+/** `campos` es un objeto con las 4 claves de columna (precio_gasoil_litro,
+ * coste_peaje_km, dieta_noche_eur, coste_conductor_km) -> string sin parsear
+ * (tal como viene del input). Valida todas antes de escribir ninguna. */
+export async function guardarDesgloseCosteEmpresa(empresaId, campos) {
+  const valores = {};
+  for (const [campo, valorStr] of Object.entries(campos)) {
+    const v = valorStr.trim() === "" ? null : Number(valorStr);
+    if (v != null && (Number.isNaN(v) || v < 0)) {
+      throw new Error("los valores deben ser números positivos");
+    }
+    valores[campo] = v;
+  }
+  const { error } = await supabase.from("empresa").update(valores).eq("id", empresaId);
+  if (error) throw error;
+}
+
+// ==========================================================================
 // Roles de gestor + expulsión (ítem 9.29 — ver SPECS-9-ROLES.md)
 // ==========================================================================
 
