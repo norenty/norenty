@@ -13,6 +13,13 @@ HECHO. `ONBOARDING.md §7` documenta separar DDL/backfill/hardening de columnas 
 sucesivas, citando el incidente real de 0032 (9.29) como motivo. No retroactivo. Sin cambios de
 código — ci.ps1 verde.
 
+2026-07-07 | Fase 9.42: plan de módulo compartido para Reglamento CE 561/2006 | (por commitear) |
+HECHO. `PLAN-561-MODULO-COMPARTIDO.md`: estado actual, 4 opciones evaluadas, decisión de
+adoptar "mantener duplicado + fortalecer tests de paridad" como regla operativa inmediata
+(sin construir infraestructura especulativa), con la opción de módulo JSON declarativo
+anotada como mejora futura condicionada a una señal real. Sin cambios de código — ci.ps1
+verde.
+
 2026-07-07 | Fase 9.40: dividir ajustes/page.jsx en 5 subcomponentes | 31327b7 | HECHO.
 `AjustesPerfilSection`, `AjustesMfaSection`, `AjustesBotSection`, `AjustesEquipoSection`,
 `AjustesEmpresaSection` — todos presentacionales, estado/handlers se quedan en page.jsx

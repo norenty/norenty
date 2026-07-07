@@ -1328,12 +1328,19 @@ actual; se prioriza por impacto, no por orden de descubrimiento.
   navegador por un ingeniero; documentado como limitación honesta en `PRIVACIDAD-ARCO.md`.
   Decidir si construir una pantalla en Ajustes cuando el volumen real de solicitudes lo justifique,
   o mantenerlo así mientras sea infrecuente.
-- [ ] `[LOOP]` **9.42 Plan de módulo compartido para el Reglamento CE 561/2006 antes de una v2** —
+- [x] `[LOOP]` **9.42 Plan de módulo compartido para el Reglamento CE 561/2006 antes de una v2** —
   `calcularEtaConParadas` (JS) y `calcular_eta_con_paradas` (Python) son implementaciones
   independientes, sincronizadas a mano, con tests de paridad que hoy confirman que coinciden. Bajo
   riesgo mientras nadie las toque, pero el primer cambio real (p.ej. límites semanales/bisemanales)
   sin un módulo compartido puede divergir en silencio. No requiere acción ahora; sí un plan escrito
   de cómo se compartirá esa lógica antes de tocarla la próxima vez.
+  `PLAN-561-MODULO-COMPARTIDO.md`: documenta el estado actual, 4 opciones evaluadas (servicio
+  HTTP interno, transpilación, JSON declarativo de constantes, mantener duplicado + fortalecer
+  paridad), decide la opción 4 como regla operativa inmediata (ningún cambio a esta lógica se
+  mergea sin el mismo cambio en los dos lenguajes Y un test de paridad nuevo para el caso
+  específico que cambió) y deja la opción 3 anotada como mejora futura condicionada a una señal
+  real (no construida especulativamente). Ítem documental, sin cambios de código — ci.ps1
+  verde (139 pytest, 237+1 skip vitest).
 
 **GATE E2:** 9.34 decidido y 9.35 aplicado a las funciones financieras (lo de mayor riesgo real);
 `migrate.py --check` falla de verdad ante drift no documentado (9.36); el resto son mejoras de
