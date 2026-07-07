@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-07 | Fase 9.33: caché OSRM + debounce de realtime | (por commitear) | HECHO.
+2026-07-07 | Fase 9.33: caché OSRM + debounce de realtime | dce8e82 | HECHO.
 `ResumenHoy.jsx` no está suscrita a realtime hoy (solo carga al montar) — el problema real
 descrito está en `getViajes()`/home vía `useRealtimeRefresh`, sin debounce. Arreglado en la
 raíz y de forma genérica: `kmCarreteraViaje` cachea en memoria por firma de hitos (TTL 5 min);
