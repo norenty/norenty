@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-07 | Fase 9.37: convención "una migración, una responsabilidad" | (por commitear) |
+2026-07-07 | Fase 9.37: convención "una migración, una responsabilidad" | 2eab62e |
 HECHO. `ONBOARDING.md §7` documenta separar DDL/backfill/hardening de columnas en migraciones
 sucesivas, citando el incidente real de 0032 (9.29) como motivo. No retroactivo. Sin cambios de
 código — ci.ps1 verde.
