@@ -13,8 +13,22 @@ HECHO. `ONBOARDING.md §7` documenta separar DDL/backfill/hardening de columnas 
 sucesivas, citando el incidente real de 0032 (9.29) como motivo. No retroactivo. Sin cambios de
 código — ci.ps1 verde.
 
+2026-07-07 | Fase 11 planificada (capa de conocimiento, precursor del bot de llamadas) | (por
+commitear) | HECHO (planning, sin código). Respuesta a la preocupación del usuario: gran parte
+del conocimiento del negocio vive en canales invisibles (llamadas, email, WhatsApp) y solo
+tenemos Telegram. Añadida Fase 11: capturar ese conocimiento COMO SUBPRODUCTO de usar el sistema
+(no pidiéndolo). Items: 11.1 cliente como entidad de primera clase (hoy es solo texto libre
+`viaje.referencia`), 11.2 capa de contexto (nota/transcripción/email) atada a entidades con
+procedencia, 11.3 nota de voz→transcripción Whisper (el puente de mayor palanca para capturar
+llamadas sin construir el bot), 11.4 extender captura de decisiones más allá de asignación, 11.5
+consentimiento/RGPD, 11.6 WhatsApp como 2º canal, 11.7 bot de llamadas por etapas (asistir→
+copiloto→autónomo, nunca autónomo de entrada). Principios: corpus primero/bot después; el bot
+RECUPERA el conocimiento de la empresa, no lo inventa; cada capa produce el activo de la
+siguiente. La captura (11.1/11.2/11.4) es parte del MVP; el bot es lo último (GATE 11). Sin
+cambios de código.
+
 2026-07-07 | Fase 10 planificada (revisión CTO "mayor retorno") + reconciliación de items stale
-de Fase 6 | (por commitear) | HECHO (planning, sin código). (1) Reconciliados 9 items stale de
+de Fase 6 | 2bcf557 | HECHO (planning, sin código). (1) Reconciliados 9 items stale de
 Fase 6: 6.13/6.14/6.15/6.16/6.17/6.18/6.20/6.21/6.22 ya estaban hechos bajo números de Fase
 7A/8/9 — marcados [x] con puntero al número real; 6.12 (Ctrl+K) y 6.19 (i18n) confirmados
 deprioritizados por decisión del usuario 2026-07-04, se dejan [ ] a propósito. (2) Añadida Fase

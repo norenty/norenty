@@ -1471,6 +1471,65 @@ de un cliente pagando, por mucho que el resto esté cerrado.
 
 ---
 
+## Fase 11 — Capa de conocimiento: capturar lo que hoy se pierde (precursor del bot de llamadas)
+
+Revisión de producto con el usuario (2026-07-07). Hoy el sistema solo ve la EJECUCIÓN (Telegram:
+llegada, POD, km). El CONOCIMIENTO y la DECISIÓN del negocio viven en canales invisibles —
+llamadas, email, WhatsApp, en persona — sobre todo entre gestor y cliente. Esta fase construye la
+capa que captura ese conocimiento **como subproducto de usar el sistema**, no pidiéndolo. Es a la
+vez memoria útil desde el día 1 y el corpus que alimentará el bot de llamadas.
+
+**PRINCIPIOS RECTORES (nuevos):**
+1. **El conocimiento se captura como subproducto de ser útil, no se pide.** Nadie rellena una base
+   de conocimiento; cada decisión tomada EN el sistema deja su rastro gratis (contexto + porqué +
+   resultado). Extiende el patrón de `decision_asignacion` (7A.2), no lo reinventa.
+2. **El bot de llamadas RECUPERA el conocimiento de la empresa, no lo inventa.** Un LLM genérico es
+   peor que el gestor; un bot que consulta las decisiones, notas e histórico de ESA empresa + el
+   estado real en vivo es mejor que un empleado nuevo. Por eso: **corpus primero, bot después.**
+3. **Cada capa produce el activo que hace posible la siguiente:** captura → corpus → copiloto →
+   (quizá) autónomo. Saltarse un paso rompe la solidez exigida.
+
+- [ ] `[LOOP]` **11.1 Cliente como entidad de primera clase** (picar código: sonnet, esfuerzo
+  medio) — hoy el cliente es solo texto libre (`viaje.referencia`, "código/albarán del cliente" en
+  `0001`). Migración: tabla `cliente` con RLS por empresa + `viaje.cliente_id`; conservar
+  `referencia` para no romper nada. Sin cliente-entidad, el conocimiento gestor↔cliente (el más
+  rico) no tiene dónde vivir.
+- [ ] `[LOOP]` **11.2 Capa de contexto atada a las entidades** (picar código: opus spec → sonnet,
+  esfuerzo medio) — tabla `contexto` (nota / transcripción / extracto de email) anclada a
+  viaje/chofer/cliente, con PROCEDENCIA (quién lo dijo, por qué canal, cuándo), coherente con la
+  trazabilidad de la Fase 8. Día 1 sin IA: memoria organizada y buscable de cada viaje/cliente.
+  Después: corpus de recuperación del bot de llamadas.
+- [ ] `[DECISIÓN]` **11.3 Nota de voz → transcripción** (subsume/precede `7B.1`) — el gestor manda
+  un audio de 15s ("el cliente acepta el retraso de 2h por la nevada") y se transcribe (Whisper) y
+  se ancla al `contexto` (11.2) de la entidad correcta. Es el puente de MAYOR palanca para capturar
+  el conocimiento de las llamadas SIN construir aún el bot. Decisión del usuario: presupuesto de
+  Whisper (coste por uso) — mismo gate que D3/7B. Requiere 11.5 (consentimiento) resuelto antes de
+  activarse.
+- [ ] `[LOOP]` **11.4 Extender la captura de decisiones más allá de la asignación** (picar código:
+  sonnet, esfuerzo bajo) — llevar el patrón `decision_asignacion` (7A.2) a otras decisiones con su
+  porqué: cambio de precio, aceptar un retraso, elegir vehículo. Cada decisión capturada es un
+  ejemplo etiquetado para el aprendizaje (alimenta la calibración de 10.9 y el corpus).
+- [ ] `[DECISIÓN]` **11.5 Consentimiento/RGPD para captura de conversaciones** — grabar/transcribir
+  es dato personal, a veces de terceros (el cliente no es tu cliente-usuario). Base legal +
+  consentimiento ANTES de activar 11.3. No es freno: "tratamos tus conversaciones con trazabilidad
+  y consentimiento" es parte del argumento de confianza. Se apoya en el bloque de privacidad
+  existente (RAT, subprocesadores, ARCO).
+- [ ] `[DECISIÓN]` **11.6 WhatsApp como segundo canal de captura** — amplía la superficie (mucho
+  gestor↔chófer y gestor↔cliente ocurre ahí). Gated por decisión: coste y API de WhatsApp Business.
+  Post-MVP.
+- [ ] `[DECISIÓN]` **11.7 Bot de llamadas por etapas** (es el `7B.3 agente telefónico`, replanteado)
+  — NO es el MVP; es lo último. Recupera sobre el corpus (11.1-11.4) + estado en vivo. Arranca en
+  modo ASISTIR (transcribe la llamada, redacta lo que sugeriría decir, el gestor aprueba y envía),
+  nunca autónomo de entrada: un bot que le dice algo equivocado a un cliente serio es una
+  catástrofe de confianza, lo contrario de lo que vende el producto. Solo tras meses acertando en
+  copiloto se plantea autonomía en casos acotados.
+
+**GATE 11:** el bot de llamadas (11.7) no se empieza sin (a) corpus rico ya acumulado por
+11.1-11.4 con uso real, (b) 11.5 (consentimiento) resuelto, y (c) el MVP de Fase 10 en producción
+estable. La captura (11.1, 11.2, 11.4) SÍ es parte del MVP y va en paralelo a Fase 10.
+
+---
+
 ### Bloque F — La arquitectura escala con el negocio (gated por ingresos, NO antes)
 
 Nada de este bloque se empieza sin (a) un cliente que lo pida explícitamente + (b) ingreso
