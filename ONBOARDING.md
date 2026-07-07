@@ -112,6 +112,24 @@ el primer cliente piloto); mientras tanto, probar cada migración nueva contra l
 desarrollo (nunca directo a "producción" sin más, aunque hoy solo exista un proyecto) y verificar
 con una consulta real antes de darla por buena, mismo criterio que se ha seguido desde la 0031.
 
+**"Una migración, una responsabilidad" (ítem 9.37 — convención vigente desde 2026-07-07, no
+retroactiva sobre migraciones ya aplicadas)**: separar en migraciones sucesivas cuando un cambio
+mezcle más de uno de estos tres tipos de operación:
+
+1. **DDL** — crear/alterar tablas, columnas, índices, constraints, RLS.
+2. **Backfill de datos** — `UPDATE`/`INSERT` que rellena o corrige filas existentes.
+3. **Hardening de columnas** — `GRANT`/`REVOKE` a nivel de columna, triggers de bloqueo por rol
+   (ver `0019`, `0032`-`0033`).
+
+Motivo: las migraciones más grandes del proyecto hasta ahora (`0031` hash-chain, `0032` roles)
+mezclaron los tres tipos en un único archivo, y eso causó un problema real — un subagente murió
+a mitad de aplicar `0032` y hubo que recuperar el estado a mano desde commits WIP (ítem 9.29).
+Un archivo que solo hace DDL, o solo backfill, o solo hardening, es más fácil de reintentar sin
+riesgo si algo se interrumpe a mitad de aplicar: reintentar un `CREATE TABLE IF NOT EXISTS` es
+seguro; reintentar un `UPDATE` que ya corrió parcialmente puede no serlo si no es idempotente.
+Si un cambio necesita los tres tipos, que sean tres archivos correlativos (`00NN_x_ddl.sql`,
+`00NN+1_x_backfill.sql`, `00NN+2_x_hardening.sql`) en vez de uno solo.
+
 ## 8. Sembrar datos de demo
 
 ```powershell

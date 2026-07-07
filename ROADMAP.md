@@ -1265,12 +1265,17 @@ actual; se prioriza por impacto, no por orden de descubrimiento.
   con el listado de archivos sospechosos, en vez del aviso cosmético anterior. Nuevo
   `backend/tests/test_migrate_clasificar.py` (5 tests Grupo A: pendiente, sin drift, drift
   permitido, drift inesperado, mezcla de ambos). 139 pytest, ci.ps1 completo verde.
-- [ ] `[LOOP]` **9.37 Guía de "una migración, una responsabilidad" en `ONBOARDING.md`** — las
+- [x] `[LOOP]` **9.37 Guía de "una migración, una responsabilidad" en `ONBOARDING.md`** — las
   migraciones más grandes de este proyecto (`0031` hash-chain, `0032` roles) mezclan DDL +
   backfill de datos + hardening de columnas en un solo archivo; ya causó un problema real (9.29:
   un subagente murió a mitad de aplicar `0032`, hubo que recuperar de commits WIP a mano).
   Documentar como convención a partir de ahora: separar en migraciones sucesivas cuando el cambio
   mezcle esos 3 tipos de operación. No retroactivo sobre migraciones ya aplicadas.
+  Añadida en `ONBOARDING.md §7`, justo tras la convención de reversión de 9.16: los 3 tipos
+  (DDL / backfill / hardening de columnas) enumerados, el motivo real (0032) citado
+  explícitamente, y el patrón de nombrado sugerido para separarlos
+  (`_ddl`/`_backfill`/`_hardening`). Ítem documental, sin cambios de código — ci.ps1 verde
+  (139 pytest, 219+1 skip vitest).
 - [ ] `[LOOP]` **9.38 Consolidar o eliminar los formateadores sin uso de `format.js`** —
   `fmtEur`/`fmtKm`/`fmtFechaLarga`/`fmtFechaCorta`/`fmtFechaHora`/`fmtHora` tienen cero adopción
   real; 9 páginas siguen duplicando inline el patrón (`.toLocaleString("es-ES")` + sufijo) que
