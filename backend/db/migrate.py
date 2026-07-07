@@ -20,9 +20,49 @@ MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
+# Ítem 9.36: 0002-0011 se aplicaron a mano por MCP antes de que existiera este runner
+# (checksum registrado en su momento con el SQL tal como se aplicó entonces). Un drift
+# de checksum en CUALQUIER OTRO archivo es una señal real de hand-edit accidental de una
+# migración ya aplicada -- eso debe FALLAR (exit 1), no quedarse en un aviso cosmético
+# indistinguible de este caso conocido y benigno.
+ALLOWLIST_DRIFT_CONOCIDO = {
+    "0002_valoracion_y_pod.sql",
+    "0003_vehiculos_plantillas_ubicacion.sql",
+    "0004_realtime.sql",
+    "0005_constraints_negocio.sql",
+    "0006_gestor_telegram_alertas.sql",
+    "0007_preferencias_notificacion.sql",
+    "0008_rls_endurecido.sql",
+    "0009_tenancy_multiempresa.sql",
+    "0010_mantenimiento_vehiculo.sql",
+    "0011_bucket_pods_privado.sql",
+}
+
 
 def _checksum(sql: str) -> str:
     return hashlib.sha256(sql.encode("utf-8")).hexdigest()
+
+
+def clasificar_migraciones(files_sql, applied):
+    """Lógica pura (ítem 9.36, testeable sin BD real): dado `files_sql`
+    (lista de tuplas (nombre, sql)) y `applied` (dict nombre->checksum
+    registrado en `schema_migrations`), devuelve `(pending, drift_inesperado)`.
+
+    `pending`: lista de (nombre, sql, checksum) aún no aplicadas.
+    `drift_inesperado`: nombres cuyo checksum registrado no coincide con el
+    contenido local Y que NO están en `ALLOWLIST_DRIFT_CONOCIDO` -- señal real
+    de que una migración ya aplicada se editó a mano por error.
+    """
+    pending = []
+    drift_inesperado = []
+    for nombre, sql in files_sql:
+        checksum = _checksum(sql)
+        if nombre in applied:
+            if applied[nombre] != checksum and nombre not in ALLOWLIST_DRIFT_CONOCIDO:
+                drift_inesperado.append(nombre)
+            continue
+        pending.append((nombre, sql, checksum))
+    return pending, drift_inesperado
 
 
 def _ensure_tracking_table(cur):
@@ -60,33 +100,38 @@ def main():
             cur.execute("SELECT filename, checksum FROM schema_migrations")
             applied = dict(cur.fetchall())
 
-        pending = []
-        for f in files:
-            sql = f.read_text(encoding="utf-8")
-            checksum = _checksum(sql)
-            if f.name in applied:
-                if applied[f.name] != checksum:
-                    print(f"AVISO: {f.name} ya aplicada pero el contenido local difiere del checksum registrado.")
-                continue
-            pending.append((f, sql, checksum))
+        files_sql = [(f.name, f.read_text(encoding="utf-8")) for f in files]
+        pending, drift_inesperado = clasificar_migraciones(files_sql, applied)
+
+        for nombre, sql in files_sql:
+            if nombre in applied and applied[nombre] != _checksum(sql) and nombre in ALLOWLIST_DRIFT_CONOCIDO:
+                print(f"AVISO (conocido, benigno): {nombre} ya aplicada pero el contenido "
+                      f"local difiere del checksum registrado (backfill previo al runner).")
 
         print(f"Migraciones aplicadas: {len(applied)} | pendientes: {len(pending)}")
-        for f, _, _ in pending:
-            print(f"  pendiente: {f.name}")
+        for nombre, _, _ in pending:
+            print(f"  pendiente: {nombre}")
+
+        if drift_inesperado:
+            print("ERROR: checksum inesperado en migraciones ya aplicadas (posible hand-edit "
+                  "accidental de un archivo que ya se ejecutó contra la BD):")
+            for nombre in drift_inesperado:
+                print(f"  {nombre}")
+            sys.exit(1)
 
         if check_only or not pending:
             return
 
-        for f, sql, checksum in pending:
-            print(f"Aplicando {f.name} ...")
+        for nombre, sql, checksum in pending:
+            print(f"Aplicando {nombre} ...")
             with conn.cursor() as cur:
                 cur.execute(sql)
                 cur.execute(
                     "INSERT INTO schema_migrations (filename, checksum) VALUES (%s, %s)",
-                    (f.name, checksum),
+                    (nombre, checksum),
                 )
             conn.commit()
-            print(f"  OK: {f.name}")
+            print(f"  OK: {nombre}")
 
         print("Migraciones al día.")
     except Exception:

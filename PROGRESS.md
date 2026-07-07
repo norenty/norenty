@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-07 | Fase 9.36: migrate.py falla ante checksum inesperado | (por commitear) | HECHO.
+`ALLOWLIST_DRIFT_CONOCIDO` con los 10 nombres reales de 0002-0011 (backfill previo al runner);
+`clasificar_migraciones()` extraída como lógica pura testeable; cualquier drift de checksum
+fuera del allowlist ahora hace `sys.exit(1)` en vez de solo avisar. 5 tests nuevos Grupo A en
+`test_migrate_clasificar.py`. 139 pytest, ci.ps1 completo verde.
+
 2026-07-07 | Fase 9.33: caché OSRM + debounce de realtime | dce8e82 | HECHO.
 `ResumenHoy.jsx` no está suscrita a realtime hoy (solo carga al montar) — el problema real
 descrito está en `getViajes()`/home vía `useRealtimeRefresh`, sin debounce. Arreglado en la

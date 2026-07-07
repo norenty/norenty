@@ -1253,11 +1253,18 @@ actual; se prioriza por impacto, no por orden de descubrimiento.
   cerrada la decisión) — `getViabilidadViaje`, `getInformeNomina`, `getEstado561`,
   `getMetricasRentabilidad`, `calcularPresupuesto`, `sugerirChofer`: son las de mayor riesgo si un
   error de lectura se confunde con "coste cero"/"margen 100%" en vez de mostrarse como tal.
-- [ ] `[LOOP]` **9.36 `migrate.py --check` debe FALLAR ante un checksum inesperado, no solo
+- [x] `[LOOP]` **9.36 `migrate.py --check` debe FALLAR ante un checksum inesperado, no solo
   avisar** — hoy un hand-edit accidental de una migración ya aplicada produce el mismo aviso
   cosmético que el caso conocido y benigno de `0002`-`0011` (backfill de antes de que existiera
   el runner). Añadir un allowlist explícito para ese caso conocido y hacer que cualquier OTRO
   checksum distinto sea un `exit 1` real.
+  `backend/db/migrate.py`: nueva `ALLOWLIST_DRIFT_CONOCIDO` con los 10 nombres reales de
+  `0002_valoracion_y_pod.sql`...`0011_bucket_pods_privado.sql`; lógica de clasificación
+  extraída a `clasificar_migraciones(files_sql, applied)` (pura, testeable sin BD) que separa
+  pendientes de drift — cualquier checksum distinto FUERA del allowlist hace `sys.exit(1)`
+  con el listado de archivos sospechosos, en vez del aviso cosmético anterior. Nuevo
+  `backend/tests/test_migrate_clasificar.py` (5 tests Grupo A: pendiente, sin drift, drift
+  permitido, drift inesperado, mezcla de ambos). 139 pytest, ci.ps1 completo verde.
 - [ ] `[LOOP]` **9.37 Guía de "una migración, una responsabilidad" en `ONBOARDING.md`** — las
   migraciones más grandes de este proyecto (`0031` hash-chain, `0032` roles) mezclan DDL +
   backfill de datos + hardening de columnas en un solo archivo; ya causó un problema real (9.29:
