@@ -13,7 +13,7 @@ HECHO. `ONBOARDING.md §7` documenta separar DDL/backfill/hardening de columnas 
 sucesivas, citando el incidente real de 0032 (9.29) como motivo. No retroactivo. Sin cambios de
 código — ci.ps1 verde.
 
-2026-07-07 | Fase 11.1: cliente como entidad de primera clase | (por commitear) | HECHO.
+2026-07-07 | Fase 11.1: cliente como entidad de primera clase | f2482f2 | HECHO.
 Migración `0041_cliente.sql` (DDL puro con cabecera de reversión + trigger solo_lectura),
 aplicada con migrate.py (D2 resuelta) y verificada Grupo B contra la BD real (9 columnas, RLS
 on, viaje.cliente_id+FK, policy, trigger, checksum registrado). Capa de datos en data.js:
