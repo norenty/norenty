@@ -13,6 +13,16 @@ HECHO. `ONBOARDING.md §7` documenta separar DDL/backfill/hardening de columnas 
 sucesivas, citando el incidente real de 0032 (9.29) como motivo. No retroactivo. Sin cambios de
 código — ci.ps1 verde.
 
+2026-07-07 | Fase 9.38: adoptar formateadores de format.js en 9 páginas | (por commitear) |
+HECHO. Las 6 funciones sin adopción (fmtEur, fmtKm, fmtFechaLarga, fmtFechaCorta,
+fmtFechaHora, fmtHora) tenían al menos un sitio real donde encajaban exacto — todas
+adoptadas, ninguna borrada. Tocadas: analitica, choferes/[id], vehiculos/[id],
+GastosViajeSection, viajes/[id], viajes/nuevo-w, presupuesto, nomina, incidencias, t/[token],
+Timeline (sustituye un formatHora local duplicado). Sitios donde el formateador NO era un
+match seguro (timestamps completos usados con formateadores de fecha-sola que añaden
+T12:00:00, o toLocaleDateString sin opciones) se dejaron sin tocar. 219+1 skip vitest, build
+sin errores, ci.ps1 completo verde (139 pytest).
+
 2026-07-07 | Fase 9.36: migrate.py falla ante checksum inesperado | ecd369c | HECHO.
 `ALLOWLIST_DRIFT_CONOCIDO` con los 10 nombres reales de 0002-0011 (backfill previo al runner);
 `clasificar_migraciones()` extraída como lógica pura testeable; cualquier drift de checksum

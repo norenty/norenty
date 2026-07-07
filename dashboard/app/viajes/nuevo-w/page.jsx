@@ -7,7 +7,7 @@ import { ArrowLeft, Plus, Trash2, AlertTriangle, Check, ChevronRight } from "luc
 import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561, UMBRAL_MARGEN_AMBAR_PCT } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import SugerenciaChofer from "../../components/SugerenciaChofer";
-import { badgeMargen } from "../../../lib/format";
+import { badgeMargen, fmtEur, fmtKm } from "../../../lib/format";
 import RequireRol from "../../components/RequireRol";
 
 // Wizard "Nuevo viaje" (7A.11) — construido en ruta nueva a propósito, SIN
@@ -269,7 +269,7 @@ export default function NuevoViajeWizard() {
               <div className="flex flex-col gap-3 text-sm">
                 <div>
                   <div className="text-xs text-ink-secondary">Distancia</div>
-                  <div className="text-ink font-medium">{panel.estimado && "~"}{panel.km.toLocaleString("es-ES")} km</div>
+                  <div className="text-ink font-medium">{panel.estimado && "~"}{fmtKm(panel.km)}</div>
                 </div>
                 <div>
                   <div className="text-xs text-ink-secondary">Conducción / paradas / descansos</div>
@@ -283,18 +283,18 @@ export default function NuevoViajeWizard() {
                   {panel.coste.total != null && (
                     <div>
                       <div className="text-xs text-ink-secondary">Coste estimado</div>
-                      <div className="text-ink font-medium">{panel.coste.total.toLocaleString("es-ES")} €</div>
+                      <div className="text-ink font-medium">{fmtEur(panel.coste.total)}</div>
                     </div>
                   )}
                   {panel.precioSugerido != null && (
                     <div>
                       <div className="text-xs text-ink-secondary">Precio sugerido (margen {panel.margenObjetivo}%)</div>
-                      <div className="text-ink font-medium">{panel.precioSugerido.toLocaleString("es-ES")} €</div>
+                      <div className="text-ink font-medium">{fmtEur(panel.precioSugerido)}</div>
                     </div>
                   )}
                   {panel.margenPct != null && (
                     <div className={`text-xs px-2 py-1.5 rounded-md ${badgeMargen(panel.margen, panel.margenPct, UMBRAL_MARGEN_AMBAR_PCT)}`}>
-                      Margen con tu precio: {panel.margen.toLocaleString("es-ES")} € ({panel.margenPct}%)
+                      Margen con tu precio: {fmtEur(panel.margen)} ({panel.margenPct}%)
                     </div>
                   )}
                 </RequireRol>
@@ -353,16 +353,16 @@ export default function NuevoViajeWizard() {
         <div className="flex flex-col gap-4 max-w-xl">
           <div className="bg-surface border border-border rounded-xl p-4 text-sm flex flex-col gap-2">
             <div><span className="text-ink-secondary">Referencia:</span> {referencia || "—"}</div>
-            <div><span className="text-ink-secondary">Precio:</span> {precio ? `${Number(precio).toLocaleString("es-ES")} €` : "—"}</div>
+            <div><span className="text-ink-secondary">Precio:</span> {precio ? fmtEur(Number(precio)) : "—"}</div>
             <div><span className="text-ink-secondary">Paradas:</span> {hitos.filter((h) => h.direccion.trim()).length}</div>
             <div><span className="text-ink-secondary">Chófer:</span> {choferNombre || "Sin asignar"}</div>
             <div><span className="text-ink-secondary">Vehículo:</span> {tractoras.find((v) => v.id === vehiculoId)?.matricula || "Sin asignar"}</div>
             {panel && (
               <div className="pt-2 border-t border-border">
                 <div className="text-ink-secondary text-xs mb-1">Viabilidad estimada</div>
-                {panel.estimado && "~"}{panel.km.toLocaleString("es-ES")} km
-                {panel.coste.total != null && ` · coste ${panel.coste.total.toLocaleString("es-ES")} €`}
-                {panel.margen != null && ` · margen ${panel.margen.toLocaleString("es-ES")} € (${panel.margenPct}%)`}
+                {panel.estimado && "~"}{fmtKm(panel.km)}
+                {panel.coste.total != null && ` · coste ${fmtEur(panel.coste.total)}`}
+                {panel.margen != null && ` · margen ${fmtEur(panel.margen)} (${panel.margenPct}%)`}
               </div>
             )}
           </div>

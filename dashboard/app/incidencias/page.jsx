@@ -6,6 +6,7 @@ import { AlertTriangle, Clock, CheckCircle2, ExternalLink, ChevronDown } from "l
 import { supabase } from "../../lib/supabase";
 import { ESTADO_INCIDENCIA as ESTADO_LABELS, TIPO_INCIDENCIA_LABEL as TIPO_LABELS } from "../../lib/labels";
 import EmptyState from "../components/ui/EmptyState";
+import { fmtFechaHora } from "../../lib/format";
 
 const PAGE_SIZE = 20;
 
@@ -146,9 +147,7 @@ export default function IncidenciasPage() {
                         )}
                         <span className="flex items-center gap-1">
                           <Clock size={12} />
-                          {new Date(inc.created_at).toLocaleString("es-ES", {
-                            day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
-                          })}
+                          {fmtFechaHora(inc.created_at)}
                         </span>
                       </div>
                     </div>

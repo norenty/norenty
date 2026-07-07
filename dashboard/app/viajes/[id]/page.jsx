@@ -20,7 +20,7 @@ import { useRealtimeRefresh } from "../../../lib/realtime";
 import Timeline from "../../components/Timeline";
 import RatingControl from "../../components/RatingControl";
 import { ESTADO_VIAJE, ESTADO_HITO, ESTADO_POD, TIPOS_DOC_VIAJE, LABEL_CAPA } from "../../../lib/labels";
-import { badgeMargen } from "../../../lib/format";
+import { badgeMargen, fmtEur, fmtKm, fmtFechaHora, fmtHora } from "../../../lib/format";
 import RequireRol from "../../components/RequireRol";
 
 /** Etiqueta legible de una entrada de audit_log (8.8) — el detalle exacto de
@@ -357,7 +357,7 @@ export default function ViajeDetalle() {
                         <div className={`text-xs mt-0.5 ${
                           pvr.estado === "a_tiempo" ? "text-green-700" : pvr.estado === "tarde_leve" ? "text-yellow-700" : "text-estado-incidencia"
                         }`}>
-                          Llegó {new Date(pvr.llegadaReal).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                          Llegó {fmtHora(pvr.llegadaReal)}
                           {" "}({pvr.deltaMin <= 0 ? "a tiempo" : `+${pvr.deltaMin} min`})
                         </div>
                       )}
@@ -378,7 +378,7 @@ export default function ViajeDetalle() {
                     <span className="text-xs font-medium text-estado-incidencia">{inc.tipo}</span>
                     <span className="flex-1 text-xs text-ink-secondary">{inc.descripcion || "—"}</span>
                     <span className="text-xs text-ink-muted">
-                      {new Date(inc.created_at).toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      {fmtFechaHora(inc.created_at)}
                     </span>
                   </div>
                 ))}
@@ -407,7 +407,7 @@ export default function ViajeDetalle() {
                       <span className="flex-1 text-ink-secondary">{describirAuditoria(a)}</span>
                       <span className="text-ink-muted shrink-0">
                         {a.gestor?.nombre ? `${a.gestor.nombre} · ` : ""}
-                        {new Date(a.created_at).toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        {fmtFechaHora(a.created_at)}
                       </span>
                     </div>
                   ))}
@@ -454,7 +454,7 @@ export default function ViajeDetalle() {
               </div>
             ) : (
               <div className="text-sm text-ink mb-3">
-                Precio: <span className="font-medium">{viaje.precio != null ? `${viaje.precio.toLocaleString("es-ES")} €` : "—"}</span>
+                Precio: <span className="font-medium">{fmtEur(viaje.precio) ?? "—"}</span>
               </div>
             )}
 
@@ -469,7 +469,7 @@ export default function ViajeDetalle() {
               return (
                 <div>
                   <div className={`rounded-lg px-3 py-2 mb-2 ${cls}`}>
-                    <div className="text-lg font-semibold">{margen.toLocaleString("es-ES")} € <span className="text-sm font-normal">({margenPct}%)</span></div>
+                    <div className="text-lg font-semibold">{fmtEur(margen)} <span className="text-sm font-normal">({margenPct}%)</span></div>
                     <div className="text-xs">
                       {margen < 0 ? "A pérdidas — revisar precio" : margenPct < UMBRAL_MARGEN_AMBAR_PCT ? "Margen ajustado" : "Margen sano"}
                     </div>
@@ -482,17 +482,17 @@ export default function ViajeDetalle() {
                             <span>{LABEL_CAPA[capa]}</span>
                             <span>
                               {desglose[capa] != null
-                                ? `${desglose[capa].toLocaleString("es-ES")} €`
+                                ? fmtEur(desglose[capa])
                                 : <span className="text-ink-muted">— configura {LABEL_CAPA[capa].toLowerCase()} en Ajustes</span>}
                             </span>
                           </div>
                         ))}
                         <div className="flex justify-between font-medium text-ink-secondary pt-0.5 border-t border-border">
-                          <span>Total</span><span>{coste.toLocaleString("es-ES")} €</span>
+                          <span>Total</span><span>{fmtEur(coste)}</span>
                         </div>
                       </div>
                     ) : (
-                      <div>{estimado && "~"}{km.toLocaleString("es-ES")} km × {costeKm} €/km = {coste.toLocaleString("es-ES")} € de coste</div>
+                      <div>{estimado && "~"}{fmtKm(km)} × {costeKm} €/km = {fmtEur(coste)} de coste</div>
                     )}
                     <div>Coste/km según: {fuenteCoste === "vehiculo" ? "vehículo asignado" : "empresa"}</div>
                     {estimado && (
@@ -518,13 +518,13 @@ export default function ViajeDetalle() {
                 <div className="grid grid-cols-2 gap-3 mb-2">
                   <div>
                     <div className="text-xs text-ink-secondary mb-0.5">Estimado</div>
-                    <div className="text-ink">{pnl.costeEstimado != null ? `${pnl.costeEstimado.toLocaleString("es-ES")} €` : "—"}</div>
-                    <div className="text-xs text-ink-muted">margen: {pnl.margenEstimado != null ? `${pnl.margenEstimado.toLocaleString("es-ES")} €` : "—"}</div>
+                    <div className="text-ink">{fmtEur(pnl.costeEstimado) ?? "—"}</div>
+                    <div className="text-xs text-ink-muted">margen: {fmtEur(pnl.margenEstimado) ?? "—"}</div>
                   </div>
                   <div>
                     <div className="text-xs text-ink-secondary mb-0.5">Real</div>
-                    <div className="text-ink">{pnl.gastosReales.toLocaleString("es-ES")} €</div>
-                    <div className="text-xs text-ink-muted">margen: {pnl.margenReal != null ? `${pnl.margenReal.toLocaleString("es-ES")} €` : "—"}</div>
+                    <div className="text-ink">{fmtEur(pnl.gastosReales)}</div>
+                    <div className="text-xs text-ink-muted">margen: {fmtEur(pnl.margenReal) ?? "—"}</div>
                   </div>
                 </div>
                 {pnl.desviacionPct != null && (
@@ -551,7 +551,7 @@ export default function ViajeDetalle() {
                   <span className="text-ink-secondary"> totales</span>
                 </div>
                 <div className="text-xs text-ink-muted space-y-0.5">
-                  <div>{eta.estimado && "~"}{eta.km.toLocaleString("es-ES")} km a {eta.velocidadKmh} km/h → {eta.horasConduccion} h de conducción</div>
+                  <div>{eta.estimado && "~"}{fmtKm(eta.km)} a {eta.velocidadKmh} km/h → {eta.horasConduccion} h de conducción</div>
                   {(eta.paradas45min > 0 || eta.descansos11h > 0) ? (
                     <div>
                       + {eta.paradas45min} parada{eta.paradas45min !== 1 ? "s" : ""} de 45 min

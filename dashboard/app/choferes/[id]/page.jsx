@@ -11,6 +11,7 @@ import DocumentosSection from "../../components/DocumentosSection";
 import { getEstado561, LIMITE_561_SEMANAL_H, LIMITE_561_BISEMANAL_H, getMultasPorChofer } from "../../../lib/data";
 import { Siren } from "lucide-react";
 import { TIPOS_DOC_CHOFER, IDIOMA_LABEL, ESTADO_VIAJE } from "../../../lib/labels";
+import { fmtEur, fmtFechaCorta } from "../../../lib/format";
 
 function colorBarra561(pct) {
   if (pct >= 90) return "bg-estado-incidencia";
@@ -200,12 +201,12 @@ export default function ChoferDetalle() {
           <h2 className="text-sm font-medium text-ink mb-3 flex items-center gap-2">
             <Siren size={15} className="text-estado-incidencia" /> Multas
           </h2>
-          <div className="text-lg font-semibold text-ink mb-2">{multas.total.toLocaleString("es-ES")} €</div>
+          <div className="text-lg font-semibold text-ink mb-2">{fmtEur(multas.total)}</div>
           <div className="flex flex-col gap-1">
             {multas.ultimas.map((m) => (
               <div key={m.id} className="flex justify-between text-xs text-ink-secondary">
                 <span>{m.fecha ? new Date(m.fecha + "T12:00:00").toLocaleDateString("es-ES") : "sin fecha"}{m.descripcion ? ` — ${m.descripcion}` : ""}</span>
-                <span className="font-medium text-ink">{Number(m.importe).toLocaleString("es-ES")} €</span>
+                <span className="font-medium text-ink">{fmtEur(Number(m.importe))}</span>
               </div>
             ))}
           </div>
@@ -278,7 +279,7 @@ export default function ChoferDetalle() {
                     <span className="text-xs text-ink-muted">{completados}/{total}</span>
                   </div>
                   <span className="text-xs text-ink-muted shrink-0">
-                    {new Date(v.created_at).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
+                    {fmtFechaCorta(v.created_at)}
                   </span>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${e.bg} ${e.c} shrink-0`}>{e.t}</span>
                 </Link>

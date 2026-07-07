@@ -9,6 +9,7 @@ import {
   getMetricasFlota,
   getMetricasRentabilidad,
 } from "../../lib/data";
+import { fmtEur } from "../../lib/format";
 
 const VISTAS = [
   { id: "puntualidad", label: "Puntualidad", icon: Clock },
@@ -219,7 +220,7 @@ function TablaRentabilidad({ titulo, filas }) {
           <div key={f.id} className="flex items-center justify-between px-4 py-2.5 border-b border-border last:border-0 text-sm">
             <span className="text-ink truncate">{f.referencia}</span>
             <span className={`font-medium ${f.margenReal < 0 ? "text-estado-incidencia" : "text-green-700"}`}>
-              {f.margenReal.toLocaleString("es-ES")} €
+              {fmtEur(f.margenReal)}
             </span>
           </div>
         ))
@@ -232,7 +233,7 @@ function VistaRentabilidad({ datos }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-3 gap-3">
-        <Card label="Margen real medio" value={datos.margenRealMedio != null ? `${datos.margenRealMedio.toLocaleString("es-ES")} €` : null} />
+        <Card label="Margen real medio" value={fmtEur(datos.margenRealMedio)} />
         <Card label="Viajes a pérdidas (reales)" value={datos.viajesAPerdidasReales} />
         <Card
           label="Desviación media |real−estimado|"

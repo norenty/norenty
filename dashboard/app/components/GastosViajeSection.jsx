@@ -5,6 +5,7 @@ import { Plus, Trash2, Fuel, ParkingSquare, Siren, Bed, Receipt } from "lucide-r
 import { getGastosViaje, createGastoViaje, deleteGastoViaje } from "../../lib/data";
 import { TIPO_GASTO_LABEL as TIPO_LABEL } from "../../lib/labels";
 import RequireRol from "./RequireRol";
+import { fmtEur } from "../../lib/format";
 
 const TIPOS = ["repostaje", "peaje", "multa", "dieta", "otro"];
 const TIPO_ICON = {
@@ -175,7 +176,7 @@ export default function GastosViajeSection({ viajeId, choferId = null, vehiculoI
                     {TIPO_LABEL[g.tipo]}{g.descripcion ? ` — ${g.descripcion}` : ""}
                     {g.fecha && <span className="text-ink-muted"> · {new Date(g.fecha + "T12:00:00").toLocaleDateString("es-ES")}</span>}
                   </span>
-                  <span className="font-medium text-ink shrink-0">{Number(g.importe).toLocaleString("es-ES")} €</span>
+                  <span className="font-medium text-ink shrink-0">{fmtEur(Number(g.importe))}</span>
                   <RequireRol roles={["admin", "gestor_operativo"]}>
                     <button
                       onClick={() => borrar(g.id)}
@@ -197,10 +198,10 @@ export default function GastosViajeSection({ viajeId, choferId = null, vehiculoI
         <div className="px-4 py-3 border-t border-border bg-surface-alt text-xs">
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-ink-secondary mb-1">
             {porTipo.map((p) => (
-              <span key={p.tipo}>{TIPO_LABEL[p.tipo]}: {p.total.toLocaleString("es-ES")} €</span>
+              <span key={p.tipo}>{TIPO_LABEL[p.tipo]}: {fmtEur(p.total)}</span>
             ))}
           </div>
-          <div className="font-medium text-ink">Total gastos: {total.toLocaleString("es-ES")} €</div>
+          <div className="font-medium text-ink">Total gastos: {fmtEur(total)}</div>
         </div>
       )}
     </div>

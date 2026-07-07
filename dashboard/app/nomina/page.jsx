@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Moon, Route as RouteIcon, Download, Printer } from "lucide-react";
 import { getInformeNomina } from "../../lib/data";
 import RequireRol from "../components/RequireRol";
+import { fmtKm } from "../../lib/format";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -144,7 +145,7 @@ export default function Nomina() {
                       <td className="px-4 py-2.5 text-ink-secondary">{f.nochesFuera ?? "n/d"}</td>
                       <td className="px-4 py-2.5 text-ink-secondary">
                         {f.estimado && <span title="Estimado: OSRM no respondió para algún tramo, se usó distancia en línea recta corregida">~</span>}
-                        {f.km.toLocaleString("es-ES")} km
+                        {fmtKm(f.km)}
                       </td>
                       <td className="px-4 py-2.5 text-ink-muted text-xs">
                         {f.viajes.length ? f.viajes.join(", ") : "—"}

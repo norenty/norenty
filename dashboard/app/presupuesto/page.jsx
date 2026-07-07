@@ -6,6 +6,7 @@ import { Calculator, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { calcularPresupuesto } from "../../lib/data";
 import { supabase } from "../../lib/supabase";
 import { LABEL_CAPA } from "../../lib/labels";
+import { fmtEur, fmtKm } from "../../lib/format";
 
 function nuevoPunto() {
   return { label: "", lat: "", lon: "" };
@@ -149,7 +150,7 @@ export default function PresupuestoPage() {
             <div className="text-xs text-ink-secondary mb-1">Precio sugerido</div>
             {resultado.precioSugerido != null ? (
               <div className="text-2xl font-semibold text-ink">
-                {resultado.precioSugerido.toLocaleString("es-ES")} €
+                {fmtEur(resultado.precioSugerido)}
                 <span className="text-sm font-normal text-ink-muted"> (margen {resultado.margenObjetivo}%)</span>
               </div>
             ) : (
@@ -162,7 +163,7 @@ export default function PresupuestoPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-4">
             <div>
               <div className="text-xs text-ink-secondary">Distancia</div>
-              <div className="font-medium text-ink">{resultado.estimado && "~"}{resultado.km.toLocaleString("es-ES")} km</div>
+              <div className="font-medium text-ink">{resultado.estimado && "~"}{fmtKm(resultado.km)}</div>
             </div>
             <div>
               <div className="text-xs text-ink-secondary">Conducción</div>
@@ -192,16 +193,16 @@ export default function PresupuestoPage() {
                     <span>{LABEL_CAPA[capa]}</span>
                     <span>
                       {resultado.coste[capa] != null
-                        ? `${resultado.coste[capa].toLocaleString("es-ES")} €`
+                        ? fmtEur(resultado.coste[capa])
                         : <span>— configura {LABEL_CAPA[capa].toLowerCase()} en Ajustes</span>}
                     </span>
                   </div>
                 ))
               ) : (
-                <div>Coste estimado (€/km): {resultado.coste.total.toLocaleString("es-ES")} €</div>
+                <div>Coste estimado (€/km): {fmtEur(resultado.coste.total)}</div>
               )}
               <div className="flex justify-between font-medium text-ink-secondary pt-0.5 border-t border-border">
-                <span>Total coste</span><span>{resultado.coste.total.toLocaleString("es-ES")} €</span>
+                <span>Total coste</span><span>{fmtEur(resultado.coste.total)}</span>
               </div>
             </div>
           )}

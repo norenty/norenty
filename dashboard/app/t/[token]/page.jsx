@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { Route, MapPin, Package, CheckCircle2 } from "lucide-react";
 import { getViajePublico } from "../../../lib/data";
 import { ESTADO_VIAJE } from "../../../lib/labels";
+import { fmtFechaHora } from "../../../lib/format";
 
 const POLL_MS = 60000;
 
@@ -95,9 +96,9 @@ export default function PortalCliente() {
                 </div>
                 {(h.ventana_inicio || h.ventana_fin) && (
                   <div className="text-xs text-ink-muted">
-                    Ventana: {h.ventana_inicio ? new Date(h.ventana_inicio).toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "?"}
+                    Ventana: {fmtFechaHora(h.ventana_inicio) || "?"}
                     {" – "}
-                    {h.ventana_fin ? new Date(h.ventana_fin).toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "?"}
+                    {fmtFechaHora(h.ventana_fin) || "?"}
                   </div>
                 )}
               </div>

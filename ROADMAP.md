@@ -1276,11 +1276,24 @@ actual; se prioriza por impacto, no por orden de descubrimiento.
   explícitamente, y el patrón de nombrado sugerido para separarlos
   (`_ddl`/`_backfill`/`_hardening`). Ítem documental, sin cambios de código — ci.ps1 verde
   (139 pytest, 219+1 skip vitest).
-- [ ] `[LOOP]` **9.38 Consolidar o eliminar los formateadores sin uso de `format.js`** —
+- [x] `[LOOP]` **9.38 Consolidar o eliminar los formateadores sin uso de `format.js`** —
   `fmtEur`/`fmtKm`/`fmtFechaLarga`/`fmtFechaCorta`/`fmtFechaHora`/`fmtHora` tienen cero adopción
   real; 9 páginas siguen duplicando inline el patrón (`.toLocaleString("es-ES")` + sufijo) que
   debían reemplazar. Decidir por función: adoptarla en esos sitios, o borrar el export si de
   verdad no aporta sobre el inline actual.
+  Las 6 se adoptaron (ninguna se borró — todas tenían al menos un sitio real donde encajaban
+  exacto): `fmtEur` en `analitica`, `choferes/[id]`, `vehiculos/[id]`, `GastosViajeSection`,
+  `viajes/[id]`, `viajes/nuevo-w`, `presupuesto`; `fmtKm` en `nomina`, `vehiculos/[id]`,
+  `viajes/[id]`, `viajes/nuevo-w`, `presupuesto`; `fmtFechaLarga` en
+  `vehiculos/[id]` (ITV pendiente); `fmtFechaCorta` en `choferes/[id]` (historial de viajes);
+  `fmtFechaHora` en `viajes/[id]` (incidencias+actividad), `incidencias`, `t/[token]`, y
+  sustituyendo un `formatHora` local duplicado en `components/Timeline.jsx`; `fmtHora` en
+  `viajes/[id]` (hora de llegada real vs. planificada). Se dejaron SIN tocar los sitios donde
+  el formateador no es un match seguro: fechas que son timestamps completos usadas con
+  `fmtFecha`/`fmtFechaLarga` (que asumen fecha-sola y añaden `T12:00:00`, corromperían un
+  timestamp con hora ya incluida — p.ej. `token_publico_expira` en `viajes/[id]`), y
+  `.toLocaleDateString("es-ES")` sin opciones (formato distinto, sin equivalente en format.js).
+  219+1 skip vitest, build sin errores, ci.ps1 completo verde (139 pytest).
 - [ ] `[LOOP]` **9.39 Mover la lógica de `ajustes/page.jsx` a `lib/data.js`** —
   `guardarCosteKm`/`guardarVelocidad`/`guardarDesglose` hacen `supabase.from("empresa").update(...)`
   con validación numérica inline, rompiendo la convención del resto del código base (toda

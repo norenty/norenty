@@ -12,6 +12,7 @@ import { getCurrentEmpresaId, getMultasPorVehiculo } from "../../../lib/data";
 import DocumentosSection from "../../components/DocumentosSection";
 import { TIPOS_DOC_VEHICULO, TIPO_MANTENIMIENTO_LABEL, ESTADO_MANTENIMIENTO_CHIP } from "../../../lib/labels";
 import RequireRol from "../../components/RequireRol";
+import { fmtEur, fmtKm, fmtFecha, fmtFechaLarga } from "../../../lib/format";
 
 // Iconos por tipo (lucide-react no puede vivir en labels.js, que es texto/color puro
 // reutilizable — ver 7A.12); el resto de cada entrada viene de TIPO_MANTENIMIENTO_LABEL.
@@ -176,7 +177,7 @@ export default function VehiculoDetalle() {
         {proxITV && (
           <div className="mt-3 flex items-center gap-2 text-xs text-yellow-700 bg-yellow-50 px-3 py-2 rounded-lg">
             <CalendarCheck size={13} />
-            ITV pendiente{proxITV.fecha ? ` — ${new Date(proxITV.fecha + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" })}` : ""}
+            ITV pendiente{proxITV.fecha ? ` — ${fmtFechaLarga(proxITV.fecha)}` : ""}
           </div>
         )}
         <RequireRol roles={["admin"]}>
@@ -227,12 +228,12 @@ export default function VehiculoDetalle() {
           <h2 className="text-sm font-medium text-ink mb-3 flex items-center gap-2">
             <Siren size={15} className="text-estado-incidencia" /> Multas
           </h2>
-          <div className="text-lg font-semibold text-ink mb-2">{multas.total.toLocaleString("es-ES")} €</div>
+          <div className="text-lg font-semibold text-ink mb-2">{fmtEur(multas.total)}</div>
           <div className="flex flex-col gap-1">
             {multas.ultimas.map((m) => (
               <div key={m.id} className="flex justify-between text-xs text-ink-secondary">
                 <span>{m.fecha ? new Date(m.fecha + "T12:00:00").toLocaleDateString("es-ES") : "sin fecha"}{m.descripcion ? ` — ${m.descripcion}` : ""}</span>
-                <span className="font-medium text-ink">{Number(m.importe).toLocaleString("es-ES")} €</span>
+                <span className="font-medium text-ink">{fmtEur(Number(m.importe))}</span>
               </div>
             ))}
           </div>
@@ -374,10 +375,10 @@ export default function VehiculoDetalle() {
                       {r.fecha && (
                         <span className="flex items-center gap-1">
                           <Clock size={11} />
-                          {new Date(r.fecha + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" })}
+                          {fmtFecha(r.fecha)}
                         </span>
                       )}
-                      {r.km && <span>{r.km.toLocaleString("es-ES")} km</span>}
+                      {r.km && <span>{fmtKm(r.km)}</span>}
                       {r.coste && <span>{parseFloat(r.coste).toFixed(2)} €</span>}
                     </div>
                   </div>
