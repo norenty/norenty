@@ -59,9 +59,9 @@ viejo. Nunca al revés: borrar primero causaría caída inmediata.
 **La clave más sensible del sistema.** Salta RLS: cualquiera que la tenga puede leer y
 escribir datos de TODAS las empresas. Rotar ante la mínima sospecha de exposición.
 
-**Estado actual:** hoy está VACÍA en `.env` local (`[DECISIÓN D1]` del roadmap). Sin ella, el
-bot en vivo no puede escribir con RLS activo. Esto es un bug crítico conocido; ver ROADMAP
-§Fase 8 Bloque A. Una vez se pegue la clave real, este runbook aplica para rotarla.
+**Estado actual (2026-07-05):** ya puesta y verificada (`[DECISIÓN D1]` resuelta) — el bot en
+vivo ya puede escribir con RLS activo. Este runbook aplica normalmente para rotarla cuando haga
+falta.
 
 **Dónde se genera:** Supabase → [tu proyecto] → Project Settings → API → sección
 "Project API keys" → fila "service_role" → botón "Reveal" / "Reset".

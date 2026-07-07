@@ -8,6 +8,16 @@ depender del historial de conversación.
 
 ---
 
+2026-07-07 | Fase 9.20: Runbooks de los 5 incidentes más probables | (por commitear) | HECHO.
+`RUNBOOKS.md` nuevo: bot caído, Supabase degradado, webhook roto, proveedor LLM caído (cuando
+exista, Fase 7B), clave rotada a medias. Cada uno con diagnóstico paso a paso y respuesta,
+referenciando `RUNBOOK.md`/`RUNBOOK-SECRETS.md` en vez de duplicar contenido. Incluye dos
+incidentes reales de esta sesión como casos documentados: el banner de "organización degradada"
+de Supabase que se confundió con un problema de login, y la rotación de `DATABASE_URL` tras una
+exposición accidental de la contraseña en un comando de diagnóstico. También se corrigió una
+nota desactualizada en `RUNBOOK-SECRETS.md §1` (D1 ya resuelta, no seguía vacía). Ítem
+documental, sin cambios de código — ci.ps1 verde (134 pytest, 215 vitest).
+
 2026-07-05 | Fase 9.19: SLOs internos medidos con lo que ya se loguea | 664c75a | HECHO.
 `backend/db/calcular_slos.py`: 3 objetivos definidos, 2 realmente calculables hoy sin
 infraestructura nueva. SLO 1 (disponibilidad del bot ≥99%): a partir de los huecos entre filas

@@ -1172,9 +1172,13 @@ una respuesta escrita de una página al cuestionario típico de un responsable d
   para los dos SLOs calculables — correcto y honesto, el bot nunca se ha ejecutado contra
   Telegram real todavía (D1 se resolvió hoy mismo) y no hay asignaciones reales notificadas.
   134 pytest, 215 vitest, ci.ps1 verde.
-- [ ] `[LOOP]` **9.20 Runbooks de los 5 incidentes más probables** (picar código: sonnet,
+- [x] `[LOOP]` **9.20 Runbooks de los 5 incidentes más probables** (picar código: sonnet,
   esfuerzo bajo). `RUNBOOKS.md`: bot caído, Supabase degradado, webhook roto, proveedor LLM
   caído (cuando exista), clave rotada a medias — pasos escritos y concretos para cada uno.
+  Creado `RUNBOOKS.md`, referenciando `RUNBOOK.md`/`RUNBOOK-SECRETS.md` en vez de duplicar
+  contenido, citando dos incidentes reales de esta sesión (banner de org degradada de Supabase
+  confundido con login, rotación de `DATABASE_URL` tras exposición accidental). Ítem
+  documental, sin cambios de código — verificado con ci.ps1 verde (134 pytest, 215 vitest).
 - [ ] `[DECISIÓN]` **9.21 Simulacro de incidente real** — un sábado, romper algo a propósito
   (con aviso y ventana acordada) y operar el runbook correspondiente de 9.20. Necesita que
   el usuario fije la fecha/ventana; el loop no decide cuándo interrumpir un sistema en uso.
