@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-07 | Fase 9.22: OSRM degradado oficialmente (Docker no disponible) | (por commitear) |
+2026-07-07 | Fase 9.22: OSRM degradado oficialmente (Docker no disponible) | 422547c |
 HECHO. No hay Docker instalado en esta máquina, así que no se pudo levantar el contenedor
 OSRM ni probar el camino feliz real. Se tomó la rama de degradar oficialmente:
 `infra/osrm/README.md` ahora tiene un aviso explícito de que el servicio nunca se ha probado
