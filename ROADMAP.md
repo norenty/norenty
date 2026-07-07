@@ -1307,9 +1307,22 @@ actual; se prioriza por impacto, no por orden de descubrimiento.
   visible sin cambios). `ajustes/page.jsx` ahora solo hace `try { await guardarX(...) } catch`.
   11 tests nuevos Grupo A (válidos, inválidos, ambas vacías, no-escribe-nada-si-hay-error).
   230+1 skip vitest, build sin errores, ci.ps1 completo verde (139 pytest).
-- [ ] `[LOOP]` **9.40 Dividir `ajustes/page.jsx` (908 líneas) en subcomponentes** — perfil, empresa,
+- [x] `[LOOP]` **9.40 Dividir `ajustes/page.jsx` (908 líneas) en subcomponentes** — perfil, empresa,
   MFA, equipo/roles y estado del bot hoy conviven en un único archivo. Sin urgencia, solo
   mantenibilidad; extraer siguiendo el mismo patrón que ya se usó para `RequireRol`/`MfaChallenge`.
+  5 componentes presentacionales nuevos en `dashboard/app/components/`: `AjustesPerfilSection`
+  (cuenta+contraseña+notificaciones+cerrar sesión), `AjustesMfaSection`, `AjustesBotSection`
+  (telegram+heartbeat), `AjustesEquipoSection` (invitaciones+roles), `AjustesEmpresaSection`
+  (nombre+base+coste+velocidad+desglose). Todo el estado/efectos/handlers se quedaron en
+  `ajustes/page.jsx` (ahora ~370 líneas), que solo compone y pasa props — cero lógica
+  duplicada. Nota honesta: el orden visual de las secciones cambió ligeramente (notificaciones
+  y los botones de cerrar sesión se agruparon con "perfil" en vez de ir al final; "equipo" pasó
+  a ir después de todas las de empresa en vez de en medio) porque agrupar por dominio quedaba
+  más mantenible que preservar el orden exacto — es un cambio cosmético, no funcional. Sin
+  tests de UI previos para esta página; se añadió `AjustesSecciones.test.jsx` (7 smoke tests
+  con `renderToStaticMarkup`, mismo patrón que `RequireRol.test.jsx`) para atrapar errores de
+  wiring de props que el build de Next (JS sin tipos) no detecta. 237+1 skip vitest, build sin
+  errores, ci.ps1 completo verde (139 pytest).
 - [ ] `[DECISIÓN]` **9.41 ¿Merece una pantalla dedicada para derechos ARCO?** — hoy
   `getExportacionChofer`/`anonimizarChofer` (9.15) solo son invocables desde la consola del
   navegador por un ingeniero; documentado como limitación honesta en `PRIVACIDAD-ARCO.md`.

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, User, Building2, Bell, Shield, Send, Copy, Check, MapPin, Euro, Gauge, Users, X, Activity, KeyRound } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getSession, signOut, signOutTodasLasSesiones } from "../../lib/auth";
 import {
@@ -11,12 +10,11 @@ import {
   guardarDesgloseCosteEmpresa,
 } from "../../lib/data";
 import RequireRol from "../components/RequireRol";
-
-const ROLES = [
-  { value: "admin", label: "Admin" },
-  { value: "gestor_operativo", label: "Gestor operativo" },
-  { value: "solo_lectura", label: "Solo lectura" },
-];
+import AjustesPerfilSection from "../components/AjustesPerfilSection";
+import AjustesMfaSection from "../components/AjustesMfaSection";
+import AjustesBotSection from "../components/AjustesBotSection";
+import AjustesEmpresaSection from "../components/AjustesEmpresaSection";
+import AjustesEquipoSection from "../components/AjustesEquipoSection";
 
 const BOT = process.env.NEXT_PUBLIC_BOT_USERNAME;
 
@@ -359,591 +357,91 @@ export default function AjustesPage() {
         </div>
       )}
 
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
-        <div className="flex items-center gap-2 mb-4">
-          <User size={18} className="text-brand" />
-          <h2 className="text-sm font-medium text-ink">Tu cuenta</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs text-ink-secondary mb-1">Email</label>
-            <input
-              value={user?.email || ""}
-              readOnly
-              className="w-full text-sm border border-border rounded-md px-3 py-2 bg-surface-alt text-ink-muted"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-ink-secondary mb-1">ID</label>
-            <input
-              value={user?.id?.slice(0, 12) || ""}
-              readOnly
-              className="w-full text-sm border border-border rounded-md px-3 py-2 bg-surface-alt text-ink-muted font-mono"
-            />
-          </div>
-        </div>
-      </section>
+      <AjustesPerfilSection
+        user={user}
+        newPassword={newPassword}
+        setNewPassword={setNewPassword}
+        guardando={guardando}
+        cambiarPassword={cambiarPassword}
+        gestor={gestor}
+        prefs={prefs}
+        togglePref={togglePref}
+        cerrandoSesiones={cerrandoSesiones}
+        onCerrarTodasLasSesiones={onCerrarTodasLasSesiones}
+        onSignOut={() => signOut()}
+      />
 
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Shield size={18} className="text-brand" />
-          <h2 className="text-sm font-medium text-ink">Cambiar contraseña</h2>
-        </div>
-        <div className="flex items-end gap-3">
-          <div className="flex-1">
-            <label className="block text-xs text-ink-secondary mb-1">Nueva contraseña</label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Mínimo 6 caracteres"
-              minLength={6}
-              maxLength={128}
-              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
-            />
-          </div>
-          <button
-            onClick={cambiarPassword}
-            disabled={guardando || newPassword.length < 6}
-            className="text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
-          >
-            Cambiar
-          </button>
-        </div>
-      </section>
+      <AjustesMfaSection
+        mfaError={mfaError}
+        mfaEnrolando={mfaEnrolando}
+        mfaQr={mfaQr}
+        mfaSecret={mfaSecret}
+        mfaCodigo={mfaCodigo}
+        setMfaCodigo={setMfaCodigo}
+        mfaOcupado={mfaOcupado}
+        mfaFactores={mfaFactores}
+        iniciarEnrolamientoMfa={iniciarEnrolamientoMfa}
+        confirmarEnrolamientoMfa={confirmarEnrolamientoMfa}
+        cancelarEnrolamientoMfa={cancelarEnrolamientoMfa}
+        desactivarMfa={desactivarMfa}
+      />
 
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
-        <div className="flex items-center gap-2 mb-4">
-          <KeyRound size={18} className="text-brand" />
-          <h2 className="text-sm font-medium text-ink">Verificación en dos pasos</h2>
-        </div>
-        <p className="text-xs text-ink-secondary mb-4">
-          Opcional. Además de tu contraseña, pide un código de 6 dígitos de una app de
-          autenticación (Google Authenticator, Authy...) al iniciar sesión.
-        </p>
-
-        {mfaError && (
-          <div className="mb-3 text-xs text-estado-incidencia bg-red-50 rounded-md p-2">{mfaError}</div>
-        )}
-
-        {mfaEnrolando ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-xs text-ink-secondary">
-              Escanea este código QR con tu app de autenticación, o introduce el código manual.
-            </p>
-            {mfaQr && (
-              <img
-                src={`data:image/svg+xml;utf-8,${encodeURIComponent(mfaQr)}`}
-                alt="Código QR de verificación en dos pasos"
-                className="w-40 h-40 border border-border rounded-md"
-              />
-            )}
-            {mfaSecret && (
-              <div className="text-xs text-ink-muted font-mono bg-surface-alt rounded-md px-2 py-1.5 break-all">
-                {mfaSecret}
-              </div>
-            )}
-            <div className="flex items-end gap-2">
-              <div className="flex-1">
-                <label className="block text-xs text-ink-secondary mb-1">Código de 6 dígitos</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={mfaCodigo}
-                  onChange={(e) => setMfaCodigo(e.target.value.replace(/\D/g, ""))}
-                  placeholder="123456"
-                  className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
-                />
-              </div>
-              <button
-                onClick={confirmarEnrolamientoMfa}
-                disabled={mfaOcupado || mfaCodigo.length !== 6}
-                className="text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
-              >
-                Confirmar
-              </button>
-              <button
-                onClick={cancelarEnrolamientoMfa}
-                disabled={mfaOcupado}
-                className="text-sm px-3 py-2 rounded-md border border-border text-ink-secondary hover:bg-surface-alt disabled:opacity-40"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        ) : mfaFactores.length > 0 ? (
-          <div className="flex flex-col gap-2">
-            {mfaFactores.map((f) => (
-              <div key={f.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-md bg-surface-alt">
-                <span className="flex-1 text-ink">{f.friendly_name || "Verificación en dos pasos"}</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-estado-ok">Activa</span>
-                <button
-                  onClick={() => desactivarMfa(f.id)}
-                  disabled={mfaOcupado}
-                  className="text-xs px-2 py-1 rounded-md border border-border text-estado-incidencia hover:bg-red-50 disabled:opacity-40"
-                >
-                  Desactivar
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <button
-            onClick={iniciarEnrolamientoMfa}
-            disabled={mfaOcupado}
-            className="text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
-          >
-            Activar verificación en dos pasos
-          </button>
-        )}
-      </section>
-
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Send size={18} className="text-brand" />
-          <h2 className="text-sm font-medium text-ink">Alertas por Telegram</h2>
-        </div>
-        {!gestor ? (
-          <p className="text-xs text-ink-muted">Cargando…</p>
-        ) : gestor.telegram_chat_id ? (
-          <p className="text-xs text-estado-ok">● Vinculado — recibirás aquí las alertas de incidencias y entregas.</p>
-        ) : BOT ? (
-          <div className="flex items-center gap-3">
-            <p className="flex-1 text-xs text-ink-secondary">
-              Sin vincular. Copia el enlace y ábrelo en Telegram para recibir alertas de incidencias y entregas en tiempo real.
-            </p>
-            <button
-              onClick={copiarEnlaceTelegram}
-              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border text-ink-secondary hover:bg-surface-alt shrink-0"
-            >
-              {copiado ? <><Check size={14} /> Copiado</> : <><Copy size={14} /> Copiar enlace</>}
-            </button>
-          </div>
-        ) : (
-          <p className="text-xs text-ink-muted">Bot no configurado (falta NEXT_PUBLIC_BOT_USERNAME).</p>
-        )}
-      </section>
-
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
-        <div className="flex items-center gap-2 mb-1">
-          <Activity size={18} className="text-brand" />
-          <h2 className="text-sm font-medium text-ink">Estado del bot</h2>
-        </div>
-        <p className="text-xs text-ink-secondary mb-3">
-          Latido cada 2 min mientras el proceso del bot está vivo (ítem 8.3). Si lleva más de 5
-          min sin señal, algo se ha caído y ningún chófer puede reportar hasta que se reinicie.
-        </p>
-        {!heartbeat ? (
-          <p className="text-xs text-ink-muted">Cargando…</p>
-        ) : heartbeat.activo ? (
-          <p className="text-xs text-estado-ok">● Activo — último latido hace {heartbeat.segundosDesdeUltimo}s</p>
-        ) : heartbeat.ultimoLatido ? (
-          <p className="text-xs text-estado-incidencia">
-            ● SIN SEÑAL — último latido hace {Math.round(heartbeat.segundosDesdeUltimo / 60)} min
-          </p>
-        ) : (
-          <p className="text-xs text-estado-incidencia">● SIN SEÑAL — nunca se ha registrado un latido</p>
-        )}
-      </section>
-
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Building2 size={18} className="text-brand" />
-          <h2 className="text-sm font-medium text-ink">Empresa</h2>
-        </div>
-        <div className="flex items-end gap-3">
-          <div className="flex-1">
-            <label className="block text-xs text-ink-secondary mb-1">Nombre</label>
-            <input
-              value={empresaNombre}
-              onChange={(e) => setEmpresaNombre(e.target.value)}
-              maxLength={200}
-              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
-            />
-          </div>
-          <button
-            onClick={guardarEmpresa}
-            disabled={guardando}
-            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
-          >
-            <Save size={16} /> Guardar
-          </button>
-        </div>
-        {empresa && (
-          <div className="mt-3 text-xs text-ink-muted">
-            ID empresa: <span className="font-mono">{empresa.id.slice(0, 12)}…</span>
-          </div>
-        )}
-      </section>
+      <AjustesBotSection
+        gestor={gestor}
+        bot={BOT}
+        copiado={copiado}
+        copiarEnlaceTelegram={copiarEnlaceTelegram}
+        heartbeat={heartbeat}
+      />
 
       <RequireRol roles={["admin"]}>
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
-        <div className="flex items-center gap-2 mb-1">
-          <Users size={18} className="text-brand" />
-          <h2 className="text-sm font-medium text-ink">Equipo</h2>
-        </div>
-        <p className="text-xs text-ink-secondary mb-4">
-          Invita a otros gestores de tu empresa. El enlace une al gestor nuevo a
-          TU empresa (no crea una nueva) y solo se puede usar una vez.
-        </p>
-
-        <form onSubmit={enviarInvitacion} className="flex items-end gap-2 mb-4">
-          <div className="flex-1">
-            <label className="block text-xs text-ink-secondary mb-1">Email a invitar</label>
-            <input
-              type="email"
-              value={invitarEmail}
-              onChange={(e) => setInvitarEmail(e.target.value)}
-              placeholder="compañero@empresa.com"
-              maxLength={254}
-              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={invitando}
-            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
-          >
-            <Send size={16} /> Invitar
-          </button>
-        </form>
-
-        {invitaciones.length === 0 ? (
-          <p className="text-xs text-ink-muted">Sin invitaciones todavía.</p>
-        ) : (
-          <div className="flex flex-col gap-2 mb-5">
-            {invitaciones.map((inv) => (
-              <div key={inv.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-md bg-surface-alt">
-                <span className="flex-1 text-ink">{inv.email}</span>
-                {inv.usada_at ? (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-estado-ok">Usada</span>
-                ) : inv.vencida ? (
-                  <>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-ink-muted" title={`Han pasado más de ${INVITACION_VALIDEZ_DIAS} días — el enlace ya no funciona`}>
-                      Vencida
-                    </span>
-                    <button
-                      onClick={() => revocarInvitacion(inv.id)}
-                      className="p-1.5 text-ink-muted hover:text-estado-incidencia"
-                      title="Eliminar invitación vencida"
-                    >
-                      <X size={14} />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700">Pendiente</span>
-                    <button
-                      onClick={() => copiarEnlaceInvitacion(inv)}
-                      className="p-1.5 text-ink-secondary hover:text-ink"
-                      title="Copiar enlace de invitación"
-                    >
-                      {codigoCopiadoId === inv.id ? <Check size={14} /> : <Copy size={14} />}
-                    </button>
-                    <button
-                      onClick={() => revocarInvitacion(inv.id)}
-                      className="p-1.5 text-ink-muted hover:text-estado-incidencia"
-                      title="Revocar invitación"
-                    >
-                      <X size={14} />
-                    </button>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        <h3 className="text-xs font-medium text-ink-secondary mb-2 mt-2">Gestores de la empresa</h3>
-        {gestores.length === 0 ? (
-          <p className="text-xs text-ink-muted">Cargando gestores…</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {gestores.map((g) => {
-              const esUnoMismo = g.auth_user_id === user?.id;
-              return (
-                <div key={g.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-md bg-surface-alt">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-ink truncate">{g.nombre}{esUnoMismo && <span className="text-ink-muted"> (tú)</span>}</div>
-                    <div className="text-xs text-ink-muted truncate">{g.email}</div>
-                  </div>
-                  <select
-                    value={g.rol}
-                    disabled={esUnoMismo || gestorAccionandoId === g.id}
-                    onChange={(e) => cambiarRolGestor(g.id, e.target.value)}
-                    title={esUnoMismo ? "No puedes cambiar tu propio rol" : "Cambiar rol"}
-                    className="text-xs border border-border rounded-md px-2 py-1 disabled:opacity-40"
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r.value} value={r.value}>{r.label}</option>
-                    ))}
-                  </select>
-                  {g.activo ? (
-                    <button
-                      onClick={() => onDesactivarGestor(g)}
-                      disabled={esUnoMismo || gestorAccionandoId === g.id}
-                      title={esUnoMismo ? "No puedes desactivarte a ti mismo" : "Desactivar gestor"}
-                      className="text-xs px-2 py-1 rounded-md border border-border text-estado-incidencia hover:bg-red-50 disabled:opacity-40"
-                    >
-                      Desactivar
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => onReactivarGestor(g)}
-                      disabled={gestorAccionandoId === g.id}
-                      className="text-xs px-2 py-1 rounded-md border border-border text-estado-ok hover:bg-green-50 disabled:opacity-40"
-                    >
-                      Reactivar
-                    </button>
-                  )}
-                  {!g.activo && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-ink-muted">Desactivado</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
+        <AjustesEquipoSection
+          invitaciones={invitaciones}
+          invitarEmail={invitarEmail}
+          setInvitarEmail={setInvitarEmail}
+          invitando={invitando}
+          enviarInvitacion={enviarInvitacion}
+          revocarInvitacion={revocarInvitacion}
+          copiarEnlaceInvitacion={copiarEnlaceInvitacion}
+          codigoCopiadoId={codigoCopiadoId}
+          invitacionValidezDias={INVITACION_VALIDEZ_DIAS}
+          gestores={gestores}
+          user={user}
+          gestorAccionandoId={gestorAccionandoId}
+          cambiarRolGestor={cambiarRolGestor}
+          onDesactivarGestor={onDesactivarGestor}
+          onReactivarGestor={onReactivarGestor}
+        />
       </RequireRol>
 
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
-        <div className="flex items-center gap-2 mb-1">
-          <MapPin size={18} className="text-brand" />
-          <h2 className="text-sm font-medium text-ink">Ubicación base</h2>
-        </div>
-        <p className="text-xs text-ink-secondary mb-4">
-          Coordenadas del domicilio/base de la empresa. Se usan en el informe de
-          nómina para calcular las noches fuera (cuando un chófer duerme lejos de
-          la base). Déjalas vacías si aún no las tienes.
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs text-ink-secondary mb-1">Latitud</label>
-            <input
-              type="number"
-              step="any"
-              value={baseLat}
-              onChange={(e) => setBaseLat(e.target.value)}
-              placeholder="40.4168"
-              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-ink-secondary mb-1">Longitud</label>
-            <input
-              type="number"
-              step="any"
-              value={baseLon}
-              onChange={(e) => setBaseLon(e.target.value)}
-              placeholder="-3.7038"
-              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
-            />
-          </div>
-        </div>
-        <div className="mt-3">
-          <button
-            onClick={guardarBase}
-            disabled={guardando}
-            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
-          >
-            <Save size={16} /> Guardar base
-          </button>
-        </div>
-      </section>
-
-      <RequireRol roles={["admin"]}>
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
-        <div className="flex items-center gap-2 mb-1">
-          <Euro size={18} className="text-brand" />
-          <h2 className="text-sm font-medium text-ink">Coste de operación</h2>
-        </div>
-        <p className="text-xs text-ink-secondary mb-4">
-          Coste medio por kilómetro de tu flota (combustible + conductor + amortización…).
-          Se usa para calcular el margen de cada viaje y detectar los que van a pérdidas.
-          Puedes afinarlo por camión en la ficha de cada vehículo (tiene prioridad sobre este).
-          Déjalo vacío si aún no lo tienes.
-        </p>
-        <div className="flex items-end gap-3">
-          <div className="flex-1 max-w-[12rem]">
-            <label className="block text-xs text-ink-secondary mb-1">Coste por km (€)</label>
-            <input
-              type="number"
-              step="any"
-              min="0"
-              value={costeKm}
-              onChange={(e) => setCosteKm(e.target.value)}
-              placeholder="1.20"
-              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
-            />
-          </div>
-          <button
-            onClick={guardarCoste}
-            disabled={guardando}
-            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
-          >
-            <Save size={16} /> Guardar coste
-          </button>
-        </div>
-      </section>
-      </RequireRol>
-
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
-        <div className="flex items-center gap-2 mb-1">
-          <Gauge size={18} className="text-brand" />
-          <h2 className="text-sm font-medium text-ink">Velocidad de planificación</h2>
-        </div>
-        <p className="text-xs text-ink-secondary mb-4">
-          Velocidad media usada para estimar cuántas horas de conducción tiene un viaje (y con
-          ello, cuántas paradas legales — 45 min cada 4,5h, descansos de 11h — le corresponden).
-          Por defecto {VELOCIDAD_PLANIFICACION_KMH} km/h. Déjalo vacío para usar ese valor.
-        </p>
-        <div className="flex items-end gap-3">
-          <div className="flex-1 max-w-[12rem]">
-            <label className="block text-xs text-ink-secondary mb-1">Velocidad (km/h)</label>
-            <input
-              type="number"
-              step="any"
-              min="1"
-              value={velocidadPlanificacion}
-              onChange={(e) => setVelocidadPlanificacion(e.target.value)}
-              placeholder={String(VELOCIDAD_PLANIFICACION_KMH)}
-              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
-            />
-          </div>
-          <button
-            onClick={guardarVelocidad}
-            disabled={guardando}
-            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
-          >
-            <Save size={16} /> Guardar velocidad
-          </button>
-        </div>
-      </section>
-
-      <RequireRol roles={["admin"]}>
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
-        <div className="flex items-center gap-2 mb-1">
-          <Euro size={18} className="text-brand" />
-          <h2 className="text-sm font-medium text-ink">Coste desglosado (avanzado)</h2>
-        </div>
-        <p className="text-xs text-ink-secondary mb-4">
-          Rellena estos campos para que el coste de cada viaje se calcule por capas (combustible
-          real + peajes + dietas + conductor) en vez de un único €/km. Cada campo es opcional: los
-          que dejes vacíos simplemente no se suman al total, y se te avisa en cada viaje de qué
-          falta por configurar. El consumo del camión (l/100km) se configura en la ficha de cada
-          vehículo.
-        </p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-          <div>
-            <label htmlFor="ajustes-gasoil" className="block text-xs text-ink-secondary mb-1">Gasoil (€/l)</label>
-            <input
-              id="ajustes-gasoil" type="number" step="any" min="0"
-              value={precioGasoil} onChange={(e) => setPrecioGasoil(e.target.value)} placeholder="1.50"
-              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-            />
-          </div>
-          <div>
-            <label htmlFor="ajustes-peaje" className="block text-xs text-ink-secondary mb-1">Peaje (€/km)</label>
-            <input
-              id="ajustes-peaje" type="number" step="any" min="0"
-              value={costePeaje} onChange={(e) => setCostePeaje(e.target.value)} placeholder="0.10"
-              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-            />
-          </div>
-          <div>
-            <label htmlFor="ajustes-dieta" className="block text-xs text-ink-secondary mb-1">Dieta (€/noche)</label>
-            <input
-              id="ajustes-dieta" type="number" step="any" min="0"
-              value={dietaNoche} onChange={(e) => setDietaNoche(e.target.value)} placeholder="40"
-              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-            />
-          </div>
-          <div>
-            <label htmlFor="ajustes-conductor" className="block text-xs text-ink-secondary mb-1">Conductor (€/km)</label>
-            <input
-              id="ajustes-conductor" type="number" step="any" min="0"
-              value={costeConductor} onChange={(e) => setCosteConductor(e.target.value)} placeholder="0.30"
-              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-            />
-          </div>
-        </div>
-        <button
-          onClick={guardarDesglose}
-          disabled={guardando}
-          className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
-        >
-          <Save size={16} /> Guardar coste desglosado
-        </button>
-      </section>
-      </RequireRol>
-
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Bell size={18} className="text-brand" />
-          <h2 className="text-sm font-medium text-ink">Notificaciones</h2>
-        </div>
-        {!gestor ? (
-          <p className="text-xs text-ink-muted">Cargando preferencias…</p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={prefs.notif_incidencias}
-                onChange={() => togglePref("notif_incidencias")}
-                className="accent-brand w-4 h-4"
-              />
-              <div>
-                <div className="text-sm text-ink">Incidencias</div>
-                <div className="text-xs text-ink-secondary">Notificar cuando se detecte una incidencia</div>
-              </div>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={prefs.notif_entregas}
-                onChange={() => togglePref("notif_entregas")}
-                className="accent-brand w-4 h-4"
-              />
-              <div>
-                <div className="text-sm text-ink">Entregas completadas</div>
-                <div className="text-xs text-ink-secondary">Notificar cuando un viaje se complete</div>
-              </div>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={prefs.notif_fuera_ventana}
-                onChange={() => togglePref("notif_fuera_ventana")}
-                className="accent-brand w-4 h-4"
-              />
-              <div>
-                <div className="text-sm text-ink">Fuera de ventana</div>
-                <div className="text-xs text-ink-secondary">Alerta cuando un hito se sale de su ventana horaria</div>
-              </div>
-            </label>
-          </div>
-        )}
-      </section>
-
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => signOut()}
-          className="text-sm text-estado-incidencia hover:underline"
-        >
-          Cerrar sesión
-        </button>
-        <button
-          onClick={onCerrarTodasLasSesiones}
-          disabled={cerrandoSesiones}
-          className="text-sm text-estado-incidencia hover:underline disabled:opacity-40"
-          title="Cierra tu sesión en todos los dispositivos, no solo este"
-        >
-          Cerrar sesión en todos los dispositivos
-        </button>
-      </div>
+      <AjustesEmpresaSection
+        empresa={empresa}
+        empresaNombre={empresaNombre}
+        setEmpresaNombre={setEmpresaNombre}
+        guardarEmpresa={guardarEmpresa}
+        baseLat={baseLat}
+        setBaseLat={setBaseLat}
+        baseLon={baseLon}
+        setBaseLon={setBaseLon}
+        guardarBase={guardarBase}
+        costeKm={costeKm}
+        setCosteKm={setCosteKm}
+        guardarCoste={guardarCoste}
+        velocidadPlanificacion={velocidadPlanificacion}
+        setVelocidadPlanificacion={setVelocidadPlanificacion}
+        guardarVelocidad={guardarVelocidad}
+        velocidadPlanificacionDefault={VELOCIDAD_PLANIFICACION_KMH}
+        precioGasoil={precioGasoil}
+        setPrecioGasoil={setPrecioGasoil}
+        costePeaje={costePeaje}
+        setCostePeaje={setCostePeaje}
+        dietaNoche={dietaNoche}
+        setDietaNoche={setDietaNoche}
+        costeConductor={costeConductor}
+        setCosteConductor={setCosteConductor}
+        guardarDesglose={guardarDesglose}
+        guardando={guardando}
+      />
     </div>
   );
 }
