@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-05 | Fase 9.19: SLOs internos medidos con lo que ya se loguea | (por commitear) | HECHO.
+2026-07-05 | Fase 9.19: SLOs internos medidos con lo que ya se loguea | 664c75a | HECHO.
 `backend/db/calcular_slos.py`: 3 objetivos definidos, 2 realmente calculables hoy sin
 infraestructura nueva. SLO 1 (disponibilidad del bot ≥99%): a partir de los huecos entre filas
 de `bot_heartbeat`, usando el MISMO umbral (`UMBRAL_HEARTBEAT_S=300s`) que ya usa
