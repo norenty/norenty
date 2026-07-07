@@ -8,6 +8,14 @@ depender del historial de conversación.
 
 ---
 
+2026-07-07 | Fase 9.32: Paginar/acotar lecturas sin límite en data.js | (por commitear) | HECHO.
+`getDocumentosPorCaducar` filtra `fecha_caducidad` server-side en vez de traer `documento`
+entera; `getParkings` añade tope de seguridad `LIMITE_PARKINGS=5000`; `getAuditLog` ordena y
+acota server-side `LIMITE_AUDIT_LOG=200` (append-only, migración 0037); `getViajes()` (home)
+acota `LIMITE_VIAJES_HOME=300` por `created_at desc`. `getMetricasRentabilidad` ya estaba bien
+acotada por fechas, sin cambio. Mock de vitest extendido con `.lte()`, `.not()`, `.order()`
+real. 164 vitest data.test.js verdes, ci.ps1 completo verde (134 pytest, 215 vitest).
+
 2026-07-07 | Fase 9.22: OSRM degradado oficialmente (Docker no disponible) | 422547c |
 HECHO. No hay Docker instalado en esta máquina, así que no se pudo levantar el contenedor
 OSRM ni probar el camino feliz real. Se tomó la rama de degradar oficialmente:

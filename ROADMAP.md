@@ -1209,12 +1209,22 @@ Esto es lo que quedó identificado pero NO arreglado — para que "casi perfecto
 concreta en vez de quedar solo en la conversación. Nada de aquí es urgente ni bloquea el uso
 actual; se prioriza por impacto, no por orden de descubrimiento.
 
-- [ ] `[LOOP]` **9.32 Paginar/acotar las lecturas sin límite añadidas después de 6.4** — item 6.4
+- [x] `[LOOP]` **9.32 Paginar/acotar las lecturas sin límite añadidas después de 6.4** — item 6.4
   ya resolvió esto para las agregaciones de analítica; varias funciones añadidas en fases
   posteriores reintrodujeron el mismo patrón (tabla entera sin `.range()`/`.limit()`):
   `getDocumentosPorCaducar`, `getParkings`, `getAuditLog`, `getMetricasRentabilidad`, y la propia
   `getViajes()` que alimenta la home. Aplicar el mismo tratamiento (rango server-side o paginación)
-  caso por caso.
+  caso por caso. Resuelto caso por caso en `dashboard/lib/data.js`: `getDocumentosPorCaducar`
+  ahora filtra `fecha_caducidad` server-side (`.lte()`) en vez de traer la tabla `documento`
+  entera; `getParkings` añade `LIMITE_PARKINGS=5000` como red de seguridad (el mapa sigue
+  necesitando el dataset completo, esto es un tope ante datos corruptos, no paginación);
+  `getAuditLog` ahora ordena y acota server-side (`LIMITE_AUDIT_LOG=200`, antes ordenaba en JS
+  sin límite — relevante por ser `audit_log` append-only, migración 0037); `getViajes()` (home)
+  añade `LIMITE_VIAJES_HOME=300` ordenado por `created_at desc` (los activos casi siempre son
+  recientes, así que en la práctica siguen viéndose todos); `getMetricasRentabilidad` ya estaba
+  correctamente acotada por rango de fechas desde antes — no necesitaba cambio. Mock de vitest
+  (`data.test.js`) extendido con `.lte()`, `.not()` y un `.order()` real (antes no-op). 164
+  vitest de `data.test.js` verdes, ci.ps1 completo verde (134 pytest, 215 vitest).
 - [ ] `[LOOP]` **9.33 Página "Hoy" — evitar que cada evento de realtime relance todo el abanico de
   cálculos** (`getResumenHoy` → hasta 20 `getViabilidadViaje` en paralelo → cada una con su propio
   abanico secuencial de llamadas a OSRM, sin caché ni debounce). Cachear el resultado de

@@ -13,6 +13,12 @@ function makeBuilder(table) {
     in(field, values) { rows = rows.filter((r) => values.includes(r[field])); return builder; },
     gte(field, value) { rows = rows.filter((r) => r[field] != null && r[field] >= value); return builder; },
     lt(field, value) { rows = rows.filter((r) => r[field] != null && r[field] < value); return builder; },
+    lte(field, value) { rows = rows.filter((r) => r[field] != null && r[field] <= value); return builder; },
+    not(field, op, value) {
+      // Solo soporta el patrón usado hoy: .not(field, "is", null).
+      if (op === "is" && value === null) rows = rows.filter((r) => r[field] != null);
+      return builder;
+    },
     or(condStr) {
       // Solo soporta el patrón usado hoy: "campo.eq.valor,campo2.eq.valor2".
       const conds = condStr.split(",").map((c) => {
@@ -22,7 +28,15 @@ function makeBuilder(table) {
       rows = rows.filter((r) => conds.some(({ field, op, value }) => op === "eq" && String(r[field]) === value));
       return builder;
     },
-    order() { return builder; },
+    order(field, opts) {
+      const asc = !opts || opts.ascending !== false;
+      rows = [...rows].sort((a, b) => {
+        if (a[field] < b[field]) return asc ? -1 : 1;
+        if (a[field] > b[field]) return asc ? 1 : -1;
+        return 0;
+      });
+      return builder;
+    },
     limit(n) { rows = rows.slice(0, n); return builder; },
     single() {
       return Promise.resolve(

@@ -172,11 +172,18 @@ function fechaNocheOperacion(fechaIso) {
   return d.toISOString().slice(0, 10);
 }
 
+// El Kanban de la home muestra planificado/en_curso/completados sin paginación de UI
+// (ítem 9.32) — un histórico de completados sin límite crecería sin cota. Se acota a los
+// más recientes por `created_at`: los activos (planificado/en_curso) casi siempre son
+// recientes también, así que en la práctica siguen apareciendo todos.
+export const LIMITE_VIAJES_HOME = 300;
+
 export async function getViajes() {
   const { data: viajes, error } = await supabase
     .from("viaje")
     .select("*, chofer(nombre, idioma), hito(id, estado, tipo, direccion, orden)")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(LIMITE_VIAJES_HOME);
 
   if (error || !viajes) return [];
 
@@ -420,8 +427,12 @@ export async function getDocumentosPorCaducar() {
   limite.setDate(limite.getDate() + 30);
   const limiteStr = limite.toISOString().slice(0, 10);
 
-  const { data } = await supabase.from("documento").select("*");
-  const rows = (data || []).filter((d) => d.fecha_caducidad && d.fecha_caducidad <= limiteStr);
+  const { data } = await supabase
+    .from("documento")
+    .select("*")
+    .not("fecha_caducidad", "is", null)
+    .lte("fecha_caducidad", limiteStr);
+  const rows = [...(data || [])];
   rows.sort((a, b) => a.fecha_caducidad.localeCompare(b.fecha_caducidad));
 
   const idsPorAmbito = { viaje: [], vehiculo: [], chofer: [] };
@@ -1821,13 +1832,20 @@ export async function registrarAuditoria({ entidad, entidadId, accion, detalle =
   }
 }
 
+// audit_log es append-only (migración 0037): una entidad longeva puede acumular actividad
+// sin límite. Se pide ordenado y acotado server-side en vez de traer todo y ordenar en JS —
+// la pantalla de actividad (ítem 9.32) muestra un feed reciente, no un histórico completo.
+export const LIMITE_AUDIT_LOG = 200;
+
 export async function getAuditLog(entidad, entidadId) {
   const { data } = await supabase
     .from("audit_log")
     .select("id, accion, detalle, created_at, gestor:gestor_id(nombre)")
     .eq("entidad", entidad)
-    .eq("entidad_id", entidadId);
-  return (data || []).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    .eq("entidad_id", entidadId)
+    .order("created_at", { ascending: false })
+    .limit(LIMITE_AUDIT_LOG);
+  return data || [];
 }
 
 // ==========================================================================
@@ -1840,10 +1858,17 @@ export async function getAuditLog(entidad, entidadId) {
  * datos Fraunhofer/Zenodo CC-BY 4.0; NO es la certificación oficial SSTPA) más
  * los propios de su empresa (fuente='empresa'). RLS hace el filtrado real.
  */
+// El mapa necesita el dataset completo (no es una lista paginable), pero un límite duro
+// evita que un dataset abierto corrupto/inflado o un futuro error de seed tumbe la página
+// sin aviso (ítem 9.32). 5000 cubre con margen el dataset Fraunhofer/Zenodo de España
+// actual + los propios de una empresa.
+export const LIMITE_PARKINGS = 5000;
+
 export async function getParkings() {
   const { data } = await supabase
     .from("parking")
-    .select("id, nombre, tipo, lat, lon, confianza, fuente, notas");
+    .select("id, nombre, tipo, lat, lon, confianza, fuente, notas")
+    .limit(LIMITE_PARKINGS);
   return data || [];
 }
 
