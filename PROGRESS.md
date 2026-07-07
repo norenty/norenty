@@ -13,7 +13,7 @@ HECHO. `ONBOARDING.md §7` documenta separar DDL/backfill/hardening de columnas 
 sucesivas, citando el incidente real de 0032 (9.29) como motivo. No retroactivo. Sin cambios de
 código — ci.ps1 verde.
 
-2026-07-07 | Fase 9.40: dividir ajustes/page.jsx en 5 subcomponentes | (por commitear) | HECHO.
+2026-07-07 | Fase 9.40: dividir ajustes/page.jsx en 5 subcomponentes | 31327b7 | HECHO.
 `AjustesPerfilSection`, `AjustesMfaSection`, `AjustesBotSection`, `AjustesEquipoSection`,
 `AjustesEmpresaSection` — todos presentacionales, estado/handlers se quedan en page.jsx
 (908 -> ~370 líneas). Orden visual de secciones cambió ligeramente al agrupar por dominio
