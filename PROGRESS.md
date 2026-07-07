@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-07 | Fase 9.36: migrate.py falla ante checksum inesperado | (por commitear) | HECHO.
+2026-07-07 | Fase 9.36: migrate.py falla ante checksum inesperado | ecd369c | HECHO.
 `ALLOWLIST_DRIFT_CONOCIDO` con los 10 nombres reales de 0002-0011 (backfill previo al runner);
 `clasificar_migraciones()` extraída como lógica pura testeable; cualquier drift de checksum
 fuera del allowlist ahora hace `sys.exit(1)` en vez de solo avisar. 5 tests nuevos Grupo A en
