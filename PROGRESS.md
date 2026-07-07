@@ -8,6 +8,15 @@ depender del historial de conversación.
 
 ---
 
+2026-07-07 | Fase 9.22: OSRM degradado oficialmente (Docker no disponible) | (por commitear) |
+HECHO. No hay Docker instalado en esta máquina, así que no se pudo levantar el contenedor
+OSRM ni probar el camino feliz real. Se tomó la rama de degradar oficialmente:
+`infra/osrm/README.md` ahora tiene un aviso explícito de que el servicio nunca se ha probado
+contra routing real y que hoy todos los cálculos de km/ETA usan el fallback Haversine×1.3
+(`FACTOR_SINUOSIDAD_FALLBACK`), ya marcado `estimado:true` en la UI de 5 pantallas
+(nomina, presupuesto, analitica, viajes/[id], viajes/nuevo-w). Cierra la ambigüedad sin
+fingir una verificación que no ocurrió. Sin cambios de código — ci.ps1 verde.
+
 2026-07-07 | Fase 9.20: Runbooks de los 5 incidentes más probables | 2facf79 | HECHO.
 `RUNBOOKS.md` nuevo: bot caído, Supabase degradado, webhook roto, proveedor LLM caído (cuando
 exista, Fase 7B), clave rotada a medias. Cada uno con diagnóstico paso a paso y respuesta,

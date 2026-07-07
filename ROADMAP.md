@@ -1182,12 +1182,18 @@ una respuesta escrita de una página al cuestionario típico de un responsable d
 - [ ] `[DECISIÓN]` **9.21 Simulacro de incidente real** — un sábado, romper algo a propósito
   (con aviso y ventana acordada) y operar el runbook correspondiente de 9.20. Necesita que
   el usuario fije la fecha/ventana; el loop no decide cuándo interrumpir un sistema en uso.
-- [ ] `[LOOP]` **9.22 OSRM: probarlo de verdad o degradarlo oficialmente** (picar código:
+- [x] `[LOOP]` **9.22 OSRM: probarlo de verdad o degradarlo oficialmente** (picar código:
   sonnet, esfuerzo bajo). O se levanta el contenedor Docker con el extracto de España y se
   verifica el camino feliz real una vez (medio día), o se documenta explícitamente en
   `ROADMAP.md`/UI que el cálculo de km/ETA es "Haversine×1.3, no probado contra routing real"
   hasta tener presupuesto para HERE. Lo que no se ha ejecutado nunca no se vende como si
   funcionara — cerrar esta ambigüedad en un sentido u otro, no dejarla flotando más tiempo.
+  Docker no está instalado en esta máquina, así que no se pudo levantar el contenedor real —
+  se tomó la segunda rama: `infra/osrm/README.md` ahora deja explícito en un aviso destacado
+  que el servicio NUNCA se ha probado contra un caso real, que hoy todo corre sobre el
+  fallback Haversine×1.3 (ya marcado `estimado:true` en la UI, verificado en 5 pantallas), y
+  qué haría falta para cerrar la ambigüedad de verdad (Docker + extracto de España, o HERE/
+  Mapbox gestionado). No requería cambios de código — ci.ps1 verde (134 pytest, 215 vitest).
 
 **GATE E:** 30 días seguidos con 2+ flotas activas sin intervención manual no planificada;
 runbooks probados al menos una vez cada uno; SLOs medidos y publicables.

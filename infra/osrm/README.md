@@ -1,5 +1,17 @@
 # OSRM local (routing por carretera real)
 
+> **Estado real (2026-07-07, ítem 9.20/9.22 del ROADMAP): este servicio NUNCA se ha
+> levantado ni probado contra un caso real.** No hay Docker instalado en la máquina de
+> desarrollo actual, así que no se ha podido ejecutar el camino feliz descrito abajo ni
+> una sola vez. En producción todos los cálculos de km/ETA usan hoy el fallback
+> Haversine × `FACTOR_SINUOSIDAD_FALLBACK` (`dashboard/lib/data.js`), marcado como
+> `estimado: true` en la UI — es una aproximación de ingeniería de tráfico, no una ruta
+> real. Esto se documenta explícitamente en vez de dejarlo como una ambigüedad: **el
+> cálculo de km/ETA no está probado contra routing real y no debe presentarse como tal**
+> hasta que alguien con Docker disponible complete la preparación de abajo y verifique al
+> menos una ruta real de España, o hasta que haya presupuesto para un proveedor gestionado
+> (HERE/Mapbox) que sustituya este self-host por completo.
+
 Servicio de routing que usa el dashboard para calcular **km por carretera real**
 entre hitos de un viaje (informe de nómina, ítem 5.1 del ROADMAP). El cliente
 vive en `dashboard/lib/osrm.js` y habla con el endpoint HTTP de OSRM.
