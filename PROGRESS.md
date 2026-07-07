@@ -13,6 +13,20 @@ HECHO. `ONBOARDING.md §7` documenta separar DDL/backfill/hardening de columnas 
 sucesivas, citando el incidente real de 0032 (9.29) como motivo. No retroactivo. Sin cambios de
 código — ci.ps1 verde.
 
+2026-07-07 | Fase 10 planificada (revisión CTO "mayor retorno") + reconciliación de items stale
+de Fase 6 | (por commitear) | HECHO (planning, sin código). (1) Reconciliados 9 items stale de
+Fase 6: 6.13/6.14/6.15/6.16/6.17/6.18/6.20/6.21/6.22 ya estaban hechos bajo números de Fase
+7A/8/9 — marcados [x] con puntero al número real; 6.12 (Ctrl+K) y 6.19 (i18n) confirmados
+deprioritizados por decisión del usuario 2026-07-04, se dejan [ ] a propósito. (2) Añadida Fase
+10 (Bloques G/H/I): cerrar la brecha con la realidad (smoke en vivo 10.1, restore drill 10.2 ya
+desbloqueado por D2, aislamiento RLS en CI 10.3), fiabilidad observable (logs+Sentry 10.4,
+alerta bot caído 10.5, integridad programada 10.6, panel de salud 10.7), aprendizaje propio
+suggestion-only (error de estimación 10.8, calibración por empresa 10.9, aprender sugerencia de
+chófer 10.10). Principio rector nuevo: el sistema aprende de su propia verdad pero cada ajuste
+se ofrece como sugerencia transparente, nunca mutación silenciosa (la confianza es el producto).
+GATE 10 antes de un piloto pagando = 10.1 pasado una vez + 10.3 verde. Conclusión honesta: el
+mayor retorno NO es reconstruir; la arquitectura es sólida para esta etapa.
+
 2026-07-07 | Fase 9.42: plan de módulo compartido para Reglamento CE 561/2006 | 68cd94d |
 HECHO. `PLAN-561-MODULO-COMPARTIDO.md`: estado actual, 4 opciones evaluadas, decisión de
 adoptar "mantener duplicado + fortalecer tests de paridad" como regla operativa inmediata

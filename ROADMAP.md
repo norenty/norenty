@@ -357,40 +357,71 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
 - [ ] `[LOOP]` **6.12 Búsqueda global (Ctrl+K)** — paleta de búsqueda sobre viajes (referencia),
   chóferes (nombre), vehículos (matrícula): modal con input, resultados agrupados, navegación con
   teclado. Sin librería nueva.
-- [ ] `[LOOP]` **6.13 Audit log ligero** — migración: tabla `audit_log(id, empresa_id, gestor_id,
+  Nota (2026-07-07, auditoría de items stale de Fase 6): sigue sin construirse — deprioritizado
+  explícitamente por decisión del usuario 2026-07-04 (línea ~637), no es un olvido. Se deja `[ ]`
+  intencionadamente hasta que se retome como feature pura, después del trabajo de solidez.
+- [x] `[LOOP]` **6.13 Audit log ligero** — migración: tabla `audit_log(id, empresa_id, gestor_id,
   entidad, entidad_id, accion, detalle, created_at)` RLS por empresa; registrar desde el dashboard
   los cambios críticos (estado de viaje, asignación de chófer, precio, borrado de documento);
   mostrar como "Actividad" colapsable en el detalle del viaje.
-- [ ] `[LOOP]` **6.14 Constantes compartidas** — extraer TIPO_LABEL de documentos (3 copias),
+  **Stale — ya hecho bajo otro número (2026-07-07):** construido como ítem **8.8** ("Audit log,
+  era 6.13"), con hardening posterior en 9.37 (append-only, migración `0037`). Ver
+  `backend/db/migrations/0030_audit_log.sql`/`0037_audit_log_append_only.sql`, `getAuditLog`/
+  `registrarAuditoria` en `dashboard/lib/data.js`, sección "Actividad" en `viajes/[id]/page.jsx`.
+- [x] `[LOOP]` **6.14 Constantes compartidas** — extraer TIPO_LABEL de documentos (3 copias),
   tipos de parking (2 copias) y helpers fmtFecha/badgeFor duplicados a `dashboard/lib/labels.js` y
   `dashboard/lib/format.js`. Solo refactor, tests siguen verdes.
-- [ ] `[LOOP]` **6.15 Aviso de límite semanal en asignación** — al asignar chófer a viaje, estimar
+  **Stale — ya hecho bajo otro número (2026-07-07):** subsumido por **7A.12** (sistema de diseño
+  consolidado) y completado en 9.38 (adopción real de los formateadores de `format.js` en 9
+  páginas). Ver `dashboard/lib/labels.js`/`dashboard/lib/format.js`.
+- [x] `[LOOP]` **6.15 Aviso de límite semanal en asignación** — al asignar chófer a viaje, estimar
   sus horas de conducción de los últimos 7 días (km Haversine×1.3 de sus viajes con actividad /
   velocidad de planificación) y avisar (no bloquear) si la suma con el viaje nuevo supera 56h/90h
   (Reglamento 561). Aproximación honesta etiquetada como estimación. Tests.
-- [ ] `[LOOP]` **6.16 ONBOARDING.md** — guía de arranque para un segundo desarrollador: requisitos,
+  **Stale — ya hecho bajo otro número (2026-07-07):** subsumido por **7A.1** (estado 561 por
+  chófer). Ver `getEstado561`/`getEstado561ParaChoferes` en `dashboard/lib/data.js`.
+- [x] `[LOOP]` **6.16 ONBOARDING.md** — guía de arranque para un segundo desarrollador: requisitos,
   .env (qué clave es cada una y dónde se consigue), arrancar bot/dashboard/OSRM, correr tests,
   aplicar migraciones, sembrar demo/parkings, convenciones del repo (fases, loop, PROGRESS).
+  **Stale — ya hecho bajo otro número (2026-07-07):** construido como **8.10** ("ONBOARDING.md,
+  era 6.16"), mantenido activamente desde entonces (última actualización en el ítem 9.37 de
+  esta misma sesión). Ver `ONBOARDING.md`.
 
 ### Semana 4 (21–31 jul) — deploy-ready (sin desplegar)
-- [ ] `[LOOP]` **6.17 Runbook de backup/restore** — documentar (y scriptear si D2 desbloqueada)
+- [x] `[LOOP]` **6.17 Runbook de backup/restore** — documentar (y scriptear si D2 desbloqueada)
   pg_dump/restore de Supabase, qué incluye (BD sí, storage aparte), frecuencia recomendada y prueba
   de restore. Si falta DATABASE_URL: documentar el procedimiento y marcar el script como pendiente.
-- [ ] `[LOOP]` **6.18 Reintentos y captura de errores en el bot** — wrapper con 3 reintentos y
+  **Stale — ya hecho bajo otro número (2026-07-07):** construido como **8.9** ("Runbook de
+  backup/restore, era 6.17"), actualizado tras resolverse D2. Ver `RUNBOOK.md`. La prueba de
+  restore real sigue pendiente — ver ítem 9.4 más abajo, genuinamente bloqueado, no stale.
+- [x] `[LOOP]` **6.18 Reintentos y captura de errores en el bot** — wrapper con 3 reintentos y
   backoff para llamadas Supabase del bot, errores a Sentry con contexto (update_id, chofer),
   mensaje de disculpa al chófer si todo falla. Tests del wrapper.
+  **Stale — ya hecho bajo otro número (2026-07-07):** construido como **8.2** ("Reintentos +
+  captura de errores en el bot, era 6.18"). Ver `ejecutar_con_reintentos()` en
+  `backend/app/bot.py`.
 - [ ] `[LOOP]` **6.19 i18n real ar/it/pt/de** — traducir las ~35 claves de TEXTOS a los 4 idiomas
   hoy aliasados a inglés (árabe incluido — el chófer magrebí es persona real del sector). Tests de
   muestreo por idioma.
-- [ ] `[LOOP]` **6.20 Tarjetas de riesgo en Operación** — en la home añadir dos tarjetas:
+  Nota (2026-07-07, auditoría de items stale de Fase 6): sigue sin construirse — deprioritizado
+  explícitamente por decisión del usuario 2026-07-04 (línea ~637), no es un olvido. `TEXTOS` en
+  `backend/app/bot.py` sigue aliasando ar/it/pt/de a inglés. Se deja `[ ]` intencionadamente.
+- [x] `[LOOP]` **6.20 Tarjetas de riesgo en Operación** — en la home añadir dos tarjetas:
   "Documentos por caducar (N)" → /documentos y "Viajes a pérdidas (N)" (margen<0 con precio y
   coste configurados) → lista filtrada. Reutiliza getDocumentosPorCaducar/getViabilidadViaje.
-- [ ] `[LOOP]` **6.21 Checklist de despliegue** — DEPLOY.md: pasos exactos Vercel+Railway+dominio,
+  **Stale — ya hecho bajo otro número (2026-07-07):** subsumido por **7A.10** (centro de mando
+  "Hoy" + notas del gestor), que reemplaza el concepto de dos tarjetas sueltas por un resumen
+  consolidado equivalente. Ver `getResumenHoy`/`ResumenHoy.jsx`.
+- [x] `[LOOP]` **6.21 Checklist de despliegue** — DEPLOY.md: pasos exactos Vercel+Railway+dominio,
   variables por entorno, activar webhook del bot (BOT_WEBHOOK_URL/SECRET ya soportados), promover
   CSP a enforcing, alta de OSRM en producción, Sentry DSN, smoke tests post-deploy. Deja el
   despliegue a un clic de decisión humana.
-- [ ] `[LOOP]` **6.22 Pase final de simplificación** — recorrer los diffs de julio buscando
+  **Stale — ya hecho bajo otro número (2026-07-07):** construido como **8.11** ("Checklist de
+  despliegue, era 6.21"). Ver `DEPLOY.md`.
+- [x] `[LOOP]` **6.22 Pase final de simplificación** — recorrer los diffs de julio buscando
   duplicación restante, dead code y TODOs; arreglar lo obvio, listar lo dudoso en PROGRESS.
+  **Stale — ya hecho bajo otro número (2026-07-07):** ejecutado como **8.12** ("Pase final de
+  simplificación, era 6.22"), y continuado en los pases de 9.38-9.40 de esta misma sesión.
 
 ### Decisiones pendientes del usuario (bloquean lo marcado)
 - [x] `[DECISIÓN D1 — CRÍTICA]` **Pegar la SUPABASE_SERVICE_ROLE_KEY real en `.env`** (2026-07-05).
@@ -1345,6 +1376,98 @@ actual; se prioriza por impacto, no por orden de descubrimiento.
 **GATE E2:** 9.34 decidido y 9.35 aplicado a las funciones financieras (lo de mayor riesgo real);
 `migrate.py --check` falla de verdad ante drift no documentado (9.36); el resto son mejoras de
 mantenibilidad sin gate estricto — se pueden cerrar en cualquier orden.
+
+---
+
+## Fase 10 — Solidez probada, auto-vigilancia y aprendizaje propio (ABIERTA 2026-07-07, a petición del usuario)
+
+Revisión CTO de "las acciones con más retorno" pedida por el usuario, con el objetivo explícito
+de **solidez / que funcione perfecto / confiable**, más una capacidad nueva: que el sistema
+**aprenda de sí mismo para mejorarse**.
+
+**Conclusión honesta (para no auto-engañarnos):** el mayor retorno NO es reconstruir nada. La
+arquitectura (dashboard → Supabase directo, bot PTB, RLS, cola nativa Postgres, cadena de hash)
+es sólida para esta etapa; reconstruirla destruiría código probado y violaría el propio
+principio de solidez. El mayor retorno está en (a) **cerrar la brecha con la realidad** — nada
+de lo construido ha tocado producción real todavía, así que "funciona perfecto" es hoy una
+hipótesis, no un hecho — (b) **hacer la fiabilidad observable y auto-vigilada**, y (c) un
+**aprendizaje propio honesto**: calibrar los parámetros de cada empresa desde su propia verdad
+acumulada.
+
+**PRINCIPIO RECTOR del aprendizaje (nuevo):** el sistema aprende de sus propios datos de
+operación y de dominio, pero **cada ajuste aprendido se presenta como SUGERENCIA transparente
+al gestor, nunca como una mutación silenciosa**. Un auto-tune de caja negra socavaría justo lo
+que se vende (confianza en que lo que ves es verdad y nadie lo ha tocado). El sistema puede
+decir "tus datos dicen X"; quien decide cambiar el parámetro es la persona. Sin LLM: es
+regresión sobre los datos propios de la empresa, explicable y auditable.
+
+### Bloque G — Cerrar la brecha con la realidad (PRE-REQUISITO de todo lo demás)
+
+Máxima prioridad: hasta que un chófer real complete un viaje real por Telegram real contra la BD
+real, "funciona perfecto" no está demostrado. D1 (service role key) ya está resuelta, así que
+esto ya es ejecutable.
+
+- [ ] `[DECISIÓN]` **10.1 Smoke de aceptación en vivo, punta a punta** — un viaje real completo
+  (vincular chófer → recogida → llegada → entrega → POD con foto → completado) por Telegram real
+  contra Supabase real, con un teléfono real. Guionizado y repetible (checklist versionado), no
+  una prueba ad-hoc. Necesita al usuario (teléfono + token de BotFather en marcha); el loop no
+  puede hacer la parte física. Es el ítem de mayor retorno del roadmap entero: convierte el mayor
+  desconocido en un hecho.
+- [ ] `[LOOP]` **10.2 Prueba de restore de verdad + RPO/RTO medido** (era 9.4, ahora DESBLOQUEADO
+  al estar D2 resuelta) — restaurar un backup real a una BD de prueba, cronometrar (RTO), medir la
+  ventana de pérdida posible (RPO) y anotar ambos en `RUNBOOK.md` con fecha. Un backup que nunca
+  se ha restaurado no es un backup.
+- [ ] `[LOOP]` **10.3 Suite de aislamiento multi-tenant (RLS) en CI** — Grupo B con 2 tenants
+  reales que AFIRMA que las lecturas/escrituras cruzadas están bloqueadas por RLS, y corre en
+  cada migración. Hoy el aislamiento (todo el modelo de seguridad) solo se verifica a mano una
+  vez; una regresión de policy abriría acceso cruzado en silencio. Es la red que protege la
+  tesis del producto.
+
+### Bloque H — Fiabilidad observable y auto-vigilada
+
+"Confiable" exige saber cuándo NO lo es. Hoy los logs van a stdout sin destino consultable
+(hueco ya anotado en 9.19), Sentry es opt-in e inerte, y el único consumidor del heartbeat es
+una tarjeta del dashboard que nadie mira.
+
+- [ ] `[DECISIÓN]` **10.4 Destino de logs consultable + Sentry activo de verdad** (bot y
+  dashboard) — elegir un destino (implica coste/cuenta) y activarlo; desbloquea el SLO 3 de 9.19
+  (latencia de respuesta) que hoy es "no calculable". Decisión del usuario porque implica elegir
+  proveedor y asumir su plan.
+- [ ] `[LOOP]` **10.5 Alerta real de "bot caído"** — el heartbeat perdido (>5 min) dispara una
+  notificación empujada (Telegram al gestor / email), no solo la tarjeta pasiva del dashboard.
+  Reutiliza el heartbeat de 8.3 y la cola de 0040.
+- [ ] `[LOOP]` **10.6 Verificación de integridad programada** — `verificar_cadena.py` (hash-chain)
+  y `verificar_pod.py` (hash de fotos) como trabajos RECURRENTES en la cola (0040), con alerta si
+  una verificación falla. La función de integridad no vale nada si la verificación solo corre
+  cuando alguien se acuerda de lanzarla a mano.
+- [ ] `[LOOP]` **10.7 Pantalla de salud del sistema** — SLOs de 9.19 + estado de las últimas
+  verificaciones de integridad (10.6) + últimas alertas, en una sola vista para el operador.
+
+### Bloque I — Aprendizaje de sí mismo (calibración desde la verdad propia)
+
+Aplica el PRINCIPIO RECTOR de arriba. El sistema ya RECOLECTA la verdad: km OSRM reales vs.
+Haversine, duraciones de conducción reales (plan-vs-real de 7A), costes reales (gastos vs.
+estimado). Falta cerrar el lazo: aprender de ello.
+
+- [ ] `[LOOP]` **10.8 Registro sistemático del error de estimación** — agregar por empresa las
+  desviaciones ya calculadas (llegada real vs. estimada, km real vs. Haversine×1.3, gasto real
+  vs. coste estimado) en una tabla de "verdad observada", con su tendencia. Es la base de datos
+  del aprendizaje y, de paso, un argumento comercial ("nuestras predicciones mejoran con tu uso").
+- [ ] `[DECISIÓN]` **10.9 Calibración de parámetros por empresa (suggestion-only)** — tras N
+  viajes completos, calcular desde los datos de ESA empresa su factor de sinuosidad real (ratio
+  OSRM/Haversine), su velocidad media real y su coste/km real, y OFRECERLOS como sugerencia
+  ("tus datos dicen 68 km/h, no los 75 configurados — ¿actualizar?"). Decisión del usuario: el
+  umbral N y confirmar que es suggestion-only (nunca auto-tune silencioso, por el principio
+  rector). Convierte los "valores iniciales razonables" (FACTOR_SINUOSIDAD_FALLBACK=1.3, etc.)
+  en valores aprendidos y honestos.
+- [ ] `[LOOP]` **10.10 Aprender la sugerencia de chófer desde `decision_asignacion`** — ya se
+  captura por qué el gestor eligió cada chófer (7A.2). Medir qué señales predicen de verdad las
+  asignaciones aceptadas y refinar `sugerirChofer` con ello. Más adelante; menor urgencia que
+  10.8/10.9.
+
+**GATE 10 (pre-piloto real):** 10.1 pasado al menos una vez (un viaje real completo por Telegram
+real) y 10.3 en verde en CI (aislamiento multi-tenant probado). Sin esos dos, no se pone delante
+de un cliente pagando, por mucho que el resto esté cerrado.
 
 ---
 
