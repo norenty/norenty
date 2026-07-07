@@ -1489,11 +1489,26 @@ vez memoria útil desde el día 1 y el corpus que alimentará el bot de llamadas
 3. **Cada capa produce el activo que hace posible la siguiente:** captura → corpus → copiloto →
    (quizá) autónomo. Saltarse un paso rompe la solidez exigida.
 
-- [ ] `[LOOP]` **11.1 Cliente como entidad de primera clase** (picar código: sonnet, esfuerzo
+- [x] `[LOOP]` **11.1 Cliente como entidad de primera clase** (picar código: sonnet, esfuerzo
   medio) — hoy el cliente es solo texto libre (`viaje.referencia`, "código/albarán del cliente" en
   `0001`). Migración: tabla `cliente` con RLS por empresa + `viaje.cliente_id`; conservar
   `referencia` para no romper nada. Sin cliente-entidad, el conocimiento gestor↔cliente (el más
   rico) no tiene dónde vivir.
+  Migración `0041_cliente.sql` (DDL puro, sin backfill; con cabecera de reversión de 9.16 y el
+  trigger `solo_lectura_bloquea_escritura` de 0032 para no repetir el hueco de 0037). Aplicada
+  con `migrate.py` (D2 resuelta) y verificada Grupo B contra la BD real: 9 columnas, RLS activo,
+  `viaje.cliente_id` + FK, policy y trigger presentes, checksum registrado. Capa de datos en
+  `data.js`: `getClientes` (solo activos por defecto), `createCliente`, `actualizarCliente`,
+  `desactivarCliente` (baja lógica), `asignarClienteAViaje` (no toca `referencia`). 8 tests
+  Grupo A. 139 pytest, 245+1 skip vitest, build verde.
+  **Alcance deliberado:** este ítem entrega el esquema + la capa de datos + tests (la entidad ya
+  es real y consultable, y desbloquea 11.2). La UI (una página `/clientes` y enganchar el selector
+  de cliente en los formularios de viaje `/viajes/nuevo` y `/nuevo-w`) se deja como incremento
+  siguiente para mantener esta migración enfocada — anotado como 11.1b abajo.
+- [ ] `[LOOP]` **11.1b UI de clientes** (picar código: sonnet, esfuerzo medio) — página `/clientes`
+  (listar/crear/editar/baja) reutilizando la capa de datos de 11.1, y un selector de cliente en los
+  formularios de creación de viaje (`/viajes/nuevo`, `/viajes/nuevo-w`) que rellene `cliente_id`
+  sin quitar el campo `referencia`. Cierra la adopción de la entidad de cara al gestor.
 - [ ] `[LOOP]` **11.2 Capa de contexto atada a las entidades** (picar código: opus spec → sonnet,
   esfuerzo medio) — tabla `contexto` (nota / transcripción / extracto de email) anclada a
   viaje/chofer/cliente, con PROCEDENCIA (quién lo dijo, por qué canal, cuándo), coherente con la

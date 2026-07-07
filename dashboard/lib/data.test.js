@@ -182,6 +182,11 @@ const {
   UMBRAL_HEARTBEAT_S,
   registrarAuditoria,
   getAuditLog,
+  getClientes,
+  createCliente,
+  actualizarCliente,
+  desactivarCliente,
+  asignarClienteAViaje,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -1163,6 +1168,73 @@ describe("invitaciones (6.9)", () => {
     TABLES.invitacion = [{ id: "i1", email: "a@x.com" }];
     await deleteInvitacion("i1");
     expect(TABLES.invitacion.find((i) => i.id === "i1")).toBeUndefined();
+  });
+});
+
+describe("clientes (11.1 — cliente como entidad de primera clase)", () => {
+  beforeEach(() => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "emp1" }];
+  });
+
+  it("getClientes devuelve solo activos por defecto, ordenados por nombre", async () => {
+    TABLES.cliente = [
+      { id: "c1", nombre: "Zeta SL", activo: true },
+      { id: "c2", nombre: "Alfa SL", activo: true },
+      { id: "c3", nombre: "Inactivo SL", activo: false },
+    ];
+    const r = await getClientes();
+    expect(r.map((c) => c.nombre)).toEqual(["Alfa SL", "Zeta SL"]);
+  });
+
+  it("getClientes incluye inactivos si se pide", async () => {
+    TABLES.cliente = [
+      { id: "c1", nombre: "Alfa SL", activo: true },
+      { id: "c3", nombre: "Baja SL", activo: false },
+    ];
+    const r = await getClientes({ incluirInactivos: true });
+    expect(r).toHaveLength(2);
+  });
+
+  it("createCliente inserta con la empresa del gestor y recorta espacios", async () => {
+    const r = await createCliente({ nombre: "  Mercadona  ", cif: " B123 ", email: "", telefono: "600111222" });
+    expect(r.empresa_id).toBe("emp1");
+    expect(r.nombre).toBe("Mercadona");
+    expect(r.cif).toBe("B123");
+    expect(r.email).toBeNull(); // string vacío -> null
+    expect(r.telefono).toBe("600111222");
+  });
+
+  it("createCliente exige nombre no vacío", async () => {
+    await expect(createCliente({ nombre: "   " })).rejects.toThrow("nombre del cliente es obligatorio");
+  });
+
+  it("actualizarCliente solo toca los campos dados y valida el nombre", async () => {
+    TABLES.cliente = [{ id: "c1", nombre: "Viejo", email: "a@x.com", activo: true }];
+    await actualizarCliente("c1", { email: "  nuevo@x.com  " });
+    expect(TABLES.cliente[0].email).toBe("nuevo@x.com");
+    expect(TABLES.cliente[0].nombre).toBe("Viejo"); // intacto
+    await expect(actualizarCliente("c1", { nombre: "" })).rejects.toThrow("obligatorio");
+  });
+
+  it("desactivarCliente hace baja lógica (no borra)", async () => {
+    TABLES.cliente = [{ id: "c1", nombre: "X", activo: true }];
+    await desactivarCliente("c1");
+    expect(TABLES.cliente[0].activo).toBe(false);
+    expect(TABLES.cliente.find((c) => c.id === "c1")).toBeDefined();
+  });
+
+  it("asignarClienteAViaje pone cliente_id sin tocar la referencia", async () => {
+    TABLES.viaje = [{ id: "v1", referencia: "ALB-123", cliente_id: null }];
+    await asignarClienteAViaje("v1", "c1");
+    expect(TABLES.viaje[0].cliente_id).toBe("c1");
+    expect(TABLES.viaje[0].referencia).toBe("ALB-123"); // conservada
+  });
+
+  it("asignarClienteAViaje con null desasocia", async () => {
+    TABLES.viaje = [{ id: "v1", referencia: "ALB-123", cliente_id: "c1" }];
+    await asignarClienteAViaje("v1", null);
+    expect(TABLES.viaje[0].cliente_id).toBeNull();
   });
 });
 

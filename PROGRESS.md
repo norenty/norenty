@@ -13,8 +13,17 @@ HECHO. `ONBOARDING.md §7` documenta separar DDL/backfill/hardening de columnas 
 sucesivas, citando el incidente real de 0032 (9.29) como motivo. No retroactivo. Sin cambios de
 código — ci.ps1 verde.
 
-2026-07-07 | Fase 11 planificada (capa de conocimiento, precursor del bot de llamadas) | (por
-commitear) | HECHO (planning, sin código). Respuesta a la preocupación del usuario: gran parte
+2026-07-07 | Fase 11.1: cliente como entidad de primera clase | (por commitear) | HECHO.
+Migración `0041_cliente.sql` (DDL puro con cabecera de reversión + trigger solo_lectura),
+aplicada con migrate.py (D2 resuelta) y verificada Grupo B contra la BD real (9 columnas, RLS
+on, viaje.cliente_id+FK, policy, trigger, checksum registrado). Capa de datos en data.js:
+getClientes/createCliente/actualizarCliente/desactivarCliente (baja lógica)/asignarClienteAViaje.
+8 tests Grupo A. Se conserva viaje.referencia intacto. Alcance: schema+datos+tests; la UI
+(/clientes + selector en formularios de viaje) se deja como 11.1b. 139 pytest, 245+1 skip
+vitest, build verde.
+
+2026-07-07 | Fase 11 planificada (capa de conocimiento, precursor del bot de llamadas) | 92ca0c0
+| HECHO (planning, sin código). Respuesta a la preocupación del usuario: gran parte
 del conocimiento del negocio vive en canales invisibles (llamadas, email, WhatsApp) y solo
 tenemos Telegram. Añadida Fase 11: capturar ese conocimiento COMO SUBPRODUCTO de usar el sistema
 (no pidiéndolo). Items: 11.1 cliente como entidad de primera clase (hoy es solo texto libre

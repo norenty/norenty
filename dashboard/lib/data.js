@@ -337,6 +337,65 @@ export async function getCurrentEmpresaId() {
 }
 
 // ==========================================================================
+// Clientes (ítem 11.1) — el cliente como entidad de primera clase, para que el
+// conocimiento gestor↔cliente tenga dónde vivir (precursor de la capa de
+// contexto de 11.2). RLS por empresa; `viaje.referencia` se conserva intacto.
+// ==========================================================================
+
+/** Clientes activos de la empresa del gestor logueado (RLS limita a su empresa).
+ * Ordenados por nombre en JS (`.order()` es no-op en el mock de tests, 0.3). */
+export async function getClientes({ incluirInactivos = false } = {}) {
+  let query = supabase.from("cliente").select("id, nombre, cif, email, telefono, notas, activo, created_at");
+  if (!incluirInactivos) query = query.eq("activo", true);
+  const { data } = await query;
+  return (data || []).slice().sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+}
+
+export async function createCliente({ nombre, cif = null, email = null, telefono = null, notas = null }) {
+  if (!nombre || !nombre.trim()) throw new Error("El nombre del cliente es obligatorio");
+  const empresaId = await getCurrentEmpresaId();
+  const { data, error } = await supabase
+    .from("cliente")
+    .insert({
+      empresa_id: empresaId,
+      nombre: nombre.trim(),
+      cif: cif?.trim() || null,
+      email: email?.trim() || null,
+      telefono: telefono?.trim() || null,
+      notas: notas?.trim() || null,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function actualizarCliente(id, campos) {
+  const payload = {};
+  if (campos.nombre !== undefined) {
+    if (!campos.nombre || !campos.nombre.trim()) throw new Error("El nombre del cliente es obligatorio");
+    payload.nombre = campos.nombre.trim();
+  }
+  for (const k of ["cif", "email", "telefono", "notas"]) {
+    if (campos[k] !== undefined) payload[k] = campos[k]?.trim() || null;
+  }
+  const { error } = await supabase.from("cliente").update(payload).eq("id", id);
+  if (error) throw error;
+}
+
+/** Baja lógica (activo=false): no borra para no perder el histórico/contexto ligado. */
+export async function desactivarCliente(id) {
+  const { error } = await supabase.from("cliente").update({ activo: false }).eq("id", id);
+  if (error) throw error;
+}
+
+/** Asocia (o desasocia, con clienteId=null) un cliente a un viaje. No toca `referencia`. */
+export async function asignarClienteAViaje(viajeId, clienteId) {
+  const { error } = await supabase.from("viaje").update({ cliente_id: clienteId }).eq("id", viajeId);
+  if (error) throw error;
+}
+
+// ==========================================================================
 // Invitaciones multi-gestor (ítem 6.9)
 // ==========================================================================
 
