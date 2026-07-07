@@ -13,7 +13,7 @@ HECHO. `ONBOARDING.md §7` documenta separar DDL/backfill/hardening de columnas 
 sucesivas, citando el incidente real de 0032 (9.29) como motivo. No retroactivo. Sin cambios de
 código — ci.ps1 verde.
 
-2026-07-07 | Fase 9.39: extraer escrituras de ajustes/page.jsx a data.js | (por commitear) |
+2026-07-07 | Fase 9.39: extraer escrituras de ajustes/page.jsx a data.js | e64bf79 |
 HECHO. Se encontraron 5 funciones (no 3 como decía el ítem): guardarNombreEmpresa,
 guardarBaseEmpresa, guardarCosteKmEmpresa, guardarVelocidadEmpresa,
 guardarDesgloseCosteEmpresa — todas extraídas a data.js con su validación numérica, lanzando
