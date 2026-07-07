@@ -98,7 +98,9 @@ class FakeTable:
     def select(self, *_args, **_kwargs):
         return FakeQuery(self._rows)
 
-    def insert(self, payload):
+    def insert(self, payload, **_kwargs):
+        # **_kwargs: acepta (e ignora) returning="minimal" u otras opciones
+        # del cliente real que no cambian el comportamiento del fake.
         return FakeInsert(self._rows, payload)
 
     def update(self, payload):

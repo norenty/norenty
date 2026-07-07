@@ -567,3 +567,755 @@ formato de serialización (si alguien cambia el orden de campos o el formato del
 8. **`ci.ps1` verde antes de commit (0.4)** y **commits separados código/docs (0.4)** — pero eso lo
    gestiona el orquestador; 9.7 solo produce archivos + tests que pasen `pytest`.
 ```
+
+---
+---
+
+# Bloque colas — diseño de cola asíncrona sobre Postgres (ítem 9.17)
+
+Especificación "mascada" del ítem **9.17** del ROADMAP. Mismo criterio que la sección hash-chain de
+arriba y que `SPECS-7A.md` / `SPECS-9-ROLES.md`: **todas las decisiones de diseño están tomadas
+AQUÍ.** El ejecutor de **9.18** (modelo barato) NO debe tomar ninguna decisión: copia el SQL literal,
+las firmas de función y los tests tal cual.
+
+**Alcance de 9.17 (esta spec):** SOLO el diseño escrito. NO implementa nada.
+**Alcance de 9.18 (otra orden):** crea la migración `0040_*`, el módulo `backend/app/cola.py`, el
+enganche del worker en `bot.py`, y los tests de los dos grupos (§9.7).
+
+Texto literal del roadmap (9.17): *"Cuando haya volumen real: sacar de la request del bot lo lento
+(validación de POD con visión LLM cuando se apruebe D3/7B, notificaciones) a un worker con reintentos
+persistentes. Diseño recomendado: **Postgres como cola** (`SELECT ... FOR UPDATE SKIP LOCKED`) antes
+que añadir Redis — menos piezas nuevas, más sólido, coherente con el 'anti-roadmap' de no añadir
+infraestructura que no haga falta todavía."*
+
+**HONESTIDAD DESDE LA PRIMERA LÍNEA (política 0.6 del repo, y cultura visible en todo `PROGRESS.md`
+de "aquí está lo que NO se hizo y por qué"):** esta spec construye la **infraestructura** de la cola
+(tabla + claim + reintentos + dead-letter + tests), NO un consumidor de negocio en producción. El
+roadmap dice literal *"cuando haya volumen real"* y *"cuando se apruebe D3/7B"* — es decir, la cola es
+**prospectiva a propósito**. Tras analizar los call-sites reales (§9.6) la conclusión es que **HOY no
+hay ningún trabajo síncrono que DEBA migrarse** para resolver un dolor actual; el POD-visión-LLM aún
+no está aprobado (decisión de presupuesto D3/7B) y las notificaciones síncronas actuales son
+suficientes. Por tanto **9.18 construye la mecánica y UN worker que corre en vacío (o procesa un
+`kind` de humo/`noop`), con el primer consumidor real dejado como stub documentado** hasta que
+POD-visión se apruebe. Esto es deliberado y correcto: no inflamos, dejamos los raíles puestos.
+
+---
+
+## 9.1 Estado verificado del repo (PASO 0 — la verdad manda sobre suposiciones)
+
+Todo lo de abajo está leído a archivo:línea, no asumido.
+
+### 9.1.1 Numeración de migraciones
+
+Listado real de `backend/db/migrations/` (a fecha de esta spec): la última existente en disco es
+**`0039_rls_enable_faltante.sql`**. Por tanto la nueva es **`0040_cola_trabajos.sql`**. (0031 y 0032
+convivieron sin renumerar porque eran independientes; aquí no hay ambigüedad: 0040 es el siguiente
+libre. Si al aplicar 9.18 ya existiese una 0040 de otra orden en vuelo, usar el siguiente número
+libre — la tabla y el código NO dependen del número.)
+
+### 9.1.2 Precedente de tabla "solo service-role" con RLS pero SIN policies de `authenticated`
+
+`backend/db/migrations/0027_bot_heartbeat.sql` es el precedente EXACTO que esta cola imita para la
+multi-tenancy (§9.4):
+
+```sql
+CREATE TABLE IF NOT EXISTS bot_heartbeat (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE bot_heartbeat ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "cualquier autenticado puede leer el heartbeat" ON bot_heartbeat
+  FOR SELECT USING (true);
+-- Sin policy de INSERT/UPDATE/DELETE para `authenticated`: solo el bot
+-- (service role, que ignora RLS) escribe aquí — mismo criterio que
+-- ejecucion_evento/ubicacion en la migración 0019.
+REVOKE INSERT, UPDATE, DELETE ON bot_heartbeat FROM authenticated;
+```
+
+`bot_heartbeat` **no tiene `empresa_id`** y no cuelga de `current_empresa_id()`: es un mecanismo
+interno del backend, no dato de un tenant. La cola de trabajos es igual de interna → §9.4 decide
+seguir este patrón (RLS ON, cero policies de escritura para `authenticated`), con la diferencia de que
+la cola NO necesita ni siquiera SELECT para `authenticated` (a diferencia del heartbeat, que el
+dashboard lee para el aviso de "bot caído" de 8.3). La cola es 100% invisible al dashboard.
+
+### 9.1.3 Cómo escribe/lee el backend contra Postgres
+
+- El bot usa el cliente **PostgREST** (`supabase-py`) con `SUPABASE_SERVICE_ROLE_KEY` (o
+  `SUPABASE_ANON_KEY` como fallback), instanciado en `backend/app/db.py:7-10`. Es API REST, **no
+  conexión Postgres directa** — por eso el bot NO puede ejecutar `SELECT ... FOR UPDATE SKIP LOCKED`
+  (PostgREST no expone locking de fila explícito). Ver §9.2 la consecuencia de arquitectura.
+- El runner de migraciones `backend/db/migrate.py` **sí** usa `psycopg2` con `DATABASE_URL`
+  (`migrate.py:16,53`), y `verificar_cadena.py` (§4 de la sección hash-chain) también. Es decir: en
+  este repo ya hay precedente de **backend con conexión Postgres directa vía `DATABASE_URL`** para
+  trabajo que PostgREST no cubre bien. El worker de la cola sigue ese precedente (§9.5).
+
+### 9.1.4 `ejecutar_con_reintentos` (8.2) — qué es y qué NO resuelve
+
+`backend/app/bot.py:45-68`: envuelve una llamada a Supabase con **reintentos en memoria** (3 intentos,
+backoff 0.5s/1s) ante errores de red transitorios (`httpx.TimeoutException`, `ConnectError`,
+`ReadError`, `RemoteProtocolError`), y si agota los intentos manda a Sentry y relanza. **Es reintento
+DENTRO de la misma request/proceso, efímero:** si el proceso del bot muere entre el intento 2 y el 3,
+el trabajo se pierde. La cola de esta spec es la capa **complementaria y ortogonal**: reintentos
+**PERSISTENTES** (sobreviven a un reinicio del proceso porque el estado vive en la tabla). Regla de
+diseño: `ejecutar_con_reintentos` sigue siendo la herramienta para el *camino síncrono* (la request
+del chófer, que debe responder ya); la cola es para el *trabajo diferido* que puede esperar y NO debe
+perderse aunque el proceso caiga. **No se sustituye una por otra; conviven.**
+
+### 9.1.5 Patrón JobQueue existente (`heartbeat`, `procesar_notificaciones_asignacion`)
+
+`bot.py:1441-1443` registra dos jobs repetitivos vía la `JobQueue` de `python-telegram-bot`:
+
+```python
+if app.job_queue:
+    app.job_queue.run_repeating(procesar_notificaciones_asignacion, interval=30, first=15)
+    app.job_queue.run_repeating(heartbeat, interval=HEARTBEAT_INTERVAL_S, first=1)
+```
+
+El `if app.job_queue:` es un guard para tests sin la extra `[job-queue]` instalada. Este es el
+mecanismo que §9.5 decide **reutilizar** para el worker de la cola (un tercer `run_repeating`), con su
+justificación.
+
+---
+
+## 9.2 Decisión de arquitectura: claim en SQL literal vía función, worker con `psycopg2`
+
+**Problema de fondo:** el patrón de cola robusto es `SELECT ... FOR UPDATE SKIP LOCKED` — dos workers
+concurrentes reclaman filas distintas sin bloquearse ni pisarse, porque `SKIP LOCKED` hace que cada
+uno salte las filas que el otro ya tiene bloqueadas en su transacción. **Pero PostgREST (el cliente
+del bot) no expone `FOR UPDATE SKIP LOCKED`.** Dos salidas:
+
+- **(A) Claim como función Postgres `SECURITY DEFINER` invocable por RPC** (`supabase.rpc(...)`), que
+  encapsula el `SELECT ... FOR UPDATE SKIP LOCKED ... UPDATE ... RETURNING` en una sola llamada
+  atómica. El bot podría llamarla por PostgREST.
+- **(B) Worker con conexión Postgres directa (`psycopg2` + `DATABASE_URL`)**, ejecutando el claim como
+  SQL directo dentro de una transacción explícita.
+
+**Decisión cerrada: SE HACEN LAS DOS COSAS, con roles distintos, porque resuelven cosas distintas:**
+
+1. **La función de claim se escribe en la migración 0040 como función SQL (§9.3.2).** Es el punto
+   único de la lógica de claim, testeable contra la BD real, e invocable de ambas formas (RPC o SQL
+   directo). Que la lógica viva en la BD (no en Python) garantiza atomicidad real: el
+   `UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED)` corre en UNA transacción del motor.
+2. **El worker usa `psycopg2`/`DATABASE_URL` (opción B para el consumo), no PostgREST.** Motivo: el
+   worker necesita control transaccional fino (claim → procesar → marcar completed/failed en la misma
+   o en transacciones controladas), y ya hay precedente en el repo (`migrate.py`,
+   `verificar_cadena.py`). Llamar la función por RPC desde PostgREST también funcionaría para el
+   *claim*, pero el *ciclo de vida completo* (marcar resultado, backoff) es más limpio y auditable con
+   una conexión directa. **El `enqueue` (encolar), en cambio, SÍ se puede hacer por PostgREST** (es un
+   `INSERT` normal, sin locking) — así el productor (el handler del bot que quiere diferir algo) encola
+   con el mismo cliente `supabase` que ya usa, sin abrir una conexión Postgres nueva en el hot path.
+
+**Resumen de qué usa qué:**
+
+| Operación | Cliente | Por qué |
+|-----------|---------|---------|
+| `enqueue` (productor, hot path del bot) | PostgREST (`supabase.table("cola_trabajo").insert(...)`) | Es un INSERT normal; reutiliza el cliente ya instanciado; no necesita locking. |
+| `claim_batch` (worker) | `psycopg2`/`DATABASE_URL`, llamando la función `cola_reclamar_lote()` | Necesita `FOR UPDATE SKIP LOCKED` + transacción; PostgREST no lo expone. |
+| `marcar_completado` / `marcar_fallido` (worker) | `psycopg2`/`DATABASE_URL` | Control transaccional; mismo canal que el claim. |
+
+**Dependencia nueva de infraestructura: NINGUNA.** `psycopg2` ya está en `backend/requirements.txt`
+(lo usa `migrate.py`). Se cumple el anti-roadmap: cero Redis/Celery/RabbitMQ.
+
+---
+
+## 9.3 Migración `0040_cola_trabajos.sql` (SQL literal completo)
+
+Convenciones del repo respetadas: cabecera explicando el porqué; aplicar por `apply_migration`
+(project_id `hloqddmdwinvjksqkhey`) o `python backend/db/migrate.py`; registrar checksum en
+`schema_migrations`. **Crear el archivo con Write/Edit, NUNCA con `Set-Content -Encoding UTF8`** (BOM
+rompe el checksum y `read_text(encoding="utf-8")` de `migrate.py`).
+
+**Nota de PROGRESS.md (auditoría CTO del 2026-07-05):** "migraciones como 0031/0032 mezclan
+schema+backfill+hardening en un solo archivo (ya causó que un subagente muriera a mitad en 9.29) —
+para migraciones futuras de ese tamaño, separar en pasos independientes". **Esta migración es
+pequeña** (una tabla nueva vacía + índices + una función + RLS; sin backfill de datos existentes
+porque la tabla nace vacía), así que va en un solo archivo sin riesgo. Se anota para que 9.18 no la
+trocee innecesariamente.
+
+### 9.3.1 Tabla `cola_trabajo`
+
+```sql
+-- ============================================================
+-- Norenty 9.17/9.18 — Cola de trabajos asíncrona sobre Postgres.
+--
+-- Saca de la request síncrona del bot el trabajo LENTO/NO FIABLE (futuro:
+-- validación de POD con visión LLM cuando se apruebe D3/7B; notificaciones si
+-- algún día pesan) a un worker con reintentos PERSISTENTES (sobreviven al
+-- reinicio del proceso, a diferencia de ejecutar_con_reintentos de 8.2, que es
+-- en memoria). Patrón: SELECT ... FOR UPDATE SKIP LOCKED — dos workers nunca
+-- reclaman la misma fila. NO se añade Redis/Celery (anti-roadmap: menos piezas).
+--
+-- Multi-tenancy: mecanismo INTERNO del backend, como bot_heartbeat (0027). RLS
+-- ON pero SIN policies para authenticated: el dashboard no la ve ni la toca.
+-- Solo el bot/worker (service role, salta RLS) escribe y consume. `empresa_id`
+-- es OPCIONAL (nullable) solo como metadato de trazabilidad del payload, NO como
+-- eje de aislamiento — ver §9.4 de SPECS-9.md.
+--
+-- FILOSOFÍA "evidencia, nunca perder datos en silencio" (igual que hash-chain y
+-- audit_log): un trabajo que agota reintentos NO se borra; queda en estado
+-- 'muerto' (dead-letter) para inspección humana. Nada se auto-purga.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.cola_trabajo (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  kind          text NOT NULL,                         -- tipo de trabajo, p.ej. 'validar_pod', 'noop'
+  payload       jsonb NOT NULL DEFAULT '{}'::jsonb,    -- datos que el handler del kind necesita
+  estado        text NOT NULL DEFAULT 'pendiente'
+                  CHECK (estado IN ('pendiente','en_proceso','completado','fallido','muerto')),
+  intentos      integer NOT NULL DEFAULT 0,            -- reintentos consumidos hasta ahora
+  max_intentos  integer NOT NULL DEFAULT 5,            -- tope antes de pasar a 'muerto' (dead-letter)
+  ultimo_error  text,                                  -- último mensaje de error (para diagnóstico)
+  empresa_id    uuid REFERENCES public.empresa(id) ON DELETE SET NULL,  -- metadato opcional, NO aislamiento
+  disponible_en timestamptz NOT NULL DEFAULT now(),    -- no reclamable hasta este instante (backoff/retraso)
+  reclamado_en  timestamptz,                           -- cuándo un worker lo tomó (NULL si nunca)
+  reclamado_por text,                                  -- id/hostname del worker que lo tomó (diagnóstico)
+  creado_en     timestamptz NOT NULL DEFAULT now(),
+  completado_en timestamptz                            -- cuándo terminó (completado/muerto); NULL si no
+);
+```
+
+**Justificación de cada columna y su tipo (decisiones cerradas, NO reabrir):**
+
+- **`kind text`** (no un enum): los tipos de trabajo crecerán (`validar_pod`, quizá `notificar_*`,
+  etc.) y un `CHECK`/enum obligaría a una migración por cada tipo nuevo. `text` libre + validación en
+  el código del worker (que enruta por `kind`) es más flexible y coherente con cómo el repo trata
+  `ejecucion_evento.tipo` (text, no enum). Un `kind` desconocido para el worker se trata como fallo
+  con `ultimo_error='kind desconocido'` (§9.5), nunca se pierde.
+- **`payload jsonb DEFAULT '{}'`**: mismo tipo y default que `ejecucion_evento.datos`. jsonb permite
+  que cada `kind` lleve sus propios campos sin columnas nuevas (p.ej. `{"pod_id": "...", "hito_id":
+  "..."}` para `validar_pod`).
+- **`estado`** con `CHECK` de 5 valores: `pendiente` (recién encolado) → `en_proceso` (reclamado por un
+  worker) → `completado` (OK) | `fallido` (falló pero le quedan intentos, volverá a `pendiente` con
+  backoff) | `muerto` (agotó `max_intentos`, dead-letter permanente). Ver máquina de estados §9.5.1.
+  El `CHECK` es barato y protege contra typos del código.
+- **`intentos` / `max_intentos integer`**: contador y tope. `max_intentos DEFAULT 5` (justificación del
+  número en §9.5.2). Se permite override por fila (un `kind` caro como visión-LLM podría encolarse con
+  `max_intentos=3`).
+- **`ultimo_error text`**: el último error como texto para diagnóstico humano. NO se borra al reintentar
+  (se sobrescribe con el error más reciente). Coherente con "evidencia".
+- **`empresa_id uuid` nullable, FK `ON DELETE SET NULL`**: METADATO, no eje de aislamiento (§9.4). Es
+  útil para depurar ("¿de qué tenant era este POD que falló?") y para métricas, pero la cola NO se
+  particiona por empresa ni cuelga de `current_empresa_id()`. `ON DELETE SET NULL` (no CASCADE): si se
+  borra una empresa, el registro del trabajo NO desaparece — sigue siendo evidencia de que algo se
+  procesó. Nullable porque algunos trabajos internos podrían no tener empresa.
+- **`disponible_en timestamptz DEFAULT now()`**: LA columna clave del backoff y del scheduling. Un
+  worker solo reclama filas con `disponible_en <= now()`. Al fallar, se empuja al futuro
+  (`now() + backoff`). Encolar con `disponible_en` futuro permite además trabajos **diferidos** (no solo
+  reintentos). Default `now()` = disponible ya.
+- **`reclamado_en` / `reclamado_por`**: diagnóstico y detección de trabajos "colgados" (un worker que
+  murió con una fila en `en_proceso`). `reclamado_por` = identificador del worker (hostname+pid, §9.5).
+  Ver §9.5.3 el rescate de trabajos huérfanos.
+- **`creado_en` / `completado_en`**: auditoría temporal. `completado_en` se rellena al pasar a
+  `completado` o `muerto` (fin de vida), NULL mientras siga vivo.
+
+### 9.3.2 Índices — el claim query debe ser rápido
+
+```sql
+-- Índice PARCIAL para el claim: el worker solo mira filas reclamables
+-- (pendiente/fallido con disponible_en ya vencido). Parcial = pequeño y
+-- caliente aunque la tabla acumule millones de 'completado'/'muerto'.
+-- Ordenado por disponible_en para servir las más antiguas/vencidas primero (FIFO
+-- aproximado por prioridad temporal).
+CREATE INDEX IF NOT EXISTS idx_cola_reclamables
+  ON public.cola_trabajo (disponible_en)
+  WHERE estado IN ('pendiente','fallido');
+
+-- Índice para el rescate de huérfanos (§9.5.3): trabajos 'en_proceso' viejos.
+CREATE INDEX IF NOT EXISTS idx_cola_en_proceso
+  ON public.cola_trabajo (reclamado_en)
+  WHERE estado = 'en_proceso';
+
+-- Índice para inspección operativa del dead-letter y por empresa (diagnóstico).
+CREATE INDEX IF NOT EXISTS idx_cola_estado ON public.cola_trabajo (estado);
+```
+
+**Por qué el índice parcial en `(disponible_en) WHERE estado IN ('pendiente','fallido')`:** el claim
+(§9.3.3) filtra exactamente por `estado IN ('pendiente','fallido') AND disponible_en <= now()` y
+ordena por `disponible_en`. Un índice parcial sobre ese predicado es pequeño (solo las filas
+pendientes de trabajo, no los millones de completados históricos) y hace el claim un index-scan barato
+aunque la tabla crezca sin límite. Este es EL índice que hace la cola escalar; el resto son de
+diagnóstico.
+
+### 9.3.3 Función de claim `cola_reclamar_lote()` — SQL literal (el `FOR UPDATE SKIP LOCKED`)
+
+```sql
+-- Reclama atómicamente hasta p_limite trabajos disponibles y los marca
+-- 'en_proceso'. FOR UPDATE SKIP LOCKED: dos workers concurrentes NUNCA reclaman
+-- la misma fila — cada uno salta las que el otro ya bloqueó en su transacción.
+-- Devuelve las filas reclamadas (para que el worker las procese). Atómica: el
+-- SELECT-bloqueante y el UPDATE ocurren en la misma sentencia/transacción.
+CREATE OR REPLACE FUNCTION public.cola_reclamar_lote(
+  p_limite    integer DEFAULT 10,
+  p_worker_id text    DEFAULT NULL
+)
+RETURNS SETOF public.cola_trabajo
+LANGUAGE sql
+AS $$
+  UPDATE public.cola_trabajo c
+     SET estado       = 'en_proceso',
+         reclamado_en = now(),
+         reclamado_por = p_worker_id,
+         intentos     = c.intentos + 1
+   WHERE c.id IN (
+     SELECT c2.id
+       FROM public.cola_trabajo c2
+      WHERE c2.estado IN ('pendiente','fallido')
+        AND c2.disponible_en <= now()
+      ORDER BY c2.disponible_en
+      LIMIT p_limite
+      FOR UPDATE SKIP LOCKED
+   )
+  RETURNING c.*;
+$$;
+
+-- Solo el backend/worker (service role) o el dueño de la BD la ejecutan.
+-- NO se concede a authenticated ni anon: el dashboard jamás toca la cola.
+REVOKE EXECUTE ON FUNCTION public.cola_reclamar_lote(integer, text) FROM PUBLIC, anon, authenticated;
+```
+
+**Puntos cerrados (NO reabrir):**
+- El `FOR UPDATE SKIP LOCKED` va en el **subselect** que elige los ids; el `UPDATE` externo los marca.
+  Este es el idioma canónico de "cola sobre Postgres" y es correcto: las filas elegidas quedan
+  bloqueadas para la transacción actual, `SKIP LOCKED` hace que un segundo worker concurrente ignore
+  esas y elija otras.
+- `intentos = c.intentos + 1` se incrementa **al reclamar**, no al fallar. Consecuencia: si el worker
+  muere mientras procesa (sin marcar resultado), el intento YA cuenta — el rescate de huérfanos
+  (§9.5.3) lo devolverá a `pendiente`/`muerto` según los intentos ya consumidos, sin bucle infinito.
+  Decisión deliberada: preferimos "contar de más" un intento perdido a arriesgar reintentos infinitos.
+- `RETURNS SETOF public.cola_trabajo` + `RETURNING c.*`: devuelve las filas completas para que el
+  worker tenga `kind`/`payload` sin una segunda query.
+- **NO es `SECURITY DEFINER`** (a diferencia de `current_empresa_id()`): no hay recursión de RLS que
+  evitar (la cola no tiene policies de `authenticated`), y el único que la llama es el worker con
+  service role, que ya salta RLS. Mantenerla `SECURITY INVOKER` (default) es el mínimo privilegio.
+
+### 9.3.4 RLS — patrón `bot_heartbeat`
+
+```sql
+ALTER TABLE public.cola_trabajo ENABLE ROW LEVEL SECURITY;
+-- SIN NINGUNA policy: por defecto, con RLS activado y sin policies, `authenticated`
+-- y `anon` no pueden hacer NADA (ni SELECT). Solo el service role (que ignora RLS)
+-- opera la cola. La cola es 100% interna: el dashboard ni la lee. Esto es MÁS
+-- restrictivo que bot_heartbeat (0027), que sí abre SELECT porque el dashboard
+-- muestra el estado del bot; la cola no se muestra en ningún sitio.
+REVOKE ALL ON public.cola_trabajo FROM authenticated, anon;
+```
+
+### 9.3.5 Registro del checksum (obligatorio, patrón 0.1 de SPECS-7A / `migrate.py`)
+
+```
+python -c "import hashlib,pathlib; sql=pathlib.Path('backend/db/migrations/0040_cola_trabajos.sql').read_text(encoding='utf-8'); print(hashlib.sha256(sql.encode('utf-8')).hexdigest())"
+```
+y luego, si se aplica por `apply_migration` del MCP, vía `execute_sql`:
+```sql
+INSERT INTO schema_migrations (filename, checksum)
+VALUES ('0040_cola_trabajos.sql','<hash>')
+ON CONFLICT (filename) DO NOTHING;
+```
+Si se aplica con `python backend/db/migrate.py`, el runner inserta el checksum solo
+(`migrate.py:84-87`) — registrar a mano SOLO si se aplica por MCP.
+
+---
+
+## 9.4 Multi-tenancy — decisión cerrada: interna, patrón `bot_heartbeat`, NO `empresa_id`+RLS de tenant
+
+**Decisión: la `cola_trabajo` NO se aísla por `empresa_id` vía RLS. Es un mecanismo interno del
+backend, con RLS activado pero SIN policies para `authenticated` (patrón `bot_heartbeat`, 0027).**
+
+Justificación contra el precedente REAL del repo:
+
+- Toda tabla que es **dato de un tenant y que el dashboard toca** cuelga de `current_empresa_id()` con
+  policies por empresa (`decision_asignacion`, `gasto_viaje`, `nota_gestor`… ver `SPECS-9-ROLES.md`
+  §1.1). La `cola_trabajo` **no es eso**: es fontanería del backend. El dashboard nunca la lee ni
+  escribe. Igual que `bot_heartbeat` (0027) no tiene `empresa_id` y solo el service role escribe.
+- El productor y el consumidor son **siempre el backend con service role** (que ignora RLS). Meter
+  policies de `authenticated` sería seguridad-teatro: no hay ningún flujo de `authenticated` que las
+  ejerza.
+- `empresa_id` **sí existe** en la tabla, pero como **metadato de trazabilidad** (saber de qué tenant
+  era un POD que falló), NO como eje de aislamiento. No hay policy `empresa_id = current_empresa_id()`.
+- **Honestidad:** si algún día el dashboard necesitara MOSTRAR el estado de la cola a un gestor (p.ej.
+  "3 validaciones de POD pendientes"), habría que añadir entonces una función `SECURITY DEFINER` que
+  devuelva solo agregados de su empresa (patrón `viaje_publico` de 7A.14), NO abrir la tabla. Eso es
+  fuera de alcance de 9.18; se anota como posible mejora. Hoy: cero exposición.
+
+Esto es coherente con `bot_heartbeat`, que la propia migración 0027 justifica como "mismo criterio que
+ejecucion_evento/ubicacion en 0019" (tablas que solo el service role escribe).
+
+---
+
+## 9.5 Forma del proceso worker — reutiliza la `JobQueue` de `bot.py`, NO un proceso separado
+
+**Decisión cerrada: el worker corre DENTRO del proceso `bot.py` existente, como un tercer
+`app.job_queue.run_repeating`, en `backend/app/bot.py`. La lógica de la cola vive en un módulo nuevo
+`backend/app/cola.py`; el enganche (`run_repeating`) se añade en `create_bot_app()`.**
+
+Justificación:
+
+- Ya hay **exactamente este patrón** funcionando: `heartbeat` y `procesar_notificaciones_asignacion`
+  son jobs `run_repeating` en el mismo proceso (`bot.py:1441-1443`). Añadir un tercero es cero
+  infraestructura nueva, cero proceso que supervisar, cero systemd/pm2 extra. Coherente con el
+  anti-roadmap ("menos piezas nuevas").
+- El volumen esperado HOY es **cero o casi cero** (§9.6: no hay consumidor real todavía). Justificar un
+  proceso Python separado para una cola que aún no procesa nada de negocio sería sobre-ingeniería
+  contraria a la cultura del repo.
+- **Matiz importante y honesto (el trade-off que 9.18 debe conocer):** la `JobQueue` de PTB corre en el
+  **event loop asyncio** del bot. El claim y el marcado usan `psycopg2` que es **bloqueante (síncrono)**.
+  Para no congelar el loop del bot mientras el worker habla con la BD, el job de la cola debe ejecutar
+  el trabajo bloqueante en un thread: `await asyncio.get_event_loop().run_in_executor(None, _tick_sync)`
+  donde `_tick_sync()` hace el claim+proceso+marcado con `psycopg2`. **Esta es la única sutileza real de
+  esta decisión** y está escrita aquí para que 9.18 no la descubra por las malas. (Alternativa
+  rechazada: un proceso `backend/worker.py` separado con su propio bucle `while True: sleep`. Se
+  rechaza HOY por lo de arriba — sin volumen no compensa. **Se anota como la evolución natural cuando
+  POD-visión-LLM esté aprobado y el volumen lo pida:** mover `_tick_sync` a un `backend/worker.py` que
+  importe `cola.py` y corra en su propio proceso, reutilizando el MISMO módulo `cola.py` sin
+  reescribirlo. El diseño de `cola.py` en §9.5.4 se hace pensando en ese futuro: funciones puras de
+  claim/marcado que no dependen de PTB.)**
+
+### 9.5.1 Máquina de estados (la referencia visual para el worker)
+
+```
+   enqueue                claim (cola_reclamar_lote)
+  ─────────►  pendiente ───────────────────────────►  en_proceso
+                 ▲                                        │
+                 │ backoff (disponible_en = now()+d)      │  procesar(kind, payload)
+                 │                                        │
+              fallido ◄───────────────────────────────── ┤ excepción, intentos < max_intentos
+                                                          │
+              muerto  ◄───────────────────────────────── ┤ excepción, intentos >= max_intentos  (dead-letter, permanente)
+                                                          │
+              completado ◄─────────────────────────────── ┘ éxito
+```
+
+- `fallido` es transitorio: tiene `disponible_en` en el futuro; el índice parcial lo incluye, así que
+  un tick posterior (pasado el backoff) lo re-reclama. `pendiente` y `fallido` son ambos
+  "reclamables"; se distinguen solo para diagnóstico (¿nació así o ya falló alguna vez?).
+- `muerto` y `completado` son terminales: NO están en el índice de reclamables, nunca se re-reclaman.
+  **Ninguno se borra jamás** (política "evidencia"): quedan para inspección/métricas.
+
+### 9.5.2 Reintentos y backoff — algoritmo exacto (decisión cerrada)
+
+- **`max_intentos` por defecto = 5.** Justificación del número: suficiente para superar un blip de red
+  o una caída breve de un servicio externo (p.ej. la API de visión-LLM), sin martillear
+  indefinidamente un trabajo que está roto de verdad. Con el backoff de abajo, 5 intentos cubren ~una
+  hora de ventana (0 + 2 + 8 + 32 + 128 min ≈ 170 min de espera acumulada máxima), tiempo de sobra
+  para que un incidente transitorio se resuelva.
+- **Backoff EXPONENCIAL con base 2 sobre una unidad de 60 s, sin jitter en v1:**
+  `retraso_segundos = 60 * (2 ** (intentos - 1))` donde `intentos` es el nº de intentos YA consumidos
+  (1 tras el primer fallo, 2 tras el segundo…). Es decir, tras el fallo Nº k, la fila vuelve a estar
+  disponible en `now() + interval '60 seconds' * (2 ^ (k-1))`:
+  - fallo 1 → +60 s
+  - fallo 2 → +120 s
+  - fallo 3 → +240 s
+  - fallo 4 → +480 s
+  - (fallo 5 → sería +960 s, pero al llegar a `max_intentos` pasa a `muerto`, no se reprograma)
+  Coherente con `ejecutar_con_reintentos` (8.2), que también usa backoff exponencial base 2 (`backoff_base
+  * (2 ** intento)`); aquí la unidad base es 60 s en vez de 0.5 s porque es trabajo diferido, no una
+  request en vivo. **Sin jitter en v1** (un solo worker hoy → cero thundering herd que aleatorizar); se
+  anota jitter como mejora trivial si algún día hay muchos workers concurrentes.
+- **Fórmula del `disponible_en` al fallar (SQL que ejecuta el worker en `marcar_fallido`):**
+  ```sql
+  UPDATE public.cola_trabajo
+     SET estado = CASE WHEN intentos >= max_intentos THEN 'muerto' ELSE 'fallido' END,
+         ultimo_error = %(err)s,
+         disponible_en = CASE WHEN intentos >= max_intentos
+                              THEN disponible_en
+                              ELSE now() + (interval '60 seconds' * power(2, intentos - 1)) END,
+         completado_en = CASE WHEN intentos >= max_intentos THEN now() ELSE completado_en END
+   WHERE id = %(id)s;
+  ```
+  (`intentos` ya viene incrementado por el claim, §9.3.3, así que aquí se compara `>=` directamente.)
+- **Dead-letter:** al alcanzar `max_intentos`, `estado='muerto'` + `completado_en=now()` + se conserva
+  `ultimo_error`. **Nunca se auto-borra** — consistente con la filosofía "evidencia, never silently
+  lose data" del hash-chain y del `audit_log` (0037, append-only). Un humano inspecciona la cola muerta
+  (`SELECT * FROM cola_trabajo WHERE estado='muerto'`) y decide (reprocesar poniéndolo a `pendiente`
+  con `intentos=0`, o descartarlo conscientemente).
+
+### 9.5.3 Rescate de trabajos huérfanos (worker que murió con la fila en `en_proceso`)
+
+Si el proceso muere entre el claim y el marcado, una fila queda en `en_proceso` para siempre (nunca se
+re-reclama porque `en_proceso` no está en el índice de reclamables). Mecanismo de rescate, ejecutado
+al inicio de cada tick del worker ANTES del claim:
+
+```sql
+-- Trabajos 'en_proceso' reclamados hace más de COLA_TIMEOUT_HUERFANO segundos se
+-- consideran huérfanos (el worker murió) y vuelven a la cola. Si ya agotaron
+-- intentos, pasan a 'muerto' en vez de reintentar en bucle.
+UPDATE public.cola_trabajo
+   SET estado = CASE WHEN intentos >= max_intentos THEN 'muerto' ELSE 'fallido' END,
+       ultimo_error = COALESCE(ultimo_error, 'huérfano: worker no marcó resultado'),
+       disponible_en = now(),
+       completado_en = CASE WHEN intentos >= max_intentos THEN now() ELSE completado_en END
+ WHERE estado = 'en_proceso'
+   AND reclamado_en < now() - (interval '1 second' * %(timeout)s);
+```
+
+`COLA_TIMEOUT_HUERFANO` = 300 s por defecto (constante en `cola.py`, comentario "valor inicial
+razonable, NO pactado con cliente real" — patrón 0.6). Debe ser holgadamente mayor que la duración
+esperada del trabajo más lento (una validación de visión-LLM podría tardar decenas de segundos; 300 s
+da margen sin dejar un huérfano bloqueado horas).
+
+### 9.5.4 Módulo `backend/app/cola.py` — firmas EXACTAS (el ejecutor las copia tal cual)
+
+Diseñado para NO depender de PTB (para poder migrarlo a un proceso separado en el futuro sin
+reescribir). Usa `psycopg2` + `DATABASE_URL` (como `migrate.py`). El `enqueue` es la excepción: usa el
+cliente PostgREST `supabase` (hot path del bot).
+
+```python
+"""Cola de trabajos asíncrona sobre Postgres (ítem 9.18, spec en SPECS-9.md §9).
+
+Reintentos PERSISTENTES (sobreviven al reinicio del proceso), a diferencia de
+ejecutar_con_reintentos de bot.py (en memoria). NO usa Redis/Celery — la cola ES
+la tabla cola_trabajo. Ver SPECS-9.md §9 para el diseño cerrado.
+"""
+import os
+import socket
+import logging
+from typing import Callable
+
+import psycopg2
+import psycopg2.extras
+
+logger = logging.getLogger("norenty.cola")
+
+COLA_TIMEOUT_HUERFANO_S = 300   # valor inicial razonable, NO pactado con cliente real
+COLA_LOTE_DEFAULT = 10          # trabajos por tick
+
+# Registro de handlers por kind. Un handler recibe el payload (dict) y lanza si
+# falla (el fallo se captura arriba y dispara el backoff/dead-letter). Un kind
+# sin handler registrado se trata como fallo ('kind desconocido'), nunca se pierde.
+_HANDLERS: dict[str, Callable[[dict], None]] = {}
+
+
+def registrar_handler(kind: str, fn: Callable[[dict], None]) -> None:
+    """Registra el handler que procesa los trabajos de un `kind` dado."""
+    _HANDLERS[kind] = fn
+
+
+def enqueue(kind: str, payload: dict, *, empresa_id=None, max_intentos: int = 5,
+            disponible_en=None) -> None:
+    """Encola un trabajo (PRODUCTOR — hot path del bot, vía PostgREST).
+    `disponible_en` opcional (ISO str) para trabajos diferidos; por defecto now().
+    NO abre conexión psycopg2: reutiliza el cliente supabase ya instanciado.
+    """
+    from .db import supabase
+    fila = {"kind": kind, "payload": payload, "max_intentos": max_intentos}
+    if empresa_id is not None:
+        fila["empresa_id"] = empresa_id
+    if disponible_en is not None:
+        fila["disponible_en"] = disponible_en
+    supabase.table("cola_trabajo").insert(fila, returning="minimal").execute()
+    # returning="minimal": no necesitamos la fila de vuelta y evita RETURNING/RLS
+    # de más (patrón 0.2 de SPECS-7A). La tabla no tiene policy SELECT, así que
+    # pedir RETURNING con service role funcionaría, pero minimal es lo correcto.
+
+
+def _conectar():
+    """Conexión psycopg2 directa (como migrate.py). Requiere DATABASE_URL."""
+    return psycopg2.connect(os.environ["DATABASE_URL"])
+
+
+def _worker_id() -> str:
+    return f"{socket.gethostname()}:{os.getpid()}"
+
+
+def rescatar_huerfanos(cur, timeout_s: int = COLA_TIMEOUT_HUERFANO_S) -> int:
+    """Devuelve a la cola los trabajos 'en_proceso' abandonados. Retorna nº rescatados.
+    SQL literal en SPECS-9.md §9.5.3."""
+    ...
+
+
+def reclamar_lote(cur, limite: int = COLA_LOTE_DEFAULT, worker_id: str | None = None) -> list[dict]:
+    """Llama a cola_reclamar_lote() y devuelve las filas reclamadas como dicts.
+    Usa RealDictCursor. SQL: SELECT * FROM cola_reclamar_lote(%s, %s)."""
+    ...
+
+
+def marcar_completado(cur, trabajo_id: str) -> None:
+    """estado='completado', completado_en=now(). SQL literal simple."""
+    ...
+
+
+def marcar_fallido(cur, trabajo_id: str, intentos: int, max_intentos: int, error: str) -> None:
+    """Backoff exponencial + dead-letter. SQL literal en SPECS-9.md §9.5.2."""
+    ...
+
+
+def procesar_uno(trabajo: dict) -> tuple[bool, str | None]:
+    """Ejecuta el handler del kind del trabajo. FUNCIÓN PURA de enrutado (testeable
+    con handlers fake, sin BD). Devuelve (ok, error). Un kind sin handler → (False,
+    'kind desconocido: <kind>'). Una excepción del handler → (False, str(exc))."""
+    kind = trabajo["kind"]
+    handler = _HANDLERS.get(kind)
+    if handler is None:
+        return False, f"kind desconocido: {kind}"
+    try:
+        handler(trabajo["payload"])
+        return True, None
+    except Exception as exc:      # noqa: BLE001 — cualquier fallo del handler va al backoff
+        return False, str(exc)
+
+
+def tick(limite: int = COLA_LOTE_DEFAULT) -> dict:
+    """Un ciclo completo del worker (SÍNCRONO, psycopg2). Pensado para llamarse
+    desde el JobQueue del bot vía run_in_executor (NO bloquear el event loop) o
+    desde un bucle de proceso separado en el futuro. Abre conexión, rescata
+    huérfanos, reclama un lote, procesa cada trabajo y marca resultado; cada
+    trabajo en su propia transacción para que un fallo no tumbe el lote entero.
+    Devuelve {'reclamados': n, 'completados': n, 'fallidos': n, 'rescatados': n}.
+    """
+    ...
+```
+
+### 9.5.5 Enganche en `bot.py` (`create_bot_app`) — código EXACTO a añadir
+
+```python
+# En bot.py, junto a heartbeat / procesar_notificaciones_asignacion:
+import asyncio
+from . import cola
+
+COLA_TICK_INTERVAL_S = 20   # cada 20 s se drena un lote de la cola
+
+async def procesar_cola(ctx):
+    """Job repetitivo (9.18): drena un lote de cola_trabajo. El trabajo real es
+    SÍNCRONO (psycopg2), así que se ejecuta en un executor para NO congelar el
+    event loop del bot. Un fallo aquí no debe tumbar el job: se loguea y ya."""
+    try:
+        loop = asyncio.get_event_loop()
+        resumen = await loop.run_in_executor(None, cola.tick)
+        if resumen.get("reclamados"):
+            logger.info("Cola: %s", resumen)
+    except Exception as e:      # noqa: BLE001
+        logger.error("Fallo en el tick de la cola: %s", e)
+
+# ... y dentro de create_bot_app(), en el bloque `if app.job_queue:`:
+    if app.job_queue:
+        app.job_queue.run_repeating(procesar_notificaciones_asignacion, interval=30, first=15)
+        app.job_queue.run_repeating(heartbeat, interval=HEARTBEAT_INTERVAL_S, first=1)
+        app.job_queue.run_repeating(procesar_cola, interval=COLA_TICK_INTERVAL_S, first=25)
+        # first=25 para no arrancar a la vez que los otros dos jobs (higiene, no
+        # crítico); interval 20 s = latencia máxima ~20 s para un trabajo encolado.
+```
+
+---
+
+## 9.6 Primer consumidor real — conclusión honesta: NINGUNO se migra hoy; se deja stub `noop` + `validar_pod` documentado
+
+Se analizaron los call-sites reales de trabajo potencialmente diferible en `bot.py`:
+
+| Call-site | Qué hace | ¿Migrar a la cola HOY? |
+|-----------|----------|------------------------|
+| `notificar_gestor_evento` (`bot.py:446-455`) | Envía Telegram informativo a los gestores (viaje completado, POD recibido). Ya envuelto en `try/except` que loguea sin romper el flujo del chófer. | **NO.** Es rápido y ya es best-effort tolerante a fallo. Moverlo a la cola AÑADIRÍA latencia (el gestor tarda hasta 20 s en enterarse) sin resolver dolor: si el envío falla, hoy simplemente se pierde esa notificación informativa — molesto pero no crítico, y no hay queja real de volumen. |
+| `alertar_gestor` (`bot.py:422-443`) | Crea `incidencia` (INSERT crítico) + notifica gestores. | **NO** (y con matiz importante): el INSERT de la incidencia es EVIDENCIA y debe ser síncrono y confirmado al chófer ("tu gestor ha sido notificado"). Solo la parte de *envío Telegram* sería candidata, pero aplica lo mismo que arriba: rápido, best-effort, sin dolor actual. Partir esta función en "insert síncrono + notificación encolada" es complejidad sin retorno hoy. |
+| Subida de POD + `pod.insert(estado_validacion='pendiente')` (`handle_photo`, `bot.py:955-961`) | Sube la foto y la marca `pendiente` de validación. | **La validación** (visión-LLM) ES el consumidor natural de la cola — PERO **está gated tras D3/7B (decisión de presupuesto), NO aprobada**. El POD ya nace `estado_validacion='pendiente'`; el día que se apruebe, el encolado es trivial (§9.6.1). Hoy: **stub**. |
+
+**Conclusión cerrada (y deliberadamente conservadora, en la cultura de PROGRESS.md):** **no existe hoy
+ningún trabajo síncrono cuyo dolor actual justifique moverlo a la cola.** Las notificaciones son
+rápidas y ya toleran fallo; el único consumidor con sentido real (validación de POD por visión) está
+bloqueado por una decisión de presupuesto que no se ha tomado. Forzar una migración "para estrenar la
+cola" sería exactamente el tipo de complejidad inflada que este repo rechaza.
+
+Por tanto **9.18 construye:**
+1. La tabla + índices + función de claim + RLS (§9.3).
+2. El módulo `cola.py` completo (§9.5.4) con el worker enganchado (§9.5.5).
+3. **Un handler `noop` real** (`registrar_handler("noop", lambda payload: None)`) que sirve como
+   trabajo de humo end-to-end: permite probar el ciclo completo (encolar → reclamar → completar) en el
+   Grupo B contra BD real SIN depender de ningún servicio externo. Es el "primer consumidor" que prueba
+   que los raíles funcionan, sin inventar negocio.
+4. **Un handler `validar_pod` como STUB documentado**: registrado pero con cuerpo que lanza
+   `NotImplementedError("visión-LLM pendiente de D3/7B")` — de modo que si alguien encola un
+   `validar_pod` hoy, el trabajo va limpiamente a `fallido`→`muerto` con un `ultimo_error` claro, NUNCA
+   se procesa a medias ni se pierde. El día que D3/7B se apruebe, se rellena ESE cuerpo y se añade la
+   línea de `enqueue` en `handle_photo` (§9.6.1); nada más de la infraestructura cambia.
+
+### 9.6.1 Cómo se activará `validar_pod` el día que se apruebe (para que quede escrito, NO se implementa)
+
+En `handle_photo` (`bot.py`), justo después del `pod.insert(...)` (`bot.py:955-961`), añadir:
+```python
+cola.enqueue("validar_pod",
+             {"pod_id": <id del pod>, "hito_id": hito["id"], "viaje_id": viaje["id"],
+              "foto_path": file_path},
+             empresa_id=chofer["empresa_id"])
+```
+y rellenar el handler `validar_pod` en `cola.py` (llamar la API de visión, actualizar
+`pod.estado_validacion` a `validado`/`rechazado`, notificar al gestor si procede). El chófer NO espera
+por esto (el POD ya se confirmó síncronamente); la validación ocurre en background con reintentos
+persistentes — que es EXACTAMENTE el caso de uso que el roadmap nombra. Todo esto queda **fuera de
+alcance de 9.18**; se escribe aquí para que la activación futura sea copy-paste, sin re-diseño.
+
+---
+
+## 9.7 Casos de test enumerados (misma convención de dos grupos que §5 de la sección hash-chain)
+
+**Criterio honesto (política del repo "no simular que se probó algo que no se probó", 0.3/0.6 de
+SPECS-7A):** el `FOR UPDATE SKIP LOCKED`, la concurrencia real de dos workers, y el backoff dependen
+del **motor Postgres** y NO los ejerce el `FakeSupabase` de `backend/tests/fakes.py` (es un fake de
+PostgREST, no ejecuta SQL ni locking). Por tanto:
+
+- **Grupo A — lógica pura en Python (pytest, `backend/tests/test_cola.py`):** prueba el enrutado de
+  `procesar_uno` (handlers registrados, kind desconocido, handler que lanza), el cálculo del backoff
+  como función pura, y el `enqueue` contra `FakeSupabase` (que sí registra el INSERT). NO prueba el
+  claim ni la concurrencia. Rápido, corre en `.\ci.ps1`.
+- **Grupo B — claim/locking/backoff contra BD real (script manual documentado, `scratchpad`):** un
+  script con `psycopg2`/`DATABASE_URL` (o una branch de Supabase vía MCP `create_branch` si el plan lo
+  permitiera — hoy NO, ver PROGRESS 9.16) que ejerce la función `cola_reclamar_lote`, la concurrencia y
+  el ciclo de vida contra la tabla real. Es la ÚNICA forma de probar el `SKIP LOCKED`. Documentar el
+  resultado en PROGRESS (patrón 6.9/7A.14). **No fingir que el Grupo A cubre el claim.**
+
+Casos enumerados y concretos:
+
+- **(a) Grupo A — enrutado de `procesar_uno`.** Handler `noop` registrado → `(True, None)`. Kind sin
+  handler → `(False, "kind desconocido: <kind>")`. Handler que lanza `ValueError("x")` → `(False, "x")`.
+- **(b) Grupo A — backoff exponencial puro.** Una función/fixture que dado `intentos` devuelva el
+  retraso esperado: intentos=1→60 s, 2→120 s, 3→240 s, 4→480 s. Protege la fórmula contra cambios
+  accidentales.
+- **(c) Grupo A — `enqueue` inserta la fila correcta** contra `FakeSupabase`: `kind`, `payload`,
+  `max_intentos`, y `empresa_id` solo si se pasa. Verifica `returning="minimal"`.
+- **(d) Grupo B — DOS workers concurrentes NUNCA reclaman el mismo trabajo.** Sembrar N trabajos
+  `pendiente`; abrir DOS conexiones psycopg2, en cada una `SELECT * FROM cola_reclamar_lote(N, 'w1')` y
+  `...('w2')` **en transacciones solapadas** (llamar el claim en la conexión 1 sin commitear, luego en
+  la 2), y comprobar que la intersección de ids reclamados es **vacía**. Este ES el caso estrella (el
+  `SKIP LOCKED`). Verifica también que la suma de reclamados por ambos ≤ N y que cada fila quedó
+  `en_proceso` con su `reclamado_por` correcto.
+- **(e) Grupo B — un trabajo que falla se reintenta con backoff hasta `max_intentos`, luego dead-letter.**
+  Encolar un trabajo con `max_intentos=2` cuyo handler siempre lanza. Tick 1 → queda `fallido` con
+  `disponible_en ≈ now()+60s` e `intentos=1`. Forzar `disponible_en=now()` (simular que pasó el
+  backoff) y tick 2 → `intentos=2 >= max_intentos` → **`muerto`**, `completado_en` seteado,
+  `ultimo_error` conservado. Comprobar que un tick posterior **NO** lo re-reclama (no está en el índice
+  de reclamables). Verifica dead-letter permanente + "nunca se borra".
+- **(f) Grupo B — un trabajo con éxito se marca `completado` y no se re-reclama.** Encolar un `noop`;
+  un tick → `estado='completado'`, `completado_en` seteado; tick siguiente no lo toca.
+- **(g) Grupo B — rescate de huérfanos.** Insertar a mano una fila `en_proceso` con
+  `reclamado_en = now() - interval '10 minutes'`; llamar `rescatar_huerfanos(cur, timeout_s=300)` →
+  vuelve a `fallido` (o `muerto` si agotó intentos) y queda reclamable. Verifica §9.5.3.
+- **(h) Grupo B — `disponible_en` futuro no se reclama.** Encolar con `disponible_en = now()+1h`; un
+  tick NO lo reclama (respeta trabajos diferidos y backoff).
+
+---
+
+## 9.8 Trampas del repo relevantes (revisadas y confirmadas para esta sección)
+
+1. **PostgREST NO expone `FOR UPDATE SKIP LOCKED` (§9.2):** por eso el claim es una función SQL llamada
+   desde el worker con `psycopg2`/`DATABASE_URL`, NO con el cliente `supabase` del bot. El `enqueue` sí
+   va por PostgREST (INSERT normal). No mezclar los dos canales por comodidad.
+2. **`JobQueue` de PTB corre en el event loop asyncio; `psycopg2` es bloqueante (§9.5):** el tick de la
+   cola DEBE ir en `run_in_executor`, o congela el bot entero. Esta es la sutileza nº1 de esta spec.
+3. **Checksum en `schema_migrations` (0.1):** `0040_cola_trabajos.sql` registra su SHA-256. Con
+   `migrate.py` el runner lo inserta solo (`migrate.py:84-87`); con `apply_migration` del MCP, a mano
+   (§9.3.5). No reeditar una migración ya aplicada; correcciones en una migración nueva.
+4. **BOM de PowerShell (0.3):** crear `0040_*.sql` y `backend/app/cola.py` con Write/Edit, NUNCA con
+   `Set-Content -Encoding UTF8` (rompe `read_text(encoding="utf-8")` y el checksum silenciosamente).
+5. **Patrón `bot_heartbeat` para RLS interna (§9.1.2/§9.4):** RLS ON, cero policies de escritura para
+   `authenticated`; aquí incluso sin SELECT (más restrictivo que el heartbeat). El dashboard no toca la
+   cola. `empresa_id` es metadato, NO eje de aislamiento — no colgar de `current_empresa_id()`.
+6. **"Evidencia, nunca perder datos" (hash-chain §4 / `audit_log` 0037):** el dead-letter (`muerto`) es
+   permanente, nunca se auto-purga. Reprocesar un muerto es decisión humana explícita.
+7. **`ejecutar_con_reintentos` (8.2) NO se sustituye (§9.1.4):** sigue siendo el reintento del camino
+   síncrono. La cola es reintento PERSISTENTE del camino diferido. Conviven; no confundir sus ámbitos.
+8. **Branching de Supabase NO disponible en el plan actual (PROGRESS 9.16):** el Grupo B se corre
+   contra la BD de desarrollo real con `DATABASE_URL`, no contra una branch efímera. Sembrar/limpiar los
+   datos de prueba explícitamente (la tabla acumula, nada se borra solo).
+9. **Sentry para errores (visible en `bot.py:14-20`, `ejecutar_con_reintentos:63-67`):** el worker debe
+   capturar a Sentry los fallos que llevan un trabajo a `muerto` (dead-letter = algo se perdió de
+   procesar y un humano debe mirarlo), si `SENTRY_DSN` está configurado — mismo patrón que 8.2.
+10. **`ci.ps1` verde antes de commit (0.4)** y **commits separados código/docs (0.4)** — lo gestiona el
+    orquestador; 9.18 solo produce archivos + tests Grupo A que pasen `pytest`, y documenta el Grupo B
+    en PROGRESS.

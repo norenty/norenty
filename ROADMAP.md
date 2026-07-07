@@ -1132,15 +1132,32 @@ una respuesta escrita de una página al cuestionario típico de un responsable d
   dev/prod), pospuesta por el usuario hasta el primer cliente piloto. Mientras tanto, cada
   migración nueva se sigue probando contra la BD real de desarrollo y verificando con una consulta
   real antes de darla por buena (mismo criterio ya seguido desde la 0031).
-- [ ] `[LOOP]` **9.17 SPECS-9.md (bloque colas) — colas para lo asíncrono** (diseño: opus,
-  esfuerzo medio). Cuando haya volumen real: sacar de la request del bot lo lento
-  (validación de POD con visión LLM cuando se apruebe D3/7B, notificaciones) a un worker con
-  reintentos persistentes. Diseño recomendado: **Postgres como cola** (`SELECT ... FOR
-  UPDATE SKIP LOCKED`) antes que añadir Redis — menos piezas nuevas, más sólido, coherente
-  con el "anti-roadmap" de no añadir infraestructura que no haga falta todavía.
-- [ ] `[LOOP]` **9.18 Implementar colas según SPECS-9.md** (picar código: sonnet, esfuerzo
-  bajo — spec ya cerrada por 9.17). Tabla de cola, worker, tests de reintentos y de que un
-  fallo del worker no pierde el mensaje.
+- [x] `[LOOP]` **9.17 SPECS-9.md (bloque colas) — colas para lo asíncrono** (2026-07-05,
+  diseño: opus) — nueva sección "Bloque colas" en `SPECS-9.md`. Decisiones cerradas: tabla
+  `cola_trabajo` (patrón `bot_heartbeat` de RLS interna, sin policies para `authenticated`,
+  `empresa_id` como metadato NO como eje de aislamiento); claim vía función SQL
+  `cola_reclamar_lote()` con `FOR UPDATE SKIP LOCKED` (PostgREST no expone locking, así que el
+  worker usa `psycopg2`/`DATABASE_URL` como `migrate.py`, el `enqueue` sí va por PostgREST);
+  backoff exponencial base 2 sobre 60s, `max_intentos=5`, dead-letter permanente (nunca se
+  auto-purga); worker reutiliza la `JobQueue` de `bot.py` (tercer `run_repeating`, ejecutado vía
+  `run_in_executor` para no bloquear el event loop asyncio con `psycopg2` síncrono). **Conclusión
+  honesta**: ningún consumidor real se migra hoy (notificaciones son rápidas/best-effort sin
+  dolor actual; el consumidor natural, validación de POD por visión, sigue bloqueado por D3/7B) —
+  se construyen los raíles + un handler `noop` de humo + un stub `validar_pod` documentado.
+- [x] `[LOOP]` **9.18 Implementar colas según SPECS-9.md** (2026-07-05) — migración
+  `0040_cola_trabajos.sql` (tabla, índices parcial/huérfanos/estado, función de claim, RLS sin
+  policies); `backend/app/cola.py` (enqueue, claim, marcar_completado/fallido con backoff,
+  rescate de huérfanos, `procesar_uno` enrutado por `kind`, `tick()` orquestador); enganchado en
+  `bot.py` como `procesar_cola` (`run_repeating` cada 20s, solo si `DATABASE_URL` está puesta —
+  si no, avisa una vez en el log de arranque en vez de fallar cada tick). 12 tests Grupo A
+  (enrutado, backoff puro, enqueue contra `FakeSupabase`). **Grupo B verificado contra la BD
+  real** (los 5 casos de la spec, datos de prueba limpiados después): dos workers concurrentes
+  reclamando en transacciones solapadas nunca comparten un id (`SKIP LOCKED` real); un trabajo
+  que siempre falla con `max_intentos=2` pasa a `fallido` tras el primer tick y a `muerto`
+  (dead-letter permanente, no se re-reclama) tras el segundo; un trabajo `noop` se marca
+  `completado` y no se re-reclama; un `en_proceso` "huérfano" (worker muerto) se rescata a
+  `fallido`; un trabajo con `disponible_en` futuro no se reclama. 126 pytest, 215 vitest, ci.ps1
+  verde.
 - [ ] `[LOOP]` **9.19 SLOs internos medidos con lo que ya se loguea** (picar código: sonnet,
   esfuerzo bajo). Definir 2-3 objetivos concretos ("el bot responde en <5s el 99% de las
   veces", "la notificación de asignación llega en <60s") y un script/vista que los calcule a

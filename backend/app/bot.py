@@ -1,5 +1,6 @@
 """Norenty Telegram Bot — operación de hitos, POD, y alertas al gestor."""
 
+import asyncio
 import hashlib
 import json
 import math
@@ -30,6 +31,7 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
+from . import cola
 from .db import supabase
 
 # Campos propios de LogRecord (ítem 9.5): cualquier clave que NO esté aquí y
@@ -1480,6 +1482,23 @@ async def heartbeat(ctx):
         logger.error("No se pudo registrar el heartbeat: %s", e)
 
 
+COLA_TICK_INTERVAL_S = 20   # cada 20 s se drena un lote de la cola
+
+
+async def procesar_cola(ctx):
+    """Job repetitivo (9.18, ver SPECS-9.md "Bloque colas"): drena un lote de
+    cola_trabajo. El trabajo real es SÍNCRONO (psycopg2), así que se ejecuta
+    en un executor para NO congelar el event loop del bot. Un fallo aquí no
+    debe tumbar el job: se loguea y ya."""
+    try:
+        loop = asyncio.get_event_loop()
+        resumen = await loop.run_in_executor(None, cola.tick)
+        if resumen.get("reclamados"):
+            logger.info("Cola: %s", resumen, extra=resumen)
+    except Exception as e:      # noqa: BLE001
+        logger.error("Fallo en el tick de la cola: %s", e)
+
+
 def create_bot_app():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_error_handler(manejar_error)
@@ -1507,4 +1526,13 @@ def create_bot_app():
     if app.job_queue:
         app.job_queue.run_repeating(procesar_notificaciones_asignacion, interval=30, first=15)
         app.job_queue.run_repeating(heartbeat, interval=HEARTBEAT_INTERVAL_S, first=1)
+        # ítem 9.18: el tick de la cola necesita DATABASE_URL (psycopg2, no
+        # PostgREST — ver SPECS-9.md "Bloque colas" §9.2). Sin ella, registrar
+        # el job solo produciría un KeyError repetido cada 20s; se omite y se
+        # deja constancia en el log de arranque en vez de fallar en silencio
+        # cada tick.
+        if os.environ.get("DATABASE_URL"):
+            app.job_queue.run_repeating(procesar_cola, interval=COLA_TICK_INTERVAL_S, first=25)
+        else:
+            logger.warning("Cola de trabajos (9.18) NO arrancada: falta DATABASE_URL en el entorno.")
     return app

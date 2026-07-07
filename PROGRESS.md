@@ -8,6 +8,52 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | Fase 9.17+9.18: Cola de trabajos asíncrona sobre Postgres | (por commitear) | HECHO.
+9.17 (diseño, delegado a un subagente `model: opus`): nueva sección "Bloque colas" en
+`SPECS-9.md`, mismo rigor que `SPECS-7A.md`/`SPECS-9-ROLES.md` — todas las decisiones cerradas,
+nada dejado a criterio del ejecutor. Tabla `cola_trabajo` con el patrón de `bot_heartbeat` (RLS
+interna, sin policies de `authenticated`, `empresa_id` como metadato de trazabilidad, NO como
+eje de aislamiento — la cola es 100% invisible al dashboard). Claim vía función SQL
+`cola_reclamar_lote()` con `FOR UPDATE SKIP LOCKED` (decisión: PostgREST no expone locking de
+fila, así que el worker usa `psycopg2`/`DATABASE_URL` como ya hace `migrate.py`; el `enqueue` sí
+va por PostgREST porque es un INSERT normal sin locking, evita abrir una conexión Postgres en
+el hot path del bot). Backoff exponencial base 2 sobre 60s (60/120/240/480s), `max_intentos=5`
+por defecto, dead-letter (`muerto`) permanente — nunca se auto-purga, misma filosofía que el
+hash-chain y `audit_log`. Worker reutiliza la `JobQueue` existente de `bot.py` (tercer
+`run_repeating`, junto a `heartbeat`/`procesar_notificaciones_asignacion`) en vez de un proceso
+separado — la sutileza documentada: como `psycopg2` es bloqueante y la `JobQueue` corre en el
+event loop asyncio, el tick debe ejecutarse vía `run_in_executor` para no congelar el bot.
+**Conclusión honesta y deliberadamente conservadora**: tras analizar los call-sites reales
+(`notificar_gestor_evento`, `alertar_gestor`, subida de POD), NINGÚN trabajo síncrono actual se
+migra a la cola hoy — las notificaciones son rápidas y ya toleran fallo sin dolor real, y el
+consumidor natural (validación de POD por visión LLM) sigue bloqueado por la decisión de
+presupuesto D3/7B, no aprobada. Se construyen los raíles (tabla+claim+worker) más un handler
+`noop` de humo (prueba el ciclo completo sin depender de nada externo) y un stub `validar_pod`
+que falla limpiamente con un `NotImplementedError` explícito si alguien lo encola hoy — nunca
+se pierde ni se procesa a medias. Queda escrito el copy-paste exacto de cómo activarlo el día
+que D3/7B se apruebe.
+
+9.18 (implementación): migración `0040_cola_trabajos.sql` aplicada y verificada; `backend/app/cola.py`
+completo (enqueue, `_conectar`, `reclamar_lote`, `marcar_completado`, `marcar_fallido` con la
+fórmula de backoff exacta, `rescatar_huerfanos`, `procesar_uno` con enrutado por `kind`, `tick()`
+como orquestador de un ciclo completo); enganchado en `bot.py` como job `procesar_cola` cada 20s,
+condicionado a que `DATABASE_URL` esté puesta (si no, avisa UNA VEZ en el log de arranque en vez
+de fallar con `KeyError` en cada tick). 12 tests Grupo A (`test_cola.py`: enrutado de
+`procesar_uno` con handler registrado/kind desconocido/handler que lanza, fórmula de backoff
+pura parametrizada, `enqueue` contra `FakeSupabase` — el mock de tests se amplió para aceptar
+`returning="minimal"` en `insert()`, que nadie había necesitado hasta ahora). **Grupo B
+verificado contra la BD real** (los 5 casos exactos de la spec, con datos de prueba limpiados
+después de cada corrida): (d) dos conexiones psycopg2 reclamando en transacciones solapadas
+nunca comparten un id — `SKIP LOCKED` real, no simulado; (e) un trabajo con handler que siempre
+lanza y `max_intentos=2` queda `fallido` tras el primer tick (`intentos=1`, backoff aplicado) y
+pasa a `muerto` (dead-letter, `completado_en` fijado, `ultimo_error` conservado) tras el segundo
+— un tick posterior confirma que NO se re-reclama; (f) un `noop` se marca `completado` y un tick
+siguiente no lo toca; (g) una fila `en_proceso` con `reclamado_en` de hace 10 minutos (worker
+"muerto" simulado) se rescata correctamente a `fallido`; (h) un trabajo con `disponible_en` una
+hora en el futuro no se reclama en el tick. ci.ps1 verde (126 pytest, 215 vitest, build).
+
+---
+
 2026-07-05 | Fase 9.5: Logging estructurado en JSON (parcial, alcance honesto) | fd9ea14 | HECHO.
 `backend/app/bot.py`: `JsonFormatter` nueva (clase `logging.Formatter`) que vuelca a JSON
 `timestamp`/`level`/`logger`/`message` + CUALQUIER campo pasado por `extra={...}` sin lista
