@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-07 | Fase 9.20: Runbooks de los 5 incidentes más probables | (por commitear) | HECHO.
+2026-07-07 | Fase 9.20: Runbooks de los 5 incidentes más probables | 2facf79 | HECHO.
 `RUNBOOKS.md` nuevo: bot caído, Supabase degradado, webhook roto, proveedor LLM caído (cuando
 exista, Fase 7B), clave rotada a medias. Cada uno con diagnóstico paso a paso y respuesta,
 referenciando `RUNBOOK.md`/`RUNBOOK-SECRETS.md` en vez de duplicar contenido. Incluye dos
