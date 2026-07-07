@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-07 | Fase 9.32: Paginar/acotar lecturas sin límite en data.js | (por commitear) | HECHO.
+2026-07-07 | Fase 9.32: Paginar/acotar lecturas sin límite en data.js | 571b568 | HECHO.
 `getDocumentosPorCaducar` filtra `fecha_caducidad` server-side en vez de traer `documento`
 entera; `getParkings` añade tope de seguridad `LIMITE_PARKINGS=5000`; `getAuditLog` ordena y
 acota server-side `LIMITE_AUDIT_LOG=200` (append-only, migración 0037); `getViajes()` (home)
