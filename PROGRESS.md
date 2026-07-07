@@ -13,7 +13,7 @@ HECHO. `ONBOARDING.md §7` documenta separar DDL/backfill/hardening de columnas 
 sucesivas, citando el incidente real de 0032 (9.29) como motivo. No retroactivo. Sin cambios de
 código — ci.ps1 verde.
 
-2026-07-07 | Fase 9.38: adoptar formateadores de format.js en 9 páginas | (por commitear) |
+2026-07-07 | Fase 9.38: adoptar formateadores de format.js en 9 páginas | 86a2d05 |
 HECHO. Las 6 funciones sin adopción (fmtEur, fmtKm, fmtFechaLarga, fmtFechaCorta,
 fmtFechaHora, fmtHora) tenían al menos un sitio real donde encajaban exacto — todas
 adoptadas, ninguna borrada. Tocadas: analitica, choferes/[id], vehiculos/[id],
