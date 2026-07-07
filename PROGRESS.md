@@ -8,6 +8,28 @@ depender del historial de conversación.
 
 ---
 
+2026-07-05 | Fase 9.19: SLOs internos medidos con lo que ya se loguea | (por commitear) | HECHO.
+`backend/db/calcular_slos.py`: 3 objetivos definidos, 2 realmente calculables hoy sin
+infraestructura nueva. SLO 1 (disponibilidad del bot ≥99%): a partir de los huecos entre filas
+de `bot_heartbeat`, usando el MISMO umbral (`UMBRAL_HEARTBEAT_S=300s`) que ya usa
+`dashboard/lib/data.js` para el aviso de "bot caído" (8.3) — consistencia entre lo que ve el
+gestor y lo que mide este script. SLO 2 (notificación de asignación en <60s el ≥99%): hallazgo
+de que el delta real YA existe en la BD sin instrumentar nada — `audit_log.accion='asignar_chofer'`
+(cuando el gestor asigna) y `viaje.notificado_asignacion_en` (cuando el bot avisó al chófer) se
+pueden restar directamente por SQL, ambos ya escritos por código existente. SLO 3 (latencia de
+respuesta <5s el 99%): marcado EXPLÍCITAMENTE como no calculable hoy en vez de simularlo —
+necesita instrumentar duración en los logs estructurados de 9.5 (los campos añadidos ahí son de
+contexto, no de tiempo) y un destino de logs consultable que no existe (mismo hueco que el
+monitor externo de 9.5, bloqueado por Gate A). 8 tests Grupo A con cursor fake: disponibilidad
+100% con latidos regulares, reducción proporcional con un hueco real, sin datos con <2 latidos;
+% dentro de objetivo con todas/algunas fuera, percentil 95 sobre deltas ordenados, sin datos sin
+asignaciones. Ejecutado contra la BD real (solo lectura, sin riesgo): devuelve honestamente "sin
+datos suficientes" para ambos SLOs — el bot nunca se ha ejecutado contra Telegram real todavía
+(D1 se resolvió hoy mismo, en esta misma sesión) y no hay asignaciones reales notificadas aún;
+resultado correcto, no un fallo. ci.ps1 verde (134 pytest, 215 vitest, build).
+
+---
+
 2026-07-05 | Fase 9.17+9.18: Cola de trabajos asíncrona sobre Postgres | 25f9009 | HECHO.
 9.17 (diseño, delegado a un subagente `model: opus`): nueva sección "Bloque colas" en
 `SPECS-9.md`, mismo rigor que `SPECS-7A.md`/`SPECS-9-ROLES.md` — todas las decisiones cerradas,

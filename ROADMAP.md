@@ -1158,10 +1158,20 @@ una respuesta escrita de una página al cuestionario típico de un responsable d
   `completado` y no se re-reclama; un `en_proceso` "huérfano" (worker muerto) se rescata a
   `fallido`; un trabajo con `disponible_en` futuro no se reclama. 126 pytest, 215 vitest, ci.ps1
   verde.
-- [ ] `[LOOP]` **9.19 SLOs internos medidos con lo que ya se loguea** (picar código: sonnet,
-  esfuerzo bajo). Definir 2-3 objetivos concretos ("el bot responde en <5s el 99% de las
-  veces", "la notificación de asignación llega en <60s") y un script/vista que los calcule a
-  partir de los logs estructurados de 9.5 y el propio `bot_heartbeat`. Nada de infra nueva.
+- [x] `[LOOP]` **9.19 SLOs internos medidos con lo que ya se loguea** (2026-07-05) —
+  `backend/db/calcular_slos.py`, 3 objetivos definidos: **(1) disponibilidad del bot ≥99%**
+  (huecos entre latidos de `bot_heartbeat` por encima de `UMBRAL_HEARTBEAT_S=300s`, mismo umbral
+  que ya usa el dashboard en 8.3); **(2) notificación de asignación en <60s el ≥99% de las
+  veces** (delta real entre `audit_log.accion='asignar_chofer'` y
+  `viaje.notificado_asignacion_en` — dato que YA existía, sin instrumentar nada nuevo); **(3)
+  latencia de respuesta del bot <5s el 99% de las veces — marcado explícitamente como NO
+  calculable hoy** (falta instrumentar duración en los logs de 9.5 y un destino de logs
+  consultable, mismo hueco ya documentado ahí, bloqueado por Gate A — no se finge un número).
+  8 tests Grupo A con cursor fake (disponibilidad con huecos, % dentro de objetivo, percentil
+  95, casos sin datos). Verificado contra la BD real (solo lectura): hoy devuelve "sin datos"
+  para los dos SLOs calculables — correcto y honesto, el bot nunca se ha ejecutado contra
+  Telegram real todavía (D1 se resolvió hoy mismo) y no hay asignaciones reales notificadas.
+  134 pytest, 215 vitest, ci.ps1 verde.
 - [ ] `[LOOP]` **9.20 Runbooks de los 5 incidentes más probables** (picar código: sonnet,
   esfuerzo bajo). `RUNBOOKS.md`: bot caído, Supabase degradado, webhook roto, proveedor LLM
   caído (cuando exista), clave rotada a medias — pasos escritos y concretos para cada uno.
