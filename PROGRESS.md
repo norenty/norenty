@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-05 | Fase 9.17+9.18: Cola de trabajos asíncrona sobre Postgres | (por commitear) | HECHO.
+2026-07-05 | Fase 9.17+9.18: Cola de trabajos asíncrona sobre Postgres | 25f9009 | HECHO.
 9.17 (diseño, delegado a un subagente `model: opus`): nueva sección "Bloque colas" en
 `SPECS-9.md`, mismo rigor que `SPECS-7A.md`/`SPECS-9-ROLES.md` — todas las decisiones cerradas,
 nada dejado a criterio del ejecutor. Tabla `cola_trabajo` con el patrón de `bot_heartbeat` (RLS
