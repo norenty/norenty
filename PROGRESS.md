@@ -8,6 +8,14 @@ depender del historial de conversación.
 
 ---
 
+2026-07-07 | Fase 9.33: caché OSRM + debounce de realtime | (por commitear) | HECHO.
+`ResumenHoy.jsx` no está suscrita a realtime hoy (solo carga al montar) — el problema real
+descrito está en `getViajes()`/home vía `useRealtimeRefresh`, sin debounce. Arreglado en la
+raíz y de forma genérica: `kmCarreteraViaje` cachea en memoria por firma de hitos (TTL 5 min);
+`useRealtimeRefresh` ahora usa una función pura `debounce()` (800ms) que coalesce ráfagas de
+eventos en una sola llamada, beneficiando a todas las pantallas que usan el hook. Nuevo
+`dashboard/lib/realtime.test.js`. 168 vitest en archivos tocados, ci.ps1 completo verde.
+
 2026-07-07 | Fase 9.32: Paginar/acotar lecturas sin límite en data.js | 571b568 | HECHO.
 `getDocumentosPorCaducar` filtra `fecha_caducidad` server-side en vez de traer `documento`
 entera; `getParkings` añade tope de seguridad `LIMITE_PARKINGS=5000`; `getAuditLog` ordena y

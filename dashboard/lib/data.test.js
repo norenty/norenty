@@ -130,6 +130,7 @@ const {
   calcularPresupuesto,
   MARGEN_OBJETIVO_PCT_DEFAULT,
   kmCarreteraViaje,
+  _limpiarCacheKmCarreteraParaTests,
   getViabilidadViaje,
   resolveVelocidadPlanificacion,
   calcularEtaConParadas,
@@ -186,6 +187,7 @@ beforeEach(() => {
   rpcSpy.mockClear();
   rpcResultado = { data: null, error: null };
   UPDATE_ERRORS = {};
+  _limpiarCacheKmCarreteraParaTests();
 });
 
 describe("validarAsignacion", () => {

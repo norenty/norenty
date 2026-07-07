@@ -1416,10 +1416,34 @@ export function calcularMargen({ precio, km, costeKm }) {
  * para que la UI lo marque como aproximado en vez de presentarlo como exacto.
  * @returns {Promise<{km: number, estimado: boolean}>}
  */
+// Caché en memoria de kmCarreteraViaje (ítem 9.33): el mismo viaje se recalcula
+// varias veces en una sesión (getResumenHoy hasta 20 en paralelo, getViabilidadViaje,
+// nómina...) sin que sus hitos cambien entre medias. La clave es la firma de los
+// hitos con coordenadas (orden+lat+lon) — si esa firma no cambia, el resultado de
+// OSRM tampoco puede cambiar. TTL corto porque OSRM/tráfico real no cambia la
+// distancia entre dos puntos fijos; solo se invalida por firma distinta o por edad.
+const CACHE_KM_TTL_MS = 5 * 60 * 1000;
+const _cacheKmCarretera = new Map();
+
+function _firmaHitos(conCoords) {
+  return conCoords.map((h) => `${h.orden}:${h.lat}:${h.lon}`).join("|");
+}
+
+export function _limpiarCacheKmCarreteraParaTests() {
+  _cacheKmCarretera.clear();
+}
+
 export async function kmCarreteraViaje(hitos) {
   const conCoords = (hitos || [])
     .filter((h) => h.lat != null && h.lon != null)
     .sort((a, b) => a.orden - b.orden);
+
+  const firma = _firmaHitos(conCoords);
+  const cacheado = _cacheKmCarretera.get(firma);
+  if (cacheado && Date.now() - cacheado.en < CACHE_KM_TTL_MS) {
+    return cacheado.resultado;
+  }
+
   let km = 0;
   let estimado = false;
   for (let i = 0; i < conCoords.length - 1; i++) {
@@ -1433,7 +1457,9 @@ export async function kmCarreteraViaje(hitos) {
       estimado = true;
     }
   }
-  return { km, estimado };
+  const resultado = { km, estimado };
+  _cacheKmCarretera.set(firma, { resultado, en: Date.now() });
+  return resultado;
 }
 
 /**

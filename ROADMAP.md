@@ -1225,12 +1225,24 @@ actual; se prioriza por impacto, no por orden de descubrimiento.
   correctamente acotada por rango de fechas desde antes — no necesitaba cambio. Mock de vitest
   (`data.test.js`) extendido con `.lte()`, `.not()` y un `.order()` real (antes no-op). 164
   vitest de `data.test.js` verdes, ci.ps1 completo verde (134 pytest, 215 vitest).
-- [ ] `[LOOP]` **9.33 Página "Hoy" — evitar que cada evento de realtime relance todo el abanico de
+- [x] `[LOOP]` **9.33 Página "Hoy" — evitar que cada evento de realtime relance todo el abanico de
   cálculos** (`getResumenHoy` → hasta 20 `getViabilidadViaje` en paralelo → cada una con su propio
   abanico secuencial de llamadas a OSRM, sin caché ni debounce). Cachear el resultado de
   viabilidad/OSRM por viaje mientras sus hitos no cambien, y debounce del refresh disparado por
   `useRealtimeRefresh`. Relacionado con que OSRM nunca se ha probado bajo carga real (9.22) —
   este ítem reduce cuánto tráfico le llega mientras esa duda siga abierta.
+  Nota de verificación: `ResumenHoy.jsx` hoy NO está suscrita a `useRealtimeRefresh` (solo
+  carga una vez al montar), así que el "relanzamiento por cada evento" descrito no ocurre hoy
+  para `getResumenHoy` en concreto — sí ocurre para `getViajes()` de la home vía
+  `useRealtimeRefresh(["viaje","hito","ejecucion_evento","incidencia"], refresh)`, que SÍ
+  dispara sin debounce en cada evento. Se corrigió la causa real y de forma genérica: (1)
+  `dashboard/lib/data.js` → `kmCarreteraViaje` ahora cachea en memoria por firma de hitos
+  (orden+lat+lon), TTL 5 min, con `_limpiarCacheKmCarreteraParaTests()` para aislar tests; (2)
+  `dashboard/lib/realtime.js` → nueva función pura `debounce(fn, ms)` (testeable sin renderizar
+  componentes) y `useRealtimeRefresh` ahora coalesce ráfagas de eventos en una sola llamada
+  800ms tras el último evento (`DEBOUNCE_REALTIME_MS`), beneficiando a CUALQUIER pantalla que
+  use el hook, no solo "Hoy". Nuevo `dashboard/lib/realtime.test.js` (4 tests con fake timers).
+  168 vitest en los archivos tocados, ci.ps1 completo verde (134 pytest, 215+4 vitest).
 - [ ] `[DECISIÓN]` **9.34 Patrón de manejo de errores de lectura en `dashboard/lib/data.js`** —
   decenas de sitios hacen `const { data } = await supabase...` sin comprobar `error`, así que un
   fallo real de BD se confunde con "sin datos" en vez de mostrarse como error. Antes de tocar
