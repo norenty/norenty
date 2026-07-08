@@ -2280,7 +2280,7 @@ export async function validarCambioEstado(viajeId, nuevoEstado) {
   return { errores, ok: errores.length === 0 };
 }
 
-export async function createViaje({ referencia, choferId, vehiculoId, remolqueId, hitos, precio = null }) {
+export async function createViaje({ referencia, choferId, vehiculoId, remolqueId, hitos, precio = null, clienteId = null }) {
   const validacion = await validarAsignacion({ choferId, vehiculoId, remolqueId, referencia });
   if (!validacion.ok) {
     throw new Error(validacion.errores.join(". "));
@@ -2294,6 +2294,7 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
       chofer_id: choferId || null,
       vehiculo_id: vehiculoId || null,
       remolque_id: remolqueId || null,
+      cliente_id: clienteId || null,
       empresa_id,
       estado: "planificado",
       precio: precio != null ? precio : null,

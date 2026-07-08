@@ -21,6 +21,7 @@ import {
   Menu,
   X,
   ChevronDown,
+  Building2,
 } from "lucide-react";
 
 // Ítem 9.30: enlace suelto (fuera de cualquier grupo, siempre visible/expandido).
@@ -46,6 +47,7 @@ const groups = [
     links: [
       { href: "/vehiculos", label: "Vehículos", icon: CarFront },
       { href: "/choferes", label: "Chóferes", icon: Users },
+      { href: "/clientes", label: "Clientes", icon: Building2 },
       { href: "/plantillas", label: "Plantillas de ruta", icon: Route },
       { href: "/importar", label: "Importar", icon: Upload },
     ],

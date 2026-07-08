@@ -13,6 +13,13 @@ HECHO. `ONBOARDING.md §7` documenta separar DDL/backfill/hardening de columnas 
 sucesivas, citando el incidente real de 0032 (9.29) como motivo. No retroactivo. Sin cambios de
 código — ci.ps1 verde.
 
+2026-07-07 | Fase 11.1b: UI de clientes + selector en formularios de viaje | (por commitear) |
+HECHO. Página `/clientes` (alta/edición/baja lógica), enlazada en Sidebar. `createViaje` acepta
+`clienteId` opcional sin tocar `referencia`. Selector en `/viajes/nuevo` y `/viajes/nuevo-w`
+(paso 1 + resumen paso 3). 2 tests Grupo A. Verificado Grupo B contra la BD real: cliente
+creado, asociado a un viaje real con `referencia` y `cliente_id` conviviendo, limpiado después.
+139 pytest, 247+1 skip vitest, build verde (20 páginas).
+
 2026-07-07 | Fase 11.1: cliente como entidad de primera clase | f2482f2 | HECHO.
 Migración `0041_cliente.sql` (DDL puro con cabecera de reversión + trigger solo_lectura),
 aplicada con migrate.py (D2 resuelta) y verificada Grupo B contra la BD real (9 columnas, RLS

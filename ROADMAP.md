@@ -1505,10 +1505,17 @@ vez memoria útil desde el día 1 y el corpus que alimentará el bot de llamadas
   es real y consultable, y desbloquea 11.2). La UI (una página `/clientes` y enganchar el selector
   de cliente en los formularios de viaje `/viajes/nuevo` y `/nuevo-w`) se deja como incremento
   siguiente para mantener esta migración enfocada — anotado como 11.1b abajo.
-- [ ] `[LOOP]` **11.1b UI de clientes** (picar código: sonnet, esfuerzo medio) — página `/clientes`
+- [x] `[LOOP]` **11.1b UI de clientes** (picar código: sonnet, esfuerzo medio) — página `/clientes`
   (listar/crear/editar/baja) reutilizando la capa de datos de 11.1, y un selector de cliente en los
   formularios de creación de viaje (`/viajes/nuevo`, `/viajes/nuevo-w`) que rellene `cliente_id`
   sin quitar el campo `referencia`. Cierra la adopción de la entidad de cara al gestor.
+  Página `/clientes` (alta/edición inline/baja lógica, con checkbox para ver dados de baja),
+  enlazada en el Sidebar (grupo "Maestros"). `createViaje` en `data.js` acepta `clienteId`
+  (nuevo, opcional, no sustituye `referencia`). Selector de cliente añadido a `/viajes/nuevo` y
+  al paso 1 + resumen del paso 3 de `/viajes/nuevo-w`. 2 tests Grupo A nuevos para
+  `createViaje({clienteId})`. Verificado Grupo B contra la BD real: cliente creado, asociado a
+  un viaje real (`referencia` y `cliente_id` conviviendo en la misma fila), y limpiado. 139
+  pytest, 247+1 skip vitest, build verde (20 páginas, `/clientes` incluida).
 - [ ] `[LOOP]` **11.2 Capa de contexto atada a las entidades** (picar código: opus spec → sonnet,
   esfuerzo medio) — tabla `contexto` (nota / transcripción / extracto de email) anclada a
   viaje/chofer/cliente, con PROCEDENCIA (quién lo dijo, por qué canal, cuándo), coherente con la

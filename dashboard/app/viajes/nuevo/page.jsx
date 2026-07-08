@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2, AlertTriangle, Info } from "lucide-react";
-import { getChoferes, createViaje, validarAsignacion, getEstado561 } from "../../../lib/data";
+import { getChoferes, createViaje, validarAsignacion, getEstado561, getClientes } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 
 function nuevoHito() {
@@ -16,6 +16,8 @@ export default function NuevoViaje() {
   const [choferes, setChoferes] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
   const [plantillas, setPlantillas] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [clienteId, setClienteId] = useState("");
   const [referencia, setReferencia] = useState("");
   const [choferId, setChoferId] = useState("");
   const [vehiculoId, setVehiculoId] = useState("");
@@ -41,6 +43,7 @@ export default function NuevoViaje() {
       .select("id, nombre")
       .order("nombre")
       .then(({ data }) => setPlantillas(data || []));
+    getClientes().then(setClientes);
   }, []);
 
   const tractoras = vehiculos.filter((v) => ["tractora", "rigido", "furgoneta"].includes(v.tipo));
@@ -121,6 +124,7 @@ export default function NuevoViaje() {
         choferId: choferId || null,
         vehiculoId: vehiculoId || null,
         remolqueId: remolqueId || null,
+        clienteId: clienteId || null,
         hitos: hitos.filter((h) => h.direccion.trim()),
       });
       router.push(`/viajes/${result.viaje.id}`);
@@ -177,6 +181,22 @@ export default function NuevoViaje() {
             />
           </div>
           <div>
+            <label className="block text-xs text-ink-secondary mb-1">Cliente</label>
+            <select
+              value={clienteId}
+              onChange={(e) => setClienteId(e.target.value)}
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+            >
+              <option value="">Sin cliente asociado</option>
+              {clientes.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
             <label className="block text-xs text-ink-secondary mb-1">Chófer</label>
             <select
               value={choferId}
@@ -196,9 +216,6 @@ export default function NuevoViaje() {
               </p>
             )}
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-ink-secondary mb-1">Vehículo</label>
             <select
@@ -214,6 +231,9 @@ export default function NuevoViaje() {
               ))}
             </select>
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-ink-secondary mb-1">Remolque</label>
             <select

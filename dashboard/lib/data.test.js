@@ -1938,6 +1938,31 @@ describe("createViaje acepta precio (7A.11)", () => {
   });
 });
 
+describe("createViaje acepta clienteId (11.1b — no sustituye a referencia)", () => {
+  it("guarda cliente_id sin dejar de guardar referencia", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.viaje = [];
+    TABLES.chofer = [];
+    TABLES.vehiculo = [];
+    const { viaje } = await createViaje({
+      referencia: "ALB-99", choferId: null, vehiculoId: null, remolqueId: null, hitos: [], clienteId: "c1",
+    });
+    expect(viaje.cliente_id).toBe("c1");
+    expect(viaje.referencia).toBe("ALB-99");
+  });
+
+  it("sin clienteId, se guarda null (no rompe el alta existente)", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.viaje = [];
+    TABLES.chofer = [];
+    TABLES.vehiculo = [];
+    const { viaje } = await createViaje({ referencia: "REF3", choferId: null, vehiculoId: null, remolqueId: null, hitos: [] });
+    expect(viaje.cliente_id).toBeNull();
+  });
+});
+
 describe("portal de cliente (7A.14)", () => {
   it("generarTokenPublico crea un uuid, fija caducidad a 30 días y actualiza el viaje", async () => {
     TABLES.viaje = [{ id: "v1", token_publico: null, token_publico_expira: null }];

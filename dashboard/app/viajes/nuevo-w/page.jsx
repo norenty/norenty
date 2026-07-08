@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2, AlertTriangle, Check, ChevronRight } from "lucide-react";
-import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561, UMBRAL_MARGEN_AMBAR_PCT } from "../../../lib/data";
+import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561, UMBRAL_MARGEN_AMBAR_PCT, getClientes } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import SugerenciaChofer from "../../components/SugerenciaChofer";
 import { badgeMargen, fmtEur, fmtKm } from "../../../lib/format";
@@ -53,6 +53,8 @@ export default function NuevoViajeWizard() {
   const searchParams = useSearchParams();
   const [paso, setPaso] = useState(1);
   const [referencia, setReferencia] = useState("");
+  const [clienteId, setClienteId] = useState("");
+  const [clientes, setClientes] = useState([]);
   const [precio, setPrecio] = useState(() => searchParams.get("precio") || "");
   const [hitos, setHitos] = useState(() => prefillHitosDesdeUrl(searchParams) || [nuevoHito(), nuevoHito()]);
   const [choferId, setChoferId] = useState("");
@@ -73,6 +75,7 @@ export default function NuevoViajeWizard() {
     getChoferes().then(setChoferes);
     supabase.from("vehiculo").select("id, matricula, tipo, marca, modelo").eq("activo", true).order("matricula")
       .then(({ data }) => setVehiculos(data || []));
+    getClientes().then(setClientes);
   }, []);
 
   const tractoras = vehiculos.filter((v) => ["tractora", "rigido", "furgoneta"].includes(v.tipo));
@@ -134,6 +137,7 @@ export default function NuevoViajeWizard() {
         choferId: choferId || null,
         vehiculoId: vehiculoId || null,
         remolqueId: remolqueId || null,
+        clienteId: clienteId || null,
         hitos: hitos.filter((h) => h.direccion.trim()),
         precio: precio !== "" ? Number(precio) : null,
       });
@@ -180,7 +184,7 @@ export default function NuevoViajeWizard() {
       {paso === 1 && (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
           <div className="flex flex-col gap-5">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <label htmlFor="w-referencia" className="block text-xs text-ink-secondary mb-1">Referencia</label>
                 <input
@@ -188,6 +192,18 @@ export default function NuevoViajeWizard() {
                   placeholder="VJ-2055" maxLength={50}
                   className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
                 />
+              </div>
+              <div>
+                <label htmlFor="w-cliente" className="block text-xs text-ink-secondary mb-1">Cliente</label>
+                <select
+                  id="w-cliente" value={clienteId} onChange={(e) => setClienteId(e.target.value)}
+                  className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+                >
+                  <option value="">Sin cliente asociado</option>
+                  {clientes.map((c) => (
+                    <option key={c.id} value={c.id}>{c.nombre}</option>
+                  ))}
+                </select>
               </div>
               <RequireRol roles={["admin"]}>
                 <div>
@@ -353,6 +369,7 @@ export default function NuevoViajeWizard() {
         <div className="flex flex-col gap-4 max-w-xl">
           <div className="bg-surface border border-border rounded-xl p-4 text-sm flex flex-col gap-2">
             <div><span className="text-ink-secondary">Referencia:</span> {referencia || "—"}</div>
+            <div><span className="text-ink-secondary">Cliente:</span> {clientes.find((c) => c.id === clienteId)?.nombre || "Sin cliente asociado"}</div>
             <div><span className="text-ink-secondary">Precio:</span> {precio ? fmtEur(Number(precio)) : "—"}</div>
             <div><span className="text-ink-secondary">Paradas:</span> {hitos.filter((h) => h.direccion.trim()).length}</div>
             <div><span className="text-ink-secondary">Chófer:</span> {choferNombre || "Sin asignar"}</div>
