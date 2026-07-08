@@ -13,7 +13,7 @@ HECHO. `ONBOARDING.md §7` documenta separar DDL/backfill/hardening de columnas 
 sucesivas, citando el incidente real de 0032 (9.29) como motivo. No retroactivo. Sin cambios de
 código — ci.ps1 verde.
 
-2026-07-07 | Fase 11.1b: UI de clientes + selector en formularios de viaje | (por commitear) |
+2026-07-07 | Fase 11.1b: UI de clientes + selector en formularios de viaje | 168b8dc |
 HECHO. Página `/clientes` (alta/edición/baja lógica), enlazada en Sidebar. `createViaje` acepta
 `clienteId` opcional sin tocar `referencia`. Selector en `/viajes/nuevo` y `/viajes/nuevo-w`
 (paso 1 + resumen paso 3). 2 tests Grupo A. Verificado Grupo B contra la BD real: cliente
