@@ -13,6 +13,16 @@ HECHO. `ONBOARDING.md §7` documenta separar DDL/backfill/hardening de columnas 
 sucesivas, citando el incidente real de 0032 (9.29) como motivo. No retroactivo. Sin cambios de
 código — ci.ps1 verde.
 
+2026-07-08 | Fase 11.2: capa de contexto (`SPECS-11.md` opus → implementado literalmente) |
+(por commitear) | HECHO. Migración `0042_contexto.sql`: anclaje polimórfico entidad+entidad_id
+(como audit_log, sin FK a propósito), canal con CHECK de 4 valores (2 usables hoy, 2 reservados
+para 11.3/11.6 sin re-migrar), ocurrido_en vs created_at separados. Decisión explícita:
+MUTABLE, no append-only (memoria de trabajo editable, no evidencia forense) + trigger
+solo_lectura. nota_gestor NO migrada, se deja intacta. Índice de texto deferido a propósito.
+data.js: getContexto/createContexto, 9 tests Grupo A. Verificado Grupo B contra la BD real:
+estructura completa + los dos CHECK rechazan valores inválidos de verdad + canal reservado se
+acepta en BD (restricción solo en JS). 139 pytest, 257+1 skip vitest, build verde.
+
 2026-07-07 | Fase 11.1b: UI de clientes + selector en formularios de viaje | 168b8dc |
 HECHO. Página `/clientes` (alta/edición/baja lógica), enlazada en Sidebar. `createViaje` acepta
 `clienteId` opcional sin tocar `referencia`. Selector en `/viajes/nuevo` y `/viajes/nuevo-w`

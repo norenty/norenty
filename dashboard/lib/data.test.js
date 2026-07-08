@@ -187,6 +187,9 @@ const {
   actualizarCliente,
   desactivarCliente,
   asignarClienteAViaje,
+  getContexto,
+  createContexto,
+  LIMITE_CONTEXTO,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -1235,6 +1238,101 @@ describe("clientes (11.1 — cliente como entidad de primera clase)", () => {
     TABLES.viaje = [{ id: "v1", referencia: "ALB-123", cliente_id: "c1" }];
     await asignarClienteAViaje("v1", null);
     expect(TABLES.viaje[0].cliente_id).toBeNull();
+  });
+});
+
+describe("contexto (11.2 — capa de conocimiento, ver SPECS-11.md §8)", () => {
+  beforeEach(() => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "emp1", id: "g1" }];
+    TABLES.contexto = [];
+  });
+
+  it("(a) createContexto con campos mínimos inserta el shape correcto y devuelve el id", async () => {
+    const id = await createContexto({ entidad: "viaje", entidadId: "v1", texto: "  hola  " });
+    expect(id).toBeDefined();
+    const fila = TABLES.contexto.find((c) => c.id === id);
+    expect(fila.entidad).toBe("viaje");
+    expect(fila.entidad_id).toBe("v1");
+    expect(fila.canal).toBe("nota_manual");
+    expect(fila.texto).toBe("hola");
+    expect(fila.empresa_id).toBe("emp1");
+    expect(fila.gestor_id).toBe("g1");
+  });
+
+  it("(b) createContexto resuelve gestor_id de la sesión activa", async () => {
+    // Nota: a diferencia de lo descrito en SPECS-11.md §8(b), "sin sesión" no puede
+    // probarse como gestor_id=null porque createContexto llama getCurrentEmpresaId()
+    // primero (mismo patrón que createNotaGestor), que YA exige sesión y lanza antes
+    // de llegar a la resolución de gestor_id -- ver getCurrentEmpresaId, data.js:325.
+    const id = await createContexto({ entidad: "viaje", entidadId: "v1", texto: "hola" });
+    expect(TABLES.contexto.find((c) => c.id === id).gestor_id).toBe("g1");
+  });
+
+  it("(b2) createContexto sin sesión activa lanza (vía getCurrentEmpresaId, no gestor_id silencioso)", async () => {
+    SESSION = null;
+    await expect(
+      createContexto({ entidad: "viaje", entidadId: "v1", texto: "hola" })
+    ).rejects.toThrow("sesión activa");
+  });
+
+  it("(c) createContexto rechaza entidad inválida", async () => {
+    await expect(
+      createContexto({ entidad: "vehiculo", entidadId: "x1", texto: "hola" })
+    ).rejects.toThrow("entidad no valida: vehiculo");
+    expect(TABLES.contexto).toHaveLength(0);
+  });
+
+  it("(d) createContexto rechaza canal reservado desde el dashboard", async () => {
+    await expect(
+      createContexto({ entidad: "viaje", entidadId: "v1", texto: "hola", canal: "llamada_transcrita" })
+    ).rejects.toThrow("canal no permitido desde el dashboard: llamada_transcrita");
+    expect(TABLES.contexto).toHaveLength(0);
+  });
+
+  it("(e) createContexto acepta canal='email' y campos opcionales", async () => {
+    const id = await createContexto({
+      entidad: "viaje", entidadId: "v1", texto: "cuerpo", canal: "email",
+      resumen: "  r  ", autorExterno: "contacto cliente", ocurridoEn: "2026-01-01T00:00:00Z",
+    });
+    const fila = TABLES.contexto.find((c) => c.id === id);
+    expect(fila.canal).toBe("email");
+    expect(fila.resumen).toBe("r");
+    expect(fila.autor_externo).toBe("contacto cliente");
+    expect(fila.ocurrido_en).toBe("2026-01-01T00:00:00Z");
+  });
+
+  it("(f) resumen/autorExterno omitidos quedan null; sin ocurridoEn no se manda en el payload", async () => {
+    const id = await createContexto({ entidad: "viaje", entidadId: "v1", texto: "hola" });
+    const fila = TABLES.contexto.find((c) => c.id === id);
+    expect(fila.resumen).toBeNull();
+    expect(fila.autor_externo).toBeNull();
+    expect(fila.ocurrido_en).toBeUndefined(); // el mock no aplica el DEFAULT de la BD real
+  });
+
+  it("(g) getContexto filtra por entidad+entidadId", async () => {
+    TABLES.contexto = [
+      { id: "c1", entidad: "viaje", entidad_id: "v1", texto: "a", ocurrido_en: "2026-01-01" },
+      { id: "c2", entidad: "viaje", entidad_id: "v2", texto: "b", ocurrido_en: "2026-01-02" },
+    ];
+    const r = await getContexto("viaje", "v1");
+    expect(r).toHaveLength(1);
+    expect(r[0].id).toBe("c1");
+  });
+
+  it("(h) getContexto ordena por ocurrido_en descendente (hecho más reciente primero)", async () => {
+    TABLES.contexto = [
+      { id: "c1", entidad: "viaje", entidad_id: "v1", texto: "vieja", ocurrido_en: "2026-01-01" },
+      { id: "c2", entidad: "viaje", entidad_id: "v1", texto: "reciente", ocurrido_en: "2026-03-01" },
+      { id: "c3", entidad: "viaje", entidad_id: "v1", texto: "media", ocurrido_en: "2026-02-01" },
+    ];
+    const r = await getContexto("viaje", "v1");
+    expect(r.map((c) => c.id)).toEqual(["c2", "c3", "c1"]);
+  });
+
+  it("(i) getContexto con tabla vacía devuelve []", async () => {
+    const r = await getContexto("viaje", "v1");
+    expect(r).toEqual([]);
   });
 });
 

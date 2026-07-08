@@ -1516,11 +1516,28 @@ vez memoria útil desde el día 1 y el corpus que alimentará el bot de llamadas
   `createViaje({clienteId})`. Verificado Grupo B contra la BD real: cliente creado, asociado a
   un viaje real (`referencia` y `cliente_id` conviviendo en la misma fila), y limpiado. 139
   pytest, 247+1 skip vitest, build verde (20 páginas, `/clientes` incluida).
-- [ ] `[LOOP]` **11.2 Capa de contexto atada a las entidades** (picar código: opus spec → sonnet,
+- [x] `[LOOP]` **11.2 Capa de contexto atada a las entidades** (picar código: opus spec → sonnet,
   esfuerzo medio) — tabla `contexto` (nota / transcripción / extracto de email) anclada a
   viaje/chofer/cliente, con PROCEDENCIA (quién lo dijo, por qué canal, cuándo), coherente con la
   trazabilidad de la Fase 8. Día 1 sin IA: memoria organizada y buscable de cada viaje/cliente.
   Después: corpus de recuperación del bot de llamadas.
+  Spec cerrada en `SPECS-11.md` (opus) implementada literalmente (sonnet). Migración
+  `0042_contexto.sql`: anclaje polimórfico `entidad`+`entidad_id` (igual que `audit_log`, sin FK
+  a propósito — el contexto sobrevive al borrado de la entidad), `canal` con CHECK de 4 valores
+  (`nota_manual`/`email` usables hoy; `llamada_transcrita`/`whatsapp` reservados para 11.3/11.6
+  sin re-migrar el CHECK cuando lleguen), `ocurrido_en` vs `created_at` separados, procedencia
+  `gestor_id`+`autor_externo`. **Decisión explícita: MUTABLE (no append-only como `audit_log`)**
+  — es memoria de trabajo editable, no evidencia forense; policy `FOR ALL` + trigger
+  `solo_lectura_bloquea_escritura`. **`nota_gestor` se deja intacta** (no migrada; las firmas de
+  `getContexto`/`createContexto` imitan las suyas para que unificar más adelante sea un diff
+  pequeño). Índice de texto/GIN deferido a propósito (nadie busca por texto todavía). 9 tests
+  Grupo A enumerados en la spec (uno ajustado tras detectar que "sin sesión → gestor_id null" no
+  es alcanzable en la práctica porque `getCurrentEmpresaId` ya exige sesión antes). Verificado
+  Grupo B contra la BD real: 11 columnas, RLS, policy, trigger, 3 índices, checksum registrado,
+  `nota_gestor` sigue existiendo; los dos CHECK (`entidad`, `canal`) rechazan valores inválidos
+  de verdad, y el canal reservado `llamada_transcrita` se acepta a nivel BD (la restricción a 2
+  canales hoy es solo de la capa JS, tal como diseñó la spec). 139 pytest, 257+1 skip vitest,
+  build verde.
 - [ ] `[DECISIÓN]` **11.3 Nota de voz → transcripción** (subsume/precede `7B.1`) — el gestor manda
   un audio de 15s ("el cliente acepta el retraso de 2h por la nevada") y se transcribe (Whisper) y
   se ancla al `contexto` (11.2) de la entidad correcta. Es el puente de MAYOR palanca para capturar

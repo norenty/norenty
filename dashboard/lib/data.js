@@ -1318,6 +1318,77 @@ export async function createNotaGestor({ texto, viajeId = null }) {
   if (error) throw error;
 }
 
+// --- Capa de contexto (11.2) — memoria organizada y buscable de cada entidad
+// (viaje/chofer/cliente), con procedencia (quien / que canal / cuando). Generaliza
+// nota_gestor: mismo espiritu de cuaderno minable, anclable a cualquier entidad y
+// con canal de origen. HOY solo se escriben los canales 'nota_manual' y 'email'
+// desde el dashboard; 'llamada_transcrita'/'whatsapp' quedan para 11.3/11.6. ---
+
+const CANALES_CONTEXTO_DASHBOARD = ["nota_manual", "email"];
+export const LIMITE_CONTEXTO = 200;
+
+/**
+ * Lista el contexto anclado a una entidad, hecho mas reciente primero.
+ * @param {"viaje"|"chofer"|"cliente"} entidad
+ * @param {string} entidadId
+ * @returns filas { id, canal, texto, resumen, autor_externo, ocurrido_en, created_at, gestor:{nombre} }
+ */
+export async function getContexto(entidad, entidadId) {
+  const { data } = await supabase
+    .from("contexto")
+    .select("id, canal, texto, resumen, autor_externo, ocurrido_en, created_at, gestor:gestor_id(nombre)")
+    .eq("entidad", entidad)
+    .eq("entidad_id", entidadId)
+    .order("ocurrido_en", { ascending: false })
+    .limit(LIMITE_CONTEXTO);
+  return data || [];
+}
+
+/**
+ * Crea una pieza de contexto anclada a una entidad. Resuelve gestor_id de la
+ * sesion (autor interno), igual que createNotaGestor. `canal` limitado a los
+ * usables desde el dashboard hoy; `ocurridoEn`/`resumen`/`autorExterno` opcionales.
+ * @returns {string} id de la fila creada
+ */
+export async function createContexto({
+  entidad,
+  entidadId,
+  texto,
+  canal = "nota_manual",
+  resumen = null,
+  autorExterno = null,
+  ocurridoEn = null,
+}) {
+  if (!["viaje", "chofer", "cliente"].includes(entidad)) {
+    throw new Error(`entidad no valida: ${entidad}`);
+  }
+  if (!CANALES_CONTEXTO_DASHBOARD.includes(canal)) {
+    throw new Error(`canal no permitido desde el dashboard: ${canal}`);
+  }
+  const empresaId = await getCurrentEmpresaId();
+  const { data: { session } } = await supabase.auth.getSession();
+  let gestorId = null;
+  if (session?.user) {
+    const { data: gestor } = await supabase
+      .from("gestor").select("id").eq("auth_user_id", session.user.id).single();
+    gestorId = gestor?.id || null;
+  }
+  const fila = {
+    empresa_id: empresaId,
+    entidad,
+    entidad_id: entidadId,
+    canal,
+    texto: texto.trim(),
+    resumen: resumen ? resumen.trim() : null,
+    gestor_id: gestorId,
+    autor_externo: autorExterno,
+  };
+  if (ocurridoEn) fila.ocurrido_en = ocurridoEn;
+  const { data, error } = await supabase.from("contexto").insert(fila).select("id").single();
+  if (error) throw error;
+  return data.id;
+}
+
 /**
  * Informe de nómina auto-derivado (ítem 5.1). Para cada chófer de la empresa y
  * un mes/año dados, calcula:
