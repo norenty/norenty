@@ -14,7 +14,7 @@ sucesivas, citando el incidente real de 0032 (9.29) como motivo. No retroactivo.
 código — ci.ps1 verde.
 
 2026-07-08 | Fase 11.2: capa de contexto (`SPECS-11.md` opus → implementado literalmente) |
-(por commitear) | HECHO. Migración `0042_contexto.sql`: anclaje polimórfico entidad+entidad_id
+67c883d | HECHO. Migración `0042_contexto.sql`: anclaje polimórfico entidad+entidad_id
 (como audit_log, sin FK a propósito), canal con CHECK de 4 valores (2 usables hoy, 2 reservados
 para 11.3/11.6 sin re-migrar), ocurrido_en vs created_at separados. Decisión explícita:
 MUTABLE, no append-only (memoria de trabajo editable, no evidencia forense) + trigger
