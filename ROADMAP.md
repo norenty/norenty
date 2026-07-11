@@ -1417,11 +1417,44 @@ esto ya es ejecutable.
   al estar D2 resuelta) — restaurar un backup real a una BD de prueba, cronometrar (RTO), medir la
   ventana de pérdida posible (RPO) y anotar ambos en `RUNBOOK.md` con fecha. Un backup que nunca
   se ha restaurado no es un backup.
+  **Bloqueado de nuevo (2026-07-08), por una razón distinta a D2:** no hay `pg_dump`/`psql` ni
+  Docker instalados en esta máquina de desarrollo (confirmado al intentar), y el branching de
+  Supabase no está disponible en el plan actual (`list_branches` devuelve "Project reference is
+  missing"). Eso deja como única vía un restore **contra el propio proyecto de producción** desde
+  el panel de Supabase — una acción con impacto real (puede dejar la BD offline o revertir datos
+  durante la prueba) que no se ejecuta sin confirmación explícita del usuario, consultado
+  2026-07-08: decidió saltar a 10.3 por ahora. Sigue pendiente; necesita que el usuario elija
+  entre restaurar él mismo desde el panel (guionizado) o instalar herramientas cliente de
+  Postgres en esta máquina para probar contra un dump aparte.
 - [ ] `[LOOP]` **10.3 Suite de aislamiento multi-tenant (RLS) en CI** — Grupo B con 2 tenants
   reales que AFIRMA que las lecturas/escrituras cruzadas están bloqueadas por RLS, y corre en
   cada migración. Hoy el aislamiento (todo el modelo de seguridad) solo se verifica a mano una
   vez; una regresión de policy abriría acceso cruzado en silencio. Es la red que protege la
   tesis del producto.
+  **Hallazgo (2026-07-08): ya existen `dashboard/lib/isolation.test.js` (8.4) y
+  `roles-isolation.test.js` (9.31)** — aislamiento por lecturas contra 2 empresas reales, y
+  aislamiento por rol, ambos ya corren en `ci.ps1` (se saltan sin fallar sin credenciales). Falta
+  verificar/ampliar: (a) que cubran también ESCRITURAS cruzadas (no solo lecturas), (b) que
+  corran de verdad "en cada migración" tal como pide el ítem, no solo en `ci.ps1` general. Se
+  creó además una cuenta de prueba dedicada `rls-iso-b@norenty.com` en "Demo Transport S.L."
+  (la empresa ajena a `DEMO_EMAIL`) para reforzar esta suite — pendiente de usarla.
+- [x] `[LOOP]` **10.4 Sacar los secretos reales del repo tras una exposición accidental** (no
+  estaba en el plan original — añadido en caliente 2026-07-08 tras un incidente real). Un `Read`
+  de `.env` (para editarlo) volcó `SUPABASE_SERVICE_ROLE_KEY`/`DATABASE_URL`/`TELEGRAM_BOT_TOKEN`/
+  `DEMO_PASSWORD` al historial de la conversación — segunda vez que pasa en el proyecto (la
+  primera fue un comando de PowerShell, ítem documentado en `RUNBOOKS.md §5`). La causa raíz no
+  es "tener más cuidado": es que el secreto vivía en un archivo dentro de la carpeta del repo,
+  alcanzable por cualquier herramienta con acceso a esa carpeta.
+  Arreglado de raíz: los secretos reales pasan a vivir en `~/.norenty-secrets/.env`, **fuera**
+  del repo (ver `RUNBOOK-SECRETS.md §0` para el procedimiento paso a paso). Los 11 puntos de
+  `load_dotenv`/`loadEnv` del backend y los tests del dashboard ahora cargan también esa ruta con
+  `override=True` tras la del repo. Añadida además una barrera técnica en `.claude/settings.json`
+  (`permissions.deny` sobre `Read`/`cat`/`Get-Content` de `.env`, `dashboard/.env.local`, y
+  `~/.norenty-secrets/**`) y una regla explícita en `CLAUDE.md`. ci.ps1 verde (139 pytest, 257+1
+  skip vitest, build de 20 páginas) confirma que nada se rompe con la ruta externa todavía sin
+  crear (comportamiento idéntico al de antes). **Pendiente del usuario:** rotar los 4 secretos
+  expuestos y crear/rellenar `~/.norenty-secrets/.env` con los valores rotados — no completable
+  por el loop, requiere acción humana en los paneles de Supabase/BotFather.
 
 ### Bloque H — Fiabilidad observable y auto-vigilada
 

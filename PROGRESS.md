@@ -13,6 +13,19 @@ HECHO. `ONBOARDING.md §7` documenta separar DDL/backfill/hardening de columnas 
 sucesivas, citando el incidente real de 0032 (9.29) como motivo. No retroactivo. Sin cambios de
 código — ci.ps1 verde.
 
+2026-07-08 | Fase 10.4: sacar secretos reales del repo tras exposición accidental | d4c6b4b |
+HECHO. Un `Read` de `.env` volcó SUPABASE_SERVICE_ROLE_KEY/DATABASE_URL/TELEGRAM_BOT_TOKEN/
+DEMO_PASSWORD al chat (segunda vez, la primera fue un comando PowerShell — RUNBOOKS.md §5).
+Arreglo de raíz: secretos reales movidos a ~/.norenty-secrets/.env, fuera del repo (procedimiento
+en RUNBOOK-SECRETS.md §0). 11 puntos de load_dotenv/loadEnv en backend+tests actualizados con
+override=True sobre la ruta externa. Barrera técnica en .claude/settings.json (deny sobre
+Read/cat/Get-Content de .env, dashboard/.env.local, ~/.norenty-secrets/**) + regla en CLAUDE.md.
+ci.ps1 verde sin la ruta externa creada todavía (comportamiento idéntico). Pendiente del usuario:
+rotar los 4 secretos y rellenar el archivo externo con los valores rotados.
+También registrado en 10.2 (bloqueado, ver nota) y hallazgo sobre 10.3: ya existen
+isolation.test.js (8.4) y roles-isolation.test.js (9.31), y se creó una cuenta de prueba
+rls-iso-b@norenty.com en la empresa ajena a DEMO_EMAIL para reforzar esa suite.
+
 2026-07-08 | Fase 11.2: capa de contexto (`SPECS-11.md` opus → implementado literalmente) |
 67c883d | HECHO. Migración `0042_contexto.sql`: anclaje polimórfico entidad+entidad_id
 (como audit_log, sin FK a propósito), canal con CHECK de 4 valores (2 usables hoy, 2 reservados
