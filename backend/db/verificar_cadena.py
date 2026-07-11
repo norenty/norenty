@@ -23,6 +23,9 @@ import psycopg2.extras
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
+# Seguridad (2026-07-08): secretos reales en ~/.norenty-secrets/.env, fuera del
+# repo (ver RUNBOOK-SECRETS.md). override=True: gana sobre el .env del repo.
+load_dotenv(Path.home() / ".norenty-secrets" / ".env", override=True)
 
 
 def _calc_hash(hash_prev, id_, viaje_id, hito_id, chofer_id, tipo, detalle, ocurrido_en):

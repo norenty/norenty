@@ -16,6 +16,16 @@ asume que el anterior ya funciona.
 
 ## 2. Variables de entorno
 
+**Convención de seguridad (2026-07-08, ver RUNBOOK-SECRETS.md §0):** los secretos REALES viven en
+`~/.norenty-secrets/.env` (fuera del repo, en el `home` del usuario), **NUNCA** en el `.env` de la
+raíz del repo. Cada script del backend carga primero el `.env` del repo (que debe quedar sin
+valores reales, solo de referencia/plantilla) y luego, con `override=True`, el de
+`~/.norenty-secrets/.env` — si existe, sus valores ganan. Motivo: un agente de código (o cualquier
+herramienta) que opera dentro de la carpeta del repo puede llegar a leer archivos de ahí dentro por
+accidente (ya pasó dos veces en este proyecto); un archivo fuera del repo, en una ruta que nadie
+tiene motivo para tocar, no está en su radio de alcance. Ver el procedimiento paso a paso en
+`RUNBOOK-SECRETS.md §0`.
+
 Dos archivos, **ninguno se sube a git** (están en `.gitignore`):
 
 ### `.env` (raíz del repo — lo usa el backend/bot)

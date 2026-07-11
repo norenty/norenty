@@ -15,6 +15,7 @@
 // Como smoke.test.js/isolation.test.js: se salta entero si no hay
 // credenciales en el entorno, para no romper CI en una máquina sin `.env`.
 import { createClient } from "@supabase/supabase-js";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
@@ -23,6 +24,9 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 const here = path.dirname(fileURLToPath(import.meta.url));
 loadEnv({ path: path.resolve(here, "../.env.local") });
 loadEnv({ path: path.resolve(here, "../../.env") });
+// Seguridad (2026-07-08): secretos reales en ~/.norenty-secrets/.env, fuera del
+// repo (ver RUNBOOK-SECRETS.md). override: true -- gana sobre lo anterior.
+loadEnv({ path: path.join(os.homedir(), ".norenty-secrets", ".env"), override: true });
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

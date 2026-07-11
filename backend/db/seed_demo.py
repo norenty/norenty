@@ -44,6 +44,9 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env", override=True)
+# Seguridad (2026-07-08): secretos reales en ~/.norenty-secrets/.env, fuera del
+# repo (ver RUNBOOK-SECRETS.md). Se carga el ultimo para que gane sobre lo anterior.
+load_dotenv(Path.home() / ".norenty-secrets" / ".env", override=True)
 
 DEMO_EMAIL = os.environ.get("DEMO_EMAIL", "demo@norenty.com")
 DEMO_EMPRESA_NOMBRE = "Transportes Demo Norenty"

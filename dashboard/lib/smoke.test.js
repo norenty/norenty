@@ -12,6 +12,7 @@
 // así una máquina sin `.env`/`.env.local` sigue teniendo CI verde; en la
 // máquina de desarrollo con las claves puestas, si esto falla es una señal
 // real de que algo está roto contra la BD de verdad, no un mock desincronizado.
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
@@ -20,6 +21,9 @@ import { describe, it, expect, beforeAll } from "vitest";
 const here = path.dirname(fileURLToPath(import.meta.url));
 loadEnv({ path: path.resolve(here, "../.env.local") });
 loadEnv({ path: path.resolve(here, "../../.env") }); // no pisa NEXT_PUBLIC_* ya cargadas, añade DEMO_EMAIL/DEMO_PASSWORD
+// Seguridad (2026-07-08): secretos reales en ~/.norenty-secrets/.env, fuera del
+// repo (ver RUNBOOK-SECRETS.md). override: true -- gana sobre lo anterior.
+loadEnv({ path: path.join(os.homedir(), ".norenty-secrets", ".env"), override: true });
 
 const tieneCredenciales = !!(
   process.env.NEXT_PUBLIC_SUPABASE_URL &&

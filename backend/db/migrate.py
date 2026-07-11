@@ -19,6 +19,9 @@ from dotenv import load_dotenv
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
+# Seguridad (2026-07-08): secretos reales en ~/.norenty-secrets/.env, fuera del
+# repo (ver RUNBOOK-SECRETS.md). override=True: gana sobre el .env del repo.
+load_dotenv(Path.home() / ".norenty-secrets" / ".env", override=True)
 
 # Ítem 9.36: 0002-0011 se aplicaron a mano por MCP antes de que existiera este runner
 # (checksum registrado en su momento con el SQL tal como se aplicó entonces). Un drift

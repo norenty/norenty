@@ -14,12 +14,16 @@ modo no se activa salvo que se configure explícitamente BOT_WEBHOOK_URL.
 
 import os
 import sys
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 os.environ.setdefault("DOTENV_PATH", os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+# Seguridad (2026-07-08): secretos reales en ~/.norenty-secrets/.env, fuera del
+# repo (ver RUNBOOK-SECRETS.md). override=True: gana sobre el .env del repo.
+load_dotenv(Path.home() / ".norenty-secrets" / ".env", override=True)
 
 from app.bot import create_bot_app
 

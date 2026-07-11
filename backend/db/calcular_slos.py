@@ -35,6 +35,9 @@ import psycopg2
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
+# Seguridad (2026-07-08): secretos reales en ~/.norenty-secrets/.env, fuera del
+# repo (ver RUNBOOK-SECRETS.md). override=True: gana sobre el .env del repo.
+load_dotenv(Path.home() / ".norenty-secrets" / ".env", override=True)
 
 UMBRAL_HEARTBEAT_S = 300       # mismo umbral que dashboard/lib/data.js (8.3)
 OBJETIVO_NOTIFICACION_S = 60   # mismo umbral que el ejemplo del ítem 9.19

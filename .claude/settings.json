@@ -4,5 +4,24 @@
       "type": "http",
       "url": "https://mcp.supabase.com/mcp?project_ref=hloqddmdwinvjksqkhey&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching%2Cstorage"
     }
+  },
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(.env)",
+      "Read(./dashboard/.env.local)",
+      "Read(dashboard/.env.local)",
+      "Bash(cat .env)",
+      "Bash(cat ./.env)",
+      "Bash(cat dashboard/.env.local)",
+      "Bash(cat ./dashboard/.env.local)",
+      "Bash(Get-Content .env)",
+      "Bash(Get-Content ./.env)",
+      "Bash(Get-Content dashboard/.env.local)",
+      "Bash(Get-Content ./dashboard/.env.local)",
+      "Read(~/.norenty-secrets/**)",
+      "Bash(cat ~/.norenty-secrets/*)",
+      "Bash(Get-Content ~/.norenty-secrets/*)"
+    ]
   }
 }

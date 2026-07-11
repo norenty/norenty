@@ -3,6 +3,49 @@
 Procedimiento operativo para rotar cada secreto de producción **sin ventana de caída**.
 Tiempo estimado por secreto: 10-15 min.
 
+## §0 — Dónde viven los secretos localmente (convención desde 2026-07-08)
+
+**Incidente que motivó esto:** dos veces en este proyecto, una herramienta operando dentro de la
+carpeta del repo (un comando de diagnóstico de PowerShell una vez; un `Read` de archivo la otra)
+volcó el contenido completo de `.env` — incluida `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL` con
+contraseña, y `TELEGRAM_BOT_TOKEN` — en el historial de una conversación. Ambas veces el `.env`
+vivía en la raíz del repo, un sitio donde cualquier herramienta con acceso a esa carpeta puede
+llegar a abrirlo. La corrección de fondo no es "tener más cuidado la próxima vez" — es que el
+secreto no esté en un sitio alcanzable desde dentro del repo.
+
+**Convención:** los secretos reales viven en `~/.norenty-secrets/.env` — una carpeta en el `home`
+del usuario, **fuera** de `Escritorio\Claude code` por completo. El `.env` de la raíz del repo deja
+de contener valores reales: cada script del backend lo carga primero (por si algún día tiene
+valores de referencia/no-sensibles) y luego carga `~/.norenty-secrets/.env` con `override=True`, de
+modo que sus valores ganan si existen.
+
+### Procedimiento paso a paso para migrar (una sola vez)
+
+1. **Crear la carpeta externa** (fuera del repo):
+   ```powershell
+   New-Item -ItemType Directory -Force "$env:USERPROFILE\.norenty-secrets"
+   ```
+2. **Crear el archivo `~/.norenty-secrets\.env`** con el editor que prefieras (Notepad, VS Code —
+   cualquiera excepto pedirle a un agente de código que lo abra) y pegar ahí los valores REALES
+   (rotados, no los viejos) de: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
+   `TELEGRAM_BOT_TOKEN`, `DATABASE_URL`, `DEMO_EMAIL`, `DEMO_PASSWORD`, y cualquier otra clave de
+   proveedor (`ANTHROPIC_API_KEY`/`OPENAI_API_KEY`) cuando existan.
+3. **Vaciar el `.env` de la raíz del repo** de esos valores (dejar las claves sin valor o con un
+   comentario, para que quede claro que la plantilla vive ahí pero los valores reales no). Esto lo
+   haces tú directamente — un agente de código con la regla de este runbook aplicada ya no debería
+   poder ni leer ese archivo para editarlo.
+4. **Verificar que todo sigue arrancando** con los scripts habituales (`python backend/db/migrate.py
+   --check`, arrancar el bot, `npm run dev` del dashboard) — deben seguir funcionando exactamente
+   igual, porque `load_dotenv(..., override=True)` sobre `~/.norenty-secrets/.env` sustituye en
+   memoria del proceso a lo que hubiera (o no hubiera) en el `.env` del repo.
+5. **Confirmar que `~/.norenty-secrets/` nunca se sube a git** — al estar fuera del repo, ni
+   siquiera hace falta añadirlo a `.gitignore`, pero conviene no crearlo dentro de ninguna carpeta
+   versionada por descuido.
+
+**Nota para máquinas nuevas / otros desarrolladores:** cada máquina que arranque el backend
+necesita su propia copia de `~/.norenty-secrets/.env` (no se distribuye por git, evidentemente —
+se comparte por el gestor de secretos del equipo o de mano en mano, nunca por chat/email en claro).
+
 **Principio fundamental:** en producción los secretos viven SOLO en los stores de entorno de
 Railway (backend/bot) y Vercel (dashboard). El archivo `.env` local es exclusivamente para
 desarrollo y está en `.gitignore` — nunca lo subas a git ni lo pegues en ningún chat.

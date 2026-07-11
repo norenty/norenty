@@ -38,6 +38,9 @@ from supabase import create_client
 # override=True: en esta máquina existe una SUPABASE_SERVICE_ROLE_KEY vacía a
 # nivel de sistema que eclipsaría la del .env (load_dotenv no pisa por defecto).
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env", override=True)
+# Seguridad (2026-07-08): secretos reales en ~/.norenty-secrets/.env, fuera del
+# repo (ver RUNBOOK-SECRETS.md). Se carga el ultimo para que gane sobre lo anterior.
+load_dotenv(Path.home() / ".norenty-secrets" / ".env", override=True)
 
 CSV_URL = "https://zenodo.org/records/10231359/files/truckParkingLocationsEurope_MediumHigh_v03.csv?download=1"
 

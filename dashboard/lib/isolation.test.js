@@ -7,6 +7,7 @@
 //
 // Como smoke.test.js (8.1): se salta entero si no hay credenciales en el
 // entorno, para no romper CI en una máquina sin `.env`/`.env.local`.
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
@@ -15,6 +16,9 @@ import { describe, it, expect, beforeAll } from "vitest";
 const here = path.dirname(fileURLToPath(import.meta.url));
 loadEnv({ path: path.resolve(here, "../.env.local") });
 loadEnv({ path: path.resolve(here, "../../.env") });
+// Seguridad (2026-07-08): secretos reales en ~/.norenty-secrets/.env, fuera del
+// repo (ver RUNBOOK-SECRETS.md). override: true -- gana sobre lo anterior.
+loadEnv({ path: path.join(os.homedir(), ".norenty-secrets", ".env"), override: true });
 
 const tieneCredenciales = !!(
   process.env.NEXT_PUBLIC_SUPABASE_URL &&
