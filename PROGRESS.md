@@ -8,8 +8,8 @@ depender del historial de conversación.
 
 ---
 
-2026-07-12 | Documentar herramientas de operador (10.5-10.7) en ONBOARDING/RUNBOOKS | (por
-commitear) | HECHO (limpieza, sin ítem de roadmap dedicado). `monitor_heartbeat.py`,
+2026-07-12 | Documentar herramientas de operador (10.5-10.7) en ONBOARDING/RUNBOOKS | 005fafa |
+HECHO (limpieza, sin ítem de roadmap dedicado). `monitor_heartbeat.py`,
 `monitor_integridad.py`, `panel_salud.py` no estaban documentados en ningún sitio para que un
 futuro operador los descubriera — nueva sección `ONBOARDING.md §8b` con los 4 scripts y cómo
 programarlos; `RUNBOOKS.md §1` actualizado con que la detección de "bot caído" ya puede ser
