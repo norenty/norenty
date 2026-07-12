@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-12 | Fase 9.41b: pantalla de derechos ARCO en la ficha del chófer | (por commitear) |
+2026-07-12 | Fase 9.41b: pantalla de derechos ARCO en la ficha del chófer | 6e4d732 |
 HECHO. `ArcoChoferSection.jsx` (admin-only): exportar (descarga JSON de
 getExportacionChofer) y anonimizar (confirmación explicando qué se toca y qué no, citando
 PRIVACIDAD-ARCO.md), montado en choferes/[id]/page.jsx. Reutiliza getExportacionChofer/
