@@ -8,8 +8,8 @@ depender del historial de conversación.
 
 ---
 
-2026-07-12 | Hardening: search_path fijo en 3 funciones (linter de seguridad Supabase) | (por
-commitear) | HECHO. Migración 0047: ejecucion_evento_calc_hash, ejecucion_evento_hash_chain,
+2026-07-12 | Hardening: search_path fijo en 3 funciones (linter de seguridad Supabase) | e844a0d |
+HECHO. Migración 0047: ejecucion_evento_calc_hash, ejecucion_evento_hash_chain,
 cola_reclamar_lote no tenían search_path fijo (WARN function_search_path_mutable — riesgo de
 schema shadowing). Las 3 ya cualifican todo con `public.`, así que `SET search_path = ''` es
 seguro sin cambiar comportamiento. Verificado: los 3 WARN desaparecen de get_advisors tras
