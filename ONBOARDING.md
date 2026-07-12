@@ -152,6 +152,30 @@ Ambos son idempotentes (se pueden re-ejecutar) y pasan por RLS real con la sesi�
 — nunca usan la service role key para poblar datos, así validan las policies tal cual las usará
 un cliente real.
 
+## 8b. Herramientas de operador (Fase 10, Bloque H — fiabilidad observable)
+
+Scripts de solo-lectura/mantenimiento que corren vía `DATABASE_URL` (fuera de RLS, como todo lo
+de `backend/db/`). Son para quien **opera la plataforma** (hoy, tú), no para un gestor de una
+empresa cliente — ver `panel_salud.py` para la razón de diseño completa. **Ninguno tiene
+scheduler propio todavía** (no hay infraestructura de cron en el proyecto, mismo motivo que
+`purgar_ubicacion.py`): hay que invocarlos a mano o vía Tarea Programada de Windows/cron.
+
+```powershell
+cd backend
+.\.venv\Scripts\python db\calcular_slos.py            # SLOs internos (9.19): disponibilidad del bot, notificación de asignación
+.\.venv\Scripts\python db\monitor_heartbeat.py         # alerta Telegram si el bot lleva >5 min sin latido (10.5), anti-spam
+.\.venv\Scripts\python db\monitor_integridad.py        # verifica hash-chain + hashes de POD, alerta si algo está roto (10.6)
+.\.venv\Scripts\python db\panel_salud.py               # junta todo lo anterior + últimas alertas en un solo reporte (10.7)
+.\.venv\Scripts\python db\verificar_cadena.py           # solo la cadena hash, sin alertar (9.7 — lo que monitor_integridad.py reutiliza)
+.\.venv\Scripts\python db\verificar_pod.py --todos      # solo los hashes de POD, sin alertar (9.8 — ídem)
+```
+
+Recomendación mínima si quieres verlos funcionar de verdad (no solo leer el código): programa
+`monitor_heartbeat.py` y `monitor_integridad.py` cada 5 min en el Programador de tareas de
+Windows (o cron si despliegas en Linux), y `panel_salud.py` a mano cuando quieras un vistazo
+rápido del estado general. Ver `RUNBOOKS.md §1` (bot caído) para cuándo se dispara la alerta de
+`monitor_heartbeat.py` en la práctica.
+
 ## 9. Convenciones del repo
 
 - **`ROADMAP.md`** es la fuente de verdad del backlog, organizado en fases con puertas (gates).

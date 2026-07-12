@@ -16,6 +16,12 @@ correspondiente de `RUNBOOK-SECRETS.md` en vez de repetir los pasos.
 el "Estado del bot" no pasa a "activo" o lleva más de 2-3 min sin heartbeat (`bot_heartbeat`,
 ítem 8.3).
 
+**Actualización (ítem 10.5, 2026-07-12):** si `backend/db/monitor_heartbeat.py` está programado
+(ver `ONBOARDING.md §8b`), este síntoma ya no depende de que alguien mire el dashboard — manda
+Telegram automáticamente a los gestores con chat vinculado en cuanto el heartbeat lleva >5 min
+caído, y avisa también cuando se recupera. Si no está programado todavía (nadie lo ha puesto en
+una Tarea Programada/cron), el diagnóstico manual de abajo sigue siendo necesario.
+
 **Diagnóstico (en orden, para no perder tiempo):**
 1. **¿Es un problema nuestro o de Supabase/Telegram?** Mirar https://status.telegram.org y el
    status de Supabase (`https://status.supabase.com`). Si hay incidente ahí, no hay nada que

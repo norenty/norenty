@@ -8,6 +8,13 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | Documentar herramientas de operador (10.5-10.7) en ONBOARDING/RUNBOOKS | (por
+commitear) | HECHO (limpieza, sin ítem de roadmap dedicado). `monitor_heartbeat.py`,
+`monitor_integridad.py`, `panel_salud.py` no estaban documentados en ningún sitio para que un
+futuro operador los descubriera — nueva sección `ONBOARDING.md §8b` con los 4 scripts y cómo
+programarlos; `RUNBOOKS.md §1` actualizado con que la detección de "bot caído" ya puede ser
+automática si `monitor_heartbeat.py` está programado. Sin cambios de código, ci.ps1 verde.
+
 2026-07-12 | Fase 9.35: manejo de errores de lectura en las 6 funciones financieras | 1f3cd0b |
 HECHO. data.js: cada función distingue queries críticas (lanzan de verdad) de
 opcionales (vacío = negocio legítimo, no lanzan); getViabilidadViaje/getEstado561 distinguen
