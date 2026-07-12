@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-12 | Fase 12.1: foto en los gastos (evidencia con integridad) | (por commitear) |
+2026-07-12 | Fase 12.1: foto en los gastos (evidencia con integridad) | 6d95b72 |
 HECHO. `gasto_viaje` (0024) guardaba importe/tipo pero sin foto. Migración
 `0043_gasto_foto.sql`: 2 columnas nullable (`foto_url`, `foto_hash_sha256`), sin bucket ni
 policy nuevos — reutiliza `documentos` (la policy ya scopea por `empresa_id` como primera
