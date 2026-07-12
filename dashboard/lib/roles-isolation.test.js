@@ -275,6 +275,19 @@ describe.skipIf(!tieneCredenciales)("aislamiento por rol contra la BD real (9.31
     expect(insDoc.error.message).toMatch(/solo_lectura/);
   });
 
+  it("(B6b, 2026-07-12) solo_lectura tampoco puede escribir en cliente/contexto (tablas nuevas de 11.1/11.2)", async () => {
+    const insCliente = await lectura.from("cliente").insert({ empresa_id: empresaId, nombre: "intento-931" }).select();
+    expect(insCliente.error).toBeTruthy();
+    expect(insCliente.error.message).toMatch(/solo_lectura/);
+
+    const insContexto = await lectura
+      .from("contexto")
+      .insert({ empresa_id: empresaId, entidad: "viaje", entidad_id: viajeId, texto: "intento-931" })
+      .select();
+    expect(insContexto.error).toBeTruthy();
+    expect(insContexto.error.message).toMatch(/solo_lectura/);
+  });
+
   it("(B7) solo_lectura SÍ puede SELECT datos de su empresa", async () => {
     const { data, error } = await lectura.from("viaje").select("id").limit(5);
     expect(error).toBeNull();

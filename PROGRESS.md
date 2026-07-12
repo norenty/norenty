@@ -8,6 +8,10 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | Ampliar 9.31: B6b, solo_lectura tampoco escribe en cliente/contexto | (por
+commitear) | HECHO. roles-isolation.test.js no cubría las tablas nuevas de 11.1/11.2 para el
+trigger solo_lectura_bloquea_escritura. 13/13+1 skip contra la BD real. ci.ps1 completo verde.
+
 2026-07-12 | Ampliar 10.3 otra vez: verdad_observada + verificación empírica de
 alerta_bot_caido/alerta_integridad | 2c99751 | HECHO. verdad_observada (10.8) probada
 para aislamiento cruzado. alerta_bot_caido/alerta_integridad (10.5/10.6): confirmado

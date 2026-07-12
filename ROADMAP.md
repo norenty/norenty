@@ -1494,6 +1494,10 @@ esto ya es ejecutable.
   de `authenticated` por diseño: se confirma EMPÍRICAMENTE que un `SELECT` como `authenticated`
   (la cuenta demo) devuelve 0 filas siempre, no solo que está documentado así. 16/16 tests en
   `isolation.test.js` contra la BD real, 0 filas de prueba restantes tras limpiar.
+  **Tercera ampliación (2026-07-12):** `roles-isolation.test.js` (9.31) tampoco cubría
+  `cliente`/`contexto` — nuevo caso B6b: `solo_lectura` intenta INSERT en ambas tablas, se
+  confirma que el trigger `solo_lectura_bloquea_escritura` (mismo mecanismo que ya protegía
+  `viaje`/`gasto_viaje`/`documento`) también las bloquea. 13/13 + 1 skip contra la BD real.
 - [x] `[LOOP]` **10.4 Sacar los secretos reales del repo tras una exposición accidental** (no
   estaba en el plan original — añadido en caliente 2026-07-08 tras un incidente real). Un `Read`
   de `.env` (para editarlo) volcó `SUPABASE_SERVICE_ROLE_KEY`/`DATABASE_URL`/`TELEGRAM_BOT_TOKEN`/
