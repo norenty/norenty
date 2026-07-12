@@ -8,6 +8,13 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | Ampliar 10.3: aislamiento cruzado de cliente/contexto (11.1/11.2) | (por
+commitear) | HECHO. `cliente`/`contexto` se construyeron después de la suite de aislamiento
+original y nunca se habían probado. Nuevo bloque en isolation.test.js: fixture vía service
+role en "Demo Transport S.L.", confirma que demo no los ve/toca (lectura + UPDATE/DELETE),
+limpia al final. Verificado contra la BD real: 13/13 tests, 0 filas de prueba restantes.
+ci.ps1 completo verde.
+
 2026-07-12 | Documentar herramientas de operador (10.5-10.7) en ONBOARDING/RUNBOOKS | 005fafa |
 HECHO (limpieza, sin ítem de roadmap dedicado). `monitor_heartbeat.py`,
 `monitor_integridad.py`, `panel_salud.py` no estaban documentados en ningún sitio para que un

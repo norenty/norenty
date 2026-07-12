@@ -11,7 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 loadEnv({ path: path.resolve(here, "../.env.local") });
@@ -135,5 +135,73 @@ describe.skipIf(!tieneServiceRole)("aislamiento de escrituras cruzadas contra la
     } else {
       expect(error).toBeTruthy();
     }
+  });
+});
+
+// --- Aislamiento de las tablas NUEVAS de esta sesión (cliente 11.1, contexto
+// 11.2) -- la suite original (8.4/10.3) se escribió antes de que existieran,
+// así que nunca se probó su aislamiento cruzado de verdad. Se crea la fila de
+// prueba con service role directamente en "Demo Transport S.L." (la empresa
+// ajena a la cuenta demo), se verifica que la cuenta demo no la ve/toca, y se
+// limpia con service role al final (nunca queda basura en la BD real). ---
+describe.skipIf(!tieneServiceRole)("aislamiento de cliente/contexto (11.1/11.2) contra la BD real", () => {
+  let supabaseDemo, supabaseAdmin;
+  let clienteAjenoId, contextoAjenoId;
+
+  beforeAll(async () => {
+    const { createClient } = await import("@supabase/supabase-js");
+    ({ supabase: supabaseDemo } = await import("./supabase.js"));
+    supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+    const { error } = await supabaseDemo.auth.signInWithPassword({
+      email: process.env.DEMO_EMAIL,
+      password: process.env.DEMO_PASSWORD,
+    });
+    if (error) throw new Error(`No se pudo iniciar sesión con la empresa demo: ${error.message}`);
+
+    const { data: cliente, error: errCliente } = await supabaseAdmin
+      .from("cliente")
+      .insert({ empresa_id: OTRA_EMPRESA_ID, nombre: "__TEST_ISOLATION__ cliente ajeno" })
+      .select("id")
+      .single();
+    if (errCliente) throw new Error("No se pudo crear el fixture de cliente: " + errCliente.message);
+    clienteAjenoId = cliente.id;
+
+    const { data: contexto, error: errContexto } = await supabaseAdmin
+      .from("contexto")
+      .insert({ empresa_id: OTRA_EMPRESA_ID, entidad: "viaje", entidad_id: OTRO_VIAJE_ID, texto: "__TEST_ISOLATION__ contexto ajeno" })
+      .select("id")
+      .single();
+    if (errContexto) throw new Error("No se pudo crear el fixture de contexto: " + errContexto.message);
+    contextoAjenoId = contexto.id;
+  }, 30000);
+
+  afterAll(async () => {
+    if (clienteAjenoId) await supabaseAdmin.from("cliente").delete().eq("id", clienteAjenoId);
+    if (contextoAjenoId) await supabaseAdmin.from("contexto").delete().eq("id", contextoAjenoId);
+  });
+
+  it("no ve el cliente de la otra empresa, ni por id ni en el listado general", async () => {
+    const { data: porId } = await supabaseDemo.from("cliente").select("id").eq("id", clienteAjenoId);
+    expect(porId || []).toHaveLength(0);
+    const { data: listado } = await supabaseDemo.from("cliente").select("id");
+    expect((listado || []).map((c) => c.id)).not.toContain(clienteAjenoId);
+  });
+
+  it("no ve el contexto de la otra empresa", async () => {
+    const { data } = await supabaseDemo.from("contexto").select("id").eq("id", contextoAjenoId);
+    expect(data || []).toHaveLength(0);
+  });
+
+  it("UPDATE del cliente ajeno, como demo, NO cambia nada (RLS filtra el WHERE)", async () => {
+    await supabaseDemo.from("cliente").update({ nombre: "HACKEADO_POR_TEST" }).eq("id", clienteAjenoId);
+    const { data } = await supabaseAdmin.from("cliente").select("nombre").eq("id", clienteAjenoId).single();
+    expect(data?.nombre).not.toBe("HACKEADO_POR_TEST");
+  });
+
+  it("DELETE del contexto ajeno, como demo, NO borra nada (RLS filtra el WHERE)", async () => {
+    await supabaseDemo.from("contexto").delete().eq("id", contextoAjenoId);
+    const { data } = await supabaseAdmin.from("contexto").select("id").eq("id", contextoAjenoId).single();
+    expect(data?.id).toBe(contextoAjenoId); // sigue existiendo
   });
 });

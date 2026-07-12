@@ -1481,6 +1481,13 @@ esto ya es ejecutable.
   disponible hoy sin construir infraestructura de CI/CD de forma especulativa. Se
   creó además una cuenta de prueba dedicada `rls-iso-b@norenty.com` en "Demo Transport S.L."
   (la empresa ajena a `DEMO_EMAIL`) para reforzar esta suite — pendiente de usarla.
+  **Ampliación (2026-07-12):** `cliente` (11.1) y `contexto` (11.2) se construyeron DESPUÉS de
+  esta suite y nunca se habían probado para aislamiento cruzado. Añadido un nuevo bloque a
+  `isolation.test.js`: crea un `cliente`/`contexto` de prueba en "Demo Transport S.L." vía
+  service role, confirma que la cuenta demo no los ve (ni por id ni en listado), y que
+  UPDATE/DELETE como demo no los altera (verificado con service role), limpiando el fixture al
+  final. Verificado contra la BD real: 13/13 tests en verde, 0 filas de prueba restantes tras
+  la limpieza (confirmado por consulta directa).
 - [x] `[LOOP]` **10.4 Sacar los secretos reales del repo tras una exposición accidental** (no
   estaba en el plan original — añadido en caliente 2026-07-08 tras un incidente real). Un `Read`
   de `.env` (para editarlo) volcó `SUPABASE_SERVICE_ROLE_KEY`/`DATABASE_URL`/`TELEGRAM_BOT_TOKEN`/
