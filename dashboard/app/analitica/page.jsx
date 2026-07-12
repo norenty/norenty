@@ -9,9 +9,11 @@ import {
   getMetricasFlota,
   getMetricasRentabilidad,
   getComparativaMensual,
+  getRendimientoGestores,
 } from "../../lib/data";
 import { fmtEur } from "../../lib/format";
 import ErrorCargaReintentar from "../components/ui/ErrorCargaReintentar";
+import { useRol } from "../components/RolProvider";
 
 const VISTAS = [
   { id: "puntualidad", label: "Puntualidad", icon: Clock },
@@ -19,6 +21,9 @@ const VISTAS = [
   { id: "choferes", label: "Chóferes", icon: Users },
   { id: "flota", label: "Flota", icon: CarFront },
   { id: "rentabilidad", label: "Rentabilidad", icon: TrendingUp },
+  // Gestores (12.5): solo tiene sentido para quien compara personal, no para
+  // el propio gestor consultando su día a día — se gatea por rol más abajo.
+  { id: "gestores", label: "Gestores", icon: Users, soloAdmin: true },
 ];
 
 // Ítem 12.2 — controlling en el tiempo: flecha + % frente al periodo anterior
@@ -71,6 +76,7 @@ function VistaPuntualidad({ datos, comparativa }) {
         <Card
           label="% Puntualidad"
           value={datos.pctPuntualidad != null ? `${datos.pctPuntualidad}%` : null}
+          sub={datos.objetivoPuntualidadPct != null ? `objetivo: ${datos.objetivoPuntualidadPct}%` : undefined}
           comp={comparativa?.pctPuntualidad}
         />
         <Card label="Hitos con ventana" value={datos.totalConVentana} />
@@ -283,16 +289,60 @@ function VistaRentabilidad({ datos, comparativa }) {
   );
 }
 
+function VistaGestores({ datos }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-xs text-ink-secondary">
+        Rendimiento por gestor en los últimos 90 días: viajes que gestiona, si sigue las
+        sugerencias de asignación del sistema, e incidencias totales de sus viajes.
+      </p>
+      <div className="bg-surface border border-border rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-xs text-ink-secondary text-left">
+              <th className="px-4 py-2 font-medium">Gestor</th>
+              <th className="px-4 py-2 font-medium">Viajes gestionados</th>
+              <th className="px-4 py-2 font-medium">% siguió sugerencia</th>
+              <th className="px-4 py-2 font-medium">Incidencias</th>
+            </tr>
+          </thead>
+          <tbody>
+            {datos.length === 0 ? (
+              <tr><td colSpan={4} className="px-4 py-6 text-center text-ink-secondary">Sin gestores activos.</td></tr>
+            ) : (
+              datos.map((g) => (
+                <tr key={g.id} className="border-b border-border last:border-0">
+                  <td className="px-4 py-2.5 text-ink">{g.nombre}</td>
+                  <td className="px-4 py-2.5 text-ink-secondary">{g.viajesGestionados}</td>
+                  <td className="px-4 py-2.5 text-ink-secondary">
+                    {g.pctSiguioSugerencia != null ? `${g.pctSiguioSugerencia}%` : "—"}
+                  </td>
+                  <td className="px-4 py-2.5 text-ink-secondary">{g.incidencias}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Ítem 12.2: solo estas dos vistas tienen "comparar con el periodo anterior"
 // con sentido de negocio claro hoy (margen/pérdidas, puntualidad).
 const VISTAS_CON_COMPARATIVA = new Set(["puntualidad", "rentabilidad"]);
 
 export default function Analitica() {
+  const { rol } = useRol();
   const [vista, setVista] = useState("puntualidad");
   const [datos, setDatos] = useState(null);
   const [comparativa, setComparativa] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const vistasVisibles = VISTAS.filter((v) => !v.soloAdmin || rol === "admin");
 
   function cargarVista() {
     setLoading(true);
@@ -304,6 +354,7 @@ export default function Analitica() {
       choferes: getMetricasChoferes,
       flota: getMetricasFlota,
       rentabilidad: getMetricasRentabilidad,
+      gestores: getRendimientoGestores,
     }[vista];
     cargar()
       .then((d) => setDatos(d))
@@ -317,6 +368,12 @@ export default function Analitica() {
     }
   }
 
+  useEffect(() => {
+    // Si el rol se resuelve DESPUÉS de haber caído en "gestores" (p.ej. porque
+    // no es admin), no dejarlo varado en una pestaña oculta.
+    if (vista === "gestores" && rol && rol !== "admin") setVista("puntualidad");
+  }, [rol, vista]);
+
   useEffect(() => { cargarVista(); }, [vista]);
 
   return (
@@ -329,7 +386,7 @@ export default function Analitica() {
       </div>
 
       <div className="flex gap-1 mb-4 border-b border-border" role="tablist" aria-label="Vista de analítica">
-        {VISTAS.map(({ id, label, icon: Icon }) => (
+        {vistasVisibles.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             role="tab"
@@ -357,6 +414,7 @@ export default function Analitica() {
           {vista === "choferes" && <VistaChoferes datos={datos} />}
           {vista === "flota" && <VistaFlota datos={datos} />}
           {vista === "rentabilidad" && <VistaRentabilidad datos={datos} comparativa={comparativa} />}
+          {vista === "gestores" && <VistaGestores datos={datos} />}
         </>
       )}
     </div>

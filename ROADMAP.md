@@ -1832,7 +1832,24 @@ en vez de construir a ciegas features grandes como el "IA Brain".
   pérdidas"), cableado en las vistas Puntualidad y Rentabilidad (las 2 con lectura de negocio
   clara hoy). 2 tests Grupo A (variación real + variación null sin periodo anterior). 199
   vitest en data.test.js, ci.ps1 completo verde.
-- [ ] `[DECISIÓN]` **12.3 Discovery con gestor de tráfico real** — el usuario se reúne esta semana
+- [x] `[LOOP]` **12.5 Rendimiento de gestores + objetivo de puntualidad** (petición del usuario
+  2026-07-12: "KPIs generales para jefe de oficina/tráfico... que vea rendimiento de gestores y
+  de camioneros... fijar objetivos") — el rendimiento por CHÓFER ya existía (`VistaChoferes`
+  en `/analitica`); lo que faltaba era comparar GESTORES entre sí y fijar un objetivo de
+  puntualidad. No se creó un rol nuevo "jefe de tráfico": el rol `admin` ya es ese techo hoy.
+  Migración `0049_objetivo_puntualidad.sql`: `empresa.objetivo_puntualidad_pct` (nullable, mismo
+  patrón que `margen_objetivo_pct`). `guardarObjetivoPuntualidadEmpresa` + campo nuevo en
+  Ajustes → Empresa (admin-only, junto a Coste de operación). `getMetricasPuntualidad` ahora
+  expone `objetivoPuntualidadPct`, mostrado como referencia en la tarjeta de % Puntualidad de
+  Analítica. `getRendimientoGestores(rango)`: por gestor ACTIVO — viajes gestionados (vía
+  `viaje.gestor_id`, ya existía desde 0008), % de veces que siguió la sugerencia de asignación
+  (`decision_asignacion`, 7A.2) e incidencias totales de sus viajes. Nueva pestaña "Gestores" en
+  `/analitica`, oculta si el rol no es `admin` (gateada con `useRol`, no `RequireRol`, porque hay
+  que filtrar el propio array de pestañas antes de pintarlas). 8 tests Grupo A nuevos (objetivo
+  expuesto/guardado/validado, filas por gestor, excluye inactivos, cuenta solo SUS viajes,
+  ordena por volumen) — 221 vitest en data.test.js. Verificado contra la BD real: función no
+  lanza con datos reales, y el objetivo hace round-trip completo (guardar 90 → leer 90 → limpiar
+  a null → leer null). `ci.ps1` completo verde, build de 20 páginas OK. — el usuario se reúne esta semana
   con un amigo gestor de tráfico. Objetivo: validar el roadmap contra la realidad ANTES de
   construir lo grande. Guion en `DISCOVERY-GESTOR.md`: observar (en qué pantalla vive, qué copia a
   mano, qué tiene en Excel/post-its aparte, por dónde le entran los viajes) + preguntar por cada

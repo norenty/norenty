@@ -473,6 +473,15 @@ export async function guardarCosteKmEmpresa(empresaId, costeKmStr) {
   if (error) throw error;
 }
 
+export async function guardarObjetivoPuntualidadEmpresa(empresaId, objetivoStr) {
+  const objetivo = objetivoStr.trim() === "" ? null : Number(objetivoStr);
+  if (objetivo != null && (Number.isNaN(objetivo) || objetivo < 0 || objetivo > 100)) {
+    throw new Error("el objetivo de puntualidad debe ser un porcentaje entre 0 y 100");
+  }
+  const { error } = await supabase.from("empresa").update({ objetivo_puntualidad_pct: objetivo }).eq("id", empresaId);
+  if (error) throw error;
+}
+
 export async function guardarVelocidadEmpresa(empresaId, velocidadStr) {
   const velocidad = velocidadStr.trim() === "" ? null : Number(velocidadStr);
   if (velocidad != null && (Number.isNaN(velocidad) || velocidad <= 0)) {
@@ -611,16 +620,21 @@ function resolveRango({ desde, hasta } = {}) {
  */
 export async function getMetricasPuntualidad(rango = {}) {
   const { desde, hasta } = resolveRango(rango);
-  const [{ data: hitos }, { data: tarde }, { data: viajes }] = await Promise.all([
+  const [{ data: hitos }, { data: tarde }, { data: viajes }, { data: empresas, error: errEmpresa }] = await Promise.all([
     supabase.from("hito").select("id, viaje_id, ventana_fin").gte("ventana_fin", desde).lt("ventana_fin", hasta),
     supabase.from("incidencia").select("id, viaje_id, created_at").eq("tipo", "fuera_de_ventana").gte("created_at", desde).lt("created_at", hasta),
     supabase.from("viaje").select("id, referencia"),
+    supabase.from("empresa").select("objetivo_puntualidad_pct").limit(1),
   ]);
+  if (errEmpresa) throw new Error(errEmpresa.message);
 
   const totalConVentana = (hitos || []).filter((h) => h.ventana_fin).length;
   const totalTarde = (tarde || []).length;
   const pctPuntualidad = totalConVentana > 0
     ? Math.round(((totalConVentana - totalTarde) / totalConVentana) * 100)
+    : null;
+  const objetivoPuntualidadPct = empresas?.[0]?.objetivo_puntualidad_pct != null
+    ? Number(empresas[0].objetivo_puntualidad_pct)
     : null;
 
   const mapaViaje = Object.fromEntries((viajes || []).map((v) => [v.id, v.referencia || v.id.slice(0, 8)]));
@@ -644,7 +658,72 @@ export async function getMetricasPuntualidad(rango = {}) {
     .slice(-8)
     .map(([semana, count]) => ({ semana, count }));
 
-  return { pctPuntualidad, totalConVentana, totalTarde, peoresRutas, tendencia };
+  return { pctPuntualidad, totalConVentana, totalTarde, peoresRutas, tendencia, objetivoPuntualidadPct };
+}
+
+/**
+ * Vista "Gestores" de /analitica (12.5, petición del usuario) — rendimiento
+ * por gestor para que el jefe de tráfico/oficina compare: cuántos viajes
+ * gestiona cada uno, si sigue las sugerencias del sistema de asignación
+ * (decision_asignacion, 7A.2) e incidencias totales de sus viajes. Solo
+ * tiene sentido con más de un gestor con viajes asignados; con uno solo, la
+ * tabla de comparación no aporta nada (se sigue devolviendo, la UI decide
+ * si mostrarla).
+ */
+export async function getRendimientoGestores(rango = {}) {
+  const { desde, hasta } = resolveRango(rango);
+  const [
+    { data: gestores, error: errGestores },
+    { data: viajes, error: errViajes },
+    { data: decisiones, error: errDecisiones },
+    { data: incidencias, error: errIncidencias },
+  ] = await Promise.all([
+    supabase.from("gestor").select("id, nombre").eq("activo", true),
+    supabase.from("viaje").select("id, gestor_id").gte("created_at", desde).lt("created_at", hasta),
+    supabase.from("decision_asignacion").select("viaje_id, siguio_sugerencia").gte("created_at", desde).lt("created_at", hasta),
+    supabase.from("incidencia").select("viaje_id").gte("created_at", desde).lt("created_at", hasta),
+  ]);
+  if (errGestores) throw new Error(errGestores.message);
+  if (errViajes) throw new Error(errViajes.message);
+  if (errDecisiones) throw new Error(errDecisiones.message);
+  if (errIncidencias) throw new Error(errIncidencias.message);
+
+  const viajesDeGestor = {};
+  (viajes || []).forEach((v) => {
+    if (!v.gestor_id) return;
+    (viajesDeGestor[v.gestor_id] ||= new Set()).add(v.id);
+  });
+
+  const incidenciasPorViaje = {};
+  (incidencias || []).forEach((i) => {
+    incidenciasPorViaje[i.viaje_id] = (incidenciasPorViaje[i.viaje_id] || 0) + 1;
+  });
+
+  const decisionesPorViaje = {};
+  (decisiones || []).forEach((d) => {
+    (decisionesPorViaje[d.viaje_id] ||= []).push(d.siguio_sugerencia);
+  });
+
+  return (gestores || [])
+    .map((g) => {
+      const idsViajes = viajesDeGestor[g.id] || new Set();
+      const viajesGestionados = idsViajes.size;
+
+      let totalDecisiones = 0, siguio = 0;
+      idsViajes.forEach((vid) => {
+        (decisionesPorViaje[vid] || []).forEach((s) => {
+          totalDecisiones++;
+          if (s) siguio++;
+        });
+      });
+      const pctSiguioSugerencia = totalDecisiones > 0 ? Math.round((siguio / totalDecisiones) * 100) : null;
+
+      let incidenciasTotal = 0;
+      idsViajes.forEach((vid) => { incidenciasTotal += incidenciasPorViaje[vid] || 0; });
+
+      return { id: g.id, nombre: g.nombre, viajesGestionados, pctSiguioSugerencia, incidencias: incidenciasTotal };
+    })
+    .sort((a, b) => b.viajesGestionados - a.viajesGestionados);
 }
 
 /**

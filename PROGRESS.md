@@ -8,6 +8,13 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | 12.5: Rendimiento de gestores + objetivo de puntualidad | (por commitear) | HECHO.
+Migración 0049 (empresa.objetivo_puntualidad_pct). Nueva getRendimientoGestores + pestaña
+"Gestores" en /analitica (admin-only, gateada con useRol). Objetivo editable en Ajustes →
+Empresa, mostrado en la tarjeta de % Puntualidad. 8 tests Grupo A nuevos, 221 vitest en
+data.test.js. Verificado contra la BD real (función no lanza + round-trip del objetivo).
+ci.ps1 completo verde, build de 20 páginas OK.
+
 2026-07-12 | Hardening: RLS initplan en policy gestor_update_admin (linter de rendimiento) |
 a41e187 | HECHO. Migración 0048: auth.uid() sin envolver en (select auth.uid()) —
 reevaluación fila por fila. Verificado: WARN desaparece de get_advisors; roles-isolation.test.js

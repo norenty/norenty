@@ -171,6 +171,8 @@ const {
   guardarCosteKmEmpresa,
   guardarVelocidadEmpresa,
   guardarDesgloseCosteEmpresa,
+  guardarObjetivoPuntualidadEmpresa,
+  getRendimientoGestores,
   kmAproxViaje,
   getEstado561,
   getEstado561ParaChoferes,
@@ -488,6 +490,15 @@ describe("getMetricasPuntualidad", () => {
     expect(r.totalConVentana).toBe(0);
     expect(r.totalTarde).toBe(0);
   });
+
+  it("expone el objetivo_puntualidad_pct de la empresa (12.5), null si no está configurado", async () => {
+    const sinConfigurar = await getMetricasPuntualidad();
+    expect(sinConfigurar.objetivoPuntualidadPct).toBeNull();
+
+    TABLES.empresa = [{ objetivo_puntualidad_pct: 95 }];
+    const r = await getMetricasPuntualidad();
+    expect(r.objetivoPuntualidadPct).toBe(95);
+  });
 });
 
 describe("getMetricasIncidencias", () => {
@@ -542,6 +553,65 @@ describe("getMetricasChoferes", () => {
     const ana = r.find((c) => c.nombre === "Ana");
     expect(ana.viajes).toBe(0);
     expect(ana.valoracionMedia).toBeNull();
+  });
+});
+
+describe("getRendimientoGestores (12.5 — comparación de gestores para el jefe de tráfico/oficina)", () => {
+  it("devuelve una fila por gestor activo, con viajes 0 si no gestiona ninguno", async () => {
+    TABLES.gestor = [{ id: "g1", nombre: "Laura", activo: true }, { id: "g2", nombre: "Pedro", activo: true }];
+    const r = await getRendimientoGestores(RANGO_AMPLIO);
+    expect(r).toHaveLength(2);
+    const pedro = r.find((g) => g.nombre === "Pedro");
+    expect(pedro.viajesGestionados).toBe(0);
+    expect(pedro.pctSiguioSugerencia).toBeNull();
+    expect(pedro.incidencias).toBe(0);
+  });
+
+  it("excluye gestores desactivados", async () => {
+    TABLES.gestor = [{ id: "g1", nombre: "Laura", activo: true }, { id: "g2", nombre: "Ex", activo: false }];
+    const r = await getRendimientoGestores(RANGO_AMPLIO);
+    expect(r.map((g) => g.nombre)).toEqual(["Laura"]);
+  });
+
+  it("cuenta viajes gestionados, % de sugerencias seguidas e incidencias, solo de SUS viajes", async () => {
+    TABLES.gestor = [{ id: "g1", nombre: "Laura", activo: true }, { id: "g2", nombre: "Pedro", activo: true }];
+    TABLES.viaje = [
+      { id: "v1", gestor_id: "g1", created_at: "2026-01-01T10:00:00Z" },
+      { id: "v2", gestor_id: "g1", created_at: "2026-01-01T10:00:00Z" },
+      { id: "v3", gestor_id: "g2", created_at: "2026-01-01T10:00:00Z" },
+    ];
+    TABLES.decision_asignacion = [
+      { viaje_id: "v1", siguio_sugerencia: true, created_at: "2026-01-01T10:00:00Z" },
+      { viaje_id: "v2", siguio_sugerencia: false, created_at: "2026-01-01T10:00:00Z" },
+      { viaje_id: "v3", siguio_sugerencia: true, created_at: "2026-01-01T10:00:00Z" },
+    ];
+    TABLES.incidencia = [
+      { viaje_id: "v1", created_at: "2026-01-01T10:00:00Z" },
+      { viaje_id: "v1", created_at: "2026-01-01T10:00:00Z" },
+      { viaje_id: "v3", created_at: "2026-01-01T10:00:00Z" },
+    ];
+
+    const r = await getRendimientoGestores(RANGO_AMPLIO);
+    const laura = r.find((g) => g.nombre === "Laura");
+    expect(laura.viajesGestionados).toBe(2);
+    expect(laura.pctSiguioSugerencia).toBe(50); // 1 de 2
+    expect(laura.incidencias).toBe(2);
+
+    const pedro = r.find((g) => g.nombre === "Pedro");
+    expect(pedro.viajesGestionados).toBe(1);
+    expect(pedro.pctSiguioSugerencia).toBe(100);
+    expect(pedro.incidencias).toBe(1);
+  });
+
+  it("ordena de más a menos viajes gestionados", async () => {
+    TABLES.gestor = [{ id: "g1", nombre: "Poco", activo: true }, { id: "g2", nombre: "Mucho", activo: true }];
+    TABLES.viaje = [
+      { id: "v1", gestor_id: "g1", created_at: "2026-01-01T10:00:00Z" },
+      { id: "v2", gestor_id: "g2", created_at: "2026-01-01T10:00:00Z" },
+      { id: "v3", gestor_id: "g2", created_at: "2026-01-01T10:00:00Z" },
+    ];
+    const r = await getRendimientoGestores(RANGO_AMPLIO);
+    expect(r.map((g) => g.nombre)).toEqual(["Mucho", "Poco"]);
   });
 });
 
@@ -1405,6 +1475,21 @@ describe("ajustes de empresa (9.39 — extraído de ajustes/page.jsx a data.js)"
   it("guardarVelocidadEmpresa guarda un valor válido", async () => {
     await guardarVelocidadEmpresa("e1", "80");
     expect(TABLES.empresa[0].velocidad_planificacion_kmh).toBe(80);
+  });
+
+  it("guardarObjetivoPuntualidadEmpresa guarda un porcentaje válido", async () => {
+    await guardarObjetivoPuntualidadEmpresa("e1", "95");
+    expect(TABLES.empresa[0].objetivo_puntualidad_pct).toBe(95);
+  });
+
+  it("guardarObjetivoPuntualidadEmpresa vacío guarda null (quitar el objetivo)", async () => {
+    await guardarObjetivoPuntualidadEmpresa("e1", "");
+    expect(TABLES.empresa[0].objetivo_puntualidad_pct).toBeNull();
+  });
+
+  it("guardarObjetivoPuntualidadEmpresa rechaza fuera de 0-100", async () => {
+    await expect(guardarObjetivoPuntualidadEmpresa("e1", "150")).rejects.toThrow("entre 0 y 100");
+    await expect(guardarObjetivoPuntualidadEmpresa("e1", "-5")).rejects.toThrow("entre 0 y 100");
   });
 
   it("guardarDesgloseCosteEmpresa guarda las 4 columnas parseadas", async () => {
