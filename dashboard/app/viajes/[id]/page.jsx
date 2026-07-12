@@ -7,6 +7,7 @@ import {
   ArrowLeft, MapPin, Package, Clock, Truck, Edit3, Check, X, AlertTriangle, Euro, Gauge, Copy, Share2, History, ChevronDown,
 } from "lucide-react";
 import PodImage from "../../components/PodImage";
+import ErrorCargaReintentar from "../../components/ui/ErrorCargaReintentar";
 import DocumentosSection from "../../components/DocumentosSection";
 import SugerenciaChofer from "../../components/SugerenciaChofer";
 import GastosViajeSection from "../../components/GastosViajeSection";
@@ -69,16 +70,24 @@ export default function ViajeDetalle() {
   const [generandoToken, setGenerandoToken] = useState(false);
   const [copiadoEnlace, setCopiadoEnlace] = useState(false);
   const [eta, setEta] = useState(null);
+  const [errorViabilidad, setErrorViabilidad] = useState(null);
   const [editandoPrecio, setEditandoPrecio] = useState(false);
   const [precioInput, setPrecioInput] = useState("");
   const [motivoPrecio, setMotivoPrecio] = useState("");
   const [guardandoPrecio, setGuardandoPrecio] = useState(false);
 
+  function cargarViabilidad() {
+    setErrorViabilidad(null);
+    getViabilidadViaje(id)
+      .then(setViabilidad)
+      .catch((err) => setErrorViabilidad(err.message));
+  }
+
   const load = useCallback(async () => {
     const d = await getViaje(id);
     setData(d);
     setLoading(false);
-    getViabilidadViaje(id).then(setViabilidad);
+    cargarViabilidad();
     getEtaViaje(id).then(setEta);
     getPnlViaje(id).then(setPnl);
     getPlanVsReal(id).then(setPlanVsReal);
@@ -280,6 +289,11 @@ export default function ViajeDetalle() {
                     if (est && est.pct7 >= 80) {
                       setAviso561(`${nombre} cerca del límite semanal: quedan ${est.margen7} h (est.)`);
                     }
+                  }).catch(() => {
+                    // Aviso secundario (no bloquea la asignación): si falla, se
+                    // omite el aviso de 561 en vez de romper el flujo de cambio
+                    // de chófer. La pantalla PRINCIPAL del 561 (ficha del chófer)
+                    // sí muestra el aviso visible+reintentar (9.35).
                   });
                 }
               }}
@@ -487,6 +501,7 @@ export default function ViajeDetalle() {
             )}
 
             {(() => {
+              if (errorViabilidad) return <ErrorCargaReintentar mensaje="No se pudo calcular la viabilidad." onReintentar={cargarViabilidad} />;
               if (!viabilidad) return <p className="text-xs text-ink-muted">Calculando…</p>;
               if (viaje.precio == null) return <p className="text-xs text-ink-secondary">Añade el precio para ver el margen.</p>;
               if (viabilidad.coste == null) return <p className="text-xs text-ink-secondary">Configura el coste/km (o el desglose de coste) en Ajustes, o en la ficha del vehículo, para ver el margen.</p>;

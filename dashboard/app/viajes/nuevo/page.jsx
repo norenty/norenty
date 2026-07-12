@@ -71,6 +71,8 @@ export default function NuevoViaje() {
       const nombre = choferes.find((c) => c.id === v)?.nombre || "El chófer";
       getEstado561(v).then((est) => {
         if (est && est.pct7 >= 80) setAviso561(`${nombre} cerca del límite semanal: quedan ${est.margen7} h (est.)`);
+      }).catch(() => {
+        // Aviso secundario (no bloquea la asignación, 9.35): se omite si falla.
       });
     }
   }

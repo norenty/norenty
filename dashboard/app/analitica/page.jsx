@@ -11,6 +11,7 @@ import {
   getComparativaMensual,
 } from "../../lib/data";
 import { fmtEur } from "../../lib/format";
+import ErrorCargaReintentar from "../components/ui/ErrorCargaReintentar";
 
 const VISTAS = [
   { id: "puntualidad", label: "Puntualidad", icon: Clock },
@@ -291,9 +292,11 @@ export default function Analitica() {
   const [datos, setDatos] = useState(null);
   const [comparativa, setComparativa] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
+  function cargarVista() {
     setLoading(true);
+    setError(null);
     setComparativa(null);
     const cargar = {
       puntualidad: getMetricasPuntualidad,
@@ -302,11 +305,19 @@ export default function Analitica() {
       flota: getMetricasFlota,
       rentabilidad: getMetricasRentabilidad,
     }[vista];
-    cargar().then((d) => { setDatos(d); setLoading(false); });
+    cargar()
+      .then((d) => setDatos(d))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
     if (VISTAS_CON_COMPARATIVA.has(vista)) {
-      getComparativaMensual().then(setComparativa);
+      getComparativaMensual().then(setComparativa).catch(() => {
+        // La comparativa es un complemento (12.2); si falla, se omite sin
+        // bloquear la vista principal, que ya tiene su propio aviso+reintentar.
+      });
     }
-  }, [vista]);
+  }
+
+  useEffect(() => { cargarVista(); }, [vista]);
 
   return (
     <div>
@@ -335,7 +346,9 @@ export default function Analitica() {
         ))}
       </div>
 
-      {loading || !datos ? (
+      {error ? (
+        <ErrorCargaReintentar mensaje="No se pudo cargar esta vista de analítica." onReintentar={cargarVista} />
+      ) : loading || !datos ? (
         <div className="h-64 bg-surface-alt rounded-xl animate-pulse" />
       ) : (
         <>

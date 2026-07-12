@@ -1283,10 +1283,27 @@ actual; se prioriza por impacto, no por orden de descubrimiento.
   **Decisión (2026-07-12):** aviso visible + botón de reintentar, distinto visualmente de
   "sin datos" (vacío real). Ver 9.35 para la implementación aplicada a las funciones
   financieras primero.
-- [ ] `[LOOP]` **9.35 Aplicar el patrón de 9.34 primero a las funciones financieras** (una vez
+- [x] `[LOOP]` **9.35 Aplicar el patrón de 9.34 primero a las funciones financieras** (una vez
   cerrada la decisión) — `getViabilidadViaje`, `getInformeNomina`, `getEstado561`,
   `getMetricasRentabilidad`, `calcularPresupuesto`, `sugerirChofer`: son las de mayor riesgo si un
   error de lectura se confunde con "coste cero"/"margen 100%" en vez de mostrarse como tal.
+  **En `data.js`**: cada una de las 6 ahora distingue sus queries CRÍTICAS (alimentan el
+  cálculo entero — lanzan `throw` de verdad ante un error) de las OPCIONALES (un vacío es un
+  estado de negocio legítimo — vehículo sin asignar, sin gastos todavía, sin ubicación GPS
+  reciente — se dejan con su fallback existente, no lanzan). `getViabilidadViaje`/`getEstado561`
+  además distinguen "no existe la fila" (`PGRST116`, legítimo, sigue devolviendo `null`) de un
+  fallo real (lanza) — el mock de tests (`data.test.js`) se ajustó para incluir ese código y se
+  añadió `SELECT_ERRORS` (paralelo a `UPDATE_ERRORS` ya existente) para simular fallos de
+  lectura reales en los tests. **En el dashboard**: nuevo `ErrorCargaReintentar.jsx` compartido
+  (aviso visible + botón de reintentar, la decisión de 9.34), cableado en `viajes/[id]`
+  (viabilidad), `choferes/[id]` (561), `nomina`, `analitica` (las 5 vistas) y
+  `SugerenciaChofer.jsx`; `presupuesto` ya tenía un aviso visible inline, se le añadió el
+  `catch` que faltaba. Los usos SECUNDARIOS de `getEstado561` (avisos opcionales al asignar
+  chófer en `viajes/[id]`/`viajes/nuevo`/`viajes/nuevo-w`) se envolvieron en `catch` silencioso
+  a propósito — son advertencias, no la pantalla principal, y no deben romper el flujo de
+  asignación si fallan. 8 tests Grupo A nuevos confirmando que cada función lanza ante fallo
+  real y NO lanza ante los casos legítimos ("no existe", "sin llegadas"). 155 pytest, 280+1
+  skip vitest, ci.ps1 completo verde (build de 20 páginas).
 - [x] `[LOOP]` **9.36 `migrate.py --check` debe FALLAR ante un checksum inesperado, no solo
   avisar** — hoy un hand-edit accidental de una migración ya aplicada produce el mismo aviso
   cosmético que el caso conocido y benigno de `0002`-`0011` (backfill de antes de que existiera

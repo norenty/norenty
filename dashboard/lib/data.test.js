@@ -39,8 +39,15 @@ function makeBuilder(table) {
     },
     limit(n) { rows = rows.slice(0, n); return builder; },
     single() {
+      if (SELECT_ERRORS[table]) {
+        return Promise.resolve({ data: null, error: SELECT_ERRORS[table] });
+      }
       return Promise.resolve(
-        rows.length ? { data: rows[0], error: null } : { data: null, error: { message: "no rows" } }
+        rows.length
+          ? { data: rows[0], error: null }
+          // code PGRST116 = "no rows" real de PostgREST -- lo distinguen las
+          // funciones de 9.35 de un fallo real de lectura.
+          : { data: null, error: { message: "no rows", code: "PGRST116" } }
       );
     },
     insert(obj) {
@@ -82,7 +89,17 @@ function makeBuilder(table) {
         },
       };
     },
-    then(resolve) { resolve({ data: rows, error: null }); },
+    then(resolve) {
+      // Simula un fallo real de lectura (ítem 9.35): SELECT_ERRORS.viaje =
+      // {message:"..."} -> la próxima query SELECT sobre "viaje" resuelve
+      // con ese error en vez de filas, para probar que las funciones
+      // financieras LANZAN de verdad en vez de tragarlo como "sin datos".
+      if (SELECT_ERRORS[table]) {
+        resolve({ data: null, error: SELECT_ERRORS[table] });
+        return;
+      }
+      resolve({ data: rows, error: null });
+    },
   };
   return builder;
 }
@@ -93,6 +110,7 @@ const rpcSpy = vi.fn();
 // se resetea en beforeEach. UPDATE_ERRORS.gestor = {message: "..."} -> el
 // próximo .update().eq() sobre "gestor" devuelve ese error en vez de mutar.
 let UPDATE_ERRORS = {};
+let SELECT_ERRORS = {};
 
 vi.mock("./supabase", () => ({
   supabase: {
@@ -204,6 +222,7 @@ beforeEach(() => {
   rpcSpy.mockClear();
   rpcResultado = { data: null, error: null };
   UPDATE_ERRORS = {};
+  SELECT_ERRORS = {};
   _limpiarCacheKmCarreteraParaTests();
 });
 
@@ -2401,5 +2420,59 @@ describe("derechos ARCO (9.15)", () => {
     expect(TABLES.ubicacion).toHaveLength(1);
     expect(TABLES.ejecucion_evento).toHaveLength(1);
     expect(TABLES.ejecucion_evento[0].chofer_id).toBe("c1");
+  });
+});
+
+describe("9.35 — las funciones financieras LANZAN ante un fallo real de lectura (no lo tragan como \"sin datos\")", () => {
+  const MADRID = { lat: 40.4168, lon: -3.7038 };
+  const BARCELONA = { lat: 41.3851, lon: 2.1734 };
+
+  beforeEach(() => {
+    TABLES.viaje = [{ id: "v1", precio: 1000, vehiculo_id: null, estado: "completado", created_at: "2026-03-01T00:00:00Z" }];
+    TABLES.hito = [{ orden: 1, ...MADRID, viaje_id: "v1" }, { orden: 2, ...BARCELONA, viaje_id: "v1" }];
+    TABLES.empresa = [{ coste_km: 1, velocidad_planificacion_kmh: 75 }];
+    TABLES.gasto_viaje = [];
+    TABLES.chofer = [{ id: "c1", nombre: "Mario", idioma: "es" }];
+    TABLES.ejecucion_evento = [];
+  });
+
+  it("getViabilidadViaje lanza si falla la query de hito (crítica)", async () => {
+    SELECT_ERRORS.hito = { message: "conexión perdida" };
+    await expect(getViabilidadViaje("v1")).rejects.toThrow("conexión perdida");
+  });
+
+  it("getViabilidadViaje NO lanza si el viaje simplemente no existe (PGRST116, caso legítimo)", async () => {
+    const r = await getViabilidadViaje("no-existe");
+    expect(r).toBeNull();
+  });
+
+  it("getInformeNomina lanza si falla la query de viaje (crítica)", async () => {
+    SELECT_ERRORS.viaje = { message: "fallo real" };
+    await expect(getInformeNomina(3, 2026)).rejects.toThrow("fallo real");
+  });
+
+  it("getEstado561 lanza si falla la query de ejecucion_evento (crítica)", async () => {
+    SELECT_ERRORS.ejecucion_evento = { message: "fallo de red" };
+    await expect(getEstado561("c1")).rejects.toThrow("fallo de red");
+  });
+
+  it("getEstado561 NO lanza si legítimamente no hay llegadas (array vacío)", async () => {
+    const r = await getEstado561("c1");
+    expect(r).not.toBeNull();
+  });
+
+  it("calcularPresupuesto lanza si falla la query de empresa (crítica)", async () => {
+    SELECT_ERRORS.empresa = { message: "fallo real" };
+    await expect(calcularPresupuesto({ puntos: [MADRID, BARCELONA] })).rejects.toThrow("fallo real");
+  });
+
+  it("sugerirChofer lanza si falla la query de chofer (crítica)", async () => {
+    SELECT_ERRORS.chofer = { message: "fallo real" };
+    await expect(sugerirChofer(null, { hitosOverride: [{ orden: 1, ...MADRID }] })).rejects.toThrow("fallo real");
+  });
+
+  it("getMetricasRentabilidad lanza si falla la query de viaje (crítica)", async () => {
+    SELECT_ERRORS.viaje = { message: "fallo real" };
+    await expect(getMetricasRentabilidad()).rejects.toThrow("fallo real");
   });
 });

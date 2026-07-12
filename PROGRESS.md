@@ -8,6 +8,15 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | Fase 9.35: manejo de errores de lectura en las 6 funciones financieras | (por
+commitear) | HECHO. data.js: cada función distingue queries críticas (lanzan de verdad) de
+opcionales (vacío = negocio legítimo, no lanzan); getViabilidadViaje/getEstado561 distinguen
+además "no existe" (PGRST116) de fallo real. Nuevo SELECT_ERRORS en el mock de tests (paralelo
+a UPDATE_ERRORS). Dashboard: nuevo ErrorCargaReintentar.jsx compartido, cableado en
+viajes/[id], choferes/[id], nomina, analitica (5 vistas), SugerenciaChofer; usos secundarios de
+getEstado561 (avisos opcionales) con catch silencioso a propósito para no romper flujos.
+8 tests Grupo A nuevos. 155 pytest, 280+1 skip vitest, ci.ps1 completo verde.
+
 2026-07-12 | Fase 10.9b: sugerencia de calibración (velocidad + coste/km reales) | 9becb67 |
 HECHO. `getSugerenciaCalibracion` en data.js: mediana de velocidad/coste-km real
 por viaje completado, sugiere solo si difiere >10% de lo configurado, requiere N≥20 viajes con

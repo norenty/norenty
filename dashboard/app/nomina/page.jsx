@@ -5,6 +5,7 @@ import { Moon, Route as RouteIcon, Download, Printer } from "lucide-react";
 import { getInformeNomina } from "../../lib/data";
 import RequireRol from "../components/RequireRol";
 import { fmtKm } from "../../lib/format";
+import ErrorCargaReintentar from "../components/ui/ErrorCargaReintentar";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -37,14 +38,18 @@ export default function Nomina() {
   const [anio, setAnio] = useState(ahora.getFullYear());
   const [informe, setInforme] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
+  function cargar() {
     setLoading(true);
-    getInformeNomina(mes, anio).then((d) => {
-      setInforme(d);
-      setLoading(false);
-    });
-  }, [mes, anio]);
+    setError(null);
+    getInformeNomina(mes, anio)
+      .then((d) => setInforme(d))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => { cargar(); }, [mes, anio]);
 
   const anios = [];
   for (let a = ahora.getFullYear(); a >= ahora.getFullYear() - 3; a--) anios.push(a);
@@ -102,7 +107,9 @@ export default function Nomina() {
         </select>
       </div>
 
-      {loading || !informe ? (
+      {error ? (
+        <ErrorCargaReintentar mensaje="No se pudo cargar el informe de nómina." onReintentar={cargar} />
+      ) : loading || !informe ? (
         <div className="h-64 bg-surface-alt rounded-xl animate-pulse" />
       ) : (
         <>

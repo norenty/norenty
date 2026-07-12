@@ -926,22 +926,31 @@ export async function getEstado561(choferId, { ahora = new Date() } = {}) {
   const desde14 = new Date(ahora.getTime() - 14 * 86400000).toISOString();
   const desde7 = new Date(ahora.getTime() - 7 * 86400000).toISOString();
 
-  const { data: llegadas } = await supabase
+  // Ítem 9.35: "sin llegadas" (array vacío, chófer legítimamente sin
+  // actividad) es distinto de "fallo real de lectura" (error presente) --
+  // confundirlos aquí se veía como "561 limpio, 0%" en vez de un error real,
+  // justo el riesgo que motivó esta decisión (nadie quiere fiarse de un
+  // "vas bien con las horas" que en realidad es un fallo de red).
+  const { data: llegadas, error: errorLlegadas } = await supabase
     .from("ejecucion_evento")
     .select("viaje_id, ocurrido_en")
     .eq("tipo", "llegada")
     .eq("chofer_id", choferId)
     .gte("ocurrido_en", desde14);
+  if (errorLlegadas) throw errorLlegadas;
 
   if (!llegadas || llegadas.length === 0) {
     return _calcularEstado561([], {}, 1, desde7);
   }
 
   const viajeIds14 = [...new Set(llegadas.map((e) => e.viaje_id))];
-  const [{ data: hitos }, { data: empresas }] = await Promise.all([
+  const [{ data: hitos, error: errorHitos }, { data: empresas }] = await Promise.all([
     supabase.from("hito").select("id, viaje_id, orden, estado, lat, lon").in("viaje_id", viajeIds14),
     supabase.from("empresa").select("velocidad_planificacion_kmh"),
   ]);
+  // hitos alimenta el cálculo de km/horas de conducción; empresa es opcional
+  // (resolveVelocidadPlanificacion ya cae a un valor por defecto sin ella).
+  if (errorHitos) throw errorHitos;
 
   const velocidad = resolveVelocidadPlanificacion((empresas || [])[0] || null);
   const hitosPorViaje = {};
@@ -1110,8 +1119,8 @@ export async function sugerirChofer(viajeId, { hitosOverride = null } = {}) {
   const haceDosDias = new Date(Date.now() - 2 * 86400000).toISOString();
 
   const [
-    { data: choferes },
-    { data: viajesActivos },
+    { data: choferes, error: errorChoferes },
+    { data: viajesActivos, error: errorViajesActivos },
     { data: documentos },
     metricas,
     { data: ubicaciones },
@@ -1126,6 +1135,14 @@ export async function sugerirChofer(viajeId, { hitosOverride = null } = {}) {
     hitosOverride ? Promise.resolve({ data: hitosOverride }) : supabase.from("hito").select("orden, lat, lon").eq("viaje_id", viajeId),
     supabase.from("empresa").select("velocidad_planificacion_kmh"),
   ]);
+  // Ítem 9.35: chofer/viajesActivos alimentan el ranking entero -- un fallo
+  // real aquí no debe verse como "ningún chófer disponible". documento/
+  // ubicacion/empresa son opcionales a propósito (vacío es un estado de
+  // negocio legítimo: sin docs caducados, sin GPS reciente, sin base
+  // configurada, cada uno con su fallback ya existente).
+  if (errorChoferes) throw errorChoferes;
+  if (errorViajesActivos) throw errorViajesActivos;
+  if (hitosResult.error) throw hitosResult.error;
   const hitos = hitosResult.data;
 
   // 1 sola tanda de consultas para el estado 561 de TODOS los choferes, en
@@ -1417,11 +1434,11 @@ export async function getInformeNomina(mes, anio) {
   const finISO = finExcl.toISOString();
 
   const [
-    { data: choferes },
-    { data: viajes },
-    { data: hitos },
-    { data: llegadasMesRaw },
-    { data: empresas },
+    { data: choferes, error: errorChoferes },
+    { data: viajes, error: errorViajes },
+    { data: hitos, error: errorHitos },
+    { data: llegadasMesRaw, error: errorLlegadas },
+    { data: empresas, error: errorEmpresas },
   ] = await Promise.all([
     supabase.from("chofer").select("id, nombre"),
     supabase.from("viaje").select("id, referencia, chofer_id, estado"),
@@ -1433,6 +1450,15 @@ export async function getInformeNomina(mes, anio) {
       .lt("ocurrido_en", finISO),
     supabase.from("empresa").select("id, base_lat, base_lon"),
   ]);
+  // Ítem 9.35: las 5 alimentan el informe entero (lista de chóferes, mapa de
+  // viajes/hitos, llegadas del mes, base de la empresa) -- ninguna es un
+  // "vacío legítimo" a este nivel, así que un fallo real aquí debe lanzar,
+  // no verse como "0 km"/"0 noches fuera" para todos los chóferes.
+  if (errorChoferes) throw errorChoferes;
+  if (errorViajes) throw errorViajes;
+  if (errorHitos) throw errorHitos;
+  if (errorLlegadas) throw errorLlegadas;
+  if (errorEmpresas) throw errorEmpresas;
   const llegadasMes = llegadasMesRaw || [];
 
   const base = (empresas || [])[0];
@@ -1660,20 +1686,30 @@ export async function kmCarreteraViaje(hitos) {
  * se devuelve como null. Mismo patrón que getMetricas / getInformeNomina.
  */
 export async function getViabilidadViaje(viajeId) {
-  const { data: viaje } = await supabase
+  // Ítem 9.35: distinguir "no existe el viaje" (PGRST116, legítimo) de un
+  // fallo real de lectura (cualquier otro error -> lanzar, no tragarlo como
+  // "sin datos" -- confundirlo aquí se veía como "sin margen calculable" en
+  // vez de un aviso de error real, el riesgo exacto que motivó 9.34/9.35).
+  const { data: viaje, error: errorViaje } = await supabase
     .from("viaje")
     .select("id, precio, vehiculo_id")
     .eq("id", viajeId)
     .single();
+  if (errorViaje && errorViaje.code !== "PGRST116") throw errorViaje;
   if (!viaje) return null;
 
-  const [{ data: hitos }, { data: empresas }, vehiculoRes] = await Promise.all([
+  const [{ data: hitos, error: errorHitos }, { data: empresas, error: errorEmpresas }, vehiculoRes] = await Promise.all([
     supabase.from("hito").select("orden, lat, lon").eq("viaje_id", viajeId),
     supabase.from("empresa").select("coste_km, velocidad_planificacion_kmh, precio_gasoil_litro, coste_peaje_km, dieta_noche_eur, coste_conductor_km"),
     viaje.vehiculo_id
       ? supabase.from("vehiculo").select("coste_km, consumo_l_100km").eq("id", viaje.vehiculo_id).single()
       : Promise.resolve({ data: null }),
   ]);
+  // hitos/empresa alimentan el cálculo entero de coste/margen: un fallo real
+  // aquí no debe verse como "0 km"/"sin coste configurado". vehiculo es
+  // opcional a propósito (cae a coste de empresa, caso de negocio legítimo).
+  if (errorHitos) throw errorHitos;
+  if (errorEmpresas) throw errorEmpresas;
 
   const empresa = (empresas || [])[0] || null;
   const vehiculo = vehiculoRes.data || null;
@@ -1728,12 +1764,16 @@ export async function calcularPresupuesto({ puntos, vehiculoId = null }) {
 
   const { km, estimado } = await kmCarreteraViaje(hitosFalsos);
 
-  const [{ data: empresas }, vehiculoRes] = await Promise.all([
+  const [{ data: empresas, error: errorEmpresas }, vehiculoRes] = await Promise.all([
     supabase.from("empresa").select("velocidad_planificacion_kmh, coste_km, precio_gasoil_litro, coste_peaje_km, dieta_noche_eur, coste_conductor_km, margen_objetivo_pct"),
     vehiculoId
       ? supabase.from("vehiculo").select("coste_km, consumo_l_100km").eq("id", vehiculoId).single()
       : Promise.resolve({ data: null }),
   ]);
+  // Ítem 9.35: empresa alimenta todo el presupuesto (velocidad, coste,
+  // margen objetivo) -- un fallo real aquí no debe verse como "sin coste
+  // configurado". vehiculo es opcional a propósito (cae a coste de empresa).
+  if (errorEmpresas) throw errorEmpresas;
   const empresa = (empresas || [])[0] || null;
   const vehiculo = vehiculoRes.data || null;
 
@@ -1867,11 +1907,15 @@ export async function getPnlViaje(viajeId) {
  */
 export async function getMetricasRentabilidad(rango = {}) {
   const { desde, hasta } = resolveRango(rango);
-  const { data: viajes } = await supabase
+  const { data: viajes, error: errorViajes } = await supabase
     .from("viaje")
     .select("id, referencia, precio")
     .gte("created_at", desde)
     .lt("created_at", hasta);
+  // Ítem 9.35: un fallo real aquí no debe verse como "sin viajes en el
+  // periodo" (0 viajes a pérdidas, margen medio null es un resultado
+  // legítimo distinto de "la consulta falló").
+  if (errorViajes) throw errorViajes;
 
   const conPrecio = (viajes || []).filter((v) => v.precio != null);
 

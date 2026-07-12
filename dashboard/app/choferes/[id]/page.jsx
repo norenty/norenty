@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import DocumentosSection from "../../components/DocumentosSection";
+import ErrorCargaReintentar from "../../components/ui/ErrorCargaReintentar";
 import ArcoChoferSection from "../../components/ArcoChoferSection";
 import { getEstado561, LIMITE_561_SEMANAL_H, LIMITE_561_BISEMANAL_H, getMultasPorChofer } from "../../../lib/data";
 import { Siren } from "lucide-react";
@@ -34,6 +35,7 @@ export default function ChoferDetalle() {
   const [offset, setOffset] = useState(0);
   const [copiado, setCopiado] = useState(false);
   const [estado561, setEstado561] = useState(null);
+  const [errorEstado561, setErrorEstado561] = useState(null);
   const [multas, setMultas] = useState(null);
 
   const fetchViajes = useCallback(async (off, append = false) => {
@@ -71,7 +73,7 @@ export default function ChoferDetalle() {
 
       await fetchViajes(0, false);
       setLoading(false);
-      getEstado561(id).then(setEstado561);
+      cargarEstado561();
       getMultasPorChofer(id).then(setMultas);
     }
     load();
@@ -80,6 +82,13 @@ export default function ChoferDetalle() {
   async function refrescarChofer() {
     const { data: c } = await supabase.from("chofer").select("*").eq("id", id).single();
     setChofer(c);
+  }
+
+  function cargarEstado561() {
+    setErrorEstado561(null);
+    getEstado561(id)
+      .then(setEstado561)
+      .catch((err) => setErrorEstado561(err.message));
   }
 
   async function cargarMas() {
@@ -172,6 +181,11 @@ export default function ChoferDetalle() {
       </div>
 
       {/* Horas de conducción (estimación 561) */}
+      {errorEstado561 && (
+        <div className="mb-4">
+          <ErrorCargaReintentar mensaje="No se pudo calcular el estado 561." onReintentar={cargarEstado561} />
+        </div>
+      )}
       {estado561 && (
         <div className="bg-surface border border-border rounded-xl p-4 mb-4">
           <h2 className="text-sm font-medium text-ink mb-1">Horas de conducción (estimación)</h2>

@@ -51,6 +51,11 @@ export default function PresupuestoPage() {
     try {
       const r = await calcularPresupuesto({ puntos: validos, vehiculoId: vehiculoId || null });
       setResultado(r);
+    } catch (err) {
+      // Ítem 9.35: un fallo real de lectura se muestra como error visible
+      // (el botón "Calcular" de abajo ya sirve de "reintentar"), no como
+      // "sin resultado".
+      setError("No se pudo calcular el presupuesto: " + err.message);
     } finally {
       setCalculando(false);
     }

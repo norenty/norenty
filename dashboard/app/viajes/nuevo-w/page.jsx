@@ -122,9 +122,14 @@ export default function NuevoViajeWizard() {
     setChoferId(id);
     setChoferNombre(choferes.find((c) => c.id === id)?.nombre || "");
     setAviso561(null);
-    const est = await getEstado561(id);
-    if (est && est.pct7 >= 80) {
-      setAviso561(`Cerca del límite semanal: quedan ${est.margen7} h (est.)`);
+    try {
+      const est = await getEstado561(id);
+      if (est && est.pct7 >= 80) {
+        setAviso561(`Cerca del límite semanal: quedan ${est.margen7} h (est.)`);
+      }
+    } catch {
+      // Aviso secundario (no bloquea la asignación, 9.35): si falla, se
+      // omite el aviso de 561 en vez de romper el wizard de nuevo viaje.
     }
   }
 

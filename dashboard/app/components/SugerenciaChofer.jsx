@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { sugerirChofer, registrarDecisionAsignacion } from "../../lib/data";
+import ErrorCargaReintentar from "./ui/ErrorCargaReintentar";
 
 /**
  * Ranking de chóferes sugeridos para un viaje, con el porqué de cada score
@@ -11,6 +12,7 @@ import { sugerirChofer, registrarDecisionAsignacion } from "../../lib/data";
  */
 export default function SugerenciaChofer({ viajeId, hitosOverride, onAsignado }) {
   const [ranking, setRanking] = useState(null);
+  const [error, setError] = useState(null);
   const [pendiente, setPendiente] = useState(null);
   const [motivo, setMotivo] = useState("");
   const [asignando, setAsignando] = useState(false);
@@ -19,9 +21,10 @@ export default function SugerenciaChofer({ viajeId, hitosOverride, onAsignado })
     let activo = true;
     if (!viajeId && !hitosOverride) return;
     setRanking(null);
-    sugerirChofer(viajeId || null, { hitosOverride }).then((r) => {
-      if (activo) setRanking(r);
-    });
+    setError(null);
+    sugerirChofer(viajeId || null, { hitosOverride })
+      .then((r) => { if (activo) setRanking(r); })
+      .catch((err) => { if (activo) setError(err.message); });
     return () => {
       activo = false;
     };
@@ -31,7 +34,19 @@ export default function SugerenciaChofer({ viajeId, hitosOverride, onAsignado })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viajeId]);
 
+  function reintentar() {
+    setError(null);
+    setRanking(null);
+    sugerirChofer(viajeId || null, { hitosOverride })
+      .then(setRanking)
+      .catch((err) => setError(err.message));
+  }
+
   if (!viajeId && !hitosOverride) return null;
+
+  if (error) {
+    return <ErrorCargaReintentar mensaje="No se pudo calcular la sugerencia de chófer." onReintentar={reintentar} />;
+  }
 
   if (!ranking) {
     return (
