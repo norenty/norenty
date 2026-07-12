@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-12 | Fase 10.7: pantalla de salud del sistema (script de operador) | (por commitear) |
+2026-07-12 | Fase 10.7: pantalla de salud del sistema (script de operador) | b26b148 |
 HECHO. `backend/db/panel_salud.py`: junta heartbeat+SLOs(9.19)+alertas de integridad(10.6)+
 episodios de bot caído(10.5) en un reporte. Decisión: es un script del operador, NO página del
 dashboard — esas tablas son estado global de la plataforma y no existe rol admin-de-plataforma
