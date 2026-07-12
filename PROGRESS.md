@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-12 | Fase 10.6: verificación de integridad programada (cadena+POD) | (por commitear) |
+2026-07-12 | Fase 10.6: verificación de integridad programada (cadena+POD) | 0234145 |
 HECHO. Migración `0045_alerta_integridad.sql`: UNIQUE(tipo,entidad_id) + ON CONFLICT DO
 NOTHING — anti-spam distinto al de 10.5 (una rotura NO se auto-resuelve, se alerta la primera
 vez y nunca más hasta que un humano investigue/borre). `monitor_integridad.py` reutiliza
