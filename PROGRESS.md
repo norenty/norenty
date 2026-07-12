@@ -8,6 +8,14 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | 4 decisiones del usuario resueltas + PRIVACIDAD-CONSENTIMIENTO-VOZ.md | (por
+commitear) | HECHO. 9.34 (UX de errores de lectura): aviso visible + reintentar → desbloquea
+9.35. 9.41 (pantalla ARCO): sí, construirla → nuevo 9.41b. 10.9 (calibración): N=20,
+suggestion-only siempre → nuevo 10.9b. 11.5 (RGPD voz): borrador técnico ahora + revisión legal
+después, igual criterio que el resto de PRIVACIDAD-*.md — nuevo `PRIVACIDAD-CONSENTIMIENTO-VOZ.md`.
+Sin cambios de código en este commit (solo decisiones + doc); las implementaciones siguen en
+items aparte.
+
 2026-07-12 | Fase 11.4: capturar el motivo del cambio de precio (contexto) | 6a742e2 |
 HECHO. `viajes/[id]/page.jsx`: campo "motivo" opcional en la edición de precio, guarda un
 `createContexto` (11.2) además del `registrarAuditoria` ya existente. "Aceptar retraso" y

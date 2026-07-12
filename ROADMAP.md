@@ -1274,12 +1274,15 @@ actual; se prioriza por impacto, no por orden de descubrimiento.
   800ms tras el último evento (`DEBOUNCE_REALTIME_MS`), beneficiando a CUALQUIER pantalla que
   use el hook, no solo "Hoy". Nuevo `dashboard/lib/realtime.test.js` (4 tests con fake timers).
   168 vitest en los archivos tocados, ci.ps1 completo verde (134 pytest, 215+4 vitest).
-- [ ] `[DECISIÓN]` **9.34 Patrón de manejo de errores de lectura en `dashboard/lib/data.js`** —
+- [x] `[DECISIÓN]` **9.34 Patrón de manejo de errores de lectura en `dashboard/lib/data.js`** —
   decenas de sitios hacen `const { data } = await supabase...` sin comprobar `error`, así que un
   fallo real de BD se confunde con "sin datos" en vez de mostrarse como error. Antes de tocar
   40+ sitios hace falta decidir CÓMO debe verse un fallo de lectura en cada pantalla (¿aviso
   visible? ¿estado "no se pudo cargar" distinto de "vacío"?) — es una decisión de UX/producto, no
   solo técnica. El loop no la toma unilateralmente.
+  **Decisión (2026-07-12):** aviso visible + botón de reintentar, distinto visualmente de
+  "sin datos" (vacío real). Ver 9.35 para la implementación aplicada a las funciones
+  financieras primero.
 - [ ] `[LOOP]` **9.35 Aplicar el patrón de 9.34 primero a las funciones financieras** (una vez
   cerrada la decisión) — `getViabilidadViaje`, `getInformeNomina`, `getEstado561`,
   `getMetricasRentabilidad`, `calcularPresupuesto`, `sugerirChofer`: son las de mayor riesgo si un
@@ -1354,11 +1357,16 @@ actual; se prioriza por impacto, no por orden de descubrimiento.
   con `renderToStaticMarkup`, mismo patrón que `RequireRol.test.jsx`) para atrapar errores de
   wiring de props que el build de Next (JS sin tipos) no detecta. 237+1 skip vitest, build sin
   errores, ci.ps1 completo verde (139 pytest).
-- [ ] `[DECISIÓN]` **9.41 ¿Merece una pantalla dedicada para derechos ARCO?** — hoy
+- [x] `[DECISIÓN]` **9.41 ¿Merece una pantalla dedicada para derechos ARCO?** — hoy
   `getExportacionChofer`/`anonimizarChofer` (9.15) solo son invocables desde la consola del
   navegador por un ingeniero; documentado como limitación honesta en `PRIVACIDAD-ARCO.md`.
   Decidir si construir una pantalla en Ajustes cuando el volumen real de solicitudes lo justifique,
   o mantenerlo así mientras sea infrecuente.
+  **Decisión (2026-07-12): sí, construirla ya.** Ver 9.41b para la implementación.
+- [ ] `[LOOP]` **9.41b Construir la pantalla de derechos ARCO** (una vez cerrada 9.41) — página en
+  Ajustes (o ficha de cada chófer) para exportar/anonimizar datos de un chófer sin pasar por la
+  consola del navegador, reutilizando `getExportacionChofer`/`anonimizarChofer` (9.15) ya
+  testeados.
 - [x] `[LOOP]` **9.42 Plan de módulo compartido para el Reglamento CE 561/2006 antes de una v2** —
   `calcularEtaConParadas` (JS) y `calcular_eta_con_paradas` (Python) son implementaciones
   independientes, sincronizadas a mano, con tests de paridad que hoy confirman que coinciden. Bajo
@@ -1560,13 +1568,22 @@ estimado). Falta cerrar el lazo: aprender de ello.
   **sigue existiendo tras un intento de DELETE como `authenticated`** (RLS/trigger la protegen
   de verdad, no solo devuelven un error cosmético — PostgREST filtra el DELETE en silencio, se
   comprobó re-consultando la fila). 202 vitest en data.test.js, ci.ps1 completo verde.
-- [ ] `[DECISIÓN]` **10.9 Calibración de parámetros por empresa (suggestion-only)** — tras N
+- [x] `[DECISIÓN]` **10.9 Calibración de parámetros por empresa (suggestion-only)** — tras N
   viajes completos, calcular desde los datos de ESA empresa su factor de sinuosidad real (ratio
   OSRM/Haversine), su velocidad media real y su coste/km real, y OFRECERLOS como sugerencia
   ("tus datos dicen 68 km/h, no los 75 configurados — ¿actualizar?"). Decisión del usuario: el
   umbral N y confirmar que es suggestion-only (nunca auto-tune silencioso, por el principio
   rector). Convierte los "valores iniciales razonables" (FACTOR_SINUOSIDAD_FALLBACK=1.3, etc.)
   en valores aprendidos y honestos.
+  **Decisión (2026-07-12): N=20 viajes con datos suficientes, siempre suggestion-only** (nunca
+  auto-aplicado). Ver 10.9b para la implementación. Ratio de sinuosidad OSRM/Haversine excluido
+  (mismo motivo que en 10.8: ninguna llamada compara ambos valores para el mismo tramo hoy);
+  10.9b calibra velocidad real y coste/km real, que sí son calculables desde datos existentes.
+- [ ] `[LOOP]` **10.9b Construir la sugerencia de calibración** (una vez cerrada 10.9) —
+  con N≥20 viajes con datos suficientes, comparar la velocidad media real (de
+  `getPlanVsReal`/hitos completados) y el coste/km real (de `verdad_observada`/`getPnlViaje`)
+  contra los valores configurados en `empresa`, y ofrecer la sugerencia en Ajustes ("tus datos
+  dicen X, ¿actualizar?"), sin aplicarla nunca sin confirmación explícita del gestor.
 - [ ] `[LOOP]` **10.10 Aprender la sugerencia de chófer desde `decision_asignacion`** — ya se
   captura por qué el gestor eligió cada chófer (7A.2). Medir qué señales predicen de verdad las
   asignaciones aceptadas y refinar `sugerirChofer` con ello. Más adelante; menor urgencia que
@@ -1674,10 +1691,13 @@ vez memoria útil desde el día 1 y el corpus que alimentará el bot de llamadas
   sí lo tiene `sugerirChofer`) — capturarlos ahora sería inventar un flujo de UI nuevo no pedido,
   no extender uno existente. Se anota como trabajo futuro cuando exista ese punto de decisión.
   ci.ps1 completo verde (sin tests nuevos: es una llamada a una función ya testeada en 11.2).
-- [ ] `[DECISIÓN]` **11.5 Consentimiento/RGPD para captura de conversaciones** — grabar/transcribir
+- [x] `[DECISIÓN]` **11.5 Consentimiento/RGPD para captura de conversaciones** — grabar/transcribir
   es dato personal, a veces de terceros (el cliente no es tu cliente-usuario). Base legal +
   consentimiento ANTES de activar 11.3. No es freno: "tratamos tus conversaciones con trazabilidad
   y consentimiento" es parte del argumento de confianza. Se apoya en el bloque de privacidad
+  **Decisión (2026-07-12): borrador técnico ahora, revisión legal después** — mismo criterio que
+  el resto de `PRIVACIDAD-*.md` (marcado explícitamente "pendiente de revisión legal", nunca
+  presentado como asesoría). Ver `PRIVACIDAD-CONSENTIMIENTO-VOZ.md` para el borrador.
   existente (RAT, subprocesadores, ARCO).
 - [ ] `[DECISIÓN]` **11.6 WhatsApp como segundo canal de captura** — amplía la superficie (mucho
   gestor↔chófer y gestor↔cliente ocurre ahí). Gated por decisión: coste y API de WhatsApp Business.
