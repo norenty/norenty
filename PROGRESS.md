@@ -8,8 +8,8 @@ depender del historial de conversación.
 
 ---
 
-2026-07-12 | 4 decisiones del usuario resueltas + PRIVACIDAD-CONSENTIMIENTO-VOZ.md | (por
-commitear) | HECHO. 9.34 (UX de errores de lectura): aviso visible + reintentar → desbloquea
+2026-07-12 | 4 decisiones del usuario resueltas + PRIVACIDAD-CONSENTIMIENTO-VOZ.md | 063c2b1 |
+HECHO. 9.34 (UX de errores de lectura): aviso visible + reintentar → desbloquea
 9.35. 9.41 (pantalla ARCO): sí, construirla → nuevo 9.41b. 10.9 (calibración): N=20,
 suggestion-only siempre → nuevo 10.9b. 11.5 (RGPD voz): borrador técnico ahora + revisión legal
 después, igual criterio que el resto de PRIVACIDAD-*.md — nuevo `PRIVACIDAD-CONSENTIMIENTO-VOZ.md`.
