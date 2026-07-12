@@ -8,8 +8,8 @@ depender del historial de conversación.
 
 ---
 
-2026-07-12 | Fase 9.35: manejo de errores de lectura en las 6 funciones financieras | (por
-commitear) | HECHO. data.js: cada función distingue queries críticas (lanzan de verdad) de
+2026-07-12 | Fase 9.35: manejo de errores de lectura en las 6 funciones financieras | 1f3cd0b |
+HECHO. data.js: cada función distingue queries críticas (lanzan de verdad) de
 opcionales (vacío = negocio legítimo, no lanzan); getViabilidadViaje/getEstado561 distinguen
 además "no existe" (PGRST116) de fallo real. Nuevo SELECT_ERRORS en el mock de tests (paralelo
 a UPDATE_ERRORS). Dashboard: nuevo ErrorCargaReintentar.jsx compartido, cableado en
