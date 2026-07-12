@@ -9,7 +9,7 @@ depender del historial de conversación.
 ---
 
 2026-07-12 | Hardening: RLS initplan en policy gestor_update_admin (linter de rendimiento) |
-(por commitear) | HECHO. Migración 0048: auth.uid() sin envolver en (select auth.uid()) —
+a41e187 | HECHO. Migración 0048: auth.uid() sin envolver en (select auth.uid()) —
 reevaluación fila por fila. Verificado: WARN desaparece de get_advisors; roles-isolation.test.js
 13/13+1 skip (incluye B8/B9/B10, las que usan esta policy); ci.ps1 completo verde.
 
