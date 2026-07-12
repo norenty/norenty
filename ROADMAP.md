@@ -1510,6 +1510,14 @@ esto ya es ejecutable.
   Protection Disabled" en Supabase Auth — es un toggle del panel (Authentication → Policies →
   "Leaked password protection"), no algo que una migración pueda tocar; se lo señalo al
   usuario para que lo active cuando quiera (1 clic, sin downside).
+  **Ampliación (2026-07-12):** el advisor de RENDIMIENTO marcó `auth_rls_initplan` en la policy
+  `gestor_update_admin` (0032) — `auth.uid()` sin envolver se reevalúa fila por fila en vez de
+  una vez por consulta. Migración `0048_rls_initplan_gestor.sql`: recrea la policy con `(select
+  auth.uid())`, mismo comportamiento, mejor plan de ejecución. Verificado: el WARN desaparece
+  de `get_advisors`; `roles-isolation.test.js` (que ejercita B8/B9/B10, las 3 que usan esta
+  policy) sigue 13/13+1 skip contra la BD real; `ci.ps1` completo verde. El resto de hallazgos
+  de rendimiento son `unindexed_foreign_keys`/`unused_index`, todos INFO — esperables con el
+  volumen de datos de demo, no ameritan tocar el esquema todavía.
 - [x] `[LOOP]` **10.4 Sacar los secretos reales del repo tras una exposición accidental** (no
   estaba en el plan original — añadido en caliente 2026-07-08 tras un incidente real). Un `Read`
   de `.env` (para editarlo) volcó `SUPABASE_SERVICE_ROLE_KEY`/`DATABASE_URL`/`TELEGRAM_BOT_TOKEN`/

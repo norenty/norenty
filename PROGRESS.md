@@ -8,6 +8,11 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | Hardening: RLS initplan en policy gestor_update_admin (linter de rendimiento) |
+(por commitear) | HECHO. Migración 0048: auth.uid() sin envolver en (select auth.uid()) —
+reevaluación fila por fila. Verificado: WARN desaparece de get_advisors; roles-isolation.test.js
+13/13+1 skip (incluye B8/B9/B10, las que usan esta policy); ci.ps1 completo verde.
+
 2026-07-12 | Hardening: search_path fijo en 3 funciones (linter de seguridad Supabase) | e844a0d |
 HECHO. Migración 0047: ejecucion_evento_calc_hash, ejecucion_evento_hash_chain,
 cola_reclamar_lote no tenían search_path fijo (WARN function_search_path_mutable — riesgo de
