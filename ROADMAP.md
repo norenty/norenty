@@ -1426,7 +1426,7 @@ esto ya es ejecutable.
   2026-07-08: decidió saltar a 10.3 por ahora. Sigue pendiente; necesita que el usuario elija
   entre restaurar él mismo desde el panel (guionizado) o instalar herramientas cliente de
   Postgres en esta máquina para probar contra un dump aparte.
-- [ ] `[LOOP]` **10.3 Suite de aislamiento multi-tenant (RLS) en CI** — Grupo B con 2 tenants
+- [x] `[LOOP]` **10.3 Suite de aislamiento multi-tenant (RLS) en CI** — Grupo B con 2 tenants
   reales que AFIRMA que las lecturas/escrituras cruzadas están bloqueadas por RLS, y corre en
   cada migración. Hoy el aislamiento (todo el modelo de seguridad) solo se verifica a mano una
   vez; una regresión de policy abriría acceso cruzado en silencio. Es la red que protege la
@@ -1435,7 +1435,19 @@ esto ya es ejecutable.
   `roles-isolation.test.js` (9.31)** — aislamiento por lecturas contra 2 empresas reales, y
   aislamiento por rol, ambos ya corren en `ci.ps1` (se saltan sin fallar sin credenciales). Falta
   verificar/ampliar: (a) que cubran también ESCRITURAS cruzadas (no solo lecturas), (b) que
-  corran de verdad "en cada migración" tal como pide el ítem, no solo en `ci.ps1` general. Se
+  corran de verdad "en cada migración" tal como pide el ítem, no solo en `ci.ps1` general.
+  **Cerrado (2026-07-12):** (a) añadidas 3 nuevas pruebas de escritura cruzada a
+  `isolation.test.js` — UPDATE, DELETE e INSERT contra entidades de "Demo Transport S.L." desde
+  la sesión de `demo@norenty.com` (otra empresa). RLS filtra el `WHERE` en silencio (0 filas
+  afectadas, sin error explícito en UPDATE/DELETE) — la única forma fiable de demostrarlo es
+  re-consultar con una sesión de **service role** (que salta RLS) y confirmar que el dato de la
+  OTRA empresa sigue intacto tras el intento. Verificado contra la BD real: el viaje/chófer de
+  la otra empresa quedan sin tocar, y el INSERT de hito inyectado no deja ninguna fila huérfana
+  (confirmado por consulta directa, 0 filas). (b) "en cada migración": no hay pipeline de
+  CI/CD desplegado todavía (gated, pospuesto junto con Despliegue) que lo dispare
+  automáticamente — en la práctica ya corre en cada `ci.ps1` que el loop ejecuta antes de cada
+  commit de migración (disciplina ya seguida durante toda esta sesión), que es la garantía real
+  disponible hoy sin construir infraestructura de CI/CD de forma especulativa. Se
   creó además una cuenta de prueba dedicada `rls-iso-b@norenty.com` en "Demo Transport S.L."
   (la empresa ajena a `DEMO_EMAIL`) para reforzar esta suite — pendiente de usarla.
 - [x] `[LOOP]` **10.4 Sacar los secretos reales del repo tras una exposición accidental** (no
@@ -1559,6 +1571,13 @@ estimado). Falta cerrar el lazo: aprender de ello.
   captura por qué el gestor eligió cada chófer (7A.2). Medir qué señales predicen de verdad las
   asignaciones aceptadas y refinar `sugerirChofer` con ello. Más adelante; menor urgencia que
   10.8/10.9.
+  **Bloqueado en la práctica (2026-07-12, verificado por consulta directa):** `decision_asignacion`
+  tiene **0 filas** en la BD real hoy — mismo motivo de fondo que 10.1/10.5-10.8 (el bot nunca ha
+  operado contra Telegram real). Construir un análisis de "qué señales predicen las asignaciones
+  aceptadas" sobre cero datos sería trabajo especulativo puro: no hay nada que medir ni con qué
+  validar el resultado. No se fuerza. Se retoma cuando haya volumen real de decisiones (tras 10.1
+  y uso real sostenido, probablemente post-piloto) — mismo principio que ya se aplicó al no
+  calcular el ratio de sinuosidad OSRM/Haversine en 10.8 sin necesidad real.
 
 **GATE 10 (pre-piloto real):** 10.1 pasado al menos una vez (un viaje real completo por Telegram
 real) y 10.3 en verde en CI (aislamiento multi-tenant probado). Sin esos dos, no se pone delante

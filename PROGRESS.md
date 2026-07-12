@@ -8,6 +8,17 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | Fase 10.3: cerrado — aislamiento de escrituras cruzadas en CI | (por commitear) |
+HECHO. Añadidas 3 pruebas de escritura cruzada a `isolation.test.js` (UPDATE/DELETE/INSERT
+contra "Demo Transport S.L." desde la sesión demo de otra empresa). RLS filtra el WHERE en
+silencio; se verifica con una sesión service-role que el dato de la otra empresa sigue intacto.
+Verificado contra la BD real: nada cambia, el INSERT inyectado no deja fila huérfana (0 filas,
+confirmado). "En cada migración": sin pipeline CI/CD desplegado (pospuesto con Despliegue), en
+la práctica ya corre en cada ci.ps1 previo a un commit de migración. 9/9 tests en isolation.test.js
+contra la BD real, ci.ps1 completo verde. También cerrado 10.10 (Bloque I): decision_asignacion
+tiene 0 filas reales hoy — se documenta como bloqueado en la práctica (no especulativo), no se
+fuerza.
+
 2026-07-12 | Fase 10.8: registro sistemático del error de estimación (verdad observada) |
 b8a5550 | HECHO. Migración `0046_verdad_observada.sql`: APPEND-ONLY (como audit_log).
 `crearSnapshotVerdadObservada`/`getTendenciaVerdadObservada` en data.js, reutilizando

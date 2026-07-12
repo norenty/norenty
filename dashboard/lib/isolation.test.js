@@ -34,6 +34,8 @@ const OTRO_VIAJE_ID = "00000000-0000-0000-0000-000000001000";
 const OTRO_CHOFER_ID = "00000000-0000-0000-0000-000000000100";
 const OTRO_HITO_ID = "00000000-0000-0000-0000-000000010001";
 
+const tieneServiceRole = tieneCredenciales && !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+
 describe.skipIf(!tieneCredenciales)("aislamiento multi-tenant contra la BD real (8.4)", () => {
   let supabase;
 
@@ -78,5 +80,60 @@ describe.skipIf(!tieneCredenciales)("aislamiento multi-tenant contra la BD real 
     const { data } = await supabase.from("chofer").select("id");
     const ids = (data || []).map((c) => c.id);
     expect(ids).not.toContain(OTRO_CHOFER_ID);
+  });
+});
+
+// --- Aislamiento de ESCRITURAS cruzadas (ítem 10.3, ampliando el hallazgo de
+// que la suite anterior solo cubría lecturas). RLS filtra el WHERE de un
+// UPDATE/DELETE en silencio (0 filas afectadas, sin error explícito) -- por
+// eso la única forma fiable de demostrarlo es re-consultar el dato de la OTRA
+// empresa con una sesión de SERVICE ROLE (que salta RLS) y confirmar que
+// sigue intacto tras el intento de escritura como la cuenta demo. ---
+describe.skipIf(!tieneServiceRole)("aislamiento de escrituras cruzadas contra la BD real (10.3)", () => {
+  let supabaseDemo, supabaseAdmin;
+  let matriculaOriginal;
+
+  beforeAll(async () => {
+    const { createClient } = await import("@supabase/supabase-js");
+    ({ supabase: supabaseDemo } = await import("./supabase.js"));
+    supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+    const { error } = await supabaseDemo.auth.signInWithPassword({
+      email: process.env.DEMO_EMAIL,
+      password: process.env.DEMO_PASSWORD,
+    });
+    if (error) throw new Error(`No se pudo iniciar sesión con la empresa demo: ${error.message}`);
+  }, 30000);
+
+  it("UPDATE del viaje de la otra empresa, como demo, NO cambia nada (RLS filtra el WHERE)", async () => {
+    await supabaseDemo.from("viaje").update({ referencia: "HACKEADO_POR_TEST" }).eq("id", OTRO_VIAJE_ID);
+    const { data } = await supabaseAdmin.from("viaje").select("referencia").eq("id", OTRO_VIAJE_ID).single();
+    expect(data?.referencia).not.toBe("HACKEADO_POR_TEST");
+  });
+
+  it("DELETE del chófer de la otra empresa, como demo, NO borra nada (RLS filtra el WHERE)", async () => {
+    await supabaseDemo.from("chofer").delete().eq("id", OTRO_CHOFER_ID);
+    const { data } = await supabaseAdmin.from("chofer").select("id").eq("id", OTRO_CHOFER_ID).single();
+    expect(data?.id).toBe(OTRO_CHOFER_ID); // sigue existiendo
+  });
+
+  it("INSERT de un hito en el viaje de la otra empresa, como demo, es rechazado", async () => {
+    const { error } = await supabaseDemo
+      .from("hito")
+      .insert({ viaje_id: OTRO_VIAJE_ID, tipo: "entrega", orden: 99, direccion: "inyectado por test" });
+    // O RLS lo rechaza con error, o (si algún día una policy permitiera el INSERT
+    // sin comprobar el viaje_id) quedaría huérfano y visible por la otra empresa --
+    // cualquiera de las dos formas se comprueba: debe haber error, O la fila no
+    // debe existir para el service role bajo esa dirección inventada.
+    if (!error) {
+      const { data } = await supabaseAdmin
+        .from("hito")
+        .select("id")
+        .eq("viaje_id", OTRO_VIAJE_ID)
+        .eq("direccion", "inyectado por test");
+      expect(data || []).toHaveLength(0);
+    } else {
+      expect(error).toBeTruthy();
+    }
   });
 });
