@@ -1462,13 +1462,32 @@ esto ya es ejecutable.
 (hueco ya anotado en 9.19), Sentry es opt-in e inerte, y el único consumidor del heartbeat es
 una tarjeta del dashboard que nadie mira.
 
-- [ ] `[DECISIÓN]` **10.4 Destino de logs consultable + Sentry activo de verdad** (bot y
-  dashboard) — elegir un destino (implica coste/cuenta) y activarlo; desbloquea el SLO 3 de 9.19
-  (latencia de respuesta) que hoy es "no calculable". Decisión del usuario porque implica elegir
-  proveedor y asumir su plan.
-- [ ] `[LOOP]` **10.5 Alerta real de "bot caído"** — el heartbeat perdido (>5 min) dispara una
+- [ ] `[DECISIÓN]` **10.4b Destino de logs consultable + Sentry activo de verdad** (renumerado
+  2026-07-12 — colisión con el 10.4 real de "sacar secretos del repo", añadido en caliente el
+  2026-07-08 y que se quedó con el mismo número) (bot y dashboard) — elegir un destino (implica
+  coste/cuenta) y activarlo; desbloquea el SLO 3 de 9.19 (latencia de respuesta) que hoy es "no
+  calculable". Decisión del usuario porque implica elegir proveedor y asumir su plan.
+- [x] `[LOOP]` **10.5 Alerta real de "bot caído"** — el heartbeat perdido (>5 min) dispara una
   notificación empujada (Telegram al gestor / email), no solo la tarjeta pasiva del dashboard.
   Reutiliza el heartbeat de 8.3 y la cola de 0040.
+  Migración `0044_alerta_bot_caido.sql` (mecanismo interno, sin policies para `authenticated`,
+  igual que `bot_heartbeat`): tabla anti-spam para no re-notificar en cada tick del cron.
+  `backend/db/monitor_heartbeat.py`: comprueba el heartbeat (mismo umbral 300s que el
+  dashboard), si está caído y no hay alerta abierta manda Telegram (HTTP directo a la Bot API,
+  independiente del proceso del bot — a propósito, si el bot está caído solo un cliente aparte
+  puede avisarlo) a los gestores activos con `telegram_chat_id`, y cuando se recupera manda
+  aviso de recuperación y cierra el episodio. **Nota honesta (mismo criterio que
+  `purgar_ubicacion.py`):** no hay scheduler que lo ejecute solo — requiere cron/Tarea
+  Programada, documentado en el propio script. 7 tests Grupo A (anti-spam, recuperación, sin
+  latido nunca). Verificado Grupo B contra la BD real: el ciclo completo abrir→no
+  re-notificar→recuperar→cerrar funciona; **reveló 2 hechos reales** — `bot_heartbeat` está
+  vacía (el bot nunca ha corrido contra Telegram real, ítem 10.1) y ningún gestor tiene
+  `telegram_chat_id` vinculado todavía (nadie ha hablado con el bot real). La lógica funciona
+  igual, simplemente no hay a quien avisar hasta que 10.1 ocurra. 139 pytest+7 nuevos, 199
+  vitest, ci.ps1 completo verde.
+  **Corrección de numeración (2026-07-12):** el 10.4 original de este bloque ("Destino de logs
+  + Sentry") colisionaba con el 10.4 de "sacar secretos del repo" (añadido en caliente
+  2026-07-08) — renumerado a **10.4b**, ver más arriba.
 - [ ] `[LOOP]` **10.6 Verificación de integridad programada** — `verificar_cadena.py` (hash-chain)
   y `verificar_pod.py` (hash de fotos) como trabajos RECURRENTES en la cola (0040), con alerta si
   una verificación falla. La función de integridad no vale nada si la verificación solo corre

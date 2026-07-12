@@ -8,6 +8,16 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | Fase 10.5: alerta real de "bot caído" (Telegram, anti-spam) | (por commitear) |
+HECHO. Migración `0044_alerta_bot_caido.sql` (mecanismo interno). `monitor_heartbeat.py`:
+comprueba heartbeat, alerta Telegram (HTTP directo a Bot API, independiente del proceso del
+bot) si cae y no hay alerta abierta, notifica y cierra al recuperarse. Sin scheduler propio
+(cron/Tarea Programada pendiente, documentado). 7 tests Grupo A. Grupo B contra la BD real:
+ciclo completo funciona; reveló que bot_heartbeat está vacía (bot nunca corrió contra Telegram
+real) y 0 gestores tienen telegram_chat_id vinculado. También corregida colisión de numeración:
+el 10.4 de "logs+Sentry" se renumeró a 10.4b (colisionaba con el 10.4 de secretos del 2026-07-08).
+139 pytest+7, 199 vitest, ci.ps1 completo verde.
+
 2026-07-12 | Fase 12.2: controlling en el tiempo (comparación mes-a-mes) | 8bea097 |
 HECHO. `getComparativaMensual` en data.js: agrega rentabilidad+puntualidad del periodo actual
 vs. el anterior de igual duración, variacionPct protegido contra división por 0/null. Sin
