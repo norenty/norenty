@@ -1498,6 +1498,18 @@ esto ya es ejecutable.
   `cliente`/`contexto` — nuevo caso B6b: `solo_lectura` intenta INSERT en ambas tablas, se
   confirma que el trigger `solo_lectura_bloquea_escritura` (mismo mecanismo que ya protegía
   `viaje`/`gasto_viaje`/`documento`) también las bloquea. 13/13 + 1 skip contra la BD real.
+- [x] `[LOOP]` **10.11 Hardening: search_path fijo en funciones del linter de seguridad** — el
+  advisor de seguridad de Supabase (`get_advisors`) marcó `ejecucion_evento_calc_hash`,
+  `ejecucion_evento_hash_chain` y `cola_reclamar_lote` como `function_search_path_mutable`
+  (WARN): sin `search_path` fijo, una referencia no cualificada dentro de la función podría
+  resolver a un objeto de otro esquema si alguna sesión lograra manipular su `search_path`
+  ("schema shadowing"). Migración `0047_search_path_funciones.sql`: `ALTER FUNCTION ... SET
+  search_path = ''` en las 3 — ya cualifican todo con `public.`, así que no cambia
+  comportamiento. Verificado: el WARN desaparece de `get_advisors` tras aplicar; `ci.ps1`
+  completo verde. **No accionable por código:** el advisor también marca "Leaked Password
+  Protection Disabled" en Supabase Auth — es un toggle del panel (Authentication → Policies →
+  "Leaked password protection"), no algo que una migración pueda tocar; se lo señalo al
+  usuario para que lo active cuando quiera (1 clic, sin downside).
 - [x] `[LOOP]` **10.4 Sacar los secretos reales del repo tras una exposición accidental** (no
   estaba en el plan original — añadido en caliente 2026-07-08 tras un incidente real). Un `Read`
   de `.env` (para editarlo) volcó `SUPABASE_SERVICE_ROLE_KEY`/`DATABASE_URL`/`TELEGRAM_BOT_TOKEN`/

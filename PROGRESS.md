@@ -8,6 +8,16 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | Hardening: search_path fijo en 3 funciones (linter de seguridad Supabase) | (por
+commitear) | HECHO. Migración 0047: ejecucion_evento_calc_hash, ejecucion_evento_hash_chain,
+cola_reclamar_lote no tenían search_path fijo (WARN function_search_path_mutable — riesgo de
+schema shadowing). Las 3 ya cualifican todo con `public.`, así que `SET search_path = ''` es
+seguro sin cambiar comportamiento. Verificado: los 3 WARN desaparecen de get_advisors tras
+aplicar; ci.ps1 completo verde (hash-chain/cola de trabajos siguen funcionando).
+Pendiente NO de código: "Leaked Password Protection" está desactivado en Supabase Auth — es
+un toggle de panel (Authentication → Policies), no algo que se pueda arreglar por migración;
+se lo dejo dicho al usuario, sin bloquear el loop por ello.
+
 2026-07-12 | Ampliar 9.31: B6b, solo_lectura tampoco escribe en cliente/contexto | ef65bc7 |
 HECHO. roles-isolation.test.js no cubría las tablas nuevas de 11.1/11.2 para el
 trigger solo_lectura_bloquea_escritura. 13/13+1 skip contra la BD real. ci.ps1 completo verde.
