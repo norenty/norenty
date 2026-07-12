@@ -1488,6 +1488,12 @@ esto ya es ejecutable.
   UPDATE/DELETE como demo no los altera (verificado con service role), limpiando el fixture al
   final. Verificado contra la BD real: 13/13 tests en verde, 0 filas de prueba restantes tras
   la limpieza (confirmado por consulta directa).
+  **Segunda ampliación (2026-07-12):** también `verdad_observada` (10.8, tenant-scoped como
+  `cliente`/`contexto`) probada para aislamiento cruzado de lectura. Y una verificación distinta
+  para `alerta_bot_caido`/`alerta_integridad` (10.5/10.6) — mecanismo INTERNO sin ninguna policy
+  de `authenticated` por diseño: se confirma EMPÍRICAMENTE que un `SELECT` como `authenticated`
+  (la cuenta demo) devuelve 0 filas siempre, no solo que está documentado así. 16/16 tests en
+  `isolation.test.js` contra la BD real, 0 filas de prueba restantes tras limpiar.
 - [x] `[LOOP]` **10.4 Sacar los secretos reales del repo tras una exposición accidental** (no
   estaba en el plan original — añadido en caliente 2026-07-08 tras un incidente real). Un `Read`
   de `.env` (para editarlo) volcó `SUPABASE_SERVICE_ROLE_KEY`/`DATABASE_URL`/`TELEGRAM_BOT_TOKEN`/

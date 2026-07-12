@@ -205,3 +205,71 @@ describe.skipIf(!tieneServiceRole)("aislamiento de cliente/contexto (11.1/11.2) 
     expect(data?.id).toBe(contextoAjenoId); // sigue existiendo
   });
 });
+
+// --- verdad_observada (10.8) también se construyó después de la suite
+// original. Es APPEND-ONLY (0046): solo hace falta probar lectura cruzada
+// (el intento de DELETE ya se prueba, para la empresa propia, en
+// data.test.js/verificación Grupo B de 10.8 -- aquí el foco es que otra
+// empresa no la vea, no repetir esa prueba). ---
+describe.skipIf(!tieneServiceRole)("aislamiento de verdad_observada (10.8) contra la BD real", () => {
+  let supabaseDemo, supabaseAdmin;
+  let snapshotAjenoId;
+
+  beforeAll(async () => {
+    const { createClient } = await import("@supabase/supabase-js");
+    ({ supabase: supabaseDemo } = await import("./supabase.js"));
+    supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+    const { error } = await supabaseDemo.auth.signInWithPassword({
+      email: process.env.DEMO_EMAIL,
+      password: process.env.DEMO_PASSWORD,
+    });
+    if (error) throw new Error(`No se pudo iniciar sesión con la empresa demo: ${error.message}`);
+
+    const { data, error: errSnapshot } = await supabaseAdmin
+      .from("verdad_observada")
+      .insert({ empresa_id: OTRA_EMPRESA_ID, periodo_desde: "2020-01-01T00:00:00Z", periodo_hasta: "2020-02-01T00:00:00Z" })
+      .select("id")
+      .single();
+    if (errSnapshot) throw new Error("No se pudo crear el fixture de verdad_observada: " + errSnapshot.message);
+    snapshotAjenoId = data.id;
+  }, 30000);
+
+  afterAll(async () => {
+    if (snapshotAjenoId) await supabaseAdmin.from("verdad_observada").delete().eq("id", snapshotAjenoId);
+  });
+
+  it("no ve el snapshot de verdad_observada de la otra empresa", async () => {
+    const { data } = await supabaseDemo.from("verdad_observada").select("id").eq("id", snapshotAjenoId);
+    expect(data || []).toHaveLength(0);
+  });
+});
+
+// --- alerta_bot_caido (10.5) y alerta_integridad (10.6) son mecanismo
+// INTERNO: sin ninguna policy para `authenticated` (a diferencia de
+// cliente/contexto/verdad_observada, que sí son tenant-scoped). Esto verifica
+// esa afirmación de diseño empíricamente: ni siquiera para SU PROPIA fila
+// (si la hubiera) debería `authenticated` ver nada -- 0 filas siempre, sea
+// cual sea el contenido real de la tabla. ---
+describe.skipIf(!tieneCredenciales)("alerta_bot_caido/alerta_integridad son ilegibles para authenticated (10.5/10.6)", () => {
+  let supabase;
+
+  beforeAll(async () => {
+    ({ supabase } = await import("./supabase.js"));
+    const { error } = await supabase.auth.signInWithPassword({
+      email: process.env.DEMO_EMAIL,
+      password: process.env.DEMO_PASSWORD,
+    });
+    if (error) throw new Error(`No se pudo iniciar sesión con la empresa demo: ${error.message}`);
+  }, 30000);
+
+  it("alerta_bot_caido: SELECT como authenticated no devuelve filas (sin policy de SELECT)", async () => {
+    const { data } = await supabase.from("alerta_bot_caido").select("id");
+    expect(data || []).toHaveLength(0);
+  });
+
+  it("alerta_integridad: SELECT como authenticated no devuelve filas (sin policy de SELECT)", async () => {
+    const { data } = await supabase.from("alerta_integridad").select("id");
+    expect(data || []).toHaveLength(0);
+  });
+});
