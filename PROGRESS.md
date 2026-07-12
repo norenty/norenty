@@ -8,8 +8,8 @@ depender del historial de conversación.
 
 ---
 
-2026-07-12 | Ampliar 10.3: aislamiento cruzado de cliente/contexto (11.1/11.2) | (por
-commitear) | HECHO. `cliente`/`contexto` se construyeron después de la suite de aislamiento
+2026-07-12 | Ampliar 10.3: aislamiento cruzado de cliente/contexto (11.1/11.2) | 4dca919 |
+HECHO. `cliente`/`contexto` se construyeron después de la suite de aislamiento
 original y nunca se habían probado. Nuevo bloque en isolation.test.js: fixture vía service
 role en "Demo Transport S.L.", confirma que demo no los ve/toca (lectura + UPDATE/DELETE),
 limpia al final. Verificado contra la BD real: 13/13 tests, 0 filas de prueba restantes.
