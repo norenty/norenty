@@ -14,6 +14,7 @@ import {
   getViaje, getChoferes, validarCambioEstado, validarAsignacion,
   getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje, getEstado561, getPnlViaje, getPlanVsReal,
   generarTokenPublico, revocarTokenPublico, DIAS_VALIDEZ_TOKEN_PUBLICO_DEFAULT, registrarAuditoria, getAuditLog,
+  createContexto,
 } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
@@ -70,6 +71,7 @@ export default function ViajeDetalle() {
   const [eta, setEta] = useState(null);
   const [editandoPrecio, setEditandoPrecio] = useState(false);
   const [precioInput, setPrecioInput] = useState("");
+  const [motivoPrecio, setMotivoPrecio] = useState("");
   const [guardandoPrecio, setGuardandoPrecio] = useState(false);
 
   const load = useCallback(async () => {
@@ -176,6 +178,21 @@ export default function ViajeDetalle() {
     try {
       await supabase.from("viaje").update({ precio }).eq("id", id);
       registrarAuditoria({ entidad: "viaje", entidadId: id, accion: "cambio_precio", detalle: { de: viaje.precio, a: precio } });
+      // Ítem 11.4: captura el PORQUÉ del cambio de precio (no solo el qué/cuándo
+      // que ya da registrarAuditoria) como contexto (11.2) -- es un ejemplo
+      // etiquetado más para el aprendizaje futuro (10.9/corpus de conocimiento).
+      if (motivoPrecio.trim()) {
+        try {
+          await createContexto({
+            entidad: "viaje",
+            entidadId: id,
+            texto: `Cambio de precio ${fmtEur(viaje.precio) ?? "—"} → ${fmtEur(precio) ?? "—"}. Motivo: ${motivoPrecio.trim()}`,
+          });
+        } catch {
+          // no bloquea el guardado del precio si falla capturar el motivo
+        }
+      }
+      setMotivoPrecio("");
       setEditandoPrecio(false);
       await load();
     } finally {
@@ -437,20 +454,31 @@ export default function ViajeDetalle() {
 
             <RequireRol roles={["admin"]} fallback={<p className="text-xs text-ink-muted">Coste, precio y margen visibles solo para administradores.</p>}>
             {editandoPrecio ? (
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex flex-col gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    autoFocus
+                    aria-label="Precio del viaje en euros"
+                    value={precioInput}
+                    onChange={(e) => setPrecioInput(e.target.value)}
+                    placeholder="Precio del viaje (€)"
+                    className="flex-1 text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+                  />
+                  <button onClick={guardarPrecio} disabled={guardandoPrecio} aria-label="Guardar precio" className="p-1.5 text-estado-ok disabled:opacity-40"><Check size={16} /></button>
+                  <button onClick={() => { setEditandoPrecio(false); setMotivoPrecio(""); }} disabled={guardandoPrecio} aria-label="Cancelar edición del precio" className="p-1.5 text-ink-muted disabled:opacity-40"><X size={16} /></button>
+                </div>
                 <input
-                  type="number"
-                  step="any"
-                  min="0"
-                  autoFocus
-                  aria-label="Precio del viaje en euros"
-                  value={precioInput}
-                  onChange={(e) => setPrecioInput(e.target.value)}
-                  placeholder="Precio del viaje (€)"
-                  className="flex-1 text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+                  type="text"
+                  aria-label="Motivo del cambio de precio (opcional)"
+                  value={motivoPrecio}
+                  onChange={(e) => setMotivoPrecio(e.target.value)}
+                  placeholder="Motivo del cambio (opcional) — p. ej. 'cliente pidió urgencia'"
+                  maxLength={300}
+                  className="text-xs border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
                 />
-                <button onClick={guardarPrecio} disabled={guardandoPrecio} aria-label="Guardar precio" className="p-1.5 text-estado-ok disabled:opacity-40"><Check size={16} /></button>
-                <button onClick={() => setEditandoPrecio(false)} disabled={guardandoPrecio} aria-label="Cancelar edición del precio" className="p-1.5 text-ink-muted disabled:opacity-40"><X size={16} /></button>
               </div>
             ) : (
               <div className="text-sm text-ink mb-3">

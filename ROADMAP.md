@@ -1658,10 +1658,22 @@ vez memoria útil desde el día 1 y el corpus que alimentará el bot de llamadas
   el conocimiento de las llamadas SIN construir aún el bot. Decisión del usuario: presupuesto de
   Whisper (coste por uso) — mismo gate que D3/7B. Requiere 11.5 (consentimiento) resuelto antes de
   activarse.
-- [ ] `[LOOP]` **11.4 Extender la captura de decisiones más allá de la asignación** (picar código:
+- [x] `[LOOP]` **11.4 Extender la captura de decisiones más allá de la asignación** (picar código:
   sonnet, esfuerzo bajo) — llevar el patrón `decision_asignacion` (7A.2) a otras decisiones con su
   porqué: cambio de precio, aceptar un retraso, elegir vehículo. Cada decisión capturada es un
   ejemplo etiquetado para el aprendizaje (alimenta la calibración de 10.9 y el corpus).
+  **Alcance cerrado, cambio de precio** (el punto de decisión ya existente y más concreto):
+  `viajes/[id]/page.jsx` ahora tiene un campo opcional "motivo" en el formulario de edición de
+  precio; al guardar, además del `registrarAuditoria` ya existente (qué/cuándo), se llama a
+  `createContexto` (11.2) con el texto "Cambio de precio X → Y. Motivo: ...", reutilizando la
+  tabla de contexto en vez de crear una tabla nueva por tipo de decisión. Falla en silencio si
+  el motivo no se pudo guardar (no bloquea el guardado del precio, que es lo crítico). **"Aceptar
+  un retraso" y "elegir vehículo" se DEJAN FUERA de este ítem a propósito**: no hay hoy un punto
+  de decisión claro en la UI para ninguno de los dos (aceptar un retraso no es una acción
+  explícita del gestor; el vehículo se asigna sin un flujo de "decisión con alternativas" como
+  sí lo tiene `sugerirChofer`) — capturarlos ahora sería inventar un flujo de UI nuevo no pedido,
+  no extender uno existente. Se anota como trabajo futuro cuando exista ese punto de decisión.
+  ci.ps1 completo verde (sin tests nuevos: es una llamada a una función ya testeada en 11.2).
 - [ ] `[DECISIÓN]` **11.5 Consentimiento/RGPD para captura de conversaciones** — grabar/transcribir
   es dato personal, a veces de terceros (el cliente no es tu cliente-usuario). Base legal +
   consentimiento ANTES de activar 11.3. No es freno: "tratamos tus conversaciones con trazabilidad

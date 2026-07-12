@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | Fase 11.4: capturar el motivo del cambio de precio (contexto) | (por commitear) |
+HECHO. `viajes/[id]/page.jsx`: campo "motivo" opcional en la edición de precio, guarda un
+`createContexto` (11.2) además del `registrarAuditoria` ya existente. "Aceptar retraso" y
+"elegir vehículo" dejados fuera a propósito: no hay hoy un punto de decisión claro en la UI
+para ninguno de los dos, capturarlos ahora sería inventar un flujo no pedido. ci.ps1 verde.
+
 2026-07-12 | Fase 10.3: cerrado — aislamiento de escrituras cruzadas en CI | 780b345 |
 HECHO. Añadidas 3 pruebas de escritura cruzada a `isolation.test.js` (UPDATE/DELETE/INSERT
 contra "Demo Transport S.L." desde la sesión demo de otra empresa). RLS filtra el WHERE en
