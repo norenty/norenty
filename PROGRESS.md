@@ -8,6 +8,15 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | Fase 10.6: verificación de integridad programada (cadena+POD) | (por commitear) |
+HECHO. Migración `0045_alerta_integridad.sql`: UNIQUE(tipo,entidad_id) + ON CONFLICT DO
+NOTHING — anti-spam distinto al de 10.5 (una rotura NO se auto-resuelve, se alerta la primera
+vez y nunca más hasta que un humano investigue/borre). `monitor_integridad.py` reutiliza
+verificar_cadena/verificar_hash_pod y enviar_telegram/obtener_chats_gestores de
+monitor_heartbeat.py sin duplicar código. Sin scheduler propio (documentado). 6 tests Grupo A.
+Grupo B contra la BD real: cadena íntegra, 0 PODs todavía, sin repetir alertas. 139 pytest+7+6,
+199 vitest, ci.ps1 completo verde.
+
 2026-07-12 | Fase 10.5: alerta real de "bot caído" (Telegram, anti-spam) | 3e6e5dc |
 HECHO. Migración `0044_alerta_bot_caido.sql` (mecanismo interno). `monitor_heartbeat.py`:
 comprueba heartbeat, alerta Telegram (HTTP directo a Bot API, independiente del proceso del

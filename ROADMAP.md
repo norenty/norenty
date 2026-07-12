@@ -1488,10 +1488,22 @@ una tarjeta del dashboard que nadie mira.
   **Corrección de numeración (2026-07-12):** el 10.4 original de este bloque ("Destino de logs
   + Sentry") colisionaba con el 10.4 de "sacar secretos del repo" (añadido en caliente
   2026-07-08) — renumerado a **10.4b**, ver más arriba.
-- [ ] `[LOOP]` **10.6 Verificación de integridad programada** — `verificar_cadena.py` (hash-chain)
+- [x] `[LOOP]` **10.6 Verificación de integridad programada** — `verificar_cadena.py` (hash-chain)
   y `verificar_pod.py` (hash de fotos) como trabajos RECURRENTES en la cola (0040), con alerta si
   una verificación falla. La función de integridad no vale nada si la verificación solo corre
   cuando alguien se acuerda de lanzarla a mano.
+  Migración `0045_alerta_integridad.sql`: tabla `UNIQUE(tipo, entidad_id)` con
+  `ON CONFLICT DO NOTHING` — anti-spam distinto al de 10.5: una rotura de integridad NO se
+  auto-resuelve ("reparar es decisión humana", ya dicho en `verificar_cadena.py`), así que se
+  alerta la PRIMERA vez que se ve esa rotura concreta y nunca más, hasta que un humano la borre
+  tras investigar. `backend/db/monitor_integridad.py`: invoca `verificar_cadena`+
+  `verificar_hash_pod` (reutilizadas, sin tocarlas) y `enviar_telegram`/`obtener_chats_gestores`
+  de `monitor_heartbeat.py` (sin duplicar código). **Nota honesta**: sin scheduler propio, igual
+  que 10.5/`purgar_ubicacion.py` — pendiente de cron/Tarea Programada. 6 tests Grupo A
+  (mockeando `verificar_cadena`/`verificar_hash_pod` con `monkeypatch`). Verificado Grupo B
+  contra la BD real, solo lectura sobre los datos reales: cadena de `ejecucion_evento` íntegra,
+  0 PODs existentes todavía (coherente con que el bot no ha corrido contra Telegram real), y el
+  segundo run no repite ninguna alerta. 139 pytest+7+6, 199 vitest, ci.ps1 completo verde.
 - [ ] `[LOOP]` **10.7 Pantalla de salud del sistema** — SLOs de 9.19 + estado de las últimas
   verificaciones de integridad (10.6) + últimas alertas, en una sola vista para el operador.
 
