@@ -172,6 +172,8 @@ const {
   getPnlViaje,
   getMetricasRentabilidad,
   getComparativaMensual,
+  crearSnapshotVerdadObservada,
+  getTendenciaVerdadObservada,
   getPlanVsReal,
   getOnboardingEstado,
   calcularPanelViaje,
@@ -1954,6 +1956,65 @@ describe("P&L real del viaje (7A.8)", () => {
     const r = await getComparativaMensual({ desde: "2026-03-01T00:00:00Z", hasta: "2026-04-01T00:00:00Z" });
     expect(r.margenRealMedio.anterior).toBeNull();
     expect(r.margenRealMedio.variacionPct).toBeNull();
+  });
+});
+
+describe("verdad observada (10.8 — registro histórico del error de estimación)", () => {
+  const MADRID = { lat: 40.4168, lon: -3.7038 };
+  const BARCELONA = { lat: 41.3851, lon: 2.1734 };
+
+  beforeEach(() => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.verdad_observada = [];
+  });
+
+  it("crearSnapshotVerdadObservada agrega puntualidad + desviación de coste y guarda la fila", async () => {
+    TABLES.hito = [
+      { id: "h1", viaje_id: "v1", orden: 1, ventana_fin: "2026-03-05T10:00:00Z" }, // a tiempo
+      { id: "h2", viaje_id: "v1", orden: 2, ventana_fin: "2026-03-10T10:00:00Z" }, // tarde
+    ];
+    TABLES.ejecucion_evento = [
+      { hito_id: "h1", tipo: "llegada", ocurrido_en: "2026-03-05T09:50:00Z" }, // 10 min antes
+      { hito_id: "h2", tipo: "llegada", ocurrido_en: "2026-03-10T10:30:00Z" }, // 30 min tarde
+    ];
+    TABLES.viaje = [{ id: "v2", referencia: "R2", precio: 1000, vehiculo_id: null, created_at: "2026-03-15T00:00:00Z" }];
+    TABLES.hito = TABLES.hito.concat([
+      { orden: 1, ...MADRID, viaje_id: "v2" }, { orden: 2, ...BARCELONA, viaje_id: "v2" },
+    ]);
+    TABLES.empresa = [{ coste_km: 1, velocidad_planificacion_kmh: 75 }];
+    TABLES.gasto_viaje = [{ id: "g1", viaje_id: "v2", tipo: "otro", importe: 50 }];
+
+    const fila = await crearSnapshotVerdadObservada({ desde: "2026-03-01T00:00:00Z", hasta: "2026-04-01T00:00:00Z" });
+    expect(fila.empresa_id).toBe("e1");
+    expect(fila.pct_hitos_a_tiempo).toBe(50); // 1 de 2 a tiempo
+    expect(fila.delta_llegada_medio_min).toBe(10); // (-10 + 30) / 2
+    expect(fila.desviacion_coste_pct_media).not.toBeNull();
+    expect(TABLES.verdad_observada).toHaveLength(1);
+  });
+
+  it("crearSnapshotVerdadObservada sin ningún dato guarda nulls, no lanza", async () => {
+    TABLES.hito = [];
+    TABLES.ejecucion_evento = [];
+    TABLES.viaje = [];
+    TABLES.empresa = [{ coste_km: 1, velocidad_planificacion_kmh: 75 }];
+    TABLES.gasto_viaje = [];
+
+    const fila = await crearSnapshotVerdadObservada({ desde: "2026-03-01T00:00:00Z", hasta: "2026-04-01T00:00:00Z" });
+    expect(fila.pct_hitos_a_tiempo).toBeNull();
+    expect(fila.delta_llegada_medio_min).toBeNull();
+    expect(fila.desviacion_coste_pct_media).toBeNull();
+    expect(fila.num_viajes_con_datos).toBe(0);
+  });
+
+  it("getTendenciaVerdadObservada devuelve el histórico ordenado, más reciente primero", async () => {
+    TABLES.verdad_observada = [
+      { id: "s1", empresa_id: "e1", periodo_desde: "2026-01-01T00:00:00Z" },
+      { id: "s2", empresa_id: "e1", periodo_desde: "2026-03-01T00:00:00Z" },
+      { id: "s3", empresa_id: "e1", periodo_desde: "2026-02-01T00:00:00Z" },
+    ];
+    const r = await getTendenciaVerdadObservada();
+    expect(r.map((s) => s.id)).toEqual(["s2", "s3", "s1"]);
   });
 });
 

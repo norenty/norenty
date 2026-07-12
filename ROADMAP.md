@@ -1529,10 +1529,25 @@ Aplica el PRINCIPIO RECTOR de arriba. El sistema ya RECOLECTA la verdad: km OSRM
 Haversine, duraciones de conducción reales (plan-vs-real de 7A), costes reales (gastos vs.
 estimado). Falta cerrar el lazo: aprender de ello.
 
-- [ ] `[LOOP]` **10.8 Registro sistemático del error de estimación** — agregar por empresa las
+- [x] `[LOOP]` **10.8 Registro sistemático del error de estimación** — agregar por empresa las
   desviaciones ya calculadas (llegada real vs. estimada, km real vs. Haversine×1.3, gasto real
   vs. coste estimado) en una tabla de "verdad observada", con su tendencia. Es la base de datos
   del aprendizaje y, de paso, un argumento comercial ("nuestras predicciones mejoran con tu uso").
+  Migración `0046_verdad_observada.sql`: **APPEND-ONLY** (como `audit_log`, 0037) — es un
+  registro histórico de tendencia, no memoria editable; policy SELECT+INSERT únicamente +
+  trigger `solo_lectura_bloquea_escritura`. `data.js`: `crearSnapshotVerdadObservada(rango)`
+  agrega puntualidad (todos los hitos con `ventana_fin` en el rango, no solo un viaje) +
+  reutiliza `getMetricasRentabilidad().desviacionMedia` (se le añadió `viajesConDesviacion` como
+  tamaño de muestra, cambio aditivo); `getTendenciaVerdadObservada()` lista el histórico. **Fuera
+  de alcance a propósito**: el ratio de sinuosidad real (km OSRM/Haversine) — hoy ninguna llamada
+  compara ambos valores para el mismo tramo, y añadir esas llamadas extra solo para esto sería
+  trabajo especulativo antes de que 10.9 lo necesite de verdad. **Nota honesta**: sin scheduler
+  que dispare el snapshot periódicamente (mismo patrón que 10.5-10.7); se invoca manualmente
+  hasta que exista una cadencia programada o una pantalla. 3 tests Grupo A. Verificado Grupo B
+  contra la BD real (sesión demo real): snapshot creado, aparece en la tendencia, y la fila
+  **sigue existiendo tras un intento de DELETE como `authenticated`** (RLS/trigger la protegen
+  de verdad, no solo devuelven un error cosmético — PostgREST filtra el DELETE en silencio, se
+  comprobó re-consultando la fila). 202 vitest en data.test.js, ci.ps1 completo verde.
 - [ ] `[DECISIÓN]` **10.9 Calibración de parámetros por empresa (suggestion-only)** — tras N
   viajes completos, calcular desde los datos de ESA empresa su factor de sinuosidad real (ratio
   OSRM/Haversine), su velocidad media real y su coste/km real, y OFRECERLOS como sugerencia

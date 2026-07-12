@@ -1897,9 +1897,100 @@ export async function getMetricasRentabilidad(rango = {}) {
     margenRealMedio,
     viajesAPerdidasReales,
     desviacionMedia,
+    // viajesConDesviacion (10.8): cuántos viajes tenían gastos reales Y coste
+    // estimado a la vez -- el tamaño de muestra real de `desviacionMedia`,
+    // para saber si esa media es de fiar o de 2 viajes sueltos.
+    viajesConDesviacion: conAmbos.length,
     top5: ordenadas.slice(0, 5),
     bottom5: ordenadas.slice(-5).reverse(),
   };
+}
+
+// ==========================================================================
+// Verdad observada (ítem 10.8) — registro histórico del error de estimación,
+// base de datos del aprendizaje (Bloque I). Cada snapshot es una FOTO de un
+// periodo: cuánto se desvió lo real de lo estimado, en los ejes ya
+// calculables sin duplicar lógica de negocio en otro lenguaje (puntualidad,
+// desviación de coste). El ratio de sinuosidad real (km OSRM/Haversine) se
+// deja fuera a propósito: hoy no hay ninguna llamada que compare ambos
+// valores para el mismo tramo -- se añadirá cuando 10.9 lo necesite de
+// verdad, no de forma especulativa ahora. Tabla APPEND-ONLY (0046).
+// ==========================================================================
+
+/** Agrega puntualidad de TODOS los hitos con `ventana_fin` en el rango (no
+ * de un solo viaje, a diferencia de getPlanVsReal). Mismo criterio de "hito
+ * más reciente" que getMetricasPuntualidad. */
+async function agregarPuntualidadPeriodo(desde, hasta) {
+  const [{ data: hitos }, { data: eventos }] = await Promise.all([
+    supabase.from("hito").select("id, ventana_fin").gte("ventana_fin", desde).lt("ventana_fin", hasta),
+    supabase.from("ejecucion_evento").select("hito_id, ocurrido_en").eq("tipo", "llegada"),
+  ]);
+
+  const llegadaPorHito = {};
+  (eventos || []).forEach((e) => {
+    const actual = llegadaPorHito[e.hito_id];
+    if (!actual || e.ocurrido_en < actual) llegadaPorHito[e.hito_id] = e.ocurrido_en;
+  });
+
+  const deltas = [];
+  (hitos || []).forEach((h) => {
+    const llegada = h.ventana_fin ? llegadaPorHito[h.id] : null;
+    if (llegada) deltas.push((new Date(llegada).getTime() - new Date(h.ventana_fin).getTime()) / 60000);
+  });
+
+  const aTiempo = deltas.filter((d) => d <= 0).length;
+  return {
+    numHitosConDatos: deltas.length,
+    pctATiempo: deltas.length ? Math.round((aTiempo / deltas.length) * 100) : null,
+    deltaMedioMin: deltas.length ? Math.round(deltas.reduce((s, d) => s + d, 0) / deltas.length) : null,
+  };
+}
+
+/**
+ * Calcula y GUARDA un snapshot de "verdad observada" para la empresa del
+ * gestor logueado, del periodo dado (por defecto últimos 30 días -- una
+ * cadencia mensual tiene más sentido de tendencia que los 90 días por
+ * defecto del resto de /analitica). Sin scheduler que lo dispare solo
+ * todavía (mismo criterio honesto que monitor_heartbeat.py/panel_salud.py):
+ * hay que invocarlo manualmente (o desde una futura pantalla) hasta que
+ * exista una cadencia programada.
+ */
+export async function crearSnapshotVerdadObservada(rango = {}) {
+  const desde = rango.desde || new Date(Date.now() - 30 * 86400000).toISOString();
+  const hasta = rango.hasta || new Date().toISOString();
+  const empresaId = await getCurrentEmpresaId();
+
+  const [puntualidad, rentabilidad] = await Promise.all([
+    agregarPuntualidadPeriodo(desde, hasta),
+    getMetricasRentabilidad({ desde, hasta }),
+  ]);
+
+  const { data, error } = await supabase
+    .from("verdad_observada")
+    .insert({
+      empresa_id: empresaId,
+      periodo_desde: desde,
+      periodo_hasta: hasta,
+      num_viajes_con_datos: puntualidad.numHitosConDatos + rentabilidad.viajesConDesviacion,
+      pct_hitos_a_tiempo: puntualidad.pctATiempo,
+      delta_llegada_medio_min: puntualidad.deltaMedioMin,
+      desviacion_coste_pct_media: rentabilidad.desviacionMedia,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Histórico de snapshots de la empresa logueada, más reciente primero —
+ * la "tendencia" que 10.9 (calibración) consumirá más adelante. */
+export async function getTendenciaVerdadObservada(limite = 24) {
+  const { data } = await supabase
+    .from("verdad_observada")
+    .select("*")
+    .order("periodo_desde", { ascending: false })
+    .limit(limite);
+  return data || [];
 }
 
 /** Variación porcentual de `actual` respecto a `anterior`. null si no se puede

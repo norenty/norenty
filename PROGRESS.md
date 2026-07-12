@@ -8,6 +8,16 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | Fase 10.8: registro sistemático del error de estimación (verdad observada) |
+(por commitear) | HECHO. Migración `0046_verdad_observada.sql`: APPEND-ONLY (como audit_log).
+`crearSnapshotVerdadObservada`/`getTendenciaVerdadObservada` en data.js, reutilizando
+getMetricasRentabilidad (se añadió viajesConDesviacion, cambio aditivo). Ratio km OSRM/
+Haversine fuera de alcance a propósito (especulativo hasta que 10.9 lo necesite). Sin
+scheduler propio, invocación manual por ahora. 3 tests Grupo A. Grupo B contra la BD real con
+sesión demo real: snapshot creado, aparece en tendencia, y la fila sigue existiendo tras
+intentar DELETE como authenticated (verificado re-consultando, no solo mirando el error).
+202 vitest, ci.ps1 completo verde.
+
 2026-07-12 | Fase 10.7: pantalla de salud del sistema (script de operador) | b26b148 |
 HECHO. `backend/db/panel_salud.py`: junta heartbeat+SLOs(9.19)+alertas de integridad(10.6)+
 episodios de bot caído(10.5) en un reporte. Decisión: es un script del operador, NO página del
