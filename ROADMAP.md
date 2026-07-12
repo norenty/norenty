@@ -1547,6 +1547,15 @@ una tarjeta del dashboard que nadie mira.
   2026-07-08 y que se quedó con el mismo número) (bot y dashboard) — elegir un destino (implica
   coste/cuenta) y activarlo; desbloquea el SLO 3 de 9.19 (latencia de respuesta) que hoy es "no
   calculable". Decisión del usuario porque implica elegir proveedor y asumir su plan.
+  **Hallazgo (2026-07-12): el código YA ESTÁ 100% construido y no requiere nada más.**
+  `dashboard/sentry.client.config.js` + `sentry.server.config.js` + `next.config.js` (wrapping
+  condicional con `withSentryConfig` solo si hay DSN, CSP con el allowlist de `*.sentry.io`
+  incluido) en el lado dashboard; `backend/app/bot.py` con `sentry_sdk.init()` + captura de
+  excepciones con tags de contexto (`update_id`, `chat_id`) en el lado bot. Documentado en
+  `ONBOARDING.md` (`SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN`). Lo único que falta es que el usuario
+  cree una cuenta gratis en sentry.io (crear cuentas de terceros no es algo que el asistente
+  deba hacer) y pegue las 2 DSN en `~/.norenty-secrets/.env` — en cuanto estén, todo funciona
+  sin ningún cambio de código.
 - [x] `[LOOP]` **10.5 Alerta real de "bot caído"** — el heartbeat perdido (>5 min) dispara una
   notificación empujada (Telegram al gestor / email), no solo la tarjeta pasiva del dashboard.
   Reutiliza el heartbeat de 8.3 y la cola de 0040.
