@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-12 | 12.5: Rendimiento de gestores + objetivo de puntualidad | (por commitear) | HECHO.
+2026-07-12 | 12.5: Rendimiento de gestores + objetivo de puntualidad | 296a449 | HECHO.
 Migración 0049 (empresa.objetivo_puntualidad_pct). Nueva getRendimientoGestores + pestaña
 "Gestores" en /analitica (admin-only, gateada con useRol). Objetivo editable en Ajustes →
 Empresa, mostrado en la tarjeta de % Puntualidad. 8 tests Grupo A nuevos, 221 vitest en
