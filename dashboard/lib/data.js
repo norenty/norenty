@@ -1902,6 +1902,54 @@ export async function getMetricasRentabilidad(rango = {}) {
   };
 }
 
+/** Variación porcentual de `actual` respecto a `anterior`. null si no se puede
+ * calcular (falta alguno, o el anterior es 0 — dividir por cero no informa). */
+function variacionPct(actual, anterior) {
+  if (actual == null || anterior == null || anterior === 0) return null;
+  return Math.round(((actual - anterior) / Math.abs(anterior)) * 100);
+}
+
+/**
+ * Ítem 12.2 — controlling en el tiempo: compara el periodo actual (mismo rango
+ * que el resto de /analitica) contra el periodo inmediatamente anterior de
+ * igual duración, para las 3 métricas de mayor riesgo real (margen, viajes a
+ * pérdidas, puntualidad). Pura agregación sobre `getMetricasRentabilidad`/
+ * `getMetricasPuntualidad` ya existentes — no añade tablas ni cálculos nuevos.
+ */
+export async function getComparativaMensual(rango = {}) {
+  const { desde, hasta } = resolveRango(rango);
+  const duracionMs = new Date(hasta).getTime() - new Date(desde).getTime();
+  const rangoAnterior = {
+    desde: new Date(new Date(desde).getTime() - duracionMs).toISOString(),
+    hasta: desde,
+  };
+
+  const [rentActual, rentAnterior, puntActual, puntAnterior] = await Promise.all([
+    getMetricasRentabilidad({ desde, hasta }),
+    getMetricasRentabilidad(rangoAnterior),
+    getMetricasPuntualidad({ desde, hasta }),
+    getMetricasPuntualidad(rangoAnterior),
+  ]);
+
+  return {
+    margenRealMedio: {
+      actual: rentActual.margenRealMedio,
+      anterior: rentAnterior.margenRealMedio,
+      variacionPct: variacionPct(rentActual.margenRealMedio, rentAnterior.margenRealMedio),
+    },
+    viajesAPerdidasReales: {
+      actual: rentActual.viajesAPerdidasReales,
+      anterior: rentAnterior.viajesAPerdidasReales,
+      variacionPct: variacionPct(rentActual.viajesAPerdidasReales, rentAnterior.viajesAPerdidasReales),
+    },
+    pctPuntualidad: {
+      actual: puntActual.pctPuntualidad,
+      anterior: puntAnterior.pctPuntualidad,
+      variacionPct: variacionPct(puntActual.pctPuntualidad, puntAnterior.pctPuntualidad),
+    },
+  };
+}
+
 // ==========================================================================
 // Plan-vs-real por hito (ítem 7A.9) — para cada hito, la ventana planificada
 // vs. la llegada real (evento de tipo "llegada"), con el delta en minutos.

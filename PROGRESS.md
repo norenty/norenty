@@ -8,6 +8,13 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | Fase 12.2: controlling en el tiempo (comparación mes-a-mes) | (por commitear) |
+HECHO. `getComparativaMensual` en data.js: agrega rentabilidad+puntualidad del periodo actual
+vs. el anterior de igual duración, variacionPct protegido contra división por 0/null. Sin
+tablas/cálculos nuevos, pura composición. `/analitica`: componente `Variacion` (flecha+%, con
+`invertir` para "viajes a pérdidas"), cableado en Puntualidad y Rentabilidad. 2 tests Grupo A.
+199 vitest, ci.ps1 completo verde.
+
 2026-07-12 | Fase 12.1: foto en los gastos (evidencia con integridad) | 6d95b72 |
 HECHO. `gasto_viaje` (0024) guardaba importe/tipo pero sin foto. Migración
 `0043_gasto_foto.sql`: 2 columnas nullable (`foto_url`, `foto_hash_sha256`), sin bucket ni

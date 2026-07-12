@@ -1628,11 +1628,19 @@ en vez de construir a ciegas features grandes como el "IA Brain".
   nuevos (con foto / sin foto → null). Verificado Grupo B: las 2 columnas existen en la BD real,
   nullable, sin romper `gasto_viaje` existente. 197 vitest en data.test.js, ci.ps1 completo
   verde (build de 21 páginas).
-- [ ] `[LOOP]` **12.2 Controlling en el tiempo (comparación mes-a-mes)** (picar código: sonnet,
+- [x] `[LOOP]` **12.2 Controlling en el tiempo (comparación mes-a-mes)** (picar código: sonnet,
   esfuerzo bajo) — `/analitica` da métricas del periodo actual pero no compara con el anterior.
   Añadir a las métricas clave (margen medio, viajes a pérdidas, puntualidad) el valor del periodo
   previo y la variación (▲/▼ %), para responder "¿el mes va mejor o peor?". Pura agregación sobre
   datos que ya existen; Grupo A.
+  `getComparativaMensual` en `data.js`: agrega `getMetricasRentabilidad`+`getMetricasPuntualidad`
+  del periodo actual y del periodo inmediatamente anterior de igual duración (no calendario,
+  duración exacta), con `variacionPct` protegido contra división por 0/null. Sin tablas ni
+  cálculos nuevos — pura composición de funciones existentes. `/analitica`: nuevo componente
+  `Variacion` (flecha + %, con `invertir` para métricas donde subir es malo — "viajes a
+  pérdidas"), cableado en las vistas Puntualidad y Rentabilidad (las 2 con lectura de negocio
+  clara hoy). 2 tests Grupo A (variación real + variación null sin periodo anterior). 199
+  vitest en data.test.js, ci.ps1 completo verde.
 - [ ] `[DECISIÓN]` **12.3 Discovery con gestor de tráfico real** — el usuario se reúne esta semana
   con un amigo gestor de tráfico. Objetivo: validar el roadmap contra la realidad ANTES de
   construir lo grande. Guion en `DISCOVERY-GESTOR.md`: observar (en qué pantalla vive, qué copia a

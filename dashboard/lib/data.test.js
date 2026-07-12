@@ -171,6 +171,7 @@ const {
   getMultasPorVehiculo,
   getPnlViaje,
   getMetricasRentabilidad,
+  getComparativaMensual,
   getPlanVsReal,
   getOnboardingEstado,
   calcularPanelViaje,
@@ -1916,6 +1917,43 @@ describe("P&L real del viaje (7A.8)", () => {
     expect(r.viajesAPerdidasReales).toBe(1);
     expect(r.margenRealMedio).not.toBeNull();
     expect(r.top5.length).toBeGreaterThan(0);
+  });
+
+  it("getComparativaMensual (12.2) compara el periodo actual contra el anterior de igual duración", async () => {
+    TABLES.viaje = [
+      // periodo actual: [2026-03-01, 2026-04-01)
+      { id: "v1", referencia: "R1", precio: 2000, vehiculo_id: null, created_at: "2026-03-15T00:00:00Z" },
+      // periodo anterior (misma duración, justo antes): [2026-01-29T.., 2026-03-01)
+      { id: "v2", referencia: "R2", precio: 1000, vehiculo_id: null, created_at: "2026-02-15T00:00:00Z" },
+    ];
+    TABLES.hito = [
+      { orden: 1, ...MADRID, viaje_id: "v1" }, { orden: 2, ...BARCELONA, viaje_id: "v1" },
+      { orden: 1, ...MADRID, viaje_id: "v2" }, { orden: 2, ...BARCELONA, viaje_id: "v2" },
+    ];
+    TABLES.empresa = [{ coste_km: 0, velocidad_planificacion_kmh: 75 }];
+    TABLES.gasto_viaje = [];
+    TABLES.incidencia = [];
+
+    const r = await getComparativaMensual({ desde: "2026-03-01T00:00:00Z", hasta: "2026-04-01T00:00:00Z" });
+    expect(r.margenRealMedio.actual).toBe(2000);
+    expect(r.margenRealMedio.anterior).toBe(1000);
+    expect(r.margenRealMedio.variacionPct).toBe(100); // dobló
+    expect(r.viajesAPerdidasReales.actual).toBe(0);
+    expect(r.pctPuntualidad.actual).toBeNull(); // sin hitos con ventana_fin en ninguna tabla
+  });
+
+  it("variación es null cuando el periodo anterior no tiene datos (evita dividir por 0/null)", async () => {
+    TABLES.viaje = [
+      { id: "v1", referencia: "R1", precio: 500, vehiculo_id: null, created_at: "2026-03-15T00:00:00Z" },
+    ];
+    TABLES.hito = [{ orden: 1, ...MADRID, viaje_id: "v1" }, { orden: 2, ...BARCELONA, viaje_id: "v1" }];
+    TABLES.empresa = [{ coste_km: 0, velocidad_planificacion_kmh: 75 }];
+    TABLES.gasto_viaje = [];
+    TABLES.incidencia = [];
+
+    const r = await getComparativaMensual({ desde: "2026-03-01T00:00:00Z", hasta: "2026-04-01T00:00:00Z" });
+    expect(r.margenRealMedio.anterior).toBeNull();
+    expect(r.margenRealMedio.variacionPct).toBeNull();
   });
 });
 

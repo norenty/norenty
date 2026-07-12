@@ -8,6 +8,7 @@ import {
   getMetricasChoferes,
   getMetricasFlota,
   getMetricasRentabilidad,
+  getComparativaMensual,
 } from "../../lib/data";
 import { fmtEur } from "../../lib/format";
 
@@ -19,12 +20,30 @@ const VISTAS = [
   { id: "rentabilidad", label: "Rentabilidad", icon: TrendingUp },
 ];
 
-function Card({ label, value, sub }) {
+// Ítem 12.2 — controlling en el tiempo: flecha + % frente al periodo anterior
+// de igual duración. `invertir`: para métricas donde SUBIR es malo (p.ej.
+// "viajes a pérdidas"), invierte el color sin invertir la flecha (la flecha
+// siempre indica la dirección real del cambio; el color indica si es bueno).
+function Variacion({ comp, invertir = false, sufijo = "%" }) {
+  if (!comp || comp.variacionPct == null) return null;
+  const sube = comp.variacionPct > 0;
+  const esBueno = invertir ? !sube : sube;
+  const color = comp.variacionPct === 0 ? "text-ink-muted" : esBueno ? "text-estado-ok" : "text-estado-incidencia";
+  const flecha = comp.variacionPct === 0 ? "→" : sube ? "▲" : "▼";
+  return (
+    <div className={`text-xs mt-1 ${color}`}>
+      {flecha} {Math.abs(comp.variacionPct)}{sufijo} vs. periodo anterior
+    </div>
+  );
+}
+
+function Card({ label, value, sub, comp, invertirComp = false, sufijoComp }) {
   return (
     <div className="bg-surface border border-border rounded-xl p-4">
       <div className="text-xs text-ink-secondary mb-1">{label}</div>
       <div className="text-2xl font-semibold text-ink">{value ?? "—"}</div>
       {sub && <div className="text-xs text-ink-muted mt-1">{sub}</div>}
+      <Variacion comp={comp} invertir={invertirComp} sufijo={sufijoComp} />
     </div>
   );
 }
@@ -42,13 +61,17 @@ function Barra({ label, count, max }) {
   );
 }
 
-function VistaPuntualidad({ datos }) {
+function VistaPuntualidad({ datos, comparativa }) {
   const maxRuta = Math.max(1, ...datos.peoresRutas.map((r) => r.incidencias));
   const maxSemana = Math.max(1, ...datos.tendencia.map((s) => s.count));
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-3 gap-3">
-        <Card label="% Puntualidad" value={datos.pctPuntualidad != null ? `${datos.pctPuntualidad}%` : null} />
+        <Card
+          label="% Puntualidad"
+          value={datos.pctPuntualidad != null ? `${datos.pctPuntualidad}%` : null}
+          comp={comparativa?.pctPuntualidad}
+        />
         <Card label="Hitos con ventana" value={datos.totalConVentana} />
         <Card label="Fuera de ventana" value={datos.totalTarde} />
       </div>
@@ -229,12 +252,22 @@ function TablaRentabilidad({ titulo, filas }) {
   );
 }
 
-function VistaRentabilidad({ datos }) {
+function VistaRentabilidad({ datos, comparativa }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-3 gap-3">
-        <Card label="Margen real medio" value={fmtEur(datos.margenRealMedio)} />
-        <Card label="Viajes a pérdidas (reales)" value={datos.viajesAPerdidasReales} />
+        <Card
+          label="Margen real medio"
+          value={fmtEur(datos.margenRealMedio)}
+          comp={comparativa?.margenRealMedio}
+          sufijoComp="%"
+        />
+        <Card
+          label="Viajes a pérdidas (reales)"
+          value={datos.viajesAPerdidasReales}
+          comp={comparativa?.viajesAPerdidasReales}
+          invertirComp
+        />
         <Card
           label="Desviación media |real−estimado|"
           value={datos.desviacionMedia != null ? `${datos.desviacionMedia}%` : null}
@@ -249,13 +282,19 @@ function VistaRentabilidad({ datos }) {
   );
 }
 
+// Ítem 12.2: solo estas dos vistas tienen "comparar con el periodo anterior"
+// con sentido de negocio claro hoy (margen/pérdidas, puntualidad).
+const VISTAS_CON_COMPARATIVA = new Set(["puntualidad", "rentabilidad"]);
+
 export default function Analitica() {
   const [vista, setVista] = useState("puntualidad");
   const [datos, setDatos] = useState(null);
+  const [comparativa, setComparativa] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
+    setComparativa(null);
     const cargar = {
       puntualidad: getMetricasPuntualidad,
       incidencias: getMetricasIncidencias,
@@ -264,6 +303,9 @@ export default function Analitica() {
       rentabilidad: getMetricasRentabilidad,
     }[vista];
     cargar().then((d) => { setDatos(d); setLoading(false); });
+    if (VISTAS_CON_COMPARATIVA.has(vista)) {
+      getComparativaMensual().then(setComparativa);
+    }
   }, [vista]);
 
   return (
@@ -297,11 +339,11 @@ export default function Analitica() {
         <div className="h-64 bg-surface-alt rounded-xl animate-pulse" />
       ) : (
         <>
-          {vista === "puntualidad" && <VistaPuntualidad datos={datos} />}
+          {vista === "puntualidad" && <VistaPuntualidad datos={datos} comparativa={comparativa} />}
           {vista === "incidencias" && <VistaIncidencias datos={datos} />}
           {vista === "choferes" && <VistaChoferes datos={datos} />}
           {vista === "flota" && <VistaFlota datos={datos} />}
-          {vista === "rentabilidad" && <VistaRentabilidad datos={datos} />}
+          {vista === "rentabilidad" && <VistaRentabilidad datos={datos} comparativa={comparativa} />}
         </>
       )}
     </div>
