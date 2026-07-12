@@ -8,6 +8,13 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | Fase 9.41b: pantalla de derechos ARCO en la ficha del chófer | (por commitear) |
+HECHO. `ArcoChoferSection.jsx` (admin-only): exportar (descarga JSON de
+getExportacionChofer) y anonimizar (confirmación explicando qué se toca y qué no, citando
+PRIVACIDAD-ARCO.md), montado en choferes/[id]/page.jsx. Reutiliza getExportacionChofer/
+anonimizarChofer (9.15) ya testeadas, sin lógica nueva de negocio. Smoke test de renderizado.
+ci.ps1 completo verde.
+
 2026-07-12 | 4 decisiones del usuario resueltas + PRIVACIDAD-CONSENTIMIENTO-VOZ.md | 063c2b1 |
 HECHO. 9.34 (UX de errores de lectura): aviso visible + reintentar → desbloquea
 9.35. 9.41 (pantalla ARCO): sí, construirla → nuevo 9.41b. 10.9 (calibración): N=20,

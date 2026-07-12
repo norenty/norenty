@@ -1363,10 +1363,16 @@ actual; se prioriza por impacto, no por orden de descubrimiento.
   Decidir si construir una pantalla en Ajustes cuando el volumen real de solicitudes lo justifique,
   o mantenerlo así mientras sea infrecuente.
   **Decisión (2026-07-12): sí, construirla ya.** Ver 9.41b para la implementación.
-- [ ] `[LOOP]` **9.41b Construir la pantalla de derechos ARCO** (una vez cerrada 9.41) — página en
+- [x] `[LOOP]` **9.41b Construir la pantalla de derechos ARCO** (una vez cerrada 9.41) — página en
   Ajustes (o ficha de cada chófer) para exportar/anonimizar datos de un chófer sin pasar por la
   consola del navegador, reutilizando `getExportacionChofer`/`anonimizarChofer` (9.15) ya
   testeados.
+  Nuevo `ArcoChoferSection.jsx` (admin-only, `RequireRol`), montado en `choferes/[id]/page.jsx`:
+  "Exportar datos" descarga un JSON con `getExportacionChofer` (blob client-side, sin subir nada
+  a ningún sitio); "Anonimizar" pide confirmación explicando qué se anonimiza y qué NO se toca
+  (citando `PRIVACIDAD-ARCO.md` — hash-chain/POD/valoraciones/decisiones intactos, chat_id/
+  ubicación requieren paso manual aparte), y refresca la ficha tras anonimizar. Smoke test de
+  renderizado (mismo patrón que `AjustesSecciones.test.jsx`). ci.ps1 completo verde.
 - [x] `[LOOP]` **9.42 Plan de módulo compartido para el Reglamento CE 561/2006 antes de una v2** —
   `calcularEtaConParadas` (JS) y `calcular_eta_con_paradas` (Python) son implementaciones
   independientes, sincronizadas a mano, con tests de paridad que hoy confirman que coinciden. Bajo

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import DocumentosSection from "../../components/DocumentosSection";
+import ArcoChoferSection from "../../components/ArcoChoferSection";
 import { getEstado561, LIMITE_561_SEMANAL_H, LIMITE_561_BISEMANAL_H, getMultasPorChofer } from "../../../lib/data";
 import { Siren } from "lucide-react";
 import { TIPOS_DOC_CHOFER, IDIOMA_LABEL, ESTADO_VIAJE } from "../../../lib/labels";
@@ -75,6 +76,11 @@ export default function ChoferDetalle() {
     }
     load();
   }, [id, fetchViajes]);
+
+  async function refrescarChofer() {
+    const { data: c } = await supabase.from("chofer").select("*").eq("id", id).single();
+    setChofer(c);
+  }
 
   async function cargarMas() {
     const nuevoOffset = offset + PAGE;
@@ -302,6 +308,10 @@ export default function ChoferDetalle() {
 
       <div className="mt-4">
         <DocumentosSection ambito="chofer" entidadId={id} tipos={TIPOS_DOC_CHOFER} />
+      </div>
+
+      <div className="mt-4">
+        <ArcoChoferSection choferId={id} choferNombre={chofer?.nombre} onAnonimizado={refrescarChofer} />
       </div>
     </div>
   );
