@@ -9,7 +9,7 @@ depender del historial de conversación.
 ---
 
 2026-07-12 | Fase 10.8: registro sistemático del error de estimación (verdad observada) |
-(por commitear) | HECHO. Migración `0046_verdad_observada.sql`: APPEND-ONLY (como audit_log).
+b8a5550 | HECHO. Migración `0046_verdad_observada.sql`: APPEND-ONLY (como audit_log).
 `crearSnapshotVerdadObservada`/`getTendenciaVerdadObservada` en data.js, reutilizando
 getMetricasRentabilidad (se añadió viajesConDesviacion, cambio aditivo). Ratio km OSRM/
 Haversine fuera de alcance a propósito (especulativo hasta que 10.9 lo necesite). Sin
