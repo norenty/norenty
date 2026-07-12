@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-12 | Fase 10.3: cerrado — aislamiento de escrituras cruzadas en CI | (por commitear) |
+2026-07-12 | Fase 10.3: cerrado — aislamiento de escrituras cruzadas en CI | 780b345 |
 HECHO. Añadidas 3 pruebas de escritura cruzada a `isolation.test.js` (UPDATE/DELETE/INSERT
 contra "Demo Transport S.L." desde la sesión demo de otra empresa). RLS filtra el WHERE en
 silencio; se verifica con una sesión service-role que el dato de la otra empresa sigue intacto.
