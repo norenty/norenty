@@ -8,6 +8,16 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | Fase 10.7: pantalla de salud del sistema (script de operador) | (por commitear) |
+HECHO. `backend/db/panel_salud.py`: junta heartbeat+SLOs(9.19)+alertas de integridad(10.6)+
+episodios de bot caído(10.5) en un reporte. Decisión: es un script del operador, NO página del
+dashboard — esas tablas son estado global de la plataforma y no existe rol admin-de-plataforma
+distinto del intra-empresa; meterlo en el dashboard filtrado por tenant arriesgaría fuga
+cruzada entre clientes. Bug real encontrado/corregido: mezclaba RealDictCursor con el estilo de
+cursor por tupla que esperan calcular_slos.py/monitor_heartbeat.py. 3 tests Grupo A. Grupo B
+contra la BD real (solo lectura): reporte completo sin errores. 139 pytest+7+6+3, 199 vitest,
+ci.ps1 completo verde.
+
 2026-07-12 | Fase 10.6: verificación de integridad programada (cadena+POD) | 0234145 |
 HECHO. Migración `0045_alerta_integridad.sql`: UNIQUE(tipo,entidad_id) + ON CONFLICT DO
 NOTHING — anti-spam distinto al de 10.5 (una rotura NO se auto-resuelve, se alerta la primera

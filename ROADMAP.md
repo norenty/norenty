@@ -1504,8 +1504,24 @@ una tarjeta del dashboard que nadie mira.
   contra la BD real, solo lectura sobre los datos reales: cadena de `ejecucion_evento` íntegra,
   0 PODs existentes todavía (coherente con que el bot no ha corrido contra Telegram real), y el
   segundo run no repite ninguna alerta. 139 pytest+7+6, 199 vitest, ci.ps1 completo verde.
-- [ ] `[LOOP]` **10.7 Pantalla de salud del sistema** — SLOs de 9.19 + estado de las últimas
+- [x] `[LOOP]` **10.7 Pantalla de salud del sistema** — SLOs de 9.19 + estado de las últimas
   verificaciones de integridad (10.6) + últimas alertas, en una sola vista para el operador.
+  **Decisión de diseño**: es un script del operador (`backend/db/panel_salud.py`), NO una
+  página del dashboard multi-tenant — `bot_heartbeat`/`alerta_bot_caido`/`alerta_integridad`
+  son estado GLOBAL de la plataforma (un único bot sirve a todas las empresas), y hoy no existe
+  un rol "admin de plataforma" distinto del rol intra-empresa (0032); meterlo en el dashboard
+  filtrado por tenant arriesgaría mostrar a un cliente el estado de integridad de OTRO cliente.
+  Construir ese rol nuevo hoy sería especulativo (un solo operador = el usuario). Mismo patrón
+  que `calcular_slos.py`/`monitor_heartbeat.py`/`monitor_integridad.py`: vía `DATABASE_URL`,
+  fuera de RLS. Junta heartbeat + los 2 SLOs de 9.19 + últimas alertas de integridad + últimos
+  episodios de bot caído en un solo reporte. Bug real encontrado y corregido durante la
+  verificación: mezclaba `RealDictCursor` (necesario para nada en este script, en realidad) con
+  el estilo de cursor por tupla que esperan `calcular_slos.py`/`monitor_heartbeat.py` — se
+  unificó a cursor normal, construyendo los dicts propios a mano donde hacía falta. 3 tests
+  Grupo A. Verificado Grupo B contra la BD real (`python backend/db/panel_salud.py`, solo
+  lectura): reporte completo sin errores, reflejando el estado real (heartbeat nunca registrado,
+  0 asignaciones, sin roturas de integridad — todo pendiente de 10.1). 139 pytest+7+6+3, 199
+  vitest, ci.ps1 completo verde.
 
 ### Bloque I — Aprendizaje de sí mismo (calibración desde la verdad propia)
 
