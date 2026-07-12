@@ -1797,6 +1797,27 @@ describe("gastos del viaje (7A.7)", () => {
     expect(TABLES.gasto_viaje[0].tipo).toBe("repostaje");
   });
 
+  it("createGastoViaje (12.1) guarda foto_url y foto_hash_sha256 cuando se pasan", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.gasto_viaje = [];
+    const g = await createGastoViaje({
+      viajeId: "v1", tipo: "multa", importe: 90,
+      fotoUrl: "e1/gasto/v1/abc.jpg", fotoHash: "deadbeef",
+    });
+    expect(g.foto_url).toBe("e1/gasto/v1/abc.jpg");
+    expect(g.foto_hash_sha256).toBe("deadbeef");
+  });
+
+  it("createGastoViaje sin foto deja foto_url/foto_hash_sha256 en null", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.gasto_viaje = [];
+    const g = await createGastoViaje({ viajeId: "v1", tipo: "peaje", importe: 10 });
+    expect(g.foto_url).toBeNull();
+    expect(g.foto_hash_sha256).toBeNull();
+  });
+
   it("getGastosViaje filtra por viaje", async () => {
     TABLES.gasto_viaje = [
       { id: "g1", viaje_id: "v1", tipo: "peaje", importe: 10, fecha: "2026-01-01" },

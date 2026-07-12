@@ -1602,6 +1602,56 @@ estable. La captura (11.1, 11.2, 11.4) SÍ es parte del MVP y va en paralelo a F
 
 ---
 
+## Fase 12 — Cerrar huecos de valor + discovery con gestor real (ABIERTA 2026-07-12)
+
+Revisión de producto con el usuario (2026-07-12): al mapear las features que pedía (asistente
+chat, cotización, coste real, controlling, almacenaje legal, fotos de tickets/multas) contra el
+código, **~70% YA EXISTE** (`getPnlViaje`, `getViabilidadViaje`, `calcularPresupuesto`+`/presupuesto`,
+`/analitica`, `documento` con caducidades). Esta fase cierra los huecos REALES de lo que ya hay y
+mete un bloque de **discovery** (el usuario se reúne esta semana con un gestor de tráfico real),
+en vez de construir a ciegas features grandes como el "IA Brain".
+
+- [x] `[LOOP]` **12.1 Foto en los gastos** (picar código: sonnet, esfuerzo medio) — hoy
+  `gasto_viaje` (0024) guarda repostaje/peaje/multa/dieta con importe pero **sin foto adjunta**
+  (verificado: no hay columna de imagen). Añadir foto opcional al gasto (ticket de gasolina, la
+  multa), reutilizando la maquinaria de subida ya segura del bucket `documentos` (ruta
+  `{empresa_id}/gasto/{viaje_id}/...`, sin bucket ni policy nuevos) y hasheando la imagen SHA-256
+  como el POD (tesis de evidencia). Migración: `foto_url`+`foto_hash_sha256` en `gasto_viaje`.
+  Subida/visualización/borrado desde `GastosViajeSection`. (Follow-up 12.1b: que el chófer mande
+  la foto por Telegram — necesita flujo de conversación del bot, se hace aparte.)
+  Migración `0043_gasto_foto.sql` (DDL puro, 2 columnas nullable, sin bucket/policy nuevos — la
+  policy de `documentos` ya scopea por `empresa_id` como primera carpeta, y `gasto/` cae dentro
+  sin tocar Storage). `createGastoViaje` acepta `fotoUrl`/`fotoHash`; `GastosViajeSection.jsx`
+  ahora tiene input de foto opcional, calcula SHA-256 en el navegador (Web Crypto,
+  `crypto.subtle.digest`) antes de subir, botón para ver la foto (URL firmada 60s, mismo patrón
+  que `DocumentosSection`) y borra el objeto del bucket al borrar el gasto. 2 tests Grupo A
+  nuevos (con foto / sin foto → null). Verificado Grupo B: las 2 columnas existen en la BD real,
+  nullable, sin romper `gasto_viaje` existente. 197 vitest en data.test.js, ci.ps1 completo
+  verde (build de 21 páginas).
+- [ ] `[LOOP]` **12.2 Controlling en el tiempo (comparación mes-a-mes)** (picar código: sonnet,
+  esfuerzo bajo) — `/analitica` da métricas del periodo actual pero no compara con el anterior.
+  Añadir a las métricas clave (margen medio, viajes a pérdidas, puntualidad) el valor del periodo
+  previo y la variación (▲/▼ %), para responder "¿el mes va mejor o peor?". Pura agregación sobre
+  datos que ya existen; Grupo A.
+- [ ] `[DECISIÓN]` **12.3 Discovery con gestor de tráfico real** — el usuario se reúne esta semana
+  con un amigo gestor de tráfico. Objetivo: validar el roadmap contra la realidad ANTES de
+  construir lo grande. Guion en `DISCOVERY-GESTOR.md`: observar (en qué pantalla vive, qué copia a
+  mano, qué tiene en Excel/post-its aparte, por dónde le entran los viajes) + preguntar por cada
+  feature (coste/margen, controlling, caducidad de docs, cuánto conocimiento pasa por teléfono y no
+  queda escrito, qué le preguntaría a su software en lenguaje normal, y la de oro: "¿qué te quita
+  más tiempo al día sin aportar nada?"). Lo que traiga reordena el resto del plan.
+- [ ] `[DECISIÓN]` **12.4 Asistente chat / "IA Brain"** — DEFERIDO a propósito. No es una feature
+  paralela: es la capa que se sienta ENCIMA de los datos + el `contexto` (Fase 11) y responde/
+  sugiere en lenguaje natural (RAG sobre los datos propios, suggestion-only). Construirlo hoy sería
+  adivinar: sin corpus rico (Fase 11) y sin saber qué preguntaría de verdad un gestor (12.3), es un
+  chatbot genérico. Gate: 12.3 hecho + corpus de 11.x con uso real. Mismo principio que 11.7 (bot
+  de llamadas): la infraestructura de conocimiento primero, el cerebro después.
+
+**GATE 12:** 12.4 (IA Brain) no se empieza sin 12.3 (discovery) cerrado y corpus de Fase 11 con
+datos reales. 12.1 y 12.2 son mejoras autónomas de lo que ya existe — se pueden hacer ya.
+
+---
+
 ### Bloque F — La arquitectura escala con el negocio (gated por ingresos, NO antes)
 
 Nada de este bloque se empieza sin (a) un cliente que lo pida explícitamente + (b) ingreso

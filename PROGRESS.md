@@ -8,6 +8,19 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | Fase 12.1: foto en los gastos (evidencia con integridad) | (por commitear) |
+HECHO. `gasto_viaje` (0024) guardaba importe/tipo pero sin foto. Migración
+`0043_gasto_foto.sql`: 2 columnas nullable (`foto_url`, `foto_hash_sha256`), sin bucket ni
+policy nuevos — reutiliza `documentos` (la policy ya scopea por `empresa_id` como primera
+carpeta, `gasto/` cae dentro). `createGastoViaje` acepta `fotoUrl`/`fotoHash`;
+`GastosViajeSection.jsx` calcula SHA-256 en el navegador (Web Crypto) antes de subir, ver foto
+con URL firmada 60s (mismo patrón que `DocumentosSection`), borra el objeto del bucket al
+borrar el gasto. 2 tests Grupo A. Verificado Grupo B: columnas confirmadas en la BD real,
+nullable, sin romper filas existentes. 197 vitest en data.test.js, ci.ps1 completo verde
+(build de 21 páginas). También integrada Fase 12 al roadmap (discovery con gestor de tráfico
+12.3, controlling en el tiempo 12.2, asistente/IA Brain 12.4 deferido a propósito — gate: no
+antes del discovery + corpus de Fase 11 con uso real).
+
 2026-07-07 | Fase 9.37: convención "una migración, una responsabilidad" | 2eab62e |
 HECHO. `ONBOARDING.md §7` documenta separar DDL/backfill/hardening de columnas en migraciones
 sucesivas, citando el incidente real de 0032 (9.29) como motivo. No retroactivo. Sin cambios de

@@ -1787,7 +1787,7 @@ export async function getGastosViaje(viajeId) {
   return (data || []).sort((a, b) => (a.fecha || a.created_at) < (b.fecha || b.created_at) ? 1 : -1);
 }
 
-export async function createGastoViaje({ viajeId, tipo, importe, litros = null, descripcion = null, fecha = null, choferId = null, vehiculoId = null }) {
+export async function createGastoViaje({ viajeId, tipo, importe, litros = null, descripcion = null, fecha = null, choferId = null, vehiculoId = null, fotoUrl = null, fotoHash = null }) {
   const empresaId = await getCurrentEmpresaId();
   const { data, error } = await supabase
     .from("gasto_viaje")
@@ -1801,6 +1801,8 @@ export async function createGastoViaje({ viajeId, tipo, importe, litros = null, 
       litros,
       descripcion,
       fecha,
+      foto_url: fotoUrl,          // ruta en el bucket 'documentos' (12.1), o null
+      foto_hash_sha256: fotoHash, // SHA-256 de la imagen, evidencia con integridad
     })
     .select()
     .single();
