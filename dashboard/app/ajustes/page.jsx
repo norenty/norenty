@@ -14,6 +14,7 @@ import AjustesPerfilSection from "../components/AjustesPerfilSection";
 import AjustesMfaSection from "../components/AjustesMfaSection";
 import AjustesBotSection from "../components/AjustesBotSection";
 import AjustesEmpresaSection from "../components/AjustesEmpresaSection";
+import CalibracionSugerenciaSection from "../components/CalibracionSugerenciaSection";
 import AjustesEquipoSection from "../components/AjustesEquipoSection";
 
 const BOT = process.env.NEXT_PUBLIC_BOT_USERNAME;
@@ -413,6 +414,11 @@ export default function AjustesPage() {
           onReactivarGestor={onReactivarGestor}
         />
       </RequireRol>
+
+      <CalibracionSugerenciaSection
+        onSugerirVelocidad={(v) => setVelocidadPlanificacion(String(v))}
+        onSugerirCosteKm={(v) => setCosteKm(String(v))}
+      />
 
       <AjustesEmpresaSection
         empresa={empresa}

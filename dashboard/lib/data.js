@@ -1993,6 +1993,122 @@ export async function getTendenciaVerdadObservada(limite = 24) {
   return data || [];
 }
 
+// ==========================================================================
+// Calibración de parámetros por empresa (ítem 10.9b, decisión 2026-07-12:
+// N=20 viajes con datos, SIEMPRE suggestion-only — nunca se aplica sola).
+// Compara velocidad real y coste/km real (los dos ejes calculables sin
+// llamadas OSRM extra especulativas, mismo criterio que 10.8) contra los
+// valores configurados en `empresa`, y los OFRECE como sugerencia. La
+// mediana (no la media) se usa a propósito: un viaje atípico (atasco,
+// avería) no debe arrastrar la sugerencia.
+// ==========================================================================
+
+const MIN_VIAJES_CALIBRACION_DEFAULT = 20;
+const UMBRAL_DIFERENCIA_SUGERENCIA_PCT = 10; // no molestar por diferencias pequeñas/ruido
+
+function mediana(valores) {
+  if (!valores.length) return null;
+  const ordenados = [...valores].sort((a, b) => a - b);
+  const mitad = Math.floor(ordenados.length / 2);
+  return ordenados.length % 2 !== 0
+    ? ordenados[mitad]
+    : (ordenados[mitad - 1] + ordenados[mitad]) / 2;
+}
+
+/**
+ * Calcula (sin guardar nada) la sugerencia de calibración para la empresa
+ * logueada. `minimoViajes`: por debajo de este umbral, `suficiente: false` —
+ * ni se calcula ni se sugiere nada (evita sugerencias de 2 viajes sueltos).
+ */
+export async function getSugerenciaCalibracion({ minimoViajes = MIN_VIAJES_CALIBRACION_DEFAULT } = {}) {
+  const [{ data: empresas }, { data: viajes }] = await Promise.all([
+    supabase.from("empresa").select("id, velocidad_planificacion_kmh, coste_km"),
+    supabase.from("viaje").select("id").eq("estado", "completado"),
+  ]);
+  const empresa = (empresas || [])[0] || null;
+  const idsViajes = (viajes || []).map((v) => v.id);
+
+  if (!empresa || idsViajes.length === 0) {
+    return { suficiente: false, numViajesConDatos: 0, minimoViajes };
+  }
+
+  const [{ data: hitos }, { data: eventos }, { data: gastos }] = await Promise.all([
+    supabase.from("hito").select("id, viaje_id, orden, estado, lat, lon").in("viaje_id", idsViajes),
+    supabase.from("ejecucion_evento").select("viaje_id, tipo, ocurrido_en").eq("tipo", "llegada").in("viaje_id", idsViajes),
+    supabase.from("gasto_viaje").select("viaje_id, importe").in("viaje_id", idsViajes),
+  ]);
+
+  const gastosPorViaje = {};
+  (gastos || []).forEach((g) => {
+    gastosPorViaje[g.viaje_id] = (gastosPorViaje[g.viaje_id] || 0) + Number(g.importe);
+  });
+
+  const muestrasVelocidad = [];
+  const muestrasCosteKm = [];
+  const viajesConAlgunDato = new Set();
+
+  for (const viajeId of idsViajes) {
+    const hitosViaje = (hitos || []).filter((h) => h.viaje_id === viajeId);
+    const completados = hitosViaje.filter((h) => h.estado === "completado");
+    if (completados.length < 2) continue;
+
+    const { km } = await kmCarreteraViaje(completados);
+    if (!km || km <= 0) continue;
+
+    const llegadasViaje = (eventos || [])
+      .filter((e) => e.viaje_id === viajeId)
+      .map((e) => new Date(e.ocurrido_en).getTime())
+      .sort((a, b) => a - b);
+    if (llegadasViaje.length >= 2) {
+      const horas = (llegadasViaje[llegadasViaje.length - 1] - llegadasViaje[0]) / 3600000;
+      if (horas > 0) {
+        muestrasVelocidad.push(km / horas);
+        viajesConAlgunDato.add(viajeId);
+      }
+    }
+
+    const gastosViaje = gastosPorViaje[viajeId];
+    if (gastosViaje != null && gastosViaje > 0) {
+      muestrasCosteKm.push(gastosViaje / km);
+      viajesConAlgunDato.add(viajeId);
+    }
+  }
+
+  const numViajesConDatos = viajesConAlgunDato.size;
+  if (numViajesConDatos < minimoViajes) {
+    return { suficiente: false, numViajesConDatos, minimoViajes };
+  }
+
+  const velocidadReal = mediana(muestrasVelocidad);
+  const costeKmReal = mediana(muestrasCosteKm);
+  const velocidadConfigurada = empresa.velocidad_planificacion_kmh ?? null;
+  const costeKmConfigurado = empresa.coste_km ?? null;
+
+  function difierePct(real, configurado) {
+    if (real == null || configurado == null || configurado === 0) return null;
+    return Math.abs((real - configurado) / configurado) * 100;
+  }
+
+  const diffVelocidad = difierePct(velocidadReal, velocidadConfigurada);
+  const diffCosteKm = difierePct(costeKmReal, costeKmConfigurado);
+
+  return {
+    suficiente: true,
+    numViajesConDatos,
+    minimoViajes,
+    velocidad: {
+      real: velocidadReal != null ? Math.round(velocidadReal) : null,
+      configurada: velocidadConfigurada,
+      sugerir: diffVelocidad != null && diffVelocidad >= UMBRAL_DIFERENCIA_SUGERENCIA_PCT,
+    },
+    costeKm: {
+      real: costeKmReal != null ? Math.round(costeKmReal * 100) / 100 : null,
+      configurado: costeKmConfigurado,
+      sugerir: diffCosteKm != null && diffCosteKm >= UMBRAL_DIFERENCIA_SUGERENCIA_PCT,
+    },
+  };
+}
+
 /** Variación porcentual de `actual` respecto a `anterior`. null si no se puede
  * calcular (falta alguno, o el anterior es 0 — dividir por cero no informa). */
 function variacionPct(actual, anterior) {

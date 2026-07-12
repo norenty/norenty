@@ -174,6 +174,7 @@ const {
   getComparativaMensual,
   crearSnapshotVerdadObservada,
   getTendenciaVerdadObservada,
+  getSugerenciaCalibracion,
   getPlanVsReal,
   getOnboardingEstado,
   calcularPanelViaje,
@@ -2015,6 +2016,76 @@ describe("verdad observada (10.8 — registro histórico del error de estimació
     ];
     const r = await getTendenciaVerdadObservada();
     expect(r.map((s) => s.id)).toEqual(["s2", "s3", "s1"]);
+  });
+});
+
+describe("sugerencia de calibración (10.9b — suggestion-only, N=20)", () => {
+  const MADRID = { lat: 40.4168, lon: -3.7038 };
+  const BARCELONA = { lat: 41.3851, lon: 2.1734 };
+
+  // Cada viaje: 2 hitos completados (osrmMock por defecto devuelve 100km,
+  // ver beforeEach global), 2 llegadas separadas 2h (-> 50 km/h), un gasto
+  // de 100€ (-> 1€/km de coste real).
+  function construirViajes(n) {
+    const viajes = [];
+    const hitos = [];
+    const eventos = [];
+    const gastos = [];
+    for (let i = 0; i < n; i++) {
+      const id = `v${i}`;
+      viajes.push({ id, estado: "completado" });
+      hitos.push({ id: `h${i}a`, viaje_id: id, orden: 1, estado: "completado", ...MADRID });
+      hitos.push({ id: `h${i}b`, viaje_id: id, orden: 2, estado: "completado", ...BARCELONA });
+      eventos.push({ viaje_id: id, tipo: "llegada", ocurrido_en: "2026-03-01T08:00:00Z" });
+      eventos.push({ viaje_id: id, tipo: "llegada", ocurrido_en: "2026-03-01T10:00:00Z" });
+      gastos.push({ viaje_id: id, importe: 100 });
+    }
+    return { viajes, hitos, eventos, gastos };
+  }
+
+  it("con menos viajes que el mínimo, suficiente=false y no calcula nada", async () => {
+    const { viajes, hitos, eventos, gastos } = construirViajes(5);
+    TABLES.viaje = viajes;
+    TABLES.hito = hitos;
+    TABLES.ejecucion_evento = eventos;
+    TABLES.gasto_viaje = gastos;
+    TABLES.empresa = [{ id: "e1", velocidad_planificacion_kmh: 75, coste_km: 2 }];
+
+    const r = await getSugerenciaCalibracion({ minimoViajes: 20 });
+    expect(r.suficiente).toBe(false);
+    expect(r.numViajesConDatos).toBe(5);
+  });
+
+  it("con 20 viajes y valores configurados muy distintos de los reales, sugiere actualizar ambos", async () => {
+    const { viajes, hitos, eventos, gastos } = construirViajes(20);
+    TABLES.viaje = viajes;
+    TABLES.hito = hitos;
+    TABLES.ejecucion_evento = eventos;
+    TABLES.gasto_viaje = gastos;
+    TABLES.empresa = [{ id: "e1", velocidad_planificacion_kmh: 75, coste_km: 2 }];
+
+    const r = await getSugerenciaCalibracion({ minimoViajes: 20 });
+    expect(r.suficiente).toBe(true);
+    expect(r.numViajesConDatos).toBe(20);
+    expect(r.velocidad.real).toBe(50); // 100km / 2h
+    expect(r.velocidad.configurada).toBe(75);
+    expect(r.velocidad.sugerir).toBe(true);
+    expect(r.costeKm.real).toBe(1); // 100€ / 100km
+    expect(r.costeKm.configurado).toBe(2);
+    expect(r.costeKm.sugerir).toBe(true);
+  });
+
+  it("con valores configurados ya cercanos a los reales, NO sugiere (evita ruido)", async () => {
+    const { viajes, hitos, eventos, gastos } = construirViajes(20);
+    TABLES.viaje = viajes;
+    TABLES.hito = hitos;
+    TABLES.ejecucion_evento = eventos;
+    TABLES.gasto_viaje = gastos;
+    TABLES.empresa = [{ id: "e1", velocidad_planificacion_kmh: 51, coste_km: 1.02 }];
+
+    const r = await getSugerenciaCalibracion({ minimoViajes: 20 });
+    expect(r.velocidad.sugerir).toBe(false);
+    expect(r.costeKm.sugerir).toBe(false);
   });
 });
 

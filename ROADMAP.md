@@ -1585,11 +1585,20 @@ estimado). Falta cerrar el lazo: aprender de ello.
   auto-aplicado). Ver 10.9b para la implementación. Ratio de sinuosidad OSRM/Haversine excluido
   (mismo motivo que en 10.8: ninguna llamada compara ambos valores para el mismo tramo hoy);
   10.9b calibra velocidad real y coste/km real, que sí son calculables desde datos existentes.
-- [ ] `[LOOP]` **10.9b Construir la sugerencia de calibración** (una vez cerrada 10.9) —
+- [x] `[LOOP]` **10.9b Construir la sugerencia de calibración** (una vez cerrada 10.9) —
   con N≥20 viajes con datos suficientes, comparar la velocidad media real (de
   `getPlanVsReal`/hitos completados) y el coste/km real (de `verdad_observada`/`getPnlViaje`)
   contra los valores configurados en `empresa`, y ofrecer la sugerencia en Ajustes ("tus datos
   dicen X, ¿actualizar?"), sin aplicarla nunca sin confirmación explícita del gestor.
+  `getSugerenciaCalibracion({minimoViajes=20})` en `data.js`: por cada viaje completado con ≥2
+  hitos completados, calcula velocidad real (km real / horas entre primera y última llegada) y
+  coste/km real (gastos reales / km), usa la **mediana** (no la media, para que un viaje
+  atípico no arrastre la sugerencia), y solo sugiere si la diferencia con lo configurado supera
+  el 10% (evita ruido). `CalibracionSugerenciaSection.jsx` en Ajustes: **solo prellena** los
+  campos de velocidad/coste — nunca guarda nada por sí sola, el gestor tiene que pulsar el
+  "Guardar" que ya existía (9.39). 3 tests Grupo A + 1 smoke test de renderizado. Verificado
+  Grupo B contra la BD real (sesión demo real): no lanza, devuelve una forma válida. 205 vitest
+  en data.test.js, ci.ps1 completo verde.
 - [ ] `[LOOP]` **10.10 Aprender la sugerencia de chófer desde `decision_asignacion`** — ya se
   captura por qué el gestor eligió cada chófer (7A.2). Medir qué señales predicen de verdad las
   asignaciones aceptadas y refinar `sugerirChofer` con ello. Más adelante; menor urgencia que

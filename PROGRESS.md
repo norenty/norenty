@@ -8,6 +8,13 @@ depender del historial de conversación.
 
 ---
 
+2026-07-12 | Fase 10.9b: sugerencia de calibración (velocidad + coste/km reales) | (por
+commitear) | HECHO. `getSugerenciaCalibracion` en data.js: mediana de velocidad/coste-km real
+por viaje completado, sugiere solo si difiere >10% de lo configurado, requiere N≥20 viajes con
+datos. `CalibracionSugerenciaSection.jsx` en Ajustes: solo prellena campos, nunca guarda sola
+(suggestion-only real, no cosmético). 3 tests Grupo A + smoke. Grupo B contra la BD real:
+no lanza. 205 vitest, ci.ps1 completo verde.
+
 2026-07-12 | Fase 9.41b: pantalla de derechos ARCO en la ficha del chófer | 6e4d732 |
 HECHO. `ArcoChoferSection.jsx` (admin-only): exportar (descarga JSON de
 getExportacionChofer) y anonimizar (confirmación explicando qué se toca y qué no, citando
