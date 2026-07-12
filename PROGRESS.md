@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-12 | Fase 12.2: controlling en el tiempo (comparación mes-a-mes) | (por commitear) |
+2026-07-12 | Fase 12.2: controlling en el tiempo (comparación mes-a-mes) | 8bea097 |
 HECHO. `getComparativaMensual` en data.js: agrega rentabilidad+puntualidad del periodo actual
 vs. el anterior de igual duración, variacionPct protegido contra división por 0/null. Sin
 tablas/cálculos nuevos, pura composición. `/analitica`: componente `Variacion` (flecha+%, con
