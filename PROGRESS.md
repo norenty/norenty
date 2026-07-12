@@ -9,7 +9,7 @@ depender del historial de conversación.
 ---
 
 2026-07-12 | Ampliar 10.3 otra vez: verdad_observada + verificación empírica de
-alerta_bot_caido/alerta_integridad | (por commitear) | HECHO. verdad_observada (10.8) probada
+alerta_bot_caido/alerta_integridad | 2c99751 | HECHO. verdad_observada (10.8) probada
 para aislamiento cruzado. alerta_bot_caido/alerta_integridad (10.5/10.6): confirmado
 empíricamente (no solo documentado) que SELECT como authenticated devuelve 0 filas siempre —
 mecanismo interno real. 16/16 tests en isolation.test.js contra la BD real, 0 filas de prueba
