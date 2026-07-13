@@ -8,6 +8,13 @@ depender del historial de conversación.
 
 ---
 
+2026-07-13 | Guion de entrevista para discovery con gestor de tráfico (12.3) | 70cb367 | HECHO.
+DISCOVERY-GESTOR.md: preguntas generales, observación del flujo real, validación función por
+función (coste/margen, controlling/KPIs recién construidos, documentos+fotos, comunicación,
+dispatch), y una sección específica de qué información de datos hace falta capturar (formatos,
+tipos, obligatoriedad, frecuencia de cambio, volumen) para seguir construyendo con datos reales
+en vez de supuestos. No es código — no aplica ci.ps1.
+
 2026-07-13 | 12.5 ampliación: margen objetivo editable + color en puntualidad vs objetivo |
 a829cb3 | HECHO. margen_objetivo_pct ya existía y se usaba en calcularPresupuesto pero
 nunca tuvo campo editable en Ajustes — arreglado (guardarMargenObjetivoEmpresa + campo en
