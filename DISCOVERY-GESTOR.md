@@ -132,6 +132,25 @@ mencione en el punto 2, preguntar:
    si el diseño actual (Postgres + Storage de Supabase, sin caché ni CDN dedicado) aguanta o hay
    que planear más pronto de lo pensado.
 
+### 4.1 Bolsas de carga / cómo entran los encargos (investigado antes de preguntar)
+
+Investigación previa (2026-07-13): en el sur de Europa las bolsas de carga dominantes son
+**Wtransnet** (líder en la Península Ibérica, del Grupo Alpega), **Teleroute** (mismo grupo,
+fusionada con Wtransnet), **TimoCom** (Alemania, fuerte en Europa central) y **Trans.eu**
+(Polonia/Este de Europa). Todas ofrecen **API** para buscar cargas, publicar disponibilidad de
+vehículo y sincronizar con un TMS — no haría falta scrapear ni pedir datos a mano si el gestor
+ya usa alguna.
+
+Preguntar:
+- ¿Usas alguna bolsa de carga (Wtransnet, Teleroute, TimoCom, Trans.eu, otra)? ¿Para publicar
+  disponibilidad, para buscar carga de vuelta, ambas?
+- Si es que sí: ¿tienes acceso a su API o solo usas el portal web? ¿Nos dejarías ver cómo es un
+  encargo cuando llega de ahí (campos, formato)?
+- ¿Cuánta carga de la que mueves entra por bolsa de carga vs. cliente directo/recurrente?
+- Si es que no: ¿por qué no? (coste de la suscripción, desconfianza, no le hace falta porque
+  tiene cartera de clientes fija) — esto dice si integrar con una bolsa es prioritario o
+  irrelevante para vuestro perfil de negocio.
+
 ---
 
 ## 5. Cierre
