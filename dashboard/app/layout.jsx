@@ -2,6 +2,7 @@ import "./globals.css";
 import AuthGuard from "./components/AuthGuard";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
+import GlobalSearch from "./components/GlobalSearch";
 
 export const metadata = {
   title: "Norenty — Dashboard",
@@ -31,6 +32,7 @@ export default function RootLayout({ children }) {
             <Topbar />
             <main className="flex-1 overflow-y-auto p-3 md:p-5 print:overflow-visible print:p-0">{children}</main>
           </div>
+          <GlobalSearch />
         </AuthGuard>
       </body>
     </html>

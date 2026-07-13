@@ -8,6 +8,18 @@ depender del historial de conversación.
 
 ---
 
+2026-07-13 | 6.12 Búsqueda global (Ctrl+K), retomado a petición explícita del usuario | — |
+HECHO. Nuevo `GlobalSearch.jsx`: modal centrado, atajo Ctrl+K/Cmd+K global, busca
+viaje.referencia + chofer.nombre + vehiculo.matricula en paralelo (.ilike(), 5 por tipo, mismo
+escapado que el buscador inline que sustituye), navegación con flechas/Enter/clic, Escape y clic
+en el fondo cierran. Sustituye el buscador inline de `Topbar.jsx` (bug real corregido de paso:
+el resultado de chófer enlazaba a `/choferes` sin id) por un botón que dispara el evento
+`open-global-search`. Montado una vez en `layout.jsx`. Sin librería nueva. Verificado en
+navegador real (dev server + `/subprocesadores`, única ruta pública con chrome montado sin
+sesión): Ctrl+K abre, búsqueda debounced sin errores de consola contra Supabase real (RLS sin
+sesión → "Sin resultados" limpio), Escape cierra, botón del Topbar también abre. `ci.ps1`
+completo verde (155 pytest, 300 vitest, build de 21 páginas).
+
 2026-07-13 | Aplicar las 3 mejoras baratas de DISENO-UX.md | c806f98 | HECHO. (1)
 Tamaño base de fuente +12,5% (globals.css, html{font-size:112.5%}) — escala texto+espaciado
 proporcionalmente. Bug propio detectado y arreglado en el mismo commit: el comentario CSS

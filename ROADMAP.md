@@ -357,12 +357,26 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
   restaurado después. 3 tests E2E (68 pytest total). CI verde.
 
 ### Semana 3 (14–20 jul) — operativa real
-- [ ] `[LOOP]` **6.12 Búsqueda global (Ctrl+K)** — paleta de búsqueda sobre viajes (referencia),
+- [x] `[LOOP]` **6.12 Búsqueda global (Ctrl+K)** — paleta de búsqueda sobre viajes (referencia),
   chóferes (nombre), vehículos (matrícula): modal con input, resultados agrupados, navegación con
   teclado. Sin librería nueva.
   Nota (2026-07-07, auditoría de items stale de Fase 6): sigue sin construirse — deprioritizado
   explícitamente por decisión del usuario 2026-07-04 (línea ~637), no es un olvido. Se deja `[ ]`
   intencionadamente hasta que se retome como feature pura, después del trabajo de solidez.
+  **Retomado y construido (2026-07-13, a petición explícita del usuario).** Nuevo
+  `GlobalSearch.jsx`: modal centrado (Ctrl+K/Cmd+K global, Escape para cerrar, clic en el fondo
+  cierra), busca en paralelo `viaje.referencia`/`chofer.nombre`/`vehiculo.matricula` con `.ilike()`
+  (mismo escapado de `%`/`_` que ya usaba el buscador inline del Topbar), 5 resultados por tipo,
+  navegación con flechas + Enter, clic también navega. Sustituye el buscador inline de
+  `Topbar.jsx` (que solo cubría viaje+chófer y tenía un bug real: el resultado de chófer enlazaba
+  a `/choferes` sin id — corregido de paso a `/choferes/${id}`) por un botón que dispara un evento
+  global (`open-global-search`) para desacoplar el trigger del modal. Montado una vez en
+  `layout.jsx` junto a `Sidebar`/`Topbar`, con el mismo guard de `/t/` que ya usan esos dos (portal
+  de cliente sin chrome). Sin librería nueva. Verificado en navegador real (no solo build): Ctrl+K
+  abre el modal, el input dispara la búsqueda debounced sin errores de consola contra Supabase real
+  (RLS sin sesión devuelve "Sin resultados" limpio, sin excepción), Escape cierra, y el botón del
+  Topbar también abre el modal vía el evento. `ci.ps1` completo verde (155 pytest, 300 vitest,
+  build de 21 páginas).
 - [x] `[LOOP]` **6.13 Audit log ligero** — migración: tabla `audit_log(id, empresa_id, gestor_id,
   entidad, entidad_id, accion, detalle, created_at)` RLS por empresa; registrar desde el dashboard
   los cambios críticos (estado de viaje, asignación de chófer, precio, borrado de documento);
