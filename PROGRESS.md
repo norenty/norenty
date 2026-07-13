@@ -8,6 +8,16 @@ depender del historial de conversación.
 
 ---
 
+2026-07-13 | 6.19 i18n real ar/it/pt/de, retomado a petición explícita del usuario | — | HECHO.
+Las 48 claves reales de `TEXTOS` (backend/app/bot.py) traducidas de verdad a italiano, portugués
+europeo, alemán y árabe estándar moderno — antes aliasadas a inglés vía
+`TEXTOS.setdefault(_lang, TEXTOS["en"])`, ahora eliminado. Mismos placeholders y emojis que el
+resto de idiomas; verificado con script que compara placeholders por clave contra `es` (0
+discrepancias) y confirma las mismas 48 claves en las 8 lenguas. 6 tests nuevos en
+`test_bot.py`: 4 de muestreo (it/pt/de/ar, mismo patrón que `test_t_frances`), 1 que confirma que
+ya no son alias de `en`, 1 de paridad de claves entre idiomas. 161 pytest total. `ci.ps1`
+completo verde.
+
 2026-07-13 | 6.12 Búsqueda global (Ctrl+K), retomado a petición explícita del usuario | — |
 HECHO. Nuevo `GlobalSearch.jsx`: modal centrado, atajo Ctrl+K/Cmd+K global, busca
 viaje.referencia + chofer.nombre + vehiculo.matricula en paralelo (.ilike(), 5 por tipo, mismo

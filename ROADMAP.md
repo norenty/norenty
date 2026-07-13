@@ -417,12 +417,24 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
   **Stale — ya hecho bajo otro número (2026-07-07):** construido como **8.2** ("Reintentos +
   captura de errores en el bot, era 6.18"). Ver `ejecutar_con_reintentos()` en
   `backend/app/bot.py`.
-- [ ] `[LOOP]` **6.19 i18n real ar/it/pt/de** — traducir las ~35 claves de TEXTOS a los 4 idiomas
+- [x] `[LOOP]` **6.19 i18n real ar/it/pt/de** — traducir las ~35 claves de TEXTOS a los 4 idiomas
   hoy aliasados a inglés (árabe incluido — el chófer magrebí es persona real del sector). Tests de
   muestreo por idioma.
   Nota (2026-07-07, auditoría de items stale de Fase 6): sigue sin construirse — deprioritizado
   explícitamente por decisión del usuario 2026-07-04 (línea ~637), no es un olvido. `TEXTOS` en
   `backend/app/bot.py` sigue aliasando ar/it/pt/de a inglés. Se deja `[ ]` intencionadamente.
+  **Retomado y construido (2026-07-13, a petición explícita del usuario).** Las 48 claves reales
+  de `TEXTOS` (no ~35 — la nota original subestimaba el tamaño del diccionario) traducidas de
+  verdad a italiano, portugués (europeo, "tu"), alemán ("du") y árabe (estándar moderno, sin
+  tashkeel — entendible por chóferes magrebíes reales, el caso citado en el ítem). Eliminado el
+  `TEXTOS.setdefault(_lang, TEXTOS["en"])` que los aliasaba a inglés. Mismos placeholders
+  (`{ref}`/`{total}`/`{tipo}`/`{dir}`/`{nombre}`/`{contacto}`/`{km}`/`{velocidad}`/`{horas}`/`{n}`)
+  y mismos prefijos de emoji que el resto de idiomas, verificado con un script que compara el set
+  de placeholders de cada clave contra `es` (0 discrepancias) y confirma que las 8 lenguas tienen
+  exactamente las mismas 48 claves. Tests: 4 de muestreo (uno por idioma nuevo, mismo patrón que
+  `test_t_frances`), 1 que confirma que ya NO son el mismo dict que `en` (antes de este cambio
+  `TEXTOS["it"] is TEXTOS["en"]` era `True`), 1 de paridad de claves entre las 8 lenguas. 6 tests
+  nuevos (161 pytest total). `ci.ps1` completo verde.
 - [x] `[LOOP]` **6.20 Tarjetas de riesgo en Operación** — en la home añadir dos tarjetas:
   "Documentos por caducar (N)" → /documentos y "Viajes a pérdidas (N)" (margen<0 con precio y
   coste configurados) → lista filtrada. Reutiliza getDocumentosPorCaducar/getViabilidadViaje.
@@ -771,6 +783,8 @@ Los ítems marcados `[DECISIÓN]` NO los hace el loop (necesitan una clave/servi
 ### Diferido a después de Fase 8 (features, no confiabilidad)
 - `6.12 Búsqueda global (Ctrl+K)` · `6.19 i18n real ar/it/pt/de` — útiles, pero no mueven la aguja
   de sólido/seguro/confiable. Se retoman cuando Fase 8 esté cerrada.
+  **Ambos hechos (2026-07-13)**, a petición explícita del usuario — Fase 8 ya estaba cerrada
+  (100%, 2026-07-05). Ver su detalle en Fase 6 más arriba.
 
 ---
 

@@ -181,6 +181,36 @@ def test_t_frances():
     assert bot.t("fr", "btn_llegado") == "Je suis arrivé"
 
 
+def test_t_italiano():
+    assert bot.t("it", "btn_llegado") == "Sono arrivato"
+
+
+def test_t_portugues():
+    assert bot.t("pt", "btn_llegado") == "Cheguei"
+
+
+def test_t_aleman():
+    assert bot.t("de", "btn_llegado") == "Ich bin angekommen"
+
+
+def test_t_arabe():
+    assert bot.t("ar", "btn_llegado") == "لقد وصلت"
+
+
+def test_t_ar_it_pt_de_ya_no_son_alias_de_ingles():
+    # 6.19: ar/it/pt/de tenian traduccion real solo desde 2026-07-13;
+    # antes eran el mismo dict que "en" (TEXTOS.setdefault(_lang, TEXTOS["en"])).
+    for lang in ("ar", "it", "pt", "de"):
+        assert bot.TEXTOS[lang] is not bot.TEXTOS["en"]
+        assert bot.TEXTOS[lang]["btn_llegado"] != bot.TEXTOS["en"]["btn_llegado"]
+
+
+def test_todos_los_idiomas_tienen_las_mismas_claves():
+    claves_es = set(bot.TEXTOS["es"].keys())
+    for lang, textos in bot.TEXTOS.items():
+        assert set(textos.keys()) == claves_es, f"{lang} tiene claves distintas de es"
+
+
 def test_t_idioma_desconocido_usa_espanol_como_fallback():
     # Idioma totalmente desconocido -> fallback al español (idioma base del producto)
     resultado = bot.t("zz", "btn_llegado")
