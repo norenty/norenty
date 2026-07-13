@@ -8,6 +8,14 @@ depender del historial de conversación.
 
 ---
 
+2026-07-13 | 12.5 ampliación: margen objetivo editable + color en puntualidad vs objetivo |
+(por commitear) | HECHO. margen_objetivo_pct ya existía y se usaba en calcularPresupuesto pero
+nunca tuvo campo editable en Ajustes — arreglado (guardarMargenObjetivoEmpresa + campo en
+Ajustes → Empresa). Comparación con color verde/rojo en la tarjeta de puntualidad. 3 tests
+Grupo A más, 224 vitest. Verificado contra la BD real (round-trip + calcularPresupuesto sigue
+funcionando), valor original restaurado. ci.ps1 completo verde. También corregido un roadmap
+roto por una edición anterior mía que había borrado la cabecera del ítem 12.3 por error.
+
 2026-07-12 | 12.5: Rendimiento de gestores + objetivo de puntualidad | 296a449 | HECHO.
 Migración 0049 (empresa.objetivo_puntualidad_pct). Nueva getRendimientoGestores + pestaña
 "Gestores" en /analitica (admin-only, gateada con useRol). Objetivo editable en Ajustes →

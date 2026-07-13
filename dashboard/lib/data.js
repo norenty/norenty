@@ -473,6 +473,15 @@ export async function guardarCosteKmEmpresa(empresaId, costeKmStr) {
   if (error) throw error;
 }
 
+export async function guardarMargenObjetivoEmpresa(empresaId, margenStr) {
+  const margen = margenStr.trim() === "" ? null : Number(margenStr);
+  if (margen != null && (Number.isNaN(margen) || margen < 0 || margen >= 100)) {
+    throw new Error("el margen objetivo debe ser un porcentaje entre 0 y 100 (sin llegar a 100)");
+  }
+  const { error } = await supabase.from("empresa").update({ margen_objetivo_pct: margen }).eq("id", empresaId);
+  if (error) throw error;
+}
+
 export async function guardarObjetivoPuntualidadEmpresa(empresaId, objetivoStr) {
   const objetivo = objetivoStr.trim() === "" ? null : Number(objetivoStr);
   if (objetivo != null && (Number.isNaN(objetivo) || objetivo < 0 || objetivo > 100)) {

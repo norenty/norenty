@@ -36,6 +36,9 @@ export default function AjustesEmpresaSection({
   objetivoPuntualidad,
   setObjetivoPuntualidad,
   guardarObjetivoPuntualidad,
+  margenObjetivo,
+  setMargenObjetivo,
+  guardarMargen,
   guardando,
 }) {
   return (
@@ -188,32 +191,54 @@ export default function AjustesEmpresaSection({
       <section className="bg-surface border border-border rounded-xl p-5 mb-4">
         <div className="flex items-center gap-2 mb-1">
           <Target size={18} className="text-brand" />
-          <h2 className="text-sm font-medium text-ink">Objetivo de puntualidad</h2>
+          <h2 className="text-sm font-medium text-ink">Objetivos</h2>
         </div>
         <p className="text-xs text-ink-secondary mb-4">
-          % de hitos que quieres que lleguen dentro de la ventana horaria comprometida. Se
-          muestra como referencia frente al dato real en Analítica → Puntualidad. Déjalo vacío
-          si aún no quieres fijar un objetivo.
+          Se muestran como referencia frente al dato real: la puntualidad en Analítica →
+          Puntualidad, el margen en el precio sugerido de Presupuesto instantáneo. Deja vacío
+          el que aún no quieras fijar.
         </p>
-        <div className="flex items-end gap-3">
-          <div className="flex-1 max-w-[12rem]">
-            <label htmlFor="ajustes-objetivo-puntualidad" className="block text-xs text-ink-secondary mb-1">Objetivo (%)</label>
-            <input
-              id="ajustes-objetivo-puntualidad"
-              type="number" step="any" min="0" max="100"
-              value={objetivoPuntualidad}
-              onChange={(e) => setObjetivoPuntualidad(e.target.value)}
-              placeholder="95"
-              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-            />
+        <div className="flex items-end gap-6 flex-wrap">
+          <div className="flex items-end gap-3">
+            <div className="max-w-[10rem]">
+              <label htmlFor="ajustes-objetivo-puntualidad" className="block text-xs text-ink-secondary mb-1">Puntualidad (%)</label>
+              <input
+                id="ajustes-objetivo-puntualidad"
+                type="number" step="any" min="0" max="100"
+                value={objetivoPuntualidad}
+                onChange={(e) => setObjetivoPuntualidad(e.target.value)}
+                placeholder="95"
+                className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              />
+            </div>
+            <button
+              onClick={guardarObjetivoPuntualidad}
+              disabled={guardando}
+              className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
+            >
+              <Save size={16} /> Guardar
+            </button>
           </div>
-          <button
-            onClick={guardarObjetivoPuntualidad}
-            disabled={guardando}
-            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
-          >
-            <Save size={16} /> Guardar objetivo
-          </button>
+          <div className="flex items-end gap-3">
+            <div className="max-w-[10rem]">
+              <label htmlFor="ajustes-margen-objetivo" className="block text-xs text-ink-secondary mb-1">Margen (%)</label>
+              <input
+                id="ajustes-margen-objetivo"
+                type="number" step="any" min="0" max="99"
+                value={margenObjetivo}
+                onChange={(e) => setMargenObjetivo(e.target.value)}
+                placeholder="15"
+                className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              />
+            </div>
+            <button
+              onClick={guardarMargen}
+              disabled={guardando}
+              className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
+            >
+              <Save size={16} /> Guardar
+            </button>
+          </div>
         </div>
       </section>
       </RequireRol>

@@ -172,6 +172,7 @@ const {
   guardarVelocidadEmpresa,
   guardarDesgloseCosteEmpresa,
   guardarObjetivoPuntualidadEmpresa,
+  guardarMargenObjetivoEmpresa,
   getRendimientoGestores,
   kmAproxViaje,
   getEstado561,
@@ -1490,6 +1491,21 @@ describe("ajustes de empresa (9.39 — extraído de ajustes/page.jsx a data.js)"
   it("guardarObjetivoPuntualidadEmpresa rechaza fuera de 0-100", async () => {
     await expect(guardarObjetivoPuntualidadEmpresa("e1", "150")).rejects.toThrow("entre 0 y 100");
     await expect(guardarObjetivoPuntualidadEmpresa("e1", "-5")).rejects.toThrow("entre 0 y 100");
+  });
+
+  it("guardarMargenObjetivoEmpresa guarda un porcentaje válido", async () => {
+    await guardarMargenObjetivoEmpresa("e1", "20");
+    expect(TABLES.empresa[0].margen_objetivo_pct).toBe(20);
+  });
+
+  it("guardarMargenObjetivoEmpresa vacío guarda null", async () => {
+    await guardarMargenObjetivoEmpresa("e1", "");
+    expect(TABLES.empresa[0].margen_objetivo_pct).toBeNull();
+  });
+
+  it("guardarMargenObjetivoEmpresa rechaza negativos y >=100", async () => {
+    await expect(guardarMargenObjetivoEmpresa("e1", "-1")).rejects.toThrow("entre 0 y 100");
+    await expect(guardarMargenObjetivoEmpresa("e1", "100")).rejects.toThrow("entre 0 y 100");
   });
 
   it("guardarDesgloseCosteEmpresa guarda las 4 columnas parseadas", async () => {

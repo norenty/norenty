@@ -43,7 +43,10 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 - [x] `[LOOP]` **Mantenimiento/averías de vehículo** — tabla `mantenimiento_vehiculo` con RLS + CRUD en `/vehiculos/[id]` (tipos: ITV/revisión/avería/reparación/otro, fecha, km, coste, estado pendiente/completado). (2026-06-30)
 
 ### Necesitan decisión (NO autónomo)
-- [ ] `[DECISIÓN]` **Panel analítica/KPIs** — qué métricas exactas y para quién.
+- [x] `[DECISIÓN]` **Panel analítica/KPIs** — qué métricas exactas y para quién. Respondida por
+  el usuario 2026-07-12: KPIs generales para jefe de oficina/tráfico + rendimiento de
+  camioneros (ya existía) + rendimiento de gestores + objetivo de puntualidad. Construido en
+  **12.5** (ver Fase 12).
 - [ ] `[DECISIÓN]` **Validación POD con visión LLM** — cuesta dinero por uso; requiere rate-limit + presupuesto definidos ANTES de construir.
 - [ ] `[DECISIÓN]` **Voz en el bot (Whisper/TTS)** — coste por uso; ¿lo piden los chóferes de verdad?
 - [ ] `[DECISIÓN]` **Drag-and-drop Kanban** — decisión de UX.
@@ -1849,7 +1852,18 @@ en vez de construir a ciegas features grandes como el "IA Brain".
   expuesto/guardado/validado, filas por gestor, excluye inactivos, cuenta solo SUS viajes,
   ordena por volumen) — 221 vitest en data.test.js. Verificado contra la BD real: función no
   lanza con datos reales, y el objetivo hace round-trip completo (guardar 90 → leer 90 → limpiar
-  a null → leer null). `ci.ps1` completo verde, build de 20 páginas OK. — el usuario se reúne esta semana
+  a null → leer null). `ci.ps1` completo verde, build de 20 páginas OK.
+  **Ampliación (2026-07-13):** `empresa.margen_objetivo_pct` ya existía en la BD y ya se
+  USABA (`calcularPresupuesto`), pero nunca tuvo un campo editable en Ajustes — el usuario solo
+  podía cambiarlo por SQL directo. Añadido `guardarMargenObjetivoEmpresa` + campo "Margen (%)"
+  junto al de puntualidad en la nueva sección "Objetivos" de Ajustes → Empresa. También:
+  comparación con color (verde/rojo) en la tarjeta de % Puntualidad de Analítica según esté por
+  encima o por debajo del objetivo. 3 tests Grupo A más (guarda, vacío→null, rechaza <0 o ≥100
+  — ≥100 rechazado a propósito porque el precio sugerido divide por `1 - margen/100`) — 224
+  vitest en data.test.js. Verificado contra la BD real: round-trip completo y
+  `calcularPresupuesto` recogiendo el nuevo valor sin romperse; valor original restaurado tras
+  la prueba. `ci.ps1` completo verde.
+- [ ] `[DECISIÓN]` **12.3 Discovery con gestor de tráfico real** — el usuario se reúne esta semana
   con un amigo gestor de tráfico. Objetivo: validar el roadmap contra la realidad ANTES de
   construir lo grande. Guion en `DISCOVERY-GESTOR.md`: observar (en qué pantalla vive, qué copia a
   mano, qué tiene en Excel/post-its aparte, por dónde le entran los viajes) + preguntar por cada

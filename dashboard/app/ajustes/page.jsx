@@ -7,7 +7,7 @@ import {
   VELOCIDAD_PLANIFICACION_KMH, getInvitaciones, createInvitacion, deleteInvitacion, getBotHeartbeat,
   getGestoresEmpresa, actualizarRolGestor, desactivarGestor, reactivarGestor, INVITACION_VALIDEZ_DIAS,
   guardarNombreEmpresa, guardarBaseEmpresa, guardarCosteKmEmpresa, guardarVelocidadEmpresa,
-  guardarDesgloseCosteEmpresa, guardarObjetivoPuntualidadEmpresa,
+  guardarDesgloseCosteEmpresa, guardarObjetivoPuntualidadEmpresa, guardarMargenObjetivoEmpresa,
 } from "../../lib/data";
 import RequireRol from "../components/RequireRol";
 import AjustesPerfilSection from "../components/AjustesPerfilSection";
@@ -27,6 +27,7 @@ export default function AjustesPage() {
   const [baseLon, setBaseLon] = useState("");
   const [costeKm, setCosteKm] = useState("");
   const [objetivoPuntualidad, setObjetivoPuntualidad] = useState("");
+  const [margenObjetivo, setMargenObjetivo] = useState("");
   const [velocidadPlanificacion, setVelocidadPlanificacion] = useState("");
   const [precioGasoil, setPrecioGasoil] = useState("");
   const [costePeaje, setCostePeaje] = useState("");
@@ -104,6 +105,7 @@ export default function AjustesPage() {
           setBaseLon(emp?.base_lon != null ? String(emp.base_lon) : "");
           setCosteKm(emp?.coste_km != null ? String(emp.coste_km) : "");
           setObjetivoPuntualidad(emp?.objetivo_puntualidad_pct != null ? String(emp.objetivo_puntualidad_pct) : "");
+          setMargenObjetivo(emp?.margen_objetivo_pct != null ? String(emp.margen_objetivo_pct) : "");
           setVelocidadPlanificacion(emp?.velocidad_planificacion_kmh != null ? String(emp.velocidad_planificacion_kmh) : "");
           setPrecioGasoil(emp?.precio_gasoil_litro != null ? String(emp.precio_gasoil_litro) : "");
           setCostePeaje(emp?.coste_peaje_km != null ? String(emp.coste_peaje_km) : "");
@@ -202,6 +204,18 @@ export default function AjustesPage() {
     try {
       await guardarObjetivoPuntualidadEmpresa(empresa.id, objetivoPuntualidad);
       flash("Objetivo de puntualidad guardado");
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
+    setGuardando(false);
+  }
+
+  async function guardarMargen() {
+    if (!empresa) return;
+    setGuardando(true);
+    try {
+      await guardarMargenObjetivoEmpresa(empresa.id, margenObjetivo);
+      flash("Margen objetivo guardado");
     } catch (err) {
       flash("Error: " + err.message);
     }
@@ -450,6 +464,9 @@ export default function AjustesPage() {
         objetivoPuntualidad={objetivoPuntualidad}
         setObjetivoPuntualidad={setObjetivoPuntualidad}
         guardarObjetivoPuntualidad={guardarObjetivoPuntualidad}
+        margenObjetivo={margenObjetivo}
+        setMargenObjetivo={setMargenObjetivo}
+        guardarMargen={guardarMargen}
         velocidadPlanificacion={velocidadPlanificacion}
         setVelocidadPlanificacion={setVelocidadPlanificacion}
         guardarVelocidad={guardarVelocidad}

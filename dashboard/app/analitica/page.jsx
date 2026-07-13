@@ -76,7 +76,15 @@ function VistaPuntualidad({ datos, comparativa }) {
         <Card
           label="% Puntualidad"
           value={datos.pctPuntualidad != null ? `${datos.pctPuntualidad}%` : null}
-          sub={datos.objetivoPuntualidadPct != null ? `objetivo: ${datos.objetivoPuntualidadPct}%` : undefined}
+          sub={
+            datos.objetivoPuntualidadPct != null && datos.pctPuntualidad != null ? (
+              <span className={datos.pctPuntualidad >= datos.objetivoPuntualidadPct ? "text-estado-ok" : "text-estado-incidencia"}>
+                objetivo: {datos.objetivoPuntualidadPct}%
+              </span>
+            ) : datos.objetivoPuntualidadPct != null ? (
+              `objetivo: ${datos.objetivoPuntualidadPct}%`
+            ) : undefined
+          }
           comp={comparativa?.pctPuntualidad}
         />
         <Card label="Hitos con ventana" value={datos.totalConVentana} />
