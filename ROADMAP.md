@@ -10,6 +10,54 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
+## Decisiones de producto vigentes — 2026-07-13 (LEER PRIMERO)
+
+Decisiones tomadas con el usuario que **reencuadran varios ítems `[DECISIÓN]` dispersos** más
+abajo. Donde un ítem antiguo diga "requiere presupuesto de Whisper/LLM" o "coste por uso", esta
+sección manda. Cada ítem afectado lleva además una nota inline `**Actualización 2026-07-13**`.
+
+1. **Lanzamiento inminente.** Se despliega a producción y se crea el **doble proyecto Supabase**
+   (dev separado de prod) — ver `DEPLOY-PLAN.md`. Confirmado compatible con seguir desarrollando:
+   dev local sigue apuntando al proyecto dev; prod vive solo en las env vars de Vercel/Railway, no
+   en la máquina. Piloto con **datos FALSOS** primero (no dispara RGPD), 2-3 personas de confianza.
+   El design partner se busca "cuando todo esté bien". Crear la sociedad queda pendiente de validar
+   la idea. → desbloquea/reencuadra `D4`, `9.1`, `10.1`.
+
+2. **Voz→texto = Whisper SELF-HOSTED, no la API de pago.** `faster-whisper`/`whisper.cpp`: coste
+   marginal **€0**, el audio se queda en nuestra infra (RGPD-friendly), multilingüe (cubre los 8
+   idiomas de chófer). Mismo patrón que OSRM. **Esto elimina el gate de presupuesto** que bloqueaba
+   `D3`/`7B.1`/`11.3` y la "Nota de voz → transcripción" de Fase 4: ya no es coste-por-uso, es
+   loop-safe una vez desplegado (solo depende de tener un proceso donde correrlo, o sea del deploy).
+
+3. **Validación de POD = capas baratas primero, visión LLM al final.** (a) Cruce del **evento de
+   llegada** (hora/GPS que ya registramos) contra el punto de entrega — señal de fraude gratis y
+   determinista (ojo: Telegram borra el EXIF de las fotos, se usa el GPS/hora del evento, no el de
+   la foto); (b) **OCR clásico** (Tesseract, self-host) para comprobar campos esperados; (c) humano
+   en el bucle (el gestor ya ve la foto). La **visión LLM** queda como última capa OPCIONAL, solo
+   como sugerencia y probada con PODs reales. Reencuadra los dos ítems "Validación POD con visión
+   LLM" (Fase 2 y Fase 4): el 80% del valor es gratis y sin alucinación.
+
+4. **Asistente in-dashboard = command palette SIN IA.** Extender el buscador Ctrl+K (6.12) a un
+   palette que mapea frases a funciones que YA existen (`getViabilidadViaje`, `getEstado561`,
+   `getDocumentosPorCaducar`…). Determinista, gratis, sin alucinación, sin RGPD. El `IA Brain`
+   (12.4) sigue diferido. Preferencia explícita: gastar recursos en el sistema y las decisiones, no
+   en un chatbot genérico. Reencuadra el "Asistente in-dashboard" de Fase 4.
+
+5. **Agente telefónico: importante, pero es el OUTPUT de voz+conocimiento, no standalone.** Se
+   construye SOBRE la transcripción (Whisper self-host, punto 2) + el corpus de la Fase 11, por
+   etapas (asistir→copiloto→autónomo). Invertir en el Whisper self-host ahora ES su primer ladrillo.
+   Reencuadra `7B.3`/`11.7` (siguen `[DECISIÓN]`, pero con la dependencia clara).
+
+6. **RGPD: groundwork ahora (gratis), sello legal después.** Los `PRIVACIDAD-*.md` ya cubren lo
+   técnico/organizativo; el Whisper self-host ayuda (datos en la UE). Solo la revisión legal
+   (`9.11`, abogado ~1h) cuesta y hace falta antes de datos reales de terceros. El piloto con datos
+   falsos no la requiere.
+
+**Inputs del cliente para onboarding** documentados en `ONBOARDING-CLIENTE.md` (qué datos/accesos
+aporta la empresa; ninguna API es obligatoria para arrancar).
+
+---
+
 ## Hecho (M1–M3)
 
 - Bot Telegram: vinculación chófer, navegación (Maps/Waze), confirmación llegada, foto POD, `/incidencia`
@@ -47,8 +95,8 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
   el usuario 2026-07-12: KPIs generales para jefe de oficina/tráfico + rendimiento de
   camioneros (ya existía) + rendimiento de gestores + objetivo de puntualidad. Construido en
   **12.5** (ver Fase 12).
-- [ ] `[DECISIÓN]` **Validación POD con visión LLM** — cuesta dinero por uso; requiere rate-limit + presupuesto definidos ANTES de construir.
-- [ ] `[DECISIÓN]` **Voz en el bot (Whisper/TTS)** — coste por uso; ¿lo piden los chóferes de verdad?
+- [ ] `[DECISIÓN]` **Validación POD con visión LLM** — cuesta dinero por uso; requiere rate-limit + presupuesto definidos ANTES de construir. **Actualización 2026-07-13:** reencuadrado — la visión LLM es la ÚLTIMA capa opcional; primero cruce del evento de llegada (gratis) + OCR. Ver "Decisiones de producto vigentes" arriba, punto 3.
+- [ ] `[DECISIÓN]` **Voz en el bot (Whisper/TTS)** — coste por uso; ¿lo piden los chóferes de verdad? **Actualización 2026-07-13:** decidido Whisper SELF-HOSTED (€0, RGPD-friendly) — deja de estar gateado por presupuesto. Ver punto 2 de "Decisiones de producto vigentes".
 - [ ] `[DECISIÓN]` **Drag-and-drop Kanban** — decisión de UX.
 
 ## Fase 3 — Hardening (pre-deploy)
@@ -79,12 +127,12 @@ Todos `[LOOP]`: sin coste por uso, sin deploy. Construir EN ORDEN. Cada ítem: i
 **FASE 4 CERRADA (2026-07-01).** Los 6 ítems `[LOOP]` construidos en loop nocturno, CI verde en cada paso. Quedan solo `[DECISIÓN]` de la sección production-gated de abajo, pendientes de presupuesto/despliegue/criterio humano.
 
 ### Production-gated — NO en el loop nocturno (coste por uso o deploy)
-- [ ] `[DECISIÓN]` **Notas de voz → transcripción (Whisper)** — la fontanería (capturar/guardar nota de voz) sería loop-safe, pero la transcripción cuesta dinero → requiere rate-limit + presupuesto ANTES. Es el 80/20 del agente de voz; primer candidato cuando haya presupuesto.
-- [ ] `[DECISIÓN]` **Agente de voz telefónico** — telefonía + STT/LLM/TTS en tiempo real; coste por minuto + producción.
-- [ ] `[DECISIÓN]` **Validación POD con visión LLM** — coste por imagen; a producción.
+- [ ] `[DECISIÓN]` **Notas de voz → transcripción (Whisper)** — la fontanería (capturar/guardar nota de voz) sería loop-safe, pero la transcripción cuesta dinero → requiere rate-limit + presupuesto ANTES. Es el 80/20 del agente de voz; primer candidato cuando haya presupuesto. **Actualización 2026-07-13:** con Whisper SELF-HOSTED (€0) el gate de presupuesto desaparece; queda solo gated por el deploy (necesita un proceso donde correrlo) y por 11.5/consentimiento. Ver punto 2 de "Decisiones de producto vigentes".
+- [ ] `[DECISIÓN]` **Agente de voz telefónico** — telefonía + STT/LLM/TTS en tiempo real; coste por minuto + producción. **Actualización 2026-07-13:** el usuario lo ve importante; se construye SOBRE la transcripción (Whisper self-host) + corpus Fase 11, por etapas. Ver punto 5 de "Decisiones de producto vigentes".
+- [ ] `[DECISIÓN]` **Validación POD con visión LLM** — coste por imagen; a producción. **Actualización 2026-07-13:** última capa opcional; primero capas gratis (cruce de llegada + OCR). Ver punto 3 de "Decisiones de producto vigentes".
 - [ ] `[DECISIÓN]` **Adaptador WhatsApp** — Meta Business API, coste por conversación, la ventana de 24h rompe el push proactivo; decisión GTM. La abstracción (4.6) deja el terreno preparado.
 - [ ] `[DECISIÓN]` **Aprendizaje sobre conversaciones (chófer↔gestor, notas internas jefe tráfico/GM)** — decidido con el usuario 2026-07-01: interesante PERO explícitamente para DESPUÉS del despliegue, cuando haya volumen real de conversaciones que analizar (hoy no hay datos de producción). Lectura recomendada cuando se retome: (A) extracción de patrones vía llamadas puntuales a LLM sobre texto libre (clasificar incidencias, detectar clientes/rutas problemáticas, temas recurrentes) — coste acotado por uso, no requiere entrenar nada; (B) modelo que se re-entrena/mejora con el tiempo — proyecto mayor, requiere pipeline de datos y presupuesto serio, no es el punto de partida. Empezar por (A) si/cuando se retome. Cuesta dinero por uso → requiere rate-limit + presupuesto antes de construir, igual que el resto de esta sección.
-- [ ] `[DECISIÓN]` **Asistente in-dashboard (resolver dudas / sacar info al instante)** — propuesto por el usuario 2026-07-01. Llamaría a un LLM con contexto de los datos de la empresa (viajes, incidencias, chóferes...) para responder preguntas en lenguaje natural desde el dashboard. Cuesta dinero por consulta → requiere rate-limit + presupuesto antes de construir. Además hay una decisión de alcance previa: ¿solo lectura (responde preguntas sobre datos existentes, más seguro) o también puede *actuar* (cambiar estados, crear incidencias, más potente pero mucho más peligroso si alucina)? Recomendación: empezar solo-lectura con acceso de solo-lectura scoped por RLS del gestor logueado (nunca acceso cross-empresa), igual que el resto del dashboard.
+- [ ] `[DECISIÓN]` **Asistente in-dashboard (resolver dudas / sacar info al instante)** — propuesto por el usuario 2026-07-01. Llamaría a un LLM con contexto de los datos de la empresa (viajes, incidencias, chóferes...) para responder preguntas en lenguaje natural desde el dashboard. Cuesta dinero por consulta → requiere rate-limit + presupuesto antes de construir. Además hay una decisión de alcance previa: ¿solo lectura (responde preguntas sobre datos existentes, más seguro) o también puede *actuar* (cambiar estados, crear incidencias, más potente pero mucho más peligroso si alucina)? Recomendación: empezar solo-lectura con acceso de solo-lectura scoped por RLS del gestor logueado (nunca acceso cross-empresa), igual que el resto del dashboard. **Actualización 2026-07-13 (DECIDIDO):** NO se hace con IA. El asistente es un **command palette** (extensión del Ctrl+K de 6.12) que mapea frases a funciones ya existentes — determinista, gratis, sin alucinación, sin RGPD. El IA Brain (12.4) sigue diferido. Ver punto 4 de "Decisiones de producto vigentes".
 
 ### Auditoría de seguridad 2026-07-01 (a petición del usuario) — hallazgos y pendientes
 - [x] RLS en las 16 tablas de negocio + buckets de storage: correcto, verificado con `get_advisors` de Supabase + revisión manual de policies.
@@ -464,9 +512,16 @@ PROGRESS.md). Si un ítem está bloqueado por una `[DECISIÓN]`, saltarlo y segu
   menor**: aviso de checksum distinto al registrado para `0002`-`0011` (backfill retroactivo de
   cuando esas migraciones se aplicaron ad-hoc por MCP antes de que existiera el runner, ítem 3 de
   Fase 3) — no bloquea nada, el runner solo avisa; revisar con calma si molesta, no urgente.
-- [ ] `[DECISIÓN D3]` **Presupuesto voz (Whisper)** — sigue siendo la feature #1 validada por el
+- [x] `[DECISIÓN D3]` **Presupuesto voz (Whisper)** — sigue siendo la feature #1 validada por el
   gestor; en cuanto haya cifra mensual aceptable, se especifica y entra en cola.
+  **RESUELTO 2026-07-13:** no hay "presupuesto" que aprobar — se usa **Whisper SELF-HOSTED**
+  (`faster-whisper`/`whisper.cpp`), coste marginal €0 y audio en nuestra infra (RGPD-friendly).
+  Deja de estar gateado por dinero; queda solo pendiente del deploy (un proceso donde correrlo) y
+  de 11.5 (consentimiento). Ver punto 2 de "Decisiones de producto vigentes".
 - [ ] `[DECISIÓN D4]` **Luz verde al despliegue** — con 6.21 hecho, desplegar es una sesión contigo.
+  **Actualización 2026-07-13:** luz verde DADA — se despliega (doble Supabase dev/prod, piloto con
+  datos falsos). Ejecución guiada por `DEPLOY-PLAN.md`. Sigue `[ ]` hasta que el deploy esté hecho
+  de verdad. Ver punto 1 de "Decisiones de producto vigentes".
 - [ ] `[DECISIÓN D5]` **BD pública de consumos de camiones** — dijiste que la montaste hace meses;
   pásala (archivo o enlace) y especifico la capa de coste por combustible de viabilidad v2.
 - [x] `[ACCIÓN D6]` **Activar "Leaked Password Protection"** en Supabase (2026-07-05, confirmado
@@ -861,6 +916,11 @@ explícitamente `(bloqueado por Gate A)`.
   migración del esquema (las 30 migraciones ya versionadas hacen esto mecánico una vez
   exista el proyecto). Bloquea: que `seed_demo.py` pueda seguir usándose sin riesgo de tocar
   datos reales.
+  **Actualización 2026-07-13 (DECIDIDO, se ejecuta mañana):** se crea el proyecto de prod separado.
+  Confirmado que es compatible con seguir desarrollando — dev local sigue apuntando al proyecto dev
+  (con demo/seed), prod vive solo en las env vars de Vercel/Railway, no en la máquina; las 49
+  migraciones con checksum lo hacen mecánico. Ver `DEPLOY-PLAN.md` Fase 0 y punto 1 de "Decisiones
+  de producto vigentes".
 - [x] `[LOOP]` **9.2 Runbook de rotación de secretos** (picar código: sonnet, esfuerzo bajo).
   `RUNBOOK-SECRETS.md`: procedimiento escrito de 15 min para rotar `SUPABASE_SERVICE_ROLE_KEY`,
   token del bot de Telegram y cualquier clave LLM futura, con el orden exacto de pasos para no
@@ -1784,6 +1844,8 @@ vez memoria útil desde el día 1 y el corpus que alimentará el bot de llamadas
   el conocimiento de las llamadas SIN construir aún el bot. Decisión del usuario: presupuesto de
   Whisper (coste por uso) — mismo gate que D3/7B. Requiere 11.5 (consentimiento) resuelto antes de
   activarse.
+  **Actualización 2026-07-13:** el gate de presupuesto desaparece (Whisper SELF-HOSTED, €0 — ver
+  D3 y punto 2 de "Decisiones de producto vigentes"). Sigue gated solo por el deploy y por 11.5.
 - [x] `[LOOP]` **11.4 Extender la captura de decisiones más allá de la asignación** (picar código:
   sonnet, esfuerzo bajo) — llevar el patrón `decision_asignacion` (7A.2) a otras decisiones con su
   porqué: cambio de precio, aceptar un retraso, elegir vehículo. Cada decisión capturada es un

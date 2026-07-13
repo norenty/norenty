@@ -8,6 +8,19 @@ depender del historial de conversación.
 
 ---
 
+2026-07-13 | Decisiones de producto formalizadas en ROADMAP + ONBOARDING-CLIENTE.md | be747ca (doc) |
+HECHO. Sesión de decisiones estratégicas con el usuario de cara al lanzamiento. (1) Nuevo bloque
+"Decisiones de producto vigentes — 2026-07-13 (LEER PRIMERO)" al inicio de ROADMAP.md que reencuadra
+6 ítems [DECISIÓN] dispersos, con nota inline `**Actualización 2026-07-13**` en cada uno afectado.
+Decisiones: deploy mañana + doble Supabase dev/prod (D4/9.1, piloto con datos falsos, confirmada
+compatibilidad con seguir desarrollando); voz→texto = Whisper SELF-HOSTED €0 en vez de API de pago
+(RESUELVE D3, desbloquea 11.3/7B.1 — deja de estar gateado por presupuesto); POD por capas baratas
+(cruce evento de llegada + OCR) con visión LLM como última capa opcional; asistente in-dashboard =
+command palette SIN IA (extensión del Ctrl+K 6.12), IA Brain 12.4 sigue diferido; agente telefónico
+importante pero como output de voz+conocimiento por etapas; RGPD groundwork ahora / legal (9.11)
+después. (2) Nuevo `ONBOARDING-CLIENTE.md`: inputs que aporta la empresa/gestor, ninguna API
+obligatoria para arrancar. Sin cambios de código — no aplica ci.ps1.
+
 2026-07-13 | 6.19 i18n real ar/it/pt/de, retomado a petición explícita del usuario | — | HECHO.
 Las 48 claves reales de `TEXTOS` (backend/app/bot.py) traducidas de verdad a italiano, portugués
 europeo, alemán y árabe estándar moderno — antes aliasadas a inglés vía
