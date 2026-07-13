@@ -8,7 +8,7 @@ depender del historial de conversación.
 
 ---
 
-2026-07-13 | Aplicar las 3 mejoras baratas de DISENO-UX.md | (por commitear) | HECHO. (1)
+2026-07-13 | Aplicar las 3 mejoras baratas de DISENO-UX.md | c806f98 | HECHO. (1)
 Tamaño base de fuente +12,5% (globals.css, html{font-size:112.5%}) — escala texto+espaciado
 proporcionalmente. Bug propio detectado y arreglado en el mismo commit: el comentario CSS
 contenía "*/" dentro del texto y cerraba el comentario antes de tiempo (verificado con
