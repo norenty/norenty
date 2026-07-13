@@ -36,6 +36,15 @@
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
+html {
+  /* Ítem de diseño (2026-07-13): +12,5% de tamaño base (16px -> 18px). Como
+     Tailwind define tamaños de texto y espaciado en rem, esto escala TODO el
+     texto y casi todo el espaciado de forma proporcional sin tocar clase por
+     clase — más legible/táctil sin rediseñar nada. Los radios de borde están
+     en px a propósito, así que no se agrandan (mismo aspecto de esquinas). */
+  font-size: 112.5%;
+}
+
 body {
   font-family: var(--font-sans);
   color: var(--color-ink);

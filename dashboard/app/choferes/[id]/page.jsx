@@ -10,6 +10,7 @@ import { supabase } from "../../../lib/supabase";
 import DocumentosSection from "../../components/DocumentosSection";
 import ErrorCargaReintentar from "../../components/ui/ErrorCargaReintentar";
 import ArcoChoferSection from "../../components/ArcoChoferSection";
+import Ayuda from "../../components/ui/Ayuda";
 import { getEstado561, LIMITE_561_SEMANAL_H, LIMITE_561_BISEMANAL_H, getMultasPorChofer } from "../../../lib/data";
 import { Siren } from "lucide-react";
 import { TIPOS_DOC_CHOFER, IDIOMA_LABEL, ESTADO_VIAJE } from "../../../lib/labels";
@@ -188,7 +189,10 @@ export default function ChoferDetalle() {
       )}
       {estado561 && (
         <div className="bg-surface border border-border rounded-xl p-4 mb-4">
-          <h2 className="text-sm font-medium text-ink mb-1">Horas de conducción (estimación)</h2>
+          <h2 className="text-sm font-medium text-ink mb-1 flex items-center gap-1.5">
+            Horas de conducción (estimación)
+            <Ayuda texto="La ley limita cuántas horas seguidas puede conducir un chófer (Reglamento CE 561/2006), para evitar accidentes por cansancio. Esta barra avisa antes de llegar al límite semanal/quincenal." />
+          </h2>
           <p className="text-xs text-ink-muted mb-3">
             Estimación por km recorridos, no por tacógrafo (Reglamento CE 561/2006).
           </p>

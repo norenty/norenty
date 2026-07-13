@@ -8,6 +8,17 @@ depender del historial de conversación.
 
 ---
 
+2026-07-13 | Aplicar las 3 mejoras baratas de DISENO-UX.md | (por commitear) | HECHO. (1)
+Tamaño base de fuente +12,5% (globals.css, html{font-size:112.5%}) — escala texto+espaciado
+proporcionalmente. Bug propio detectado y arreglado en el mismo commit: el comentario CSS
+contenía "*/" dentro del texto y cerraba el comentario antes de tiempo (verificado con
+preview_start real, CssSyntaxError visto y corregido). (2) Nuevo componente
+`ui/Ayuda.jsx` (botón "?" con popover al click, no solo :hover — funciona en móvil) aplicado a
+"561" (ficha de chófer) y "POD" (ficha de viaje). (3) Sidebar: solo "Operación" expandido por
+defecto (antes los 4 grupos, 12 destinos de golpe); "Maestros"/"Documentos"/"Análisis" empiezan
+colapsados, se auto-expanden si la ruta activa vive ahí, localStorage sigue mandando después.
+ci.ps1 completo verde, build de 20 páginas OK.
+
 2026-07-13 | Guion de entrevista para discovery con gestor de tráfico (12.3) | 70cb367 | HECHO.
 DISCOVERY-GESTOR.md: preguntas generales, observación del flujo real, validación función por
 función (coste/margen, controlling/KPIs recién construidos, documentos+fotos, comunicación,

@@ -95,10 +95,14 @@ function NavLink({ href, label, icon: Icon, active, onClick }) {
 export default function Sidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  // Por defecto todos los grupos van expandidos (mejor primera impresión);
-  // localStorage sobreescribe esto en cargas siguientes.
+  // Ítem de diseño (2026-07-13): solo "Operación" va expandido por defecto —
+  // 12 destinos visibles de entrada era mucho para un usuario nuevo/no
+  // técnico. "Maestros"/"Documentos"/"Análisis" empiezan colapsados; el
+  // efecto de abajo los reabre solos si la ruta activa vive en uno de ellos,
+  // y localStorage recuerda la preferencia real del usuario en cargas
+  // siguientes (nunca esconde el grupo que ya decidiste dejar abierto).
   const [expanded, setExpanded] = useState(() =>
-    Object.fromEntries(groups.map((g) => [g.id, true]))
+    Object.fromEntries(groups.map((g) => [g.id, g.id === "operacion"]))
   );
 
   // Cargar estado persistido de localStorage al montar.

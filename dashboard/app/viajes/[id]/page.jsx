@@ -24,6 +24,7 @@ import RatingControl from "../../components/RatingControl";
 import { ESTADO_VIAJE, ESTADO_HITO, ESTADO_POD, TIPOS_DOC_VIAJE, LABEL_CAPA } from "../../../lib/labels";
 import { badgeMargen, fmtEur, fmtKm, fmtFechaHora, fmtHora } from "../../../lib/format";
 import RequireRol from "../../components/RequireRol";
+import Ayuda from "../../components/ui/Ayuda";
 
 /** Etiqueta legible de una entrada de audit_log (8.8) — el detalle exacto de
  * cada acción vive en `detalle` (jsonb), esto solo lo traduce a texto. */
@@ -623,7 +624,10 @@ export default function ViajeDetalle() {
           />
 
           <section>
-            <h2 className="text-sm font-medium text-ink mb-3">Albaranes (POD)</h2>
+            <h2 className="text-sm font-medium text-ink mb-3 flex items-center gap-1.5">
+              Albaranes (POD)
+              <Ayuda texto="POD = Proof Of Delivery, la prueba de que la mercancía se entregó de verdad (foto, firma). Sirve para cobrar sin discusión y para reclamar si un cliente dice que no llegó." />
+            </h2>
             {pods.length === 0 ? (
               <p className="text-xs text-ink-secondary">Sin albaranes todavía.</p>
             ) : (
