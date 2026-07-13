@@ -9,7 +9,7 @@ depender del historial de conversación.
 ---
 
 2026-07-13 | 12.5 ampliación: margen objetivo editable + color en puntualidad vs objetivo |
-(por commitear) | HECHO. margen_objetivo_pct ya existía y se usaba en calcularPresupuesto pero
+a829cb3 | HECHO. margen_objetivo_pct ya existía y se usaba en calcularPresupuesto pero
 nunca tuvo campo editable en Ajustes — arreglado (guardarMargenObjetivoEmpresa + campo en
 Ajustes → Empresa). Comparación con color verde/rojo en la tarjeta de puntualidad. 3 tests
 Grupo A más, 224 vitest. Verificado contra la BD real (round-trip + calcularPresupuesto sigue
