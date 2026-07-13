@@ -1,0 +1,157 @@
+# Guion de entrevista — Discovery con gestor de tráfico (ítem 12.3)
+
+Objetivo de esta conversación: no es "enseñar el producto", es **extraer la realidad operativa
+tal cual es hoy** — para confirmar o tirar abajo lo que ya está construido, y sobre todo para
+saber **qué datos necesitamos de verdad** (formato, unidades, quién los tiene, con qué
+frecuencia cambian) antes de seguir construyendo a ciegas.
+
+Es la segunda conversación con este gestor (la primera, informal, está en `DISCOVERY.md`). Esta
+vez conviene ser más sistemático: llevar el guion, tomar notas literales (las citas textuales
+son las que más valen), y volcar todo a `DISCOVERY.md` después con el mismo formato: **quién/
+cuándo → lo que dijo → por qué importa → implicación de producto**.
+
+**Regla de oro de toda la sesión:** cuando diga "uso una hoja de Excel para X", pedir **verla en
+pantalla** (o una captura/export sin datos sensibles) en el momento. Una descripción verbal de
+un formato de datos casi siempre difiere de la realidad — columnas que se le olvida mencionar,
+celdas combinadas, formatos de fecha inconsistentes, etc.
+
+---
+
+## 0. Antes de empezar
+
+- Llevar portátil/tablet con el dashboard abierto (empresa demo) para poder señalar "¿esto se
+  parece a lo que tú haces?" en vez de describir en abstracto.
+- Grabar (con su permiso) o tomar notas exhaustivas — la memoria selectiva después de la reunión
+  pierde matices, y aquí el matiz es el dato.
+- No vender. Si pregunta "¿esto ya lo hacéis?", responder brevemente y volver a la pregunta —
+  el objetivo de HOY es escuchar, no cerrar una venta.
+
+---
+
+## 1. Contexto general (calentamiento, 5 min)
+
+1. ¿Cuántos camiones/chóferes llevas ahora mismo? ¿Ha cambiado mucho en el último año?
+2. ¿Cómo es tu día normal, de que hora a que hora, y qué franja es la más caótica?
+3. ¿Qué usas hoy para organizarte? (nombra TODO: TMS, Excel, WhatsApp, papel, pizarra,
+   calendario, ERP de la empresa...) — no asumir que hay un único sistema, casi nunca lo hay.
+4. De todo eso, ¿qué es "la fuente de verdad" cuando dos sitios no coinciden?
+
+---
+
+## 2. Un día cualquiera (observación del flujo real, 15-20 min)
+
+Pedir que **comparta pantalla o enseñe físicamente** cómo:
+
+1. Le entra un viaje/carga nuevo — ¿de dónde viene? (llamada, email, portal del cliente, bolsa
+   de carga, EDI del TMS) ¿Qué datos trae ese encargo el día 1, y cuáles se rellenan después?
+2. Decide qué chófer/camión asignar — ¿qué mira? ¿Hay algo escrito o es "lo sabe de memoria"?
+3. Hace seguimiento del viaje mientras ocurre — ¿cómo se entera de que ha llegado, de que hay
+   un retraso, de una incidencia?
+4. Cierra el viaje — ¿qué necesita para darlo por completado? ¿POD, firma, foto, nada?
+5. A fin de mes, qué informes saca (para el dueño, para el chófer -nómina-, para el cliente).
+
+**Anotar en cada paso:** ¿en qué pantalla/papel vive ese dato? ¿lo copia a mano a otro sitio?
+¿cuánto tarda cada paso?
+
+---
+
+## 3. Validar (o tirar) cada función ya construida o planeada
+
+Para cada bloque: (a) ¿lo necesitas/lo harías así? (b) ¿qué le falta o le sobra a como lo
+imaginamos? (c) **¿qué datos concretos hacen falta para que funcione de verdad en tu operación?**
+
+### 3.1 Coste real / margen / cotización instantánea (ya construido: `/presupuesto`)
+- ¿Sabes hoy si un viaje da dinero de verdad, o solo lo intuyes?
+- ¿Cómo calculas el coste hoy (€/km fijo, desglosado por combustible/peajes/dietas/conductor,
+  o "a ojo")? ¿Quién tiene esos números (tú, administración, el dueño)?
+- ¿Con qué margen objetivo trabajáis normalmente? ¿Es el mismo para todos los clientes/rutas o
+  varía?
+- Formato/tipo de dato: ¿precio del gasoil lo actualizas cada cuánto? ¿el coste por km es un
+  número fijo o cambia por vehículo/ruta?
+
+### 3.2 Controlling / KPIs / objetivos (recién construido: pestaña "Gestores" + objetivos)
+- ¿Ya mides algo como esto hoy (aunque sea a mano)? ¿En qué formato (Excel, cabeza)?
+- Si comparases gestores entre sí, ¿con qué métrica sería justo compararlos? (¿viajes gestionados
+  sin más penaliza al que lleva las rutas más difíciles?)
+- ¿Un objetivo de puntualidad/margen tiene sentido fijarlo una vez al año, por trimestre, o no
+  tiene sentido fijar un número único para toda la flota?
+- ¿Qué harías si el sistema te dijera "este mes bajaste del objetivo"? ¿Es información útil o
+  ruido?
+
+### 3.3 Documentación legal + gastos con foto (ya construido: `/documentos`, foto en gastos)
+- ¿Qué documentos caducan y hay que vigilar hoy (ITV, seguro, CAP del chófer, ADR, tacógrafo)?
+  ¿Cómo te enteras de que caduca uno?
+- Tickets de gasolina/peajes/multas: ¿los guardáis en papel, foto suelta, Excel? ¿Quién los
+  necesita después (gestoría, Hacienda, el propio chófer)?
+- ¿Hay un plazo legal de conservación que conozcas (multas, nóminas, tacógrafo)?
+
+### 3.4 Comunicación con chóferes (bot de Telegram, texto vs. voz)
+- ¿Cómo te comunicas hoy con un chófer en ruta? ¿Llamada, WhatsApp, otra app?
+- Si el chófer pudiera mandar una nota de voz que te llega como texto ya traducido/resumido,
+  ¿eso te ahorra algo de verdad, o el problema real es otro (que no te avisa, que llega tarde)?
+- ¿Cuántas veces al día hablas con un chófer para algo que NO es una incidencia (solo estado)?
+
+### 3.5 Asignación de rutas / dispatch
+- Cuando asignas, ¿qué pesa más: quién está libre, quién conoce la ruta, el descanso legal
+  pendiente, preferencia del cliente por un chófer concreto, otra cosa?
+- ¿Alguna vez el sistema/tu criterio de asignación se ha equivocado y por qué?
+
+### 3.6 La pregunta de oro
+> "¿Qué es lo que más tiempo te quita al día sin aportarte nada?"
+
+Y la de seguimiento: "si mañana desapareciera esa tarea, ¿qué harías con ese tiempo?"
+
+---
+
+## 4. Información indispensable para poder construir bien (la parte más técnica)
+
+Aquí el objetivo es dejar de adivinar el modelo de datos y copiar el real. Para cada fuente que
+mencione en el punto 2, preguntar:
+
+1. **¿Puedo ver el archivo/pantalla real (anonimizado si hace falta)?** — una plantilla Excel
+   vacía o una captura vale más que cualquier descripción.
+2. **¿Qué columnas/campos tiene?** Anotar el nombre EXACTO que usa él, no el que nosotros
+   usaríamos (ej. si él dice "matrícula" y nosotros decimos "vehiculo_id", hay que mapear).
+3. **¿Qué formato tiene cada dato?**
+   - Fechas: ¿dd/mm/aaaa, con hora, sin hora, zona horaria?
+   - Dinero: ¿con IVA o sin IVA, en qué moneda, cuántos decimales?
+   - Matrículas/identificadores: ¿formato español estándar, algún código interno propio?
+   - Coordenadas/direcciones: ¿dirección en texto libre, o ya tiene lat/lon de algún sitio?
+   - Teléfonos/contactos de chóferes y clientes: ¿formato, país, WhatsApp vs. llamada?
+4. **¿Qué campos son SIEMPRE obligatorios y cuáles casi nunca se rellenan?** — para saber qué
+   hacer nullable y qué no en el modelo de datos (evita el error de exigir en el sistema un dato
+   que en la realidad casi nunca existe el día 1).
+5. **¿Con qué frecuencia cambia cada dato?** (matrícula de un vehículo: nunca. Coste del gasoil:
+   semanal. Estado de un viaje: cada minuto.) — esto dice qué debe ser configuración vs. qué debe
+   ser un evento en tiempo real.
+6. **¿Quién más toca estos datos además de ti?** (administración, el dueño, el propio chófer,
+   un cliente con acceso a un portal) — para saber qué roles/permisos hacen falta de verdad.
+7. **¿Ya usáis algún TMS o software con el que tendríamos que importar/exportar?** Si sí: ¿qué
+   formato exporta (CSV, Excel, EDI, API)? ¿Nos dejarías ver un export de muestra?
+8. **Volumen real:** ¿cuántos viajes/mes, cuántos documentos/mes, cuántas fotos/mes? — para saber
+   si el diseño actual (Postgres + Storage de Supabase, sin caché ni CDN dedicado) aguanta o hay
+   que planear más pronto de lo pensado.
+
+---
+
+## 5. Cierre
+
+1. De todo lo que hemos hablado, si solo pudiéramos construir UNA cosa este trimestre, ¿cuál?
+2. ¿Conoces a otro gestor de tráfico (sin relación con nosotros) al que le pudiéramos preguntar
+   lo mismo, para contrastar? (el `DISCOVERY.md` ya anota que este gestor es amigo del fundador —
+   sus respuestas pueden ser más generosas que las de un desconocido)
+3. ¿Te enseño lo que ya tenemos construido y me dices qué está mal antes de irme?
+
+---
+
+## 6. Después de la entrevista
+
+1. Volcar cada hallazgo a `DISCOVERY.md` con el formato ya establecido (quién/cuándo → dijo →
+   por qué importa → implicación de producto). No editar los insights anteriores, añadir nuevos
+   y marcar si alguno queda invalidado.
+2. Cualquier fichero/captura de ejemplo que haya compartido: guardarlo en
+   `docs/discovery/` (crear la carpeta si no existe) — NUNCA en el repo si contiene datos
+   personales reales de clientes/chóferes sin anonimizar primero.
+3. Revisar `ROADMAP.md`: los ítems `[DECISIÓN]` de Fase 12/7B que esta conversación responda,
+   marcarlos y decidir si hay que reordenar el resto del plan (el propio ítem 12.3 ya avisa:
+   "lo que traiga reordena el resto del plan").
