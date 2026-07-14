@@ -10,11 +10,11 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
-## Cola ACTIVA del loop autónomo — Carga del viaje (2026-07-14, MÁXIMA PRIORIDAD)
+## Carga del viaje (CARGA.1-4) — CERRADA 2026-07-14
 
-**⚠️ El loop autónomo trabaja AHORA en esta cola.** Spec cerrada en `SPECS-CARGA-VIAJE.md` (leer
-OBLIGATORIO antes de cada ítem). Hallazgo: COT.3/4 (capacidad + FTL/grupaje) solo viven en la
-calculadora `/presupuesto`, un viaje real no guarda ni muestra esa info — se cierra el círculo.
+Spec completa en `SPECS-CARGA-VIAJE.md`. Cierra el círculo de COT.3/4: la capacidad+FTL/grupaje ya
+no viven solo en la calculadora — un viaje real guarda su carga y muestra la ocupación, desde el
+alta (`/viajes/nuevo-w`) hasta el detalle (`/viajes/[id]`).
 
 - [x] `[LOOP]` **CARGA.1 — Migración `viaje.carga_ldm/kg/m3`**. §CARGA.1.
   Construido (2026-07-14). Migración `0052_viaje_carga.sql` aplicada con `migrate.py`. Verificado
@@ -29,9 +29,14 @@ calculadora `/presupuesto`, un viaje real no guarda ni muestra esa info — se c
   componente visual que `/presupuesto` (COT.4), reutilizando `calcularOcupacion` sin lógica nueva.
   El select de vehículos gana `capacidad_ldm/kg/m3` (ya existían desde COT.3). `crear()` pasa
   `carga` a `createViaje`. Verificado por `ci.ps1` (build+lint) — ruta exige sesión.
-- [ ] `[LOOP]` **CARGA.4 — Detalle del viaje: mostrar carga + ocupación real**. §CARGA.4.
+- [x] `[LOOP]` **CARGA.4 — Detalle del viaje: mostrar carga + ocupación real**. §CARGA.4.
+  Construido (2026-07-14). Sección "Carga" en `/viajes/[id]` (junto a Viabilidad), visible solo si
+  el viaje tiene alguna dimensión guardada: valores + badge FTL/grupaje si el vehículo asignado
+  tiene capacidad configurada (reutiliza `calcularOcupacion`, sin lógica nueva). Select del
+  vehículo en la carga de la página gana `capacidad_ldm/kg/m3`. Sin tests nuevos (lectura directa
+  de datos ya testeados). `ci.ps1` completo verde.
 
-**Al cerrar CARGA.4:** `PushNotification` con el resumen + DETENER el loop.
+**Cola de carga del viaje (CARGA.1-4) CERRADA.**
 
 ---
 

@@ -15,7 +15,7 @@ import {
   getViaje, getChoferes, validarCambioEstado, validarAsignacion,
   getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje, getEstado561, getPnlViaje, getPlanVsReal,
   generarTokenPublico, revocarTokenPublico, DIAS_VALIDEZ_TOKEN_PUBLICO_DEFAULT, registrarAuditoria, getAuditLog,
-  createContexto, calcularDesfasePod,
+  createContexto, calcularDesfasePod, calcularOcupacion,
 } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
@@ -96,7 +96,7 @@ export default function ViajeDetalle() {
 
     if (d?.viaje) {
       if (d.viaje.vehiculo_id) {
-        const { data: v } = await supabase.from("vehiculo").select("matricula, tipo, marca, modelo").eq("id", d.viaje.vehiculo_id).single();
+        const { data: v } = await supabase.from("vehiculo").select("matricula, tipo, marca, modelo, capacidad_ldm, capacidad_kg, capacidad_m3").eq("id", d.viaje.vehiculo_id).single();
         setVehiculo(v);
       }
       if (d.viaje.remolque_id) {
@@ -589,6 +589,44 @@ export default function ViajeDetalle() {
               </div>
             )}
           </section>
+
+          {(viaje.carga_ldm != null || viaje.carga_kg != null || viaje.carga_m3 != null) && (
+            <section className="bg-surface border border-border rounded-xl p-4">
+              <h2 className="text-sm font-medium text-ink mb-3 flex items-center gap-1.5">
+                <Package size={15} /> Carga
+              </h2>
+              <div className="text-xs text-ink-secondary space-y-0.5 mb-2">
+                {viaje.carga_ldm != null && <div>{viaje.carga_ldm} LDM</div>}
+                {viaje.carga_kg != null && <div>{viaje.carga_kg} kg</div>}
+                {viaje.carga_m3 != null && <div>{viaje.carga_m3} m³</div>}
+              </div>
+              {(() => {
+                if (!vehiculo || (vehiculo.capacidad_ldm == null && vehiculo.capacidad_kg == null && vehiculo.capacidad_m3 == null)) {
+                  return <p className="text-xs text-ink-muted">Configura la capacidad del vehículo para ver si es camión completo o grupaje.</p>;
+                }
+                const ocupacion = calcularOcupacion(
+                  { ldm: viaje.carga_ldm, kg: viaje.carga_kg, m3: viaje.carga_m3 },
+                  { ldm: vehiculo.capacidad_ldm, kg: vehiculo.capacidad_kg, m3: vehiculo.capacidad_m3 }
+                );
+                if (ocupacion.pctOcupacion == null) return null;
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ocupacion.tipo === "completo" ? "bg-brand/10 text-brand" : "bg-surface-alt text-ink-secondary"}`}>
+                        {ocupacion.tipo === "completo" ? "Camión completo (FTL)" : "Grupaje"}
+                      </span>
+                      <span className="text-xs text-ink-muted">
+                        {Math.round(ocupacion.pctOcupacion)}% — limita {ocupacion.dimensionLimitante?.toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-surface-alt overflow-hidden">
+                      <div className={`h-full rounded-full ${ocupacion.tipo === "completo" ? "bg-brand" : "bg-ink-muted"}`} style={{ width: `${Math.min(100, ocupacion.pctOcupacion)}%` }} />
+                    </div>
+                  </div>
+                );
+              })()}
+            </section>
+          )}
 
           <section className="bg-surface border border-border rounded-xl p-4">
             <h2 className="text-sm font-medium text-ink mb-3 flex items-center gap-1.5">

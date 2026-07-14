@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | CARGA.4 — Detalle del viaje: carga + ocupación real (cierra la cola CARGA.1-4) |
+(loop) | HECHO. Sección "Carga" en `/viajes/[id]` junto a Viabilidad, badge FTL/grupaje si el
+vehículo tiene capacidad. `ci.ps1` completo verde. **Cola CARGA.1-4 (SPECS-CARGA-VIAJE.md)
+CERRADA** — COT.3/4 (capacidad+FTL) ya no viven solo en la calculadora, están en el ciclo de vida
+completo del viaje real: alta → detalle.
+
 2026-07-14 | CARGA.3 — Wizard: capturar carga + ocupación en vivo | (loop) | HECHO. Sección
 "Carga" en `/viajes/nuevo-w` paso 2, mismo componente visual que `/presupuesto` (COT.4),
 reutilizando `calcularOcupacion`. Select de vehículos gana capacidad_*. `ci.ps1` completo verde.
