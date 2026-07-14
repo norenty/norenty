@@ -172,6 +172,7 @@ const {
   guardarCosteKmEmpresa,
   guardarVelocidadEmpresa,
   guardarDesgloseCosteEmpresa,
+  guardarCapacidadVehiculo,
   guardarObjetivoPuntualidadEmpresa,
   guardarMargenObjetivoEmpresa,
   getRendimientoGestores,
@@ -1573,6 +1574,29 @@ describe("ajustes de empresa (9.39 — extraído de ajustes/page.jsx a data.js)"
       guardarDesgloseCosteEmpresa("e1", { precio_gasoil_litro: "-1", coste_peaje_km: "0.1", dieta_noche_eur: "", coste_conductor_km: "" })
     ).rejects.toThrow("números positivos");
     expect(TABLES.empresa[0].precio_gasoil_litro).toBeUndefined();
+  });
+});
+
+describe("guardarCapacidadVehiculo (COT.3 — capacidad de carga LDM/kg/m³)", () => {
+  beforeEach(() => {
+    TABLES.vehiculo = [{ id: "v1", matricula: "1234ABC" }];
+  });
+
+  it("guarda las 3 dimensiones parseadas", async () => {
+    await guardarCapacidadVehiculo("v1", { ldm: "13.6", kg: "24000", m3: "90" });
+    expect(TABLES.vehiculo[0]).toMatchObject({ capacidad_ldm: 13.6, capacidad_kg: 24000, capacidad_m3: 90 });
+  });
+
+  it("vacío guarda null en esa dimensión, las demás no se tocan", async () => {
+    await guardarCapacidadVehiculo("v1", { ldm: "", kg: "24000", m3: "" });
+    expect(TABLES.vehiculo[0].capacidad_ldm).toBeNull();
+    expect(TABLES.vehiculo[0].capacidad_kg).toBe(24000);
+    expect(TABLES.vehiculo[0].capacidad_m3).toBeNull();
+  });
+
+  it("rechaza un valor negativo y no escribe nada", async () => {
+    await expect(guardarCapacidadVehiculo("v1", { ldm: "-1", kg: "24000", m3: "90" })).rejects.toThrow("positivo");
+    expect(TABLES.vehiculo[0].capacidad_ldm).toBeUndefined();
   });
 });
 

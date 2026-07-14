@@ -26,7 +26,15 @@ iteración, `ci.ps1` verde, commit, `[x]` aquí + línea en PROGRESS.md. Modelo:
   resultado cuando hay algún override activo; botón "Restablecer" limpia los 3 a la vez. Sin
   migración, sin query nueva aparte de leer `empresa` una vez. Verificado por `ci.ps1` (build +
   lint limpios) — la ruta exige sesión, no navegable sin credenciales (regla de secretos).
-- [ ] `[LOOP]` **COT.3 — Capacidad de vehículo (LDM+kg+m³) + modelo de carga.** Migración 0050. §COT.3.
+- [x] `[LOOP]` **COT.3 — Capacidad de vehículo (LDM+kg+m³) + modelo de carga.** Migración 0050. §COT.3.
+  Construido (2026-07-14). Migración `0050_capacidad_carga.sql` (DDL puro, 3 columnas nullable,
+  cabecera de reversión) aplicada con `migrate.py` (no MCP ad-hoc, disciplina de Fase 3) —
+  verificado Grupo B: las 3 columnas existen en la BD real, nullable. `guardarCapacidadVehiculo
+  (vehiculoId, { ldm, kg, m3 })` en `data.js`, mismo patrón que `guardarDesgloseCosteEmpresa`
+  (valida las 3 antes de escribir ninguna, `Error` claro). Sección "Capacidad de carga" en
+  `/vehiculos/[id]`, junto al bloque de coste/km existente, admin-only (`RequireRol`). 3 tests
+  nuevos (guarda las 3, vacío→null sin tocar las demás, rechaza negativo sin escribir). 323 vitest,
+  `ci.ps1` completo verde.
 - [ ] `[LOOP]` **COT.4 — Cálculo FTL / grupaje** (ocupación = máx de las 3 dimensiones). §COT.4.
 
 **Al cerrar COT.4:** `PushNotification` con el resumen + DETENER el loop. COT.5 (comparar con

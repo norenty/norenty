@@ -8,7 +8,7 @@ import {
   CheckCircle2, Clock, Trash2, Siren,
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
-import { getCurrentEmpresaId, getMultasPorVehiculo } from "../../../lib/data";
+import { getCurrentEmpresaId, getMultasPorVehiculo, guardarCapacidadVehiculo } from "../../../lib/data";
 import DocumentosSection from "../../components/DocumentosSection";
 import { TIPOS_DOC_VEHICULO, TIPO_MANTENIMIENTO_LABEL, ESTADO_MANTENIMIENTO_CHIP } from "../../../lib/labels";
 import RequireRol from "../../components/RequireRol";
@@ -49,6 +49,10 @@ export default function VehiculoDetalle() {
   const [consumoL100km, setConsumoL100km] = useState("");
   const [guardandoCoste, setGuardandoCoste] = useState(false);
   const [multas, setMultas] = useState(null);
+  const [capacidadLdm, setCapacidadLdm] = useState("");
+  const [capacidadKg, setCapacidadKg] = useState("");
+  const [capacidadM3, setCapacidadM3] = useState("");
+  const [guardandoCapacidad, setGuardandoCapacidad] = useState(false);
 
   const loadRegistros = useCallback(async () => {
     const { data } = await supabase
@@ -70,6 +74,9 @@ export default function VehiculoDetalle() {
       setVehiculo(v);
       setCosteKm(v?.coste_km != null ? String(v.coste_km) : "");
       setConsumoL100km(v?.consumo_l_100km != null ? String(v.consumo_l_100km) : "");
+      setCapacidadLdm(v?.capacidad_ldm != null ? String(v.capacidad_ldm) : "");
+      setCapacidadKg(v?.capacidad_kg != null ? String(v.capacidad_kg) : "");
+      setCapacidadM3(v?.capacidad_m3 != null ? String(v.capacidad_m3) : "");
       await loadRegistros();
       setLoading(false);
       getMultasPorVehiculo(id).then(setMultas);
@@ -93,6 +100,24 @@ export default function VehiculoDetalle() {
     await supabase.from("vehiculo").update({ coste_km: coste, consumo_l_100km: consumo }).eq("id", id);
     setVehiculo((v) => ({ ...v, coste_km: coste, consumo_l_100km: consumo }));
     setGuardandoCoste(false);
+  }
+
+  async function guardarCapacidad() {
+    setGuardandoCapacidad(true);
+    setError(null);
+    try {
+      await guardarCapacidadVehiculo(id, { ldm: capacidadLdm, kg: capacidadKg, m3: capacidadM3 });
+      setVehiculo((v) => ({
+        ...v,
+        capacidad_ldm: capacidadLdm.trim() === "" ? null : Number(capacidadLdm),
+        capacidad_kg: capacidadKg.trim() === "" ? null : Number(capacidadKg),
+        capacidad_m3: capacidadM3.trim() === "" ? null : Number(capacidadM3),
+      }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGuardandoCapacidad(false);
+    }
   }
 
   async function guardar(e) {
@@ -217,6 +242,57 @@ export default function VehiculoDetalle() {
           </button>
           <p className="flex-1 text-xs text-ink-muted pb-1">
             Sobrescribe el coste/km de la empresa solo para este vehículo. Vacío = usa el de la empresa.
+          </p>
+        </div>
+        <div className="mt-3 pt-3 border-t border-border flex items-end gap-3 flex-wrap">
+          <div className="flex-1 max-w-[8rem]">
+            <label htmlFor="vehiculo-ldm" className="block text-xs text-ink-secondary mb-1">Capacidad (LDM)</label>
+            <input
+              id="vehiculo-ldm"
+              type="number"
+              step="any"
+              min="0"
+              value={capacidadLdm}
+              onChange={(e) => setCapacidadLdm(e.target.value)}
+              placeholder="13,6"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 bg-surface"
+            />
+          </div>
+          <div className="flex-1 max-w-[8rem]">
+            <label htmlFor="vehiculo-kg" className="block text-xs text-ink-secondary mb-1">Capacidad (kg)</label>
+            <input
+              id="vehiculo-kg"
+              type="number"
+              step="any"
+              min="0"
+              value={capacidadKg}
+              onChange={(e) => setCapacidadKg(e.target.value)}
+              placeholder="24000"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 bg-surface"
+            />
+          </div>
+          <div className="flex-1 max-w-[8rem]">
+            <label htmlFor="vehiculo-m3" className="block text-xs text-ink-secondary mb-1">Capacidad (m³)</label>
+            <input
+              id="vehiculo-m3"
+              type="number"
+              step="any"
+              min="0"
+              value={capacidadM3}
+              onChange={(e) => setCapacidadM3(e.target.value)}
+              placeholder="90"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 bg-surface"
+            />
+          </div>
+          <button
+            onClick={guardarCapacidad}
+            disabled={guardandoCapacidad}
+            className="text-xs px-3 py-2 rounded-md border border-border text-ink-secondary hover:bg-surface-alt disabled:opacity-40"
+          >
+            {guardandoCapacidad ? "Guardando…" : "Guardar"}
+          </button>
+          <p className="flex-1 text-xs text-ink-muted pb-1 min-w-[12rem]">
+            Para saber si una carga es camión completo o grupaje en el cotizador. Las tres son opcionales.
           </p>
         </div>
         </RequireRol>

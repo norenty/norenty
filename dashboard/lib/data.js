@@ -516,6 +516,27 @@ export async function guardarDesgloseCosteEmpresa(empresaId, campos) {
   if (error) throw error;
 }
 
+/**
+ * COT.3 — capacidad de carga del vehículo (LDM/kg/m³, migración 0050). Las
+ * tres son opcionales e independientes (el cliente rellena la que le importe).
+ * `campos` = { ldm, kg, m3 } en string sin parsear (tal como viene del input).
+ * Valida las tres antes de escribir ninguna, mismo patrón que
+ * guardarDesgloseCosteEmpresa.
+ */
+export async function guardarCapacidadVehiculo(vehiculoId, campos) {
+  const mapaColumna = { ldm: "capacidad_ldm", kg: "capacidad_kg", m3: "capacidad_m3" };
+  const valores = {};
+  for (const [campo, valorStr] of Object.entries(campos)) {
+    const v = (valorStr ?? "").toString().trim() === "" ? null : Number(valorStr);
+    if (v != null && (Number.isNaN(v) || v < 0)) {
+      throw new Error("la capacidad debe ser un número positivo");
+    }
+    valores[mapaColumna[campo] || campo] = v;
+  }
+  const { error } = await supabase.from("vehiculo").update(valores).eq("id", vehiculoId);
+  if (error) throw error;
+}
+
 // ==========================================================================
 // Roles de gestor + expulsión (ítem 9.29 — ver SPECS-9-ROLES.md)
 // ==========================================================================

@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | COT.3 — Capacidad de vehículo (LDM/kg/m³) + guardarCapacidadVehiculo | (loop) | HECHO.
+Migración `0050_capacidad_carga.sql` aplicada con `migrate.py` (verificado Grupo B contra la BD
+real: 3 columnas nullable). `guardarCapacidadVehiculo` en `data.js` (patrón
+`guardarDesgloseCosteEmpresa`), sección nueva en `/vehiculos/[id]` admin-only. 3 tests nuevos. 323
+vitest, `ci.ps1` completo verde. Sigue COT.4 (cálculo FTL/grupaje).
+
 2026-07-14 | COT.2 — Calculadora /presupuesto con what-if en vivo | (loop) | HECHO. Sección
 "Simulación" con 3 inputs (velocidad/gasoil/margen), placeholders con el valor real de empresa,
 recálculo debounced (250ms) vía overrides de COT.1 tras el primer cálculo manual, chips "Simulando:
