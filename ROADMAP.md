@@ -10,11 +10,11 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
-## Cola ACTIVA del loop autónomo — Importación masiva (2026-07-14, MÁXIMA PRIORIDAD)
+## Importación masiva (IMP.1-3) — CERRADA 2026-07-14
 
-**⚠️ El loop autónomo trabaja AHORA en esta cola.** Spec cerrada en `SPECS-IMPORTADOR-MASIVO.md`
-(leer OBLIGATORIO antes de cada ítem). Protocolo: uno por iteración, `ci.ps1` verde, commit, `[x]`
-aquí + línea en PROGRESS.md.
+Spec completa en `SPECS-IMPORTADOR-MASIVO.md`. Resultado: `/importar` cubre ahora chóferes,
+vehículos y viajes (antes solo viajes) — el gap que hacía imposible dar de alta una flota de
+30-60 chóferes sin picar uno a uno.
 
 - [x] `[LOOP]` **IMP.1 — Generalizar `autoMapColumns`** a distintos juegos de alias. §IMP.1.
   Construido (2026-07-14, bloqueado y desbloqueado en la misma sesión por un OOM del sistema ajeno
@@ -32,9 +32,17 @@ aquí + línea en PROGRESS.md.
   propio código. `/vehiculos/page.jsx` refactorizada para usarla (mismo comportamiento observable:
   el alta manual sigue comprobando duplicados contra su lista ya cargada antes de llamar). 8 tests
   nuevos (4 de `createVehiculo`, 4 de campos/alias). 342 vitest, `ci.ps1` completo verde.
-- [ ] `[LOOP]` **IMP.3 — UI: selector de tipo + flujo por lotes** en `/importar`. §IMP.3.
+- [x] `[LOOP]` **IMP.3 — UI: selector de tipo + flujo por lotes** en `/importar`. §IMP.3.
+  Construido (2026-07-14). Nuevo paso 0 "¿Qué quieres importar?" con 3 tarjetas (Chóferes/
+  Vehículos/Viajes) + aviso de orden de dependencia (chóferes/vehículos antes que viajes). El
+  stepper existente (mapear/preview/resultado) se generalizó para usar `config.campos`/`mapping`
+  según el tipo elegido — mismo componente, sin duplicar UI. `ejecutarImport` se ramifica en 3
+  funciones (`ejecutarImportChoferes`/`Vehiculos`/`Viajes`, la de viajes es el código EXISTENTE sin
+  tocar) que devuelven `{ok, errores}` con la misma forma para los 3 tipos. Textos dinámicos
+  ("N chóferes importados" / "N vehículos..." / "N viajes..."). Verificado por `ci.ps1` (build+
+  lint limpios) — la ruta exige sesión, no navegable sin credenciales (regla de secretos).
 
-**Al cerrar IMP.3:** `PushNotification` con el resumen + DETENER el loop.
+**Cola de importación masiva (IMP.1-3) CERRADA.**
 
 ---
 

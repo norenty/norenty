@@ -8,6 +8,15 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | IMP.3 — UI del importador: selector de tipo + flujo por lotes (cierra la cola de
+importación masiva IMP.1-3) | (loop) | HECHO. `/importar` gana un paso "¿Qué quieres importar?"
+(chóferes/vehículos/viajes) con aviso de orden de dependencia; el stepper existente se generalizó
+para los 3 tipos reutilizando el mismo componente. `ejecutarImport` ramificado en 3 funciones
+(`{ok, errores}` uniforme); la rama de viajes es el código previo sin tocar. `ci.ps1` completo
+verde (168 pytest, 342 vitest, build de 21 páginas). **Cola IMP.1-3 (SPECS-IMPORTADOR-MASIVO.md)
+CERRADA.** `/importar` cubre ahora los 3 tipos de entidad — antes solo viajes, obligando a dar de
+alta chóferes/vehículos uno a uno.
+
 2026-07-14 | IMP.2 — createVehiculo + campos/alias de chófer y vehículo | (loop) | HECHO.
 `createVehiculo` en `data.js` (mismo patrón que `createChofer`), sin comprobar duplicados
 (no hay UNIQUE en `vehiculo.matricula`, verificado contra la BD real). `/vehiculos/page.jsx`

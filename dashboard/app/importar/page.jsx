@@ -1,21 +1,53 @@
 "use client";
 
 import { useState } from "react";
-import { Upload, FileSpreadsheet, Check, AlertCircle, ArrowRight, ArrowLeft } from "lucide-react";
+import { Upload, FileSpreadsheet, Check, AlertCircle, ArrowRight, ArrowLeft, Truck, Users, Route } from "lucide-react";
 import Link from "next/link";
-import { parseFile, CAMPOS_VIAJE, ALIAS_VIAJE, autoMapColumns } from "../../lib/importar";
+import {
+  parseFile, autoMapColumns,
+  CAMPOS_VIAJE, ALIAS_VIAJE, CAMPOS_CHOFER, ALIAS_CHOFER, CAMPOS_VEHICULO, ALIAS_VEHICULO,
+} from "../../lib/importar";
 import { supabase } from "../../lib/supabase";
-import { getCurrentEmpresaId, getChoferes } from "../../lib/data";
+import { getCurrentEmpresaId, getChoferes, createChofer, createVehiculo } from "../../lib/data";
 
-const PASOS = ["Subir archivo", "Mapear columnas", "Vista previa", "Resultado"];
+// IMP.3: el importador cubre 3 tipos de entidad. El orden de dependencia
+// (chóferes/vehículos antes que viajes) se comunica en el paso de selección,
+// no se fuerza — algunos usuarios ya tienen chóferes/vehículos dados de alta.
+const TIPOS_IMPORT = {
+  choferes: {
+    label: "Chóferes", labelPlural: "chóferes", icon: Users,
+    descripcion: "Sube un CSV/Excel con el nombre (y opcionalmente el idioma) de cada chófer.",
+    campos: CAMPOS_CHOFER, alias: ALIAS_CHOFER,
+  },
+  vehiculos: {
+    label: "Vehículos", labelPlural: "vehículos", icon: Truck,
+    descripcion: "Sube un CSV/Excel con la matrícula (y opcionalmente tipo/marca/modelo) de cada vehículo.",
+    campos: CAMPOS_VEHICULO, alias: ALIAS_VEHICULO,
+  },
+  viajes: {
+    label: "Viajes", labelPlural: "viajes", icon: Route,
+    descripcion: "Sube un Excel (.xlsx) o CSV exportado desde tu TMS. Los chóferes/vehículos referenciados deben existir ya.",
+    campos: CAMPOS_VIAJE, alias: ALIAS_VIAJE,
+  },
+};
+
+const PASOS = ["Tipo", "Subir archivo", "Mapear columnas", "Vista previa", "Resultado"];
 
 export default function ImportarPage() {
   const [paso, setPaso] = useState(0);
+  const [tipo, setTipo] = useState(null);
   const [rows, setRows] = useState([]);
   const [columns, setColumns] = useState([]);
   const [mapping, setMapping] = useState({});
   const [resultado, setResultado] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const config = tipo ? TIPOS_IMPORT[tipo] : null;
+
+  function elegirTipo(t) {
+    setTipo(t);
+    setPaso(1);
+  }
 
   async function handleFile(e) {
     const file = e.target.files?.[0];
@@ -27,8 +59,8 @@ export default function ImportarPage() {
       const cols = Object.keys(data[0]);
       setRows(data);
       setColumns(cols);
-      setMapping(autoMapColumns(cols, ALIAS_VIAJE));
-      setPaso(1);
+      setMapping(autoMapColumns(cols, config.alias));
+      setPaso(2);
     } catch (err) {
       alert(err.message);
     }
@@ -42,16 +74,45 @@ export default function ImportarPage() {
   function getMappedRows() {
     return rows.map((row) => {
       const mapped = {};
-      for (const { key } of CAMPOS_VIAJE) {
+      for (const { key } of config.campos) {
         mapped[key] = mapping[key] ? (row[mapping[key]] ?? "").toString().trim() : "";
       }
       return mapped;
     });
   }
 
-  async function ejecutarImport() {
-    setLoading(true);
-    const mapped = getMappedRows();
+  async function ejecutarImportChoferes(mapped) {
+    let ok = 0;
+    const errores = [];
+    for (let i = 0; i < mapped.length; i++) {
+      const r = mapped[i];
+      try {
+        if (!r.nombre) throw new Error("falta el nombre");
+        await createChofer({ nombre: r.nombre, idioma: r.idioma || undefined });
+        ok++;
+      } catch (err) {
+        errores.push({ fila: i + 1, ref: r.nombre, error: err.message || "Error desconocido" });
+      }
+    }
+    return { ok, errores };
+  }
+
+  async function ejecutarImportVehiculos(mapped) {
+    let ok = 0;
+    const errores = [];
+    for (let i = 0; i < mapped.length; i++) {
+      const r = mapped[i];
+      try {
+        await createVehiculo({ matricula: r.matricula, tipo: r.tipo || undefined, marca: r.marca, modelo: r.modelo });
+        ok++;
+      } catch (err) {
+        errores.push({ fila: i + 1, ref: r.matricula, error: err.message || "Error desconocido" });
+      }
+    }
+    return { ok, errores };
+  }
+
+  async function ejecutarImportViajes(mapped) {
     const empresa_id = await getCurrentEmpresaId();
     const choferes = await getChoferes();
     const choferMap = {};
@@ -69,7 +130,7 @@ export default function ImportarPage() {
     });
 
     let ok = 0;
-    let errores = [];
+    const errores = [];
 
     for (let i = 0; i < mapped.length; i++) {
       const r = mapped[i];
@@ -133,9 +194,18 @@ export default function ImportarPage() {
         errores.push({ fila: i + 1, ref: r.referencia, error: msg });
       }
     }
+    return { ok, errores };
+  }
+
+  async function ejecutarImport() {
+    setLoading(true);
+    const mapped = getMappedRows();
+    const { ok, errores } = tipo === "choferes" ? await ejecutarImportChoferes(mapped)
+      : tipo === "vehiculos" ? await ejecutarImportVehiculos(mapped)
+      : await ejecutarImportViajes(mapped);
 
     setResultado({ ok, errores, total: mapped.length });
-    setPaso(3);
+    setPaso(4);
     setLoading(false);
   }
 
@@ -144,13 +214,13 @@ export default function ImportarPage() {
       <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-ink-secondary no-underline mb-4 hover:text-ink">
         <ArrowLeft size={16} /> Volver
       </Link>
-      <h1 className="text-xl font-medium text-ink mb-1">Importar viajes</h1>
+      <h1 className="text-xl font-medium text-ink mb-1">Importar {config ? config.labelPlural : "datos"}</h1>
       <p className="text-sm text-ink-secondary mb-6">
-        Sube un archivo Excel (.xlsx) o CSV exportado desde tu TMS.
+        {config ? config.descripcion : "Da de alta chóferes, vehículos o viajes en lote desde un Excel/CSV, en vez de uno a uno."}
       </p>
 
       {/* Stepper */}
-      <div className="flex items-center gap-2 mb-6">
+      <div className="flex items-center gap-2 mb-6 flex-wrap">
         {PASOS.map((label, i) => (
           <div key={i} className="flex items-center gap-2">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${
@@ -164,19 +234,48 @@ export default function ImportarPage() {
         ))}
       </div>
 
-      {/* Paso 0: Subir archivo */}
+      {/* Paso 0: ¿Qué quieres importar? */}
       {paso === 0 && (
-        <label className="flex flex-col items-center gap-3 p-10 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-brand hover:bg-surface-alt/50 transition-colors">
-          <Upload size={32} className="text-ink-muted" />
-          <span className="text-sm text-ink-secondary">
-            {loading ? "Procesando…" : "Arrastra o haz clic para seleccionar .xlsx, .csv"}
-          </span>
-          <input type="file" accept=".csv,.tsv,.xlsx,.xls" onChange={handleFile} className="hidden" />
-        </label>
+        <div className="flex flex-col gap-4">
+          <p className="text-xs text-ink-secondary bg-surface-alt border border-border rounded-lg px-3 py-2">
+            Si es la primera vez, importa primero <b>chóferes</b> y <b>vehículos</b>, y deja
+            <b> viajes</b> para el final — así el importador de viajes puede enlazar cada fila con
+            el chófer/vehículo correcto.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {Object.entries(TIPOS_IMPORT).map(([id, t]) => {
+              const Icon = t.icon;
+              return (
+                <button
+                  key={id}
+                  onClick={() => elegirTipo(id)}
+                  className="flex flex-col items-center gap-2 p-6 bg-surface border border-border rounded-xl hover:border-brand hover:bg-surface-alt/50 transition-colors text-center"
+                >
+                  <Icon size={26} className="text-brand" />
+                  <span className="text-sm font-medium text-ink">{t.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       )}
 
-      {/* Paso 1: Mapear columnas */}
+      {/* Paso 1: Subir archivo */}
       {paso === 1 && (
+        <div className="flex flex-col gap-4">
+          <label className="flex flex-col items-center gap-3 p-10 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-brand hover:bg-surface-alt/50 transition-colors">
+            <Upload size={32} className="text-ink-muted" />
+            <span className="text-sm text-ink-secondary">
+              {loading ? "Procesando…" : "Arrastra o haz clic para seleccionar .xlsx, .csv"}
+            </span>
+            <input type="file" accept=".csv,.tsv,.xlsx,.xls" onChange={handleFile} className="hidden" />
+          </label>
+          <button onClick={() => setPaso(0)} className="self-start text-sm px-3 py-2 rounded-md border border-border text-ink-secondary">Atrás</button>
+        </div>
+      )}
+
+      {/* Paso 2: Mapear columnas */}
+      {paso === 2 && (
         <div className="flex flex-col gap-4">
           <div className="bg-surface border border-border rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
@@ -187,7 +286,7 @@ export default function ImportarPage() {
               Indica qué columna de tu archivo corresponde a cada campo. Las auto-detectadas ya están marcadas.
             </p>
             <div className="grid grid-cols-2 gap-3">
-              {CAMPOS_VIAJE.map(({ key, label, required }) => (
+              {config.campos.map(({ key, label, required }) => (
                 <div key={key}>
                   <label className="block text-xs text-ink-secondary mb-1">
                     {label} {required && <span className="text-estado-incidencia">*</span>}
@@ -207,10 +306,10 @@ export default function ImportarPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setPaso(0)} className="text-sm px-3 py-2 rounded-md border border-border text-ink-secondary">Atrás</button>
+            <button onClick={() => setPaso(1)} className="text-sm px-3 py-2 rounded-md border border-border text-ink-secondary">Atrás</button>
             <button
-              onClick={() => setPaso(2)}
-              disabled={!mapping.referencia}
+              onClick={() => setPaso(3)}
+              disabled={!mapping[config.campos.find((c) => c.required)?.key]}
               className="text-sm px-4 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
             >
               Vista previa
@@ -219,8 +318,8 @@ export default function ImportarPage() {
         </div>
       )}
 
-      {/* Paso 2: Preview */}
-      {paso === 2 && (
+      {/* Paso 3: Preview */}
+      {paso === 3 && (
         <div className="flex flex-col gap-4">
           <div className="bg-surface border border-border rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
@@ -228,7 +327,7 @@ export default function ImportarPage() {
                 <thead>
                   <tr className="bg-surface-alt">
                     <th className="text-left px-3 py-2 font-medium text-ink-secondary">#</th>
-                    {CAMPOS_VIAJE.filter(({ key }) => mapping[key]).map(({ key, label }) => (
+                    {config.campos.filter(({ key }) => mapping[key]).map(({ key, label }) => (
                       <th key={key} className="text-left px-3 py-2 font-medium text-ink-secondary">{label}</th>
                     ))}
                   </tr>
@@ -237,7 +336,7 @@ export default function ImportarPage() {
                   {getMappedRows().slice(0, 10).map((r, i) => (
                     <tr key={i} className="border-t border-border">
                       <td className="px-3 py-2 text-ink-muted">{i + 1}</td>
-                      {CAMPOS_VIAJE.filter(({ key }) => mapping[key]).map(({ key }) => (
+                      {config.campos.filter(({ key }) => mapping[key]).map(({ key }) => (
                         <td key={key} className="px-3 py-2 text-ink max-w-[200px] truncate">{r[key]}</td>
                       ))}
                     </tr>
@@ -252,20 +351,20 @@ export default function ImportarPage() {
             )}
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setPaso(1)} className="text-sm px-3 py-2 rounded-md border border-border text-ink-secondary">Atrás</button>
+            <button onClick={() => setPaso(2)} className="text-sm px-3 py-2 rounded-md border border-border text-ink-secondary">Atrás</button>
             <button
               onClick={ejecutarImport}
               disabled={loading}
               className="text-sm px-4 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
             >
-              {loading ? `Importando… (${rows.length} viajes)` : `Importar ${rows.length} viajes`}
+              {loading ? `Importando… (${rows.length} ${config.labelPlural})` : `Importar ${rows.length} ${config.labelPlural}`}
             </button>
           </div>
         </div>
       )}
 
-      {/* Paso 3: Resultado */}
-      {paso === 3 && resultado && (
+      {/* Paso 4: Resultado */}
+      {paso === 4 && resultado && (
         <div className="flex flex-col gap-4">
           <div className="bg-surface border border-border rounded-xl p-5">
             <div className="flex items-center gap-3 mb-3">
@@ -280,7 +379,7 @@ export default function ImportarPage() {
               )}
               <div>
                 <div className="text-sm font-medium text-ink">
-                  {resultado.ok} de {resultado.total} viajes importados correctamente
+                  {resultado.ok} de {resultado.total} {config.labelPlural} importados correctamente
                 </div>
                 {resultado.errores.length > 0 && (
                   <div className="text-xs text-ink-secondary">
@@ -304,7 +403,7 @@ export default function ImportarPage() {
               Ir al Kanban
             </Link>
             <button
-              onClick={() => { setPaso(0); setRows([]); setResultado(null); }}
+              onClick={() => { setPaso(0); setTipo(null); setRows([]); setResultado(null); }}
               className="text-sm px-3 py-2 rounded-md border border-border text-ink-secondary"
             >
               Importar otro archivo
