@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | COT.2 — Calculadora /presupuesto con what-if en vivo | (loop) | HECHO. Sección
+"Simulación" con 3 inputs (velocidad/gasoil/margen), placeholders con el valor real de empresa,
+recálculo debounced (250ms) vía overrides de COT.1 tras el primer cálculo manual, chips "Simulando:
+X" + botón Restablecer. Sin migración. `ci.ps1` verde (build+lint; ruta exige sesión, no
+verificable en navegador sin credenciales). Sigue COT.3 (capacidad de vehículo).
+
 2026-07-14 | COT.1 — calcularPresupuesto acepta overrides (what-if del cotizador) | (loop) | HECHO.
 Nueva firma `calcularPresupuesto({ puntos, vehiculoId, overrides })` retrocompatible +
 `aplicarOverridesPresupuesto(empresa, vehiculo, overrides)` pura y exportada: fusiona valores

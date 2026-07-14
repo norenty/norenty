@@ -17,7 +17,15 @@ cerrada completa en `SPECS-COTIZADOR.md` (leer OBLIGATORIO antes de cada ítem).
 iteración, `ci.ps1` verde, commit, `[x]` aquí + línea en PROGRESS.md. Modelo: `sonnet` esfuerzo bajo.
 
 - [x] `[LOOP]` **COT.1 — `calcularPresupuesto` acepta overrides (what-if).** Ver SPECS-COTIZADOR.md §COT.1.
-- [ ] `[LOOP]` **COT.2 — Página calculadora con what-if en vivo** (gasoil/velocidad/margen recalculan). §COT.2.
+- [x] `[LOOP]` **COT.2 — Página calculadora con what-if en vivo** (gasoil/velocidad/margen recalculan). §COT.2.
+  Construido (2026-07-14): `/presupuesto` gana una sección "Simulación (opcional)" con 3 inputs
+  (velocidad, gasoil, margen), cada uno con placeholder "Por defecto: X" leído de la config real de
+  `empresa` (fetch al montar, nunca la toca). Tras el primer "Calcular" manual, cambiar cualquier
+  control dispara un recálculo debounced (250ms, mismo patrón que el buscador) vía `overrides` de
+  COT.1 — no hace falta pulsar "Calcular" otra vez. Chips "Simulando: X" visibles sobre el
+  resultado cuando hay algún override activo; botón "Restablecer" limpia los 3 a la vez. Sin
+  migración, sin query nueva aparte de leer `empresa` una vez. Verificado por `ci.ps1` (build +
+  lint limpios) — la ruta exige sesión, no navegable sin credenciales (regla de secretos).
 - [ ] `[LOOP]` **COT.3 — Capacidad de vehículo (LDM+kg+m³) + modelo de carga.** Migración 0050. §COT.3.
 - [ ] `[LOOP]` **COT.4 — Cálculo FTL / grupaje** (ocupación = máx de las 3 dimensiones). §COT.4.
 

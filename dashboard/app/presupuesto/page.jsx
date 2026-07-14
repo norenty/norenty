@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
-import { Calculator, Plus, Trash2, AlertTriangle } from "lucide-react";
+import { Calculator, Plus, Trash2, AlertTriangle, SlidersHorizontal, RotateCcw } from "lucide-react";
 import { calcularPresupuesto } from "../../lib/data";
 import { supabase } from "../../lib/supabase";
 import { LABEL_CAPA } from "../../lib/labels";
@@ -12,6 +12,8 @@ function nuevoPunto() {
   return { label: "", lat: "", lon: "" };
 }
 
+const WHAT_IF_VACIO = { velocidadKmh: "", precioGasoilLitro: "", margenObjetivoPct: "" };
+
 export default function PresupuestoPage() {
   const [puntos, setPuntos] = useState([nuevoPunto(), nuevoPunto()]);
   const [vehiculos, setVehiculos] = useState([]);
@@ -19,9 +21,16 @@ export default function PresupuestoPage() {
   const [resultado, setResultado] = useState(null);
   const [calculando, setCalculando] = useState(false);
   const [error, setError] = useState(null);
+  const [config, setConfig] = useState(null);
+  const [whatIf, setWhatIf] = useState(WHAT_IF_VACIO);
+  const timerWhatIf = useRef(null);
 
   useEffect(() => {
     supabase.from("vehiculo").select("id, matricula").eq("activo", true).order("matricula").then(({ data }) => setVehiculos(data || []));
+    supabase
+      .from("empresa")
+      .select("velocidad_planificacion_kmh, precio_gasoil_litro, margen_objetivo_pct")
+      .then(({ data }) => setConfig((data || [])[0] || null));
   }, []);
 
   function actualizarPunto(i, campo, valor) {
@@ -32,7 +41,17 @@ export default function PresupuestoPage() {
     setPuntos((ps) => ps.filter((_, idx) => idx !== i));
   }
 
-  async function calcular() {
+  // COT.1/COT.2: valores what-if (gasoil/velocidad/margen) por encima de la
+  // config real, nunca la tocan. Solo las claves rellenas entran como override.
+  function overridesActivos() {
+    const overrides = {};
+    if (whatIf.velocidadKmh !== "") overrides.velocidadKmh = Number(whatIf.velocidadKmh);
+    if (whatIf.precioGasoilLitro !== "") overrides.precioGasoilLitro = Number(whatIf.precioGasoilLitro);
+    if (whatIf.margenObjetivoPct !== "") overrides.margenObjetivoPct = Number(whatIf.margenObjetivoPct);
+    return Object.keys(overrides).length > 0 ? overrides : null;
+  }
+
+  const calcular = useCallback(async () => {
     setError(null);
     const validos = puntos
       .filter((p) => p.lat !== "" && p.lon !== "")
@@ -49,7 +68,7 @@ export default function PresupuestoPage() {
 
     setCalculando(true);
     try {
-      const r = await calcularPresupuesto({ puntos: validos, vehiculoId: vehiculoId || null });
+      const r = await calcularPresupuesto({ puntos: validos, vehiculoId: vehiculoId || null, overrides: overridesActivos() });
       setResultado(r);
     } catch (err) {
       // Ítem 9.35: un fallo real de lectura se muestra como error visible
@@ -59,6 +78,21 @@ export default function PresupuestoPage() {
     } finally {
       setCalculando(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [puntos, vehiculoId, whatIf]);
+
+  // Recalcula en vivo (debounced) al mover un control what-if, pero solo si
+  // ya hay un resultado en pantalla — no dispara el primer cálculo solo.
+  useEffect(() => {
+    if (!resultado) return;
+    clearTimeout(timerWhatIf.current);
+    timerWhatIf.current = setTimeout(() => { calcular(); }, 250);
+    return () => clearTimeout(timerWhatIf.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [whatIf.velocidadKmh, whatIf.precioGasoilLitro, whatIf.margenObjetivoPct]);
+
+  function restablecerWhatIf() {
+    setWhatIf(WHAT_IF_VACIO);
   }
 
   return (
@@ -134,6 +168,61 @@ export default function PresupuestoPage() {
           </select>
         </div>
 
+        <div className="mt-4 pt-4 border-t border-border">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-medium text-ink flex items-center gap-1.5">
+              <SlidersHorizontal size={14} /> Simulación (opcional)
+            </h2>
+            {(whatIf.velocidadKmh !== "" || whatIf.precioGasoilLitro !== "" || whatIf.margenObjetivoPct !== "") && (
+              <button
+                type="button"
+                onClick={restablecerWhatIf}
+                className="flex items-center gap-1 text-xs text-ink-muted hover:text-ink"
+              >
+                <RotateCcw size={12} /> Restablecer
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-ink-secondary mb-3">
+            Prueba otros valores sin tocar tu configuración de Ajustes — el resultado se recalcula solo.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label htmlFor="whatif-velocidad" className="block text-xs text-ink-secondary mb-1">Velocidad media (km/h)</label>
+              <input
+                id="whatif-velocidad"
+                type="number" step="any"
+                value={whatIf.velocidadKmh}
+                onChange={(e) => setWhatIf((w) => ({ ...w, velocidadKmh: e.target.value }))}
+                placeholder={`Por defecto: ${config?.velocidad_planificacion_kmh ?? 75}`}
+                className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              />
+            </div>
+            <div>
+              <label htmlFor="whatif-gasoil" className="block text-xs text-ink-secondary mb-1">Precio gasoil (€/L)</label>
+              <input
+                id="whatif-gasoil"
+                type="number" step="any"
+                value={whatIf.precioGasoilLitro}
+                onChange={(e) => setWhatIf((w) => ({ ...w, precioGasoilLitro: e.target.value }))}
+                placeholder={`Por defecto: ${config?.precio_gasoil_litro ?? "sin configurar"}`}
+                className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              />
+            </div>
+            <div>
+              <label htmlFor="whatif-margen" className="block text-xs text-ink-secondary mb-1">Margen objetivo (%)</label>
+              <input
+                id="whatif-margen"
+                type="number" step="any"
+                value={whatIf.margenObjetivoPct}
+                onChange={(e) => setWhatIf((w) => ({ ...w, margenObjetivoPct: e.target.value }))}
+                placeholder={`Por defecto: ${config?.margen_objetivo_pct ?? 15}`}
+                className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              />
+            </div>
+          </div>
+        </div>
+
         {error && (
           <p role="alert" className="mt-3 flex items-center gap-1.5 text-xs text-estado-incidencia">
             <AlertTriangle size={13} /> {error}
@@ -151,6 +240,25 @@ export default function PresupuestoPage() {
 
       {resultado && (
         <div className="bg-surface border border-border rounded-xl p-5">
+          {(whatIf.velocidadKmh !== "" || whatIf.precioGasoilLitro !== "" || whatIf.margenObjetivoPct !== "") && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {whatIf.velocidadKmh !== "" && (
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-brand/10 text-brand font-medium">
+                  Simulando: {whatIf.velocidadKmh} km/h
+                </span>
+              )}
+              {whatIf.precioGasoilLitro !== "" && (
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-brand/10 text-brand font-medium">
+                  Simulando: gasoil {whatIf.precioGasoilLitro} €/L
+                </span>
+              )}
+              {whatIf.margenObjetivoPct !== "" && (
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-brand/10 text-brand font-medium">
+                  Simulando: margen {whatIf.margenObjetivoPct}%
+                </span>
+              )}
+            </div>
+          )}
           <div className="mb-4">
             <div className="text-xs text-ink-secondary mb-1">Precio sugerido</div>
             {resultado.precioSugerido != null ? (
