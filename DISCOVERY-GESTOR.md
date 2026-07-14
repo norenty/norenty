@@ -87,14 +87,31 @@ imaginamos? (c) **¿qué datos concretos hacen falta para que funcione de verdad
 
 ### 3.4 Comunicación con chóferes (bot de Telegram, texto vs. voz)
 - ¿Cómo te comunicas hoy con un chófer en ruta? ¿Llamada, WhatsApp, otra app?
+- **Directa, no dar por hecho la respuesta:** ¿el chófer usa WhatsApp, Telegram, u otra cosa
+  ahora mismo? Si es WhatsApp — ¿instalaría Telegram si se lo pides tú (es gratis e instalar y
+  ya), o eso ya sería fricción real que perderías gente por el camino?
 - Si el chófer pudiera mandar una nota de voz que te llega como texto ya traducido/resumido,
   ¿eso te ahorra algo de verdad, o el problema real es otro (que no te avisa, que llega tarde)?
 - ¿Cuántas veces al día hablas con un chófer para algo que NO es una incidencia (solo estado)?
+- Si el chófer pudiera simplemente LLAMAR a un número (sin apps, sin instalar nada) y un sistema
+  automático supiera quién es y en qué viaje va, ¿eso resolvería un caso real (chóferes mayores,
+  sin smartphone, sin datos móviles en el extranjero) o para tu flota el problema no es ese?
 
 ### 3.5 Asignación de rutas / dispatch
 - Cuando asignas, ¿qué pesa más: quién está libre, quién conoce la ruta, el descanso legal
   pendiente, preferencia del cliente por un chófer concreto, otra cosa?
 - ¿Alguna vez el sistema/tu criterio de asignación se ha equivocado y por qué?
+
+### 3.7 Cargas vacías y confianza/disputas (añadido 2026-07-14, tras validar la idea de red/marketplace)
+- ¿Qué porcentaje de vuestros trayectos vuelven vacíos (sin carga de retorno)? Si no lo sabe con
+  número exacto, una estimación gruesa vale ("casi nunca", "1 de cada 3", "la mitad") — esto solo
+  busca saber si hay margen real ahí, no una cifra auditada.
+  Confirmado ya (conversación previa): dice que hoy INTENTAN minimizarlas activamente. Preguntar
+  CÓMO lo hacen hoy (¿bolsa de carga, cartera de clientes fija, cliente de vuelta ya pactado?) —
+  la respuesta a "cómo" importa más que el número exacto.
+- ¿Alguna vez has tenido una disputa real con un cliente (dice que no llegó, que faltaba
+  mercancía, que llegó tarde)? ¿Cómo se resolvió? ¿Tenías alguna prueba (foto, hora, firma) que te
+  ayudara, o fue "su palabra contra la tuya"?
 
 ### 3.6 La pregunta de oro
 > "¿Qué es lo que más tiempo te quita al día sin aportarte nada?"

@@ -332,6 +332,12 @@ Todos `[LOOP]`: sin coste por uso, sin deploy. Construir EN ORDEN. Cada ítem: i
 - [ ] `[DECISIÓN]` **Agente de voz telefónico** — telefonía + STT/LLM/TTS en tiempo real; coste por minuto + producción. **Actualización 2026-07-13:** el usuario lo ve importante; se construye SOBRE la transcripción (Whisper self-host) + corpus Fase 11, por etapas. Ver punto 5 de "Decisiones de producto vigentes".
 - [ ] `[DECISIÓN]` **Validación POD con visión LLM** — coste por imagen; a producción. **Actualización 2026-07-13:** última capa opcional; primero capas gratis (cruce de llegada + OCR). Ver punto 3 de "Decisiones de producto vigentes".
 - [ ] `[DECISIÓN]` **Adaptador WhatsApp** — Meta Business API, coste por conversación, la ventana de 24h rompe el push proactivo; decisión GTM. La abstracción (4.6) deja el terreno preparado.
+  **Actualización 2026-07-14 (discovery con gestor amigo):** confirmado que en su operativa real
+  "todo el mundo usa WhatsApp". Aun así, decisión del usuario: **no migrar a WhatsApp sin un
+  cliente que pague de verdad** — >€90/mes de infra (Meta + BSP) sin producto vendido no se
+  justifica. Estrategia mientras tanto: pedir a los chóferes que instalen Telegram (gratis,
+  instalar y ya). Se retoma cuando (a) haya un cliente firmado que lo pida explícitamente y (b) el
+  coste se le repercuta a él o esté cubierto por el margen del contrato — no antes.
 - [ ] `[DECISIÓN]` **Aprendizaje sobre conversaciones (chófer↔gestor, notas internas jefe tráfico/GM)** — decidido con el usuario 2026-07-01: interesante PERO explícitamente para DESPUÉS del despliegue, cuando haya volumen real de conversaciones que analizar (hoy no hay datos de producción). Lectura recomendada cuando se retome: (A) extracción de patrones vía llamadas puntuales a LLM sobre texto libre (clasificar incidencias, detectar clientes/rutas problemáticas, temas recurrentes) — coste acotado por uso, no requiere entrenar nada; (B) modelo que se re-entrena/mejora con el tiempo — proyecto mayor, requiere pipeline de datos y presupuesto serio, no es el punto de partida. Empezar por (A) si/cuando se retome. Cuesta dinero por uso → requiere rate-limit + presupuesto antes de construir, igual que el resto de esta sección.
 - [ ] `[DECISIÓN]` **Asistente in-dashboard (resolver dudas / sacar info al instante)** — propuesto por el usuario 2026-07-01. Llamaría a un LLM con contexto de los datos de la empresa (viajes, incidencias, chóferes...) para responder preguntas en lenguaje natural desde el dashboard. Cuesta dinero por consulta → requiere rate-limit + presupuesto antes de construir. Además hay una decisión de alcance previa: ¿solo lectura (responde preguntas sobre datos existentes, más seguro) o también puede *actuar* (cambiar estados, crear incidencias, más potente pero mucho más peligroso si alucina)? Recomendación: empezar solo-lectura con acceso de solo-lectura scoped por RLS del gestor logueado (nunca acceso cross-empresa), igual que el resto del dashboard. **Actualización 2026-07-13 (DECIDIDO):** NO se hace con IA. El asistente es un **command palette** (extensión del Ctrl+K de 6.12) que mapea frases a funciones ya existentes — determinista, gratis, sin alucinación, sin RGPD. El IA Brain (12.4) sigue diferido. Ver punto 4 de "Decisiones de producto vigentes".
   **Construido (2026-07-14).** `dashboard/lib/comandos.js` (puro, testeado, sin dependencia de
@@ -935,6 +941,16 @@ pica código. Orden de ejecución con dependencias, al final de ese documento:
   incidencia acotado (~1 llamada LLM); definir presupuesto mensual + rate limit.
 - [ ] `[DECISIÓN]` **7B.3 Agente telefónico** — STT/LLM/TTS en tiempo real, identifica al chófer
   por número, contexto del viaje cargado. Después de que 7B.1+7B.2 demuestren valor.
+  **Diseño técnico completo en `SPECS-BOT-LLAMADAS.md` (2026-07-14)**, escrito gratis por
+  adelantado (sin tocar Twilio ni gastar nada) para que el día que haya presupuesto sea picar
+  código, no diseñar: arquitectura (proveedor de telefonía + FastAPI async, la concurrencia de
+  llamadas la da el proveedor gratis), identificación por `chofer.telefono` (ya existe en la BD,
+  requiere normalizar a E.164 primero — loop-safe, sin coste, podría hacerse ya si se retoma),
+  costes ($27-54/mes con 60 chóferes, cifras de `COSTES-IA.md`), y 3 fases (normalización de
+  teléfono → menú DTMF sin voz → voz completa cara). Distinto de la "asistencia al gestor en
+  llamada con cliente" de 11.7 (esa sí exige aprobación humana antes de enviar; las acciones
+  acotadas del chófer — confirmar llegada, incidencia — no necesitan ese filtro, igual que hoy no
+  lo necesitan en Telegram).
 - [ ] `[DECISIÓN]` **7B.4 Tacógrafo remoto** — integraciones de descarga remota (Continental VDO,
   Stoneridge, Webfleet…): sustituye la ESTIMACIÓN 561 de 7A.1 por horas REALES. Requiere acuerdos/
   cuentas con proveedores; evaluar en el piloto qué usa la flota.

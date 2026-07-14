@@ -104,6 +104,39 @@ herramienta percibida como amenaza. No generalizar este nivel de apertura.
 
 ---
 
+## Mismo gestor — adelanto previo a la entrevista formal del 12.3 (2026-07-14)
+
+Reunión formal pospuesta a la mañana del sábado (2026-07-18 aprox.), pero con dos datos ya
+adelantados por él y una novedad importante sobre el formato de la reunión.
+
+### Insight 7: su software actual es malo y está pendiente de cambio
+> Dice que su software actual "es bastante malo" y que en su empresa tienen pendiente cambiarlo.
+
+**Por qué importa:** confirma que hay una ventana de decisión de compra ABIERTA de verdad, no
+hipotética — no es "convencerle de dejar algo que funciona bien", es "llegar cuando ya está
+buscando alternativa". Máxima prioridad de discovery del sábado: preguntar qué usa hoy, qué odia
+de él en concreto, y qué le haría decidirse por otra cosa — ver `DISCOVERY-GESTOR.md` §2.3/§4.7.
+
+**Novedad de formato:** la reunión del sábado no es solo conversación — van a poder ver su
+software/datos/operativa reales en pantalla. Es la primera oportunidad real de auditoría
+competitiva directa (qué hace bien el sistema que usa hoy, qué le falta) en vez de discovery solo
+verbal.
+
+### Insight 8: ya intentan minimizar cargas vacías activamente
+> Dice que intentan minimizar los trayectos que vuelven sin carga, pero no está claro si tiene un
+> porcentaje o dato concreto de cuánto consiguen.
+
+**Por qué importa:** valida que existe conciencia del problema (y por tanto del valor económico
+de resolverlo mejor) — relevante para evaluar a medio/largo plazo si conectar oferta/demanda entre
+flotas (ítem `7B.9`, moonshot marketplace) tiene sentido para el perfil de este tipo de gestor, o
+si ya lo resuelven razonablemente bien por otras vías (bolsa de carga, cartera fija) y el problema
+real está en otro sitio.
+
+**Implicación de producto:** ninguna todavía — pendiente de la cifra/mecanismo real el sábado
+(`DISCOVERY-GESTOR.md` §3.7).
+
+---
+
 ## Investigación regulatoria y de fuentes de datos — 2026-07-01
 
 Origen: el gestor cuenta que planifican las rutas a **75 km/h de media**, añadiendo las **paradas
