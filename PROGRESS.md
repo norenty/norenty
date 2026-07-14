@@ -8,6 +8,17 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | IMP.1 — Generalizar autoMapColumns (importador masivo) | — | BLOQUEADO (NO de código).
+Código completo y correcto: `autoMapColumns(fileColumns, aliases)` parametrizada, `ALIAS_VIAJE`
+extraída, `/importar/page.jsx` actualizado (retrocompatible), 5 tests nuevos en
+`importar.test.js`. `pytest` (168) y `vitest` (334) pasan limpios. **`next build` falla 3 veces
+seguidas por OOM real del sistema** (~950MB libres de 7GB totales — no es un leak mío, el único
+proceso node ajeno es Adobe Creative Cloud en background; sin dev server ni preview colgado).
+Probado con `NODE_OPTIONS=--max-old-space-size` más alto, sin efecto (es memoria física del SO,
+no límite de heap V8). Cambios SIN commitear a propósito (disciplina del proyecto: no commitear
+sin `ci.ps1` verde). NECESITA HUMANO: libera memoria (cierra Adobe CC / otras apps) y reintenta
+`ci.ps1`, o dime si sigo cuando puedas comprobarlo tú. Loop detenido aquí.
+
 2026-07-14 | UBI.2 — Workflow de GitHub Actions para los monitores (cierra la cola de
 auto-vigilancia UBI.1-2) | (loop) | HECHO. `.github/workflows/monitores.yml`: heartbeat/15min,
 integridad/6h, purga/diario + `workflow_dispatch`. Cada job pide solo los secrets que su script
