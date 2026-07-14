@@ -2670,15 +2670,47 @@ export async function getChoferes() {
   return data || [];
 }
 
-export async function createChofer({ nombre, idioma }) {
+/**
+ * Fase 1 del bot de llamadas (SPECS-BOT-LLAMADAS.md, 2026-07-14): normaliza
+ * un teléfono a E.164 (+34600111222) para poder identificar al chófer por
+ * Caller ID el día que exista un canal de voz. Pura. Devuelve null si está
+ * vacío o no tiene pinta de teléfono real (evita guardar basura en
+ * silencio — el llamador decide si eso es un error o simplemente "sin
+ * teléfono").
+ */
+export function normalizarTelefonoE164(telefono, prefijoDefault = "+34") {
+  if (telefono == null) return null;
+  let t = telefono.toString().trim().replace(/[\s\-().]/g, "");
+  if (t === "") return null;
+  if (t.startsWith("00")) t = "+" + t.slice(2);
+  if (!t.startsWith("+")) t = prefijoDefault + t.replace(/^0+/, "");
+  return /^\+[1-9]\d{7,14}$/.test(t) ? t : null;
+}
+
+export async function createChofer({ nombre, idioma, telefono = null }) {
   const empresa_id = await getCurrentEmpresaId();
+  let telefonoNormalizado = null;
+  if (telefono != null && telefono.toString().trim() !== "") {
+    telefonoNormalizado = normalizarTelefonoE164(telefono);
+    if (!telefonoNormalizado) throw new Error("el teléfono no parece válido");
+  }
   const { data, error } = await supabase
     .from("chofer")
-    .insert({ nombre, idioma: idioma || "es", empresa_id })
+    .insert({ nombre, idioma: idioma || "es", telefono: telefonoNormalizado, empresa_id })
     .select()
     .single();
   if (error) throw error;
   return data;
+}
+
+/** Editar el teléfono de un chófer ya existente (ficha `/choferes/[id]`).
+ * Vacío borra el teléfono (null); si no, se normaliza igual que en el alta. */
+export async function guardarTelefonoChofer(choferId, telefonoStr) {
+  const t = (telefonoStr ?? "").toString().trim();
+  const normalizado = t === "" ? null : normalizarTelefonoE164(t);
+  if (t !== "" && !normalizado) throw new Error("el teléfono no parece válido");
+  const { error } = await supabase.from("chofer").update({ telefono: normalizado }).eq("id", choferId);
+  if (error) throw error;
 }
 
 /**

@@ -19,6 +19,13 @@ completo del viaje real: alta → detalle.
 reutilizando `calcularOcupacion`. Select de vehículos gana capacidad_*. `ci.ps1` completo verde.
 Sigue CARGA.4 (detalle del viaje).
 
+2026-07-14 | Bot de llamadas fase 1 — captura y normalización de chofer.telefono | — | HECHO.
+Hallazgo: `chofer.telefono` existía en el esquema pero ninguna pantalla lo capturaba.
+`normalizarTelefonoE164` pura + `createChofer`/`guardarTelefonoChofer` la usan al guardar. UI en
+`/choferes` (alta) y `/choferes/[id]` (edición inline). Importador masivo gana el campo. 14 tests
+nuevos. 360 vitest, `ci.ps1` completo verde. Deja lista la identificación por Caller ID para
+cuando se desbloquee el bot de llamadas (fases 2-3, `SPECS-BOT-LLAMADAS.md`, STOP duro por coste).
+
 2026-07-14 | CARGA.1+CARGA.2 — Carga real del viaje: migración + createViaje | (loop) | HECHO.
 Hallazgo: COT.3/4 (capacidad+FTL/grupaje) solo vivían en la calculadora `/presupuesto`, un viaje
 real no guardaba la carga. Migración `0052_viaje_carga.sql` aplicada y verificada Grupo B.

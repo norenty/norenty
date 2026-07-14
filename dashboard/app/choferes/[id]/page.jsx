@@ -11,8 +11,8 @@ import DocumentosSection from "../../components/DocumentosSection";
 import ErrorCargaReintentar from "../../components/ui/ErrorCargaReintentar";
 import ArcoChoferSection from "../../components/ArcoChoferSection";
 import Ayuda from "../../components/ui/Ayuda";
-import { getEstado561, LIMITE_561_SEMANAL_H, LIMITE_561_BISEMANAL_H, getMultasPorChofer } from "../../../lib/data";
-import { Siren } from "lucide-react";
+import { getEstado561, LIMITE_561_SEMANAL_H, LIMITE_561_BISEMANAL_H, getMultasPorChofer, guardarTelefonoChofer } from "../../../lib/data";
+import { Siren, Edit3, X, Phone } from "lucide-react";
 import { TIPOS_DOC_CHOFER, IDIOMA_LABEL, ESTADO_VIAJE } from "../../../lib/labels";
 import { fmtEur, fmtFechaCorta } from "../../../lib/format";
 
@@ -38,6 +38,10 @@ export default function ChoferDetalle() {
   const [estado561, setEstado561] = useState(null);
   const [errorEstado561, setErrorEstado561] = useState(null);
   const [multas, setMultas] = useState(null);
+  const [editandoTelefono, setEditandoTelefono] = useState(false);
+  const [telefonoInput, setTelefonoInput] = useState("");
+  const [guardandoTelefono, setGuardandoTelefono] = useState(false);
+  const [errorTelefono, setErrorTelefono] = useState(null);
 
   const fetchViajes = useCallback(async (off, append = false) => {
     const { data } = await supabase
@@ -98,6 +102,20 @@ export default function ChoferDetalle() {
     setLoadingMas(true);
     await fetchViajes(nuevoOffset, true);
     setLoadingMas(false);
+  }
+
+  async function guardarTelefono() {
+    setGuardandoTelefono(true);
+    setErrorTelefono(null);
+    try {
+      await guardarTelefonoChofer(id, telefonoInput);
+      await refrescarChofer();
+      setEditandoTelefono(false);
+    } catch (err) {
+      setErrorTelefono(err.message);
+    } finally {
+      setGuardandoTelefono(false);
+    }
   }
 
   function copiarEnlace() {
@@ -169,6 +187,32 @@ export default function ChoferDetalle() {
                 )}
               </div>
             )}
+
+            <div className="mt-1.5">
+              {editandoTelefono ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    autoFocus
+                    value={telefonoInput}
+                    onChange={(e) => setTelefonoInput(e.target.value)}
+                    placeholder="+34 600 111 222"
+                    className="text-xs border border-border rounded-md px-2 py-1 w-36 focus:outline-none focus:border-brand"
+                  />
+                  <button onClick={guardarTelefono} disabled={guardandoTelefono} aria-label="Guardar teléfono" className="p-1 text-estado-ok disabled:opacity-40"><Check size={14} /></button>
+                  <button onClick={() => { setEditandoTelefono(false); setErrorTelefono(null); }} disabled={guardandoTelefono} aria-label="Cancelar" className="p-1 text-ink-muted disabled:opacity-40"><X size={14} /></button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setTelefonoInput(chofer.telefono || ""); setEditandoTelefono(true); }}
+                  className="flex items-center gap-1.5 text-xs text-ink-secondary hover:text-ink"
+                >
+                  <Phone size={12} />
+                  {chofer.telefono || "Sin teléfono"}
+                  <Edit3 size={11} className="text-ink-muted" />
+                </button>
+              )}
+              {errorTelefono && <p className="text-xs text-estado-incidencia mt-1">{errorTelefono}</p>}
+            </div>
           </div>
           <div className="text-right shrink-0">
             {mediaValoracion && (

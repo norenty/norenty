@@ -57,11 +57,13 @@ export const ALIAS_VIAJE = {
 export const CAMPOS_CHOFER = [
   { key: "nombre", label: "Nombre", required: true },
   { key: "idioma", label: "Idioma (es/en/ro/fr/it/pt/de/ar)" },
+  { key: "telefono", label: "Teléfono (opcional)" },
 ];
 
 export const ALIAS_CHOFER = {
   nombre: ["nombre", "name", "chofer", "chófer", "conductor", "driver"],
   idioma: ["idioma", "language", "lang", "lengua"],
+  telefono: ["telefono", "teléfono", "telefon", "phone", "movil", "móvil", "tlf", "tel"],
 };
 
 export const CAMPOS_VEHICULO = [

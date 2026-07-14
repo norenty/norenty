@@ -38,11 +38,12 @@ describe("autoMapColumns (IMP.1 — genérica por tipo de entidad)", () => {
 });
 
 describe("CAMPOS/ALIAS de chófer y vehículo (IMP.2 — importación masiva)", () => {
-  it("mapea columnas de chófer reales", () => {
-    const cols = ["Nombre del conductor", "Idioma"];
+  it("mapea columnas de chófer reales, incluido el teléfono", () => {
+    const cols = ["Nombre del conductor", "Idioma", "Móvil"];
     const mapping = autoMapColumns(cols, ALIAS_CHOFER);
     expect(mapping.nombre).toBe("Nombre del conductor");
     expect(mapping.idioma).toBe("Idioma");
+    expect(mapping.telefono).toBe("Móvil");
   });
 
   it("mapea columnas de vehículo reales", () => {

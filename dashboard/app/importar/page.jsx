@@ -88,7 +88,7 @@ export default function ImportarPage() {
       const r = mapped[i];
       try {
         if (!r.nombre) throw new Error("falta el nombre");
-        await createChofer({ nombre: r.nombre, idioma: r.idioma || undefined });
+        await createChofer({ nombre: r.nombre, idioma: r.idioma || undefined, telefono: r.telefono || null });
         ok++;
       } catch (err) {
         errores.push({ fila: i + 1, ref: r.nombre, error: err.message || "Error desconocido" });

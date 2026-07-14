@@ -177,6 +177,9 @@ const {
   guardarDesgloseCosteEmpresa,
   guardarCapacidadVehiculo,
   createVehiculo,
+  createChofer,
+  guardarTelefonoChofer,
+  normalizarTelefonoE164,
   guardarObjetivoPuntualidadEmpresa,
   guardarMargenObjetivoEmpresa,
   getRendimientoGestores,
@@ -1580,6 +1583,83 @@ describe("ajustes de empresa (9.39 — extraído de ajustes/page.jsx a data.js)"
       guardarDesgloseCosteEmpresa("e1", { precio_gasoil_litro: "-1", coste_peaje_km: "0.1", dieta_noche_eur: "", coste_conductor_km: "" })
     ).rejects.toThrow("números positivos");
     expect(TABLES.empresa[0].precio_gasoil_litro).toBeUndefined();
+  });
+});
+
+describe("normalizarTelefonoE164 (bot de llamadas, fase 1 — SPECS-BOT-LLAMADAS.md)", () => {
+  it("ya en E.164 se queda igual", () => {
+    expect(normalizarTelefonoE164("+34600111222")).toBe("+34600111222");
+  });
+
+  it("quita espacios, guiones y paréntesis", () => {
+    expect(normalizarTelefonoE164("+34 600-111 (222)")).toBe("+34600111222");
+  });
+
+  it("00 al principio se convierte en +", () => {
+    expect(normalizarTelefonoE164("0034600111222")).toBe("+34600111222");
+  });
+
+  it("nacional sin prefijo usa el prefijo por defecto (+34)", () => {
+    expect(normalizarTelefonoE164("600111222")).toBe("+34600111222");
+  });
+
+  it("nacional con 0 inicial no duplica el prefijo", () => {
+    expect(normalizarTelefonoE164("0600111222")).toBe("+34600111222");
+  });
+
+  it("acepta un prefijo por defecto distinto", () => {
+    expect(normalizarTelefonoE164("712345678", "+40")).toBe("+40712345678");
+  });
+
+  it("vacío o solo espacios devuelve null", () => {
+    expect(normalizarTelefonoE164("")).toBeNull();
+    expect(normalizarTelefonoE164("   ")).toBeNull();
+    expect(normalizarTelefonoE164(null)).toBeNull();
+  });
+
+  it("demasiado corto para ser un teléfono real devuelve null", () => {
+    expect(normalizarTelefonoE164("123")).toBeNull();
+  });
+});
+
+describe("createChofer / guardarTelefonoChofer (bot de llamadas, fase 1)", () => {
+  beforeEach(() => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "emp1" }];
+    TABLES.chofer = [];
+  });
+
+  it("createChofer sin teléfono guarda null", async () => {
+    const c = await createChofer({ nombre: "Mario", idioma: "es" });
+    expect(c.telefono).toBeNull();
+  });
+
+  it("createChofer normaliza el teléfono al guardarlo", async () => {
+    const c = await createChofer({ nombre: "Mario", idioma: "es", telefono: "600 111 222" });
+    expect(c.telefono).toBe("+34600111222");
+  });
+
+  it("createChofer rechaza un teléfono inválido sin llegar a insertar", async () => {
+    await expect(createChofer({ nombre: "Mario", telefono: "abc" })).rejects.toThrow("no parece válido");
+    expect(TABLES.chofer).toHaveLength(0);
+  });
+
+  it("guardarTelefonoChofer actualiza el teléfono normalizado", async () => {
+    TABLES.chofer = [{ id: "c1", nombre: "Mario", telefono: null }];
+    await guardarTelefonoChofer("c1", "600111222");
+    expect(TABLES.chofer[0].telefono).toBe("+34600111222");
+  });
+
+  it("guardarTelefonoChofer con string vacío borra el teléfono", async () => {
+    TABLES.chofer = [{ id: "c1", nombre: "Mario", telefono: "+34600111222" }];
+    await guardarTelefonoChofer("c1", "");
+    expect(TABLES.chofer[0].telefono).toBeNull();
+  });
+
+  it("guardarTelefonoChofer rechaza un valor inválido sin tocar el existente", async () => {
+    TABLES.chofer = [{ id: "c1", nombre: "Mario", telefono: "+34600111222" }];
+    await expect(guardarTelefonoChofer("c1", "abc")).rejects.toThrow("no parece válido");
+    expect(TABLES.chofer[0].telefono).toBe("+34600111222");
   });
 });
 

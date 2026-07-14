@@ -13,6 +13,7 @@ export default function ChoferesPage() {
   const [choferes, setChoferes] = useState([]);
   const [nombre, setNombre] = useState("");
   const [idioma, setIdioma] = useState("es");
+  const [telefono, setTelefono] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [copiado, setCopiado] = useState(null);
   const [error, setError] = useState(null);
@@ -30,9 +31,10 @@ export default function ChoferesPage() {
     if (dup) { setError(`Ya existe un chófer con el nombre "${dup.nombre}"`); return; }
     setGuardando(true);
     try {
-      await createChofer({ nombre: nombre.trim(), idioma });
+      await createChofer({ nombre: nombre.trim(), idioma, telefono: telefono.trim() || null });
       setNombre("");
       setIdioma("es");
+      setTelefono("");
     } catch (err) {
       setError(err.message);
     }
@@ -87,6 +89,15 @@ export default function ChoferesPage() {
               </option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className="block text-xs text-ink-secondary mb-1">Teléfono (opcional)</label>
+          <input
+            value={telefono}
+            onChange={(e) => setTelefono(e.target.value)}
+            placeholder="+34 600 111 222"
+            className="w-36 text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+          />
         </div>
         <button
           type="submit"

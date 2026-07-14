@@ -951,6 +951,15 @@ pica código. Orden de ejecución con dependencias, al final de ese documento:
   llamada con cliente" de 11.7 (esa sí exige aprobación humana antes de enviar; las acciones
   acotadas del chófer — confirmar llegada, incidencia — no necesitan ese filtro, igual que hoy no
   lo necesitan en Telegram).
+  **Fase 1 construida (2026-07-14, `[LOOP]`, sin coste, confirmado con el usuario):** hasta hoy
+  `chofer.telefono` existía en el esquema pero NINGUNA pantalla lo capturaba — no había nada que
+  normalizar. `normalizarTelefonoE164(telefono, prefijoDefault="+34")` pura en `data.js`: acepta
+  espacios/guiones/paréntesis, `00`→`+`, nacional sin prefijo asume España, devuelve `null` si no
+  tiene pinta de teléfono real. `createChofer` y el nuevo `guardarTelefonoChofer` lo normalizan al
+  guardar (rechazan con error claro si es inválido, nunca guardan basura en silencio). UI: campo
+  teléfono en el alta (`/choferes`) y edición inline en la ficha (`/choferes/[id]`). Importador
+  masivo (IMP.2): `telefono` añadido a `CAMPOS_CHOFER`/`ALIAS_CHOFER`. 14 tests nuevos. 360 vitest,
+  `ci.ps1` completo verde. Fases 2 (menú DTMF) y 3 (voz completa) siguen `[DECISIÓN]`/STOP duro.
 - [ ] `[DECISIÓN]` **7B.4 Tacógrafo remoto** — integraciones de descarga remota (Continental VDO,
   Stoneridge, Webfleet…): sustituye la ESTIMACIÓN 561 de 7A.1 por horas REALES. Requiere acuerdos/
   cuentas con proveedores; evaluar en el piloto qué usa la flota.
