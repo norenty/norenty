@@ -197,6 +197,8 @@ const {
   getTendenciaVerdadObservada,
   getSugerenciaCalibracion,
   getPlanVsReal,
+  calcularDesfasePod,
+  UMBRAL_POD_TARDIO_MIN,
   getOnboardingEstado,
   calcularPanelViaje,
   createViaje,
@@ -2258,6 +2260,49 @@ describe("plan-vs-real por hito (7A.9)", () => {
     const r = await getPlanVsReal("v1");
     expect(r.resumen.conVentana).toBe(2);
     expect(r.resumen.aTiempo).toBe(1);
+  });
+});
+
+describe("calcularDesfasePod — capa barata de validación de POD (decisión 2026-07-13)", () => {
+  it("POD subido poco después de la llegada: no tardío", () => {
+    const pod = { hito_id: "h1", created_at: "2026-01-01T10:05:00Z" };
+    const eventos = [{ tipo: "llegada", hito_id: "h1", ocurrido_en: "2026-01-01T10:00:00Z" }];
+    const r = calcularDesfasePod(pod, eventos);
+    expect(r.minutos).toBe(5);
+    expect(r.tardio).toBe(false);
+  });
+
+  it(`POD subido justo por debajo del umbral (${UMBRAL_POD_TARDIO_MIN} min): no tardío`, () => {
+    const pod = { hito_id: "h1", created_at: "2026-01-01T11:59:00Z" };
+    const eventos = [{ tipo: "llegada", hito_id: "h1", ocurrido_en: "2026-01-01T10:00:00Z" }];
+    const r = calcularDesfasePod(pod, eventos);
+    expect(r.minutos).toBe(119);
+    expect(r.tardio).toBe(false);
+  });
+
+  it("POD subido muy por encima del umbral: tardío", () => {
+    const pod = { hito_id: "h1", created_at: "2026-01-01T14:00:00Z" };
+    const eventos = [{ tipo: "llegada", hito_id: "h1", ocurrido_en: "2026-01-01T10:00:00Z" }];
+    const r = calcularDesfasePod(pod, eventos);
+    expect(r.minutos).toBe(240);
+    expect(r.tardio).toBe(true);
+  });
+
+  it("sin evento de llegada para ese hito: no marca tardío (sin datos, no falso positivo)", () => {
+    const pod = { hito_id: "h1", created_at: "2026-01-01T14:00:00Z" };
+    const r = calcularDesfasePod(pod, []);
+    expect(r.minutos).toBeNull();
+    expect(r.tardio).toBe(false);
+  });
+
+  it("ignora eventos de otro tipo o de otro hito", () => {
+    const pod = { hito_id: "h1", created_at: "2026-01-01T14:00:00Z" };
+    const eventos = [
+      { tipo: "salida", hito_id: "h1", ocurrido_en: "2026-01-01T09:00:00Z" },
+      { tipo: "llegada", hito_id: "h2", ocurrido_en: "2026-01-01T09:00:00Z" },
+    ];
+    const r = calcularDesfasePod(pod, eventos);
+    expect(r.minutos).toBeNull();
   });
 });
 

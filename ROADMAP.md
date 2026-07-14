@@ -36,6 +36,17 @@ sección manda. Cada ítem afectado lleva además una nota inline `**Actualizaci
    en el bucle (el gestor ya ve la foto). La **visión LLM** queda como última capa OPCIONAL, solo
    como sugerencia y probada con PODs reales. Reencuadra los dos ítems "Validación POD con visión
    LLM" (Fase 2 y Fase 4): el 80% del valor es gratis y sin alucinación.
+   **Capa (a) construida (2026-07-14).** `calcularDesfasePod(pod, eventos)` en `dashboard/lib/
+   data.js`: pura, sin query nueva (reutiliza `eventos`/`pods` que `getViaje()` ya carga en
+   `/viajes/[id]`), cruza `pod.created_at` contra el evento `"llegada"` del mismo `hito_id` — si el
+   POD se sube más de `UMBRAL_POD_TARDIO_MIN` (120 min, valor inicial razonable no pactado, mismo
+   estatus que `UMBRAL_MARGEN_AMBAR_PCT`) después de la llegada confirmada, badge ámbar "revisar"
+   en la tarjeta del POD (aviso, nunca cambia `estado_validacion` sola — el gestor sigue decidiendo).
+   Sin evento de llegada para ese hito → no marca tardío (sin datos, no falso positivo). 5 tests
+   nuevos. **No verificado en navegador con datos reales**: la página `/viajes/[id]` exige sesión y
+   no hay forma de loguearse sin exponer credenciales (regla de `CLAUDE.md`); verificado por build
+   limpio + los 5 tests que cubren exactamente la lógica que decide el badge. (b) OCR y (c) quedan
+   para una siguiente pasada — (b) añade una dependencia nueva (Tesseract), fuera de esta iteración.
 
 4. **Asistente in-dashboard = command palette SIN IA.** Extender el buscador Ctrl+K (6.12) a un
    palette que mapea frases a funciones que YA existen (`getViabilidadViaje`, `getEstado561`,

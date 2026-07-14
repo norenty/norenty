@@ -15,7 +15,7 @@ import {
   getViaje, getChoferes, validarCambioEstado, validarAsignacion,
   getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje, getEstado561, getPnlViaje, getPlanVsReal,
   generarTokenPublico, revocarTokenPublico, DIAS_VALIDEZ_TOKEN_PUBLICO_DEFAULT, registrarAuditoria, getAuditLog,
-  createContexto,
+  createContexto, calcularDesfasePod,
 } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
@@ -634,10 +634,17 @@ export default function ViajeDetalle() {
               <div className="flex flex-col gap-3">
                 {pods.map((p) => {
                   const ep = ESTADO_POD[p.estado_validacion] || ESTADO_POD.pendiente;
+                  const desfase = calcularDesfasePod(p, eventos);
                   return (
                     <div key={p.id} className="bg-surface border border-border rounded-xl overflow-hidden">
                       {p.foto_url && (
                         <PodImage path={p.foto_url} className="w-full h-40" />
+                      )}
+                      {desfase.tardio && (
+                        <div className="flex items-center gap-1.5 px-2 py-1.5 bg-yellow-50 text-yellow-800 text-xs border-b border-border">
+                          <AlertTriangle size={12} className="shrink-0" />
+                          Subido {(desfase.minutos / 60).toFixed(1)} h después de la llegada — revisar
+                        </div>
                       )}
                       <div className="p-2 flex items-center gap-2">
                         <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${ep.color}`}>{ep.label}</span>

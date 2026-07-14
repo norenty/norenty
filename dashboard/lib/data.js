@@ -2326,6 +2326,23 @@ export async function getPlanVsReal(viajeId) {
   return { filas, resumen: { aTiempo, conVentana } };
 }
 
+// --- Validación de POD, capa barata (decisión 2026-07-13) ---
+// Antes de pagar visión LLM por imagen (coste + riesgo de alucinación), cruzar
+// señales que YA tenemos gratis: el POD se sube mucho después de la llegada
+// confirmada al hito es una bandera de coherencia, no un veredicto. Solo AVISA
+// (badge en la UI), nunca cambia estado_validacion por sí sola — mismo
+// principio "sugerencia, nunca mutación silenciosa" que 10.8/10.9.
+// 120 min es un valor inicial razonable, no pactado con un cliente real
+// (mismo estatus que UMBRAL_MARGEN_AMBAR_PCT/UMBRAL_NOCHE_FUERA_KM).
+export const UMBRAL_POD_TARDIO_MIN = 120;
+
+export function calcularDesfasePod(pod, eventos) {
+  const llegada = (eventos || []).find((e) => e.tipo === "llegada" && e.hito_id === pod.hito_id);
+  if (!llegada) return { minutos: null, tardio: false };
+  const minutos = Math.round((new Date(pod.created_at).getTime() - new Date(llegada.ocurrido_en).getTime()) / 60000);
+  return { minutos, tardio: minutos > UMBRAL_POD_TARDIO_MIN };
+}
+
 // ==========================================================================
 // Onboarding (ítem 7A.13) — checklist guiado para una empresa recién creada.
 // ==========================================================================

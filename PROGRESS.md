@@ -8,6 +8,16 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | Capa barata de validación de POD — cruce con evento de llegada (decisión 2026-07-13
+punto 3) | — | HECHO. `calcularDesfasePod(pod, eventos)` en `data.js`: pura, sin query nueva
+(reutiliza datos que `/viajes/[id]` ya carga), marca el POD como "tardío" si se sube más de
+`UMBRAL_POD_TARDIO_MIN` (120 min) después del evento de llegada al mismo hito. Badge ámbar de
+aviso en la tarjeta del POD, nunca cambia `estado_validacion` sola. 5 tests nuevos. **No
+verificado en navegador con datos reales** — `/viajes/[id]` exige sesión, sin credenciales para
+loguear (regla de secretos de `CLAUDE.md`); verificado por build limpio + tests exactos de la
+lógica del badge. OCR (capa b) y humano-en-el-bucle (capa c, ya existe) quedan para después. 315
+vitest, `ci.ps1` completo verde.
+
 2026-07-14 | Command palette de consultas (asistente sin IA, decisión 2026-07-13 punto 4) | — |
 HECHO. Nuevo `dashboard/lib/comandos.js`: `matchComandos(query, resumen)` puro y testeado, mapea
 texto a 5 comandos canónicos (documentos por caducar, incidencias abiertas, viajes en riesgo,
