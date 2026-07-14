@@ -1714,6 +1714,44 @@ export function calcularCosteRuta({ km, noches = 0, vehiculo, empresa }) {
   return { modo: "desglosado", combustible, conductor, peajes, dietas, total, capasFaltantes };
 }
 
+// COT.4 — Camión completo (FTL) vs. grupaje: el estándar del sector mide la
+// capacidad por TRES dimensiones a la vez (LDM, peso, volumen); la ocupación
+// real la marca la que se llena primero. 85% es un valor inicial razonable,
+// NO pactado con un cliente real (mismo estatus que UMBRAL_MARGEN_AMBAR_PCT).
+export const UMBRAL_FTL_PCT = 85;
+
+/**
+ * @param {{ldm?: number, kg?: number, m3?: number}} carga
+ * @param {{ldm?: number, kg?: number, m3?: number}} capacidad
+ * @returns {{pctLdm: number|null, pctKg: number|null, pctM3: number|null,
+ *   pctOcupacion: number|null, dimensionLimitante: "ldm"|"kg"|"m3"|null,
+ *   tipo: "completo"|"grupaje"|"desconocido"}}
+ */
+export function calcularOcupacion(carga, capacidad) {
+  const pcts = {};
+  for (const dim of ["ldm", "kg", "m3"]) {
+    const c = carga?.[dim];
+    const cap = capacidad?.[dim];
+    if (c != null && cap != null && cap > 0) {
+      pcts[dim] = (c / cap) * 100;
+    }
+  }
+  const dims = Object.keys(pcts);
+  if (dims.length === 0) {
+    return { pctLdm: null, pctKg: null, pctM3: null, pctOcupacion: null, dimensionLimitante: null, tipo: "desconocido" };
+  }
+  const dimensionLimitante = dims.reduce((max, d) => (pcts[d] > pcts[max] ? d : max), dims[0]);
+  const pctOcupacion = pcts[dimensionLimitante];
+  return {
+    pctLdm: pcts.ldm ?? null,
+    pctKg: pcts.kg ?? null,
+    pctM3: pcts.m3 ?? null,
+    pctOcupacion,
+    dimensionLimitante,
+    tipo: pctOcupacion >= UMBRAL_FTL_PCT ? "completo" : "grupaje",
+  };
+}
+
 /**
  * Margen de un viaje dado el ingreso (`precio`), los `km` y el `costeKm`.
  * Devuelve null en los campos que no se puedan calcular (falta precio, km o coste)

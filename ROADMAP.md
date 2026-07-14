@@ -10,11 +10,15 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
-## Cola ACTIVA del loop autónomo — Cotizador (2026-07-14, MÁXIMA PRIORIDAD)
+## Cotizador (COT.1-4) — CERRADA 2026-07-14
 
-**⚠️ El loop autónomo trabaja AHORA en esta cola, en orden, ANTES que cualquier otra fase.** Spec
-cerrada completa en `SPECS-COTIZADOR.md` (leer OBLIGATORIO antes de cada ítem). Protocolo: uno por
-iteración, `ci.ps1` verde, commit, `[x]` aquí + línea en PROGRESS.md. Modelo: `sonnet` esfuerzo bajo.
+Construida en loop autónomo de principio a fin (COT.1→COT.2→COT.3→COT.4), spec completa en
+`SPECS-COTIZADOR.md`. `/presupuesto` ahora es una calculadora what-if completa: origen+destino →
+km/horas/descansos/coste/precio sugerido, sliders de gasoil/velocidad/margen que recalculan en
+vivo sin tocar la config real, y capacidad de carga (LDM+kg+m³) con detección automática de camión
+completo vs. grupaje. COT.5 (comparar con viajes reales similares) y COT.6 (audio→presupuesto)
+siguen `[DECISIÓN]`/GATED — ver el final de `SPECS-COTIZADOR.md` (necesitan datos reales de
+producción y la infra de Whisper+LLM respectivamente).
 
 - [x] `[LOOP]` **COT.1 — `calcularPresupuesto` acepta overrides (what-if).** Ver SPECS-COTIZADOR.md §COT.1.
 - [x] `[LOOP]` **COT.2 — Página calculadora con what-if en vivo** (gasoil/velocidad/margen recalculan). §COT.2.
@@ -35,7 +39,16 @@ iteración, `ci.ps1` verde, commit, `[x]` aquí + línea en PROGRESS.md. Modelo:
   `/vehiculos/[id]`, junto al bloque de coste/km existente, admin-only (`RequireRol`). 3 tests
   nuevos (guarda las 3, vacío→null sin tocar las demás, rechaza negativo sin escribir). 323 vitest,
   `ci.ps1` completo verde.
-- [ ] `[LOOP]` **COT.4 — Cálculo FTL / grupaje** (ocupación = máx de las 3 dimensiones). §COT.4.
+- [x] `[LOOP]` **COT.4 — Cálculo FTL / grupaje** (ocupación = máx de las 3 dimensiones). §COT.4.
+  Construido (2026-07-14). `calcularOcupacion(carga, capacidad)` pura en `data.js`:
+  `pctOcupacion = max` de las dimensiones calculables (ldm/kg/m3), `dimensionLimitante` = la que
+  manda, `tipo` = "completo" si ≥ `UMBRAL_FTL_PCT` (85%, valor inicial razonable no pactado) o
+  "grupaje"; "desconocido" si no hay capacidad o carga que comparar (nunca falla). Integrado en
+  `/presupuesto`: al elegir un vehículo con capacidad configurada (COT.3), aparecen 3 inputs de
+  carga y una barra de ocupación con badge "Camión completo"/"Grupaje" + qué dimensión limita; si
+  el vehículo no tiene capacidad, enlace directo a su ficha para configurarla. 6 tests nuevos
+  (limitado por cada dimensión, frontera exacta del umbral, sin capacidad, sin carga). 329 vitest,
+  `ci.ps1` completo verde.
 
 **Al cerrar COT.4:** `PushNotification` con el resumen + DETENER el loop. COT.5 (comparar con
 viajes reales similares) y COT.6 (audio→presupuesto) están GATED (datos reales / infra Whisper+LLM)

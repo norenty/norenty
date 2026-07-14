@@ -8,6 +8,14 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | COT.4 — Cálculo FTL/grupaje (cierra la cola del cotizador COT.1-4) | (loop) | HECHO.
+`calcularOcupacion(carga, capacidad)` pura: ocupación = máx de ldm/kg/m3 calculables, marca la
+dimensión limitante y el tipo (completo ≥85%, grupaje, o desconocido sin datos). Integrado en
+`/presupuesto`: inputs de carga + barra de ocupación cuando el vehículo elegido tiene capacidad
+(COT.3); si no, enlace a configurarla. 6 tests nuevos. 329 vitest, `ci.ps1` completo verde.
+**Cola del cotizador (COT.1-4, SPECS-COTIZADOR.md) CERRADA.** COT.5 (comparar con viajes reales
+similares) y COT.6 (audio→presupuesto) siguen GATED — no tocados, según spec.
+
 2026-07-14 | COT.3 — Capacidad de vehículo (LDM/kg/m³) + guardarCapacidadVehiculo | (loop) | HECHO.
 Migración `0050_capacidad_carga.sql` aplicada con `migrate.py` (verificado Grupo B contra la BD
 real: 3 columnas nullable). `guardarCapacidadVehiculo` en `data.js` (patrón

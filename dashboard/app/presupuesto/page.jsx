@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
-import { Calculator, Plus, Trash2, AlertTriangle, SlidersHorizontal, RotateCcw } from "lucide-react";
-import { calcularPresupuesto } from "../../lib/data";
+import { Calculator, Plus, Trash2, AlertTriangle, SlidersHorizontal, RotateCcw, Package } from "lucide-react";
+import { calcularPresupuesto, calcularOcupacion } from "../../lib/data";
 import { supabase } from "../../lib/supabase";
 import { LABEL_CAPA } from "../../lib/labels";
 import { fmtEur, fmtKm } from "../../lib/format";
@@ -24,14 +24,31 @@ export default function PresupuestoPage() {
   const [config, setConfig] = useState(null);
   const [whatIf, setWhatIf] = useState(WHAT_IF_VACIO);
   const timerWhatIf = useRef(null);
+  const [carga, setCarga] = useState({ ldm: "", kg: "", m3: "" });
 
   useEffect(() => {
-    supabase.from("vehiculo").select("id, matricula").eq("activo", true).order("matricula").then(({ data }) => setVehiculos(data || []));
+    supabase
+      .from("vehiculo")
+      .select("id, matricula, capacidad_ldm, capacidad_kg, capacidad_m3")
+      .eq("activo", true)
+      .order("matricula")
+      .then(({ data }) => setVehiculos(data || []));
     supabase
       .from("empresa")
       .select("velocidad_planificacion_kmh, precio_gasoil_litro, margen_objetivo_pct")
       .then(({ data }) => setConfig((data || [])[0] || null));
   }, []);
+
+  const vehiculoSeleccionado = vehiculos.find((v) => v.id === vehiculoId) || null;
+  const tieneCapacidad = !!(vehiculoSeleccionado && (
+    vehiculoSeleccionado.capacidad_ldm != null || vehiculoSeleccionado.capacidad_kg != null || vehiculoSeleccionado.capacidad_m3 != null
+  ));
+  const ocupacion = tieneCapacidad
+    ? calcularOcupacion(
+        { ldm: carga.ldm === "" ? null : Number(carga.ldm), kg: carga.kg === "" ? null : Number(carga.kg), m3: carga.m3 === "" ? null : Number(carga.m3) },
+        { ldm: vehiculoSeleccionado.capacidad_ldm, kg: vehiculoSeleccionado.capacidad_kg, m3: vehiculoSeleccionado.capacidad_m3 }
+      )
+    : null;
 
   function actualizarPunto(i, campo, valor) {
     setPuntos((ps) => ps.map((p, idx) => (idx === i ? { ...p, [campo]: valor } : p)));
@@ -167,6 +184,72 @@ export default function PresupuestoPage() {
             ))}
           </select>
         </div>
+
+        {vehiculoId && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <h2 className="text-sm font-medium text-ink mb-2 flex items-center gap-1.5">
+              <Package size={14} /> Carga (opcional)
+            </h2>
+            {!tieneCapacidad ? (
+              <p className="text-xs text-ink-secondary">
+                Este vehículo no tiene capacidad configurada — <Link href={`/vehiculos/${vehiculoId}`} className="underline">añádela en su ficha</Link> para ver si la carga es camión completo o grupaje.
+              </p>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-3 max-w-md">
+                  <div>
+                    <label htmlFor="carga-ldm" className="block text-xs text-ink-secondary mb-1">LDM</label>
+                    <input
+                      id="carga-ldm" type="number" step="any" min="0"
+                      value={carga.ldm}
+                      onChange={(e) => setCarga((c) => ({ ...c, ldm: e.target.value }))}
+                      placeholder={`máx. ${vehiculoSeleccionado.capacidad_ldm ?? "—"}`}
+                      className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="carga-kg" className="block text-xs text-ink-secondary mb-1">kg</label>
+                    <input
+                      id="carga-kg" type="number" step="any" min="0"
+                      value={carga.kg}
+                      onChange={(e) => setCarga((c) => ({ ...c, kg: e.target.value }))}
+                      placeholder={`máx. ${vehiculoSeleccionado.capacidad_kg ?? "—"}`}
+                      className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="carga-m3" className="block text-xs text-ink-secondary mb-1">m³</label>
+                    <input
+                      id="carga-m3" type="number" step="any" min="0"
+                      value={carga.m3}
+                      onChange={(e) => setCarga((c) => ({ ...c, m3: e.target.value }))}
+                      placeholder={`máx. ${vehiculoSeleccionado.capacidad_m3 ?? "—"}`}
+                      className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+                    />
+                  </div>
+                </div>
+                {ocupacion.pctOcupacion != null && (
+                  <div className="mt-3 max-w-md">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ocupacion.tipo === "completo" ? "bg-brand/10 text-brand" : "bg-surface-alt text-ink-secondary"}`}>
+                        {ocupacion.tipo === "completo" ? "Camión completo (FTL)" : "Grupaje"}
+                      </span>
+                      <span className="text-xs text-ink-muted">
+                        {Math.round(ocupacion.pctOcupacion)}% — limita {ocupacion.dimensionLimitante?.toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-surface-alt overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${ocupacion.tipo === "completo" ? "bg-brand" : "bg-ink-muted"}`}
+                        style={{ width: `${Math.min(100, ocupacion.pctOcupacion)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         <div className="mt-4 pt-4 border-t border-border">
           <div className="flex items-center justify-between mb-2">

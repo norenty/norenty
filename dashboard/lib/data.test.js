@@ -201,6 +201,8 @@ const {
   getPlanVsReal,
   calcularDesfasePod,
   UMBRAL_POD_TARDIO_MIN,
+  calcularOcupacion,
+  UMBRAL_FTL_PCT,
   getOnboardingEstado,
   calcularPanelViaje,
   createViaje,
@@ -2376,6 +2378,46 @@ describe("calcularDesfasePod — capa barata de validación de POD (decisión 20
     ];
     const r = calcularDesfasePod(pod, eventos);
     expect(r.minutos).toBeNull();
+  });
+});
+
+describe("calcularOcupacion — FTL vs. grupaje (COT.4)", () => {
+  it("limitado por peso: kg decide aunque LDM/m3 vayan holgados", () => {
+    const r = calcularOcupacion({ ldm: 2, kg: 20000, m3: 10 }, { ldm: 13.6, kg: 24000, m3: 90 });
+    expect(r.dimensionLimitante).toBe("kg");
+    expect(r.pctOcupacion).toBeCloseTo((20000 / 24000) * 100, 5);
+    expect(r.tipo).toBe("grupaje");
+  });
+
+  it("limitado por volumen (m3)", () => {
+    const r = calcularOcupacion({ ldm: 1, kg: 500, m3: 85 }, { ldm: 13.6, kg: 24000, m3: 90 });
+    expect(r.dimensionLimitante).toBe("m3");
+    expect(r.pctOcupacion).toBeCloseTo((85 / 90) * 100, 5);
+  });
+
+  it("limitado por LDM", () => {
+    const r = calcularOcupacion({ ldm: 13, kg: 100, m3: 1 }, { ldm: 13.6, kg: 24000, m3: 90 });
+    expect(r.dimensionLimitante).toBe("ldm");
+    expect(r.pctOcupacion).toBeCloseTo((13 / 13.6) * 100, 5);
+  });
+
+  it(`frontera del umbral (${UMBRAL_FTL_PCT}%): por debajo es grupaje, por encima es completo`, () => {
+    const debajo = calcularOcupacion({ kg: 20399 }, { kg: 24000 }); // 84.99%
+    expect(debajo.tipo).toBe("grupaje");
+    const encima = calcularOcupacion({ kg: 20400 }, { kg: 24000 }); // 85.0%
+    expect(encima.tipo).toBe("completo");
+  });
+
+  it("sin capacidad conocida (vehículo sin configurar): tipo desconocido, no falla", () => {
+    const r = calcularOcupacion({ ldm: 5, kg: 10000, m3: 30 }, {});
+    expect(r.tipo).toBe("desconocido");
+    expect(r.pctOcupacion).toBeNull();
+    expect(r.dimensionLimitante).toBeNull();
+  });
+
+  it("sin carga (todo vacío): tipo desconocido", () => {
+    const r = calcularOcupacion({}, { ldm: 13.6, kg: 24000, m3: 90 });
+    expect(r.tipo).toBe("desconocido");
   });
 });
 
