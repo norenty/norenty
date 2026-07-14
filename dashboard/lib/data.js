@@ -2681,6 +2681,26 @@ export async function createChofer({ nombre, idioma }) {
   return data;
 }
 
+/**
+ * IMP.2 — mismo patrón que `createChofer`, usada tanto por el alta manual
+ * (`/vehiculos`) como por el importador masivo. No comprueba duplicados de
+ * matrícula aquí (no hay constraint UNIQUE en la BD) — el llamador decide
+ * (el alta manual ya comprueba contra su lista cargada; el importador no,
+ * a propósito, ver "FUERA DE ESTE LOOP" en SPECS-IMPORTADOR-MASIVO.md).
+ */
+export async function createVehiculo({ matricula, tipo = "tractora", marca = null, modelo = null }) {
+  const mat = (matricula || "").trim().toUpperCase();
+  if (!mat) throw new Error("la matrícula no puede estar vacía");
+  const empresa_id = await getCurrentEmpresaId();
+  const { data, error } = await supabase
+    .from("vehiculo")
+    .insert({ matricula: mat, tipo: tipo || "tractora", marca: (marca || "").toString().trim() || null, modelo: (modelo || "").toString().trim() || null, empresa_id })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 // --- Validaciones de conflicto ---
 
 async function checkConflictoChofer(choferId, excluirViajeId) {

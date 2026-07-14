@@ -52,6 +52,32 @@ export const ALIAS_VIAJE = {
   notas: ["notas", "notes", "observaciones", "comentarios"],
 };
 
+// IMP.2 — importación masiva de chóferes y vehículos (antes solo existía
+// para viajes, obligando a dar de alta chóferes/vehículos uno a uno a mano).
+export const CAMPOS_CHOFER = [
+  { key: "nombre", label: "Nombre", required: true },
+  { key: "idioma", label: "Idioma (es/en/ro/fr/it/pt/de/ar)" },
+];
+
+export const ALIAS_CHOFER = {
+  nombre: ["nombre", "name", "chofer", "chófer", "conductor", "driver"],
+  idioma: ["idioma", "language", "lang", "lengua"],
+};
+
+export const CAMPOS_VEHICULO = [
+  { key: "matricula", label: "Matrícula", required: true },
+  { key: "tipo", label: "Tipo (tractora/remolque/rigido/furgoneta)" },
+  { key: "marca", label: "Marca" },
+  { key: "modelo", label: "Modelo" },
+];
+
+export const ALIAS_VEHICULO = {
+  matricula: ["matricula", "matrícula", "placa", "plate", "vehiculo", "vehículo"],
+  tipo: ["tipo", "type", "clase"],
+  marca: ["marca", "brand", "fabricante"],
+  modelo: ["modelo", "model"],
+};
+
 // IMP.1: autoMapColumns pasa a ser agnóstica del tipo de entidad — el
 // llamador decide qué campos/alias mapear (viaje, chófer, vehículo...).
 export function autoMapColumns(fileColumns, aliases) {

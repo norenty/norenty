@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Truck } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { getCurrentEmpresaId } from "../../lib/data";
+import { createVehiculo } from "../../lib/data";
 import { TIPOS_VEHICULO as TIPOS } from "../../lib/labels";
 import EmptyState from "../components/ui/EmptyState";
 
@@ -33,16 +33,11 @@ export default function VehiculosPage() {
     setError(null);
     if (dup) { setError(`Ya existe un vehículo con matrícula "${mat}"`); return; }
     setGuardando(true);
-    const empresa_id = await getCurrentEmpresaId();
-    const { error } = await supabase.from("vehiculo").insert({
-      matricula: mat,
-      tipo: form.tipo,
-      marca: form.marca.trim() || null,
-      modelo: form.modelo.trim() || null,
-      empresa_id,
-    });
-    if (error) { setError(error.message); } else {
+    try {
+      await createVehiculo({ matricula: mat, tipo: form.tipo, marca: form.marca, modelo: form.modelo });
       setForm({ matricula: "", tipo: "tractora", marca: "", modelo: "" });
+    } catch (err) {
+      setError(err.message);
     }
     setGuardando(false);
     load();

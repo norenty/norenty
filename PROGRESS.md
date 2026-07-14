@@ -8,6 +8,13 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | IMP.2 — createVehiculo + campos/alias de chófer y vehículo | (loop) | HECHO.
+`createVehiculo` en `data.js` (mismo patrón que `createChofer`), sin comprobar duplicados
+(no hay UNIQUE en `vehiculo.matricula`, verificado contra la BD real). `/vehiculos/page.jsx`
+refactorizada para reutilizarla sin cambiar comportamiento observable. `CAMPOS_CHOFER`/
+`CAMPOS_VEHICULO` + sus alias en `importar.js`. 8 tests nuevos. 342 vitest, `ci.ps1` completo
+verde. Sigue IMP.3 (UI del selector de tipo en /importar).
+
 2026-07-14 | IMP.1 — Generalizar autoMapColumns, DESBLOQUEADO tras liberar memoria del sistema |
 (loop) | HECHO. El usuario cerró las apps que consumían RAM (memoria libre pasó de ~950MB a
 ~2,6GB); `ci.ps1` completo verde a la primera con el MISMO diff que había fallado 3 veces —

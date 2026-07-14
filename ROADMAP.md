@@ -23,7 +23,15 @@ aquí + línea en PROGRESS.md.
   `/importar/page.jsx` pasa `ALIAS_VIAJE` explícito — retrocompatible, comportamiento idéntico. 5
   tests nuevos en `importar.test.js` (no existía cobertura de este módulo antes). 168 pytest, 334
   vitest, `ci.ps1` completo verde.
-- [ ] `[LOOP]` **IMP.2 — Alias/campos de chófer/vehículo + `createVehiculo`**. §IMP.2.
+- [x] `[LOOP]` **IMP.2 — Alias/campos de chófer/vehículo + `createVehiculo`**. §IMP.2.
+  Construido (2026-07-14). `CAMPOS_CHOFER`/`ALIAS_CHOFER` y `CAMPOS_VEHICULO`/`ALIAS_VEHICULO` en
+  `importar.js`. `createVehiculo({matricula, tipo, marca, modelo})` en `data.js`, mismo patrón que
+  `createChofer` (normaliza matrícula a mayúsculas, recorta marca/modelo, tipo por defecto
+  "tractora", rechaza matrícula vacía sin insertar). **No comprueba duplicados** — no hay
+  constraint UNIQUE en `vehiculo.matricula` en la BD real (verificado), decisión documentada en el
+  propio código. `/vehiculos/page.jsx` refactorizada para usarla (mismo comportamiento observable:
+  el alta manual sigue comprobando duplicados contra su lista ya cargada antes de llamar). 8 tests
+  nuevos (4 de `createVehiculo`, 4 de campos/alias). 342 vitest, `ci.ps1` completo verde.
 - [ ] `[LOOP]` **IMP.3 — UI: selector de tipo + flujo por lotes** en `/importar`. §IMP.3.
 
 **Al cerrar IMP.3:** `PushNotification` con el resumen + DETENER el loop.

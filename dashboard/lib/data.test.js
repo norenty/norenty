@@ -173,6 +173,7 @@ const {
   guardarVelocidadEmpresa,
   guardarDesgloseCosteEmpresa,
   guardarCapacidadVehiculo,
+  createVehiculo,
   guardarObjetivoPuntualidadEmpresa,
   guardarMargenObjetivoEmpresa,
   getRendimientoGestores,
@@ -1576,6 +1577,38 @@ describe("ajustes de empresa (9.39 — extraído de ajustes/page.jsx a data.js)"
       guardarDesgloseCosteEmpresa("e1", { precio_gasoil_litro: "-1", coste_peaje_km: "0.1", dieta_noche_eur: "", coste_conductor_km: "" })
     ).rejects.toThrow("números positivos");
     expect(TABLES.empresa[0].precio_gasoil_litro).toBeUndefined();
+  });
+});
+
+describe("createVehiculo (IMP.2 — alta manual y por importación masiva)", () => {
+  beforeEach(() => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "emp1" }];
+    TABLES.vehiculo = [];
+  });
+
+  it("normaliza la matrícula a mayúsculas y recorta espacios en marca/modelo", async () => {
+    const r = await createVehiculo({ matricula: " 1234abc ", tipo: "rigido", marca: " Volvo ", modelo: " FH " });
+    expect(r.matricula).toBe("1234ABC");
+    expect(r.marca).toBe("Volvo");
+    expect(r.modelo).toBe("FH");
+    expect(r.empresa_id).toBe("emp1");
+  });
+
+  it("tipo por defecto es tractora si no se indica", async () => {
+    const r = await createVehiculo({ matricula: "9999XYZ" });
+    expect(r.tipo).toBe("tractora");
+  });
+
+  it("marca/modelo vacíos guardan null, no cadena vacía", async () => {
+    const r = await createVehiculo({ matricula: "1111AAA", marca: "", modelo: "" });
+    expect(r.marca).toBeNull();
+    expect(r.modelo).toBeNull();
+  });
+
+  it("rechaza matrícula vacía sin llegar a insertar", async () => {
+    await expect(createVehiculo({ matricula: "   " })).rejects.toThrow("matrícula no puede estar vacía");
+    expect(TABLES.vehiculo).toHaveLength(0);
   });
 });
 
