@@ -40,21 +40,23 @@ export const CAMPOS_VIAJE = [
   { key: "notas", label: "Notas" },
 ];
 
-export function autoMapColumns(fileColumns) {
-  const mapping = {};
-  const aliases = {
-    referencia: ["referencia", "ref", "reference", "codigo", "código", "id_viaje", "nº", "numero"],
-    origen_direccion: ["origen", "recogida", "pickup", "from", "direccion_origen", "dir_origen", "carga"],
-    destino_direccion: ["destino", "entrega", "delivery", "to", "direccion_destino", "dir_destino", "descarga"],
-    chofer_nombre: ["chofer", "chófer", "conductor", "driver", "nombre_chofer"],
-    vehiculo_matricula: ["vehiculo", "vehículo", "matricula", "matrícula", "placa", "tractora", "camion", "camión"],
-    remolque_matricula: ["remolque", "trailer", "semi", "matricula_remolque"],
-    ventana_inicio: ["fecha_inicio", "inicio", "fecha", "date", "start", "hora_inicio", "ventana_inicio"],
-    ventana_fin: ["fecha_fin", "fin", "end", "hora_fin", "ventana_fin"],
-    notas: ["notas", "notes", "observaciones", "comentarios"],
-  };
+export const ALIAS_VIAJE = {
+  referencia: ["referencia", "ref", "reference", "codigo", "código", "id_viaje", "nº", "numero"],
+  origen_direccion: ["origen", "recogida", "pickup", "from", "direccion_origen", "dir_origen", "carga"],
+  destino_direccion: ["destino", "entrega", "delivery", "to", "direccion_destino", "dir_destino", "descarga"],
+  chofer_nombre: ["chofer", "chófer", "conductor", "driver", "nombre_chofer"],
+  vehiculo_matricula: ["vehiculo", "vehículo", "matricula", "matrícula", "placa", "tractora", "camion", "camión"],
+  remolque_matricula: ["remolque", "trailer", "semi", "matricula_remolque"],
+  ventana_inicio: ["fecha_inicio", "inicio", "fecha", "date", "start", "hora_inicio", "ventana_inicio"],
+  ventana_fin: ["fecha_fin", "fin", "end", "hora_fin", "ventana_fin"],
+  notas: ["notas", "notes", "observaciones", "comentarios"],
+};
 
-  for (const [campo, words] of Object.entries(aliases)) {
+// IMP.1: autoMapColumns pasa a ser agnóstica del tipo de entidad — el
+// llamador decide qué campos/alias mapear (viaje, chófer, vehículo...).
+export function autoMapColumns(fileColumns, aliases) {
+  const mapping = {};
+  for (const [campo, words] of Object.entries(aliases || {})) {
     for (const col of fileColumns) {
       const norm = col.toLowerCase().replace(/[^a-záéíóúñü0-9]/gi, "");
       if (words.some((w) => norm.includes(w.replace(/[^a-záéíóúñü0-9]/gi, "")))) {

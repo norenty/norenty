@@ -10,6 +10,26 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
+## Cola ACTIVA del loop autónomo — Importación masiva (2026-07-14, MÁXIMA PRIORIDAD)
+
+**⚠️ El loop autónomo trabaja AHORA en esta cola.** Spec cerrada en `SPECS-IMPORTADOR-MASIVO.md`
+(leer OBLIGATORIO antes de cada ítem). Protocolo: uno por iteración, `ci.ps1` verde, commit, `[x]`
+aquí + línea en PROGRESS.md.
+
+- [x] `[LOOP]` **IMP.1 — Generalizar `autoMapColumns`** a distintos juegos de alias. §IMP.1.
+  Construido (2026-07-14, bloqueado y desbloqueado en la misma sesión por un OOM del sistema ajeno
+  al código — ver PROGRESS.md). `autoMapColumns(fileColumns, aliases)` deja de tener los alias de
+  viaje hardcoded dentro; `ALIAS_VIAJE` extraída como constante exportada en `importar.js`.
+  `/importar/page.jsx` pasa `ALIAS_VIAJE` explícito — retrocompatible, comportamiento idéntico. 5
+  tests nuevos en `importar.test.js` (no existía cobertura de este módulo antes). 168 pytest, 334
+  vitest, `ci.ps1` completo verde.
+- [ ] `[LOOP]` **IMP.2 — Alias/campos de chófer/vehículo + `createVehiculo`**. §IMP.2.
+- [ ] `[LOOP]` **IMP.3 — UI: selector de tipo + flujo por lotes** en `/importar`. §IMP.3.
+
+**Al cerrar IMP.3:** `PushNotification` con el resumen + DETENER el loop.
+
+---
+
 ## Auto-vigilancia (UBI.1-2) — CERRADA 2026-07-14
 
 Spec completa en `SPECS-AUTOVIGILANCIA.md`.

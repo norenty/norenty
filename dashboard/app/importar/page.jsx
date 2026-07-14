@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Upload, FileSpreadsheet, Check, AlertCircle, ArrowRight, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { parseFile, CAMPOS_VIAJE, autoMapColumns } from "../../lib/importar";
+import { parseFile, CAMPOS_VIAJE, ALIAS_VIAJE, autoMapColumns } from "../../lib/importar";
 import { supabase } from "../../lib/supabase";
 import { getCurrentEmpresaId, getChoferes } from "../../lib/data";
 
@@ -27,7 +27,7 @@ export default function ImportarPage() {
       const cols = Object.keys(data[0]);
       setRows(data);
       setColumns(cols);
-      setMapping(autoMapColumns(cols));
+      setMapping(autoMapColumns(cols, ALIAS_VIAJE));
       setPaso(1);
     } catch (err) {
       alert(err.message);

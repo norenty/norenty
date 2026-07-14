@@ -8,7 +8,13 @@ depender del historial de conversación.
 
 ---
 
-2026-07-14 | IMP.1 — Generalizar autoMapColumns (importador masivo) | — | BLOQUEADO (NO de código).
+2026-07-14 | IMP.1 — Generalizar autoMapColumns, DESBLOQUEADO tras liberar memoria del sistema |
+(loop) | HECHO. El usuario cerró las apps que consumían RAM (memoria libre pasó de ~950MB a
+~2,6GB); `ci.ps1` completo verde a la primera con el MISMO diff que había fallado 3 veces —
+confirma que el bloqueo era 100% del sistema, cero de código. 168 pytest, 334 vitest, build de 21
+páginas OK. Sigue IMP.2.
+
+2026-07-14 | IMP.1 — Generalizar autoMapColumns (importador masivo), intento previo | — | BLOQUEADO (NO de código).
 Código completo y correcto: `autoMapColumns(fileColumns, aliases)` parametrizada, `ALIAS_VIAJE`
 extraída, `/importar/page.jsx` actualizado (retrocompatible), 5 tests nuevos en
 `importar.test.js`. `pytest` (168) y `vitest` (334) pasan limpios. **`next build` falla 3 veces
