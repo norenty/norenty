@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | UBI.1 — Sub-muestreo de escritura en `ubicacion` (arregla coste real) | (loop) | HECHO.
+`debe_guardar_ubicacion` pura: guarda si no hay punto previo, si pasaron ≥120s, o si se movió
+≥200m aunque sea pronto. `handle_location` consulta el último punto del chófer antes de insertar;
+la detección de geo-llegada sigue evaluando cada ping (nunca se sub-muestrea, solo el guardado). 7
+tests nuevos. 168 pytest, `ci.ps1` completo verde. Sigue UBI.2 (workflow de GitHub Actions).
+
 2026-07-14 | COT.4 — Cálculo FTL/grupaje (cierra la cola del cotizador COT.1-4) | (loop) | HECHO.
 `calcularOcupacion(carga, capacidad)` pura: ocupación = máx de ldm/kg/m3 calculables, marca la
 dimensión limitante y el tipo (completo ≥85%, grupaje, o desconocido sin datos). Integrado en

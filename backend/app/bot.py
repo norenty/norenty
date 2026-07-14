@@ -1,6 +1,7 @@
 """Norenty Telegram Bot — operación de hitos, POD, y alertas al gestor."""
 
 import asyncio
+from datetime import datetime, timezone
 import hashlib
 import json
 import math
@@ -1089,7 +1090,21 @@ async def handle_location(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     lat, lon = msg.location.latitude, msg.location.longitude
-    supabase.table("ubicacion").insert({"chofer_id": chofer["id"], "lat": lat, "lon": lon}).execute()
+
+    # UBI.1: sub-muestrear la ESCRITURA (la detección de geo-llegada de abajo
+    # sigue evaluando este ping siempre, sub-muestrear solo ahorraría lo
+    # barato y no lo caro). Silencioso si no hace falta guardar.
+    ultimo_r = (
+        supabase.table("ubicacion")
+        .select("lat, lon, created_at")
+        .eq("chofer_id", chofer["id"])
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    ultimo_punto = ultimo_r.data[0] if ultimo_r.data else None
+    if debe_guardar_ubicacion(ultimo_punto, lat, lon):
+        supabase.table("ubicacion").insert({"chofer_id": chofer["id"], "lat": lat, "lon": lon}).execute()
 
     viaje_r = (
         supabase.table("viaje")
@@ -1296,6 +1311,18 @@ VELOCIDAD_PLANIFICACION_KMH_DEFAULT = 75
 # razonable, NO pactado con cliente real — ajustable.
 UMBRAL_GEO_LLEGADA_M = 300
 
+# UBI.1 — sub-muestreo de la ESCRITURA en `ubicacion` (decisión CTO 2026-07-14):
+# Telegram empuja un ping cada ~15-60s durante live location; guardar todos
+# llenaría la BD sin necesidad (~1.000 filas/chófer/día). La DETECCIÓN de
+# geo-llegada (UMBRAL_GEO_LLEGADA_M, arriba) sigue evaluando CADA ping —
+# barato, un haversine. Solo el guardado se espacia: no se guarda un punto
+# nuevo antes de UMBRAL_UBICACION_INTERVALO_S desde el último de ESE chófer,
+# SALVO que se haya movido más de UMBRAL_UBICACION_DISTANCIA_M (un giro o
+# parada/arranque importa aunque sea pronto). Valores iniciales razonables,
+# NO pactados con cliente real.
+UMBRAL_UBICACION_INTERVALO_S = 120
+UMBRAL_UBICACION_DISTANCIA_M = 200
+
 # Reglamento (CE) 561/2006 — mismos límites y misma simplificación v1
 # CONSERVADORA que calcularEtaConParadas() en dashboard/lib/data.js (siempre
 # límite diario base 9h + descanso normal 11h, sin las excepciones de 10h/2x-
@@ -1358,6 +1385,27 @@ def haversine_km(lat1, lon1, lat2, lon2):
         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
     )
     return 2 * r * math.asin(math.sqrt(a))
+
+
+def debe_guardar_ubicacion(ultimo_punto, lat, lon, ahora=None):
+    """UBI.1: decide si un ping de live location merece guardarse en `ubicacion`,
+    o si es ruido demasiado cercano al último punto guardado de ESE chófer.
+    `ultimo_punto` = None (no hay ninguno todavía -> siempre se guarda) o
+    {"lat", "lon", "created_at"} (ISO string o algo que datetime.fromisoformat
+    entienda). Pura, testeable sin reloj real via `ahora`."""
+    if ultimo_punto is None:
+        return True
+
+    ahora = ahora or datetime.now(timezone.utc)
+    creado_en = ultimo_punto["created_at"]
+    if isinstance(creado_en, str):
+        creado_en = datetime.fromisoformat(creado_en.replace("Z", "+00:00"))
+    segundos = (ahora - creado_en).total_seconds()
+    if segundos >= UMBRAL_UBICACION_INTERVALO_S:
+        return True
+
+    distancia_m = haversine_km(lat, lon, ultimo_punto["lat"], ultimo_punto["lon"]) * 1000
+    return distancia_m >= UMBRAL_UBICACION_DISTANCIA_M
 
 
 TIPO_PARKING_KEY = {

@@ -10,6 +10,30 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
+## Cola ACTIVA del loop autónomo — Auto-vigilancia (2026-07-14, MÁXIMA PRIORIDAD)
+
+**⚠️ El loop autónomo trabaja AHORA en esta cola.** Spec cerrada en `SPECS-AUTOVIGILANCIA.md`
+(leer OBLIGATORIO antes de cada ítem). Protocolo: uno por iteración, `ci.ps1` verde, commit, `[x]`
+aquí + línea en PROGRESS.md.
+
+- [x] `[LOOP]` **UBI.1 — Sub-muestreo de escritura en `ubicacion`** (arregla un coste real: hoy se
+  guarda cada ping de live location, ~1.000 filas/chófer/día). §UBI.1.
+  Construido (2026-07-14). `debe_guardar_ubicacion(ultimo_punto, lat, lon, ahora=None)` pura en
+  `bot.py`: sin punto previo → guarda; ≥120s desde el último → guarda; movimiento ≥200m aunque sea
+  pronto → guarda; si no, no. `handle_location` consulta el último punto de ESE chófer (1 query
+  extra, `order+limit(1)`) antes de insertar — la DETECCIÓN de geo-llegada sigue evaluando CADA
+  ping (no se sub-muestrea, solo el guardado). 7 tests nuevos (4 de la función pura + 3 de
+  integración en `handle_location`, incluido que la pregunta proactiva se sigue disparando aunque
+  el punto no se guarde). 168 pytest, `ci.ps1` completo verde.
+- [ ] `[LOOP]` **UBI.2 — Workflow de GitHub Actions para los monitores** (cron de heartbeat/
+  integridad/purga, listo para cuando haya despliegue). §UBI.2.
+
+**Al cerrar UBI.2:** `PushNotification` con el resumen + DETENER el loop. El modelo de checkpoint
+queda fuera de esta cola a propósito (ver el final de `SPECS-AUTOVIGILANCIA.md`) — no construir sin
+que el usuario lo confirme, cambia el modelo de datos de `hito`.
+
+---
+
 ## Cotizador (COT.1-4) — CERRADA 2026-07-14
 
 Construida en loop autónomo de principio a fin (COT.1→COT.2→COT.3→COT.4), spec completa en

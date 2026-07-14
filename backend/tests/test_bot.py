@@ -2,6 +2,7 @@
 viaje (vulnerabilidad real que se corrigió en la auditoría de seguridad),
 y que el flujo de mensajes/navegación se construya bien.
 """
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -739,6 +740,31 @@ async def test_procesar_notificaciones_ignora_viajes_completados(fake_db):
     ctx.bot.send_message.assert_not_awaited()
 
 
+# --- debe_guardar_ubicacion (UBI.1): sub-muestreo de la escritura ---
+
+def test_debe_guardar_ubicacion_sin_punto_previo_siempre_guarda():
+    assert bot.debe_guardar_ubicacion(None, 40.0, -3.0) is True
+
+
+def test_debe_guardar_ubicacion_reciente_y_cerca_no_guarda():
+    ahora = datetime(2026, 1, 1, 10, 1, 0, tzinfo=timezone.utc)  # +60s, +0m
+    ultimo = {"lat": 40.0, "lon": -3.0, "created_at": "2026-01-01T10:00:00Z"}
+    assert bot.debe_guardar_ubicacion(ultimo, 40.0, -3.0, ahora=ahora) is False
+
+
+def test_debe_guardar_ubicacion_tras_el_intervalo_guarda_aunque_no_se_mueva():
+    ahora = datetime(2026, 1, 1, 10, 3, 0, tzinfo=timezone.utc)  # +180s >= 120s
+    ultimo = {"lat": 40.0, "lon": -3.0, "created_at": "2026-01-01T10:00:00Z"}
+    assert bot.debe_guardar_ubicacion(ultimo, 40.0, -3.0, ahora=ahora) is True
+
+
+def test_debe_guardar_ubicacion_movimiento_grande_guarda_aunque_sea_pronto():
+    ahora = datetime(2026, 1, 1, 10, 0, 30, tzinfo=timezone.utc)  # +30s < 120s
+    ultimo = {"lat": 40.0, "lon": -3.0, "created_at": "2026-01-01T10:00:00Z"}
+    # ~0.3 grados de longitud a esta latitud son varios km, muy por encima de 200m
+    assert bot.debe_guardar_ubicacion(ultimo, 40.0, -2.7, ahora=ahora) is True
+
+
 # --- handle_location (7A.4): guarda ubicación + pregunta proactiva de llegada ---
 
 def _location_update(lat, lon, edited=False, chat_id="chat-1"):
@@ -815,6 +841,46 @@ async def test_handle_location_funciona_con_live_location_editada(fake_db):
     ctx = SimpleNamespace(bot=AsyncMock(), chat_data={})
     await bot.handle_location(_location_update(40.0, -3.0, edited=True), ctx)
     assert len(fake_db.tables["ubicacion"]) == 1
+
+
+# --- UBI.1: handle_location sub-muestrea la escritura, no la detección ---
+
+@pytest.mark.asyncio
+async def test_handle_location_no_reinserta_si_el_ultimo_punto_es_reciente_y_cercano(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["viaje"] = []
+    reciente = (datetime.now(timezone.utc) - timedelta(seconds=5)).isoformat()
+    fake_db.tables["ubicacion"] = [{"chofer_id": "c1", "lat": 40.0, "lon": -3.0, "created_at": reciente}]
+    ctx = SimpleNamespace(bot=AsyncMock(), chat_data={})
+    await bot.handle_location(_location_update(40.0001, -3.0001), ctx)
+    # No se añade una segunda fila: el punto previo es de hace 5s y casi el mismo sitio.
+    assert len(fake_db.tables["ubicacion"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_handle_location_reinserta_si_el_ultimo_punto_es_antiguo(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["viaje"] = []
+    fake_db.tables["ubicacion"] = [{"chofer_id": "c1", "lat": 40.0, "lon": -3.0, "created_at": "2020-01-01T10:00:00Z"}]
+    ctx = SimpleNamespace(bot=AsyncMock(), chat_data={})
+    await bot.handle_location(_location_update(40.0, -3.0), ctx)
+    assert len(fake_db.tables["ubicacion"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_handle_location_geo_llegada_se_dispara_aunque_no_se_guarde_el_punto(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "estado": "en_curso"}]
+    fake_db.tables["hito"] = [
+        {"id": "h1", "viaje_id": "v1", "orden": 1, "estado": "pendiente", "lat": 40.0001, "lon": -3.0001, "direccion": "Madrid"},
+    ]
+    reciente = (datetime.now(timezone.utc) - timedelta(seconds=5)).isoformat()
+    fake_db.tables["ubicacion"] = [{"chofer_id": "c1", "lat": 40.0, "lon": -3.0, "created_at": reciente}]
+    ctx = SimpleNamespace(bot=AsyncMock(), chat_data={})
+    await bot.handle_location(_location_update(40.0, -3.0), ctx)
+    # El punto no se guarda (reciente y cercano) pero la pregunta proactiva sí se dispara.
+    assert len(fake_db.tables["ubicacion"]) == 1
+    ctx.bot.send_message.assert_awaited_once()
 
 
 # --- ejecutar_con_reintentos + manejar_error (8.2): "el canal con el chófer
