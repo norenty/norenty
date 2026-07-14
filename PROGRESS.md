@@ -8,6 +8,14 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | UBI.2 — Workflow de GitHub Actions para los monitores (cierra la cola de
+auto-vigilancia UBI.1-2) | (loop) | HECHO. `.github/workflows/monitores.yml`: heartbeat/15min,
+integridad/6h, purga/diario + `workflow_dispatch`. Cada job pide solo los secrets que su script
+necesita; sin ellos falla con el mismo error claro que en local, no en silencio. `DEPLOY-PLAN.md`
+Fase 2 actualizada a checklist de Secrets. YAML validado con `pyyaml` real. Sin tests (config).
+**Cola UBI.1-2 (SPECS-AUTOVIGILANCIA.md) CERRADA.** Modelo de checkpoint fuera a propósito, pendiente
+de confirmación del usuario (cambia el modelo de datos de `hito`).
+
 2026-07-14 | UBI.1 — Sub-muestreo de escritura en `ubicacion` (arregla coste real) | (loop) | HECHO.
 `debe_guardar_ubicacion` pura: guarda si no hay punto previo, si pasaron ≥120s, o si se movió
 ≥200m aunque sea pronto. `handle_location` consulta el último punto del chófer antes de insertar;

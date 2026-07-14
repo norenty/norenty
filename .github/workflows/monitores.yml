@@ -1,0 +1,74 @@
+# Norenty — Auto-vigilancia programada (UBI.2, 2026-07-14).
+#
+# Corre los 3 scripts de operador de backend/db/ que hoy no tienen scheduler
+# propio (documentado así a propósito en ONBOARDING.md §8b — no hay infra de
+# cron en el proyecto hasta que exista despliegue). Este workflow NO se
+# dispara útilmente hasta que rellenes los GitHub Secrets de abajo en
+# Settings -> Secrets and variables -> Actions del repo:
+#
+#   DATABASE_URL             -- los 3 jobs (psycopg2, conexión directa a Postgres)
+#   TELEGRAM_BOT_TOKEN        -- heartbeat + integridad (para avisar por Telegram)
+#   SUPABASE_URL              -- solo integridad (verifica cadena de hash + POD)
+#   SUPABASE_SERVICE_ROLE_KEY -- solo integridad (o SUPABASE_ANON_KEY, ver el script)
+#
+# Sin esos secrets rellenos, cada job falla en el paso del script con un
+# "falta DATABASE_URL" claro (ya lo hacen los scripts en local) — no falla en
+# silencio, y no bloquea nada más del repo.
+#
+# Ver DEPLOY-PLAN.md Fase 2.
+
+name: Monitores de auto-vigilancia
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # monitor_heartbeat.py cada 15 min
+    - cron: "0 */6 * * *"    # monitor_integridad.py cada 6 horas
+    - cron: "0 3 * * *"      # purgar_ubicacion.py una vez al día (03:00 UTC)
+  workflow_dispatch: {}       # permite lanzarlo a mano desde la pestaña Actions
+
+jobs:
+  heartbeat:
+    if: github.event.schedule == '*/15 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r backend/requirements.txt
+      - name: monitor_heartbeat.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: python backend/db/monitor_heartbeat.py
+
+  integridad:
+    if: github.event.schedule == '0 */6 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r backend/requirements.txt
+      - name: monitor_integridad.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python backend/db/monitor_integridad.py
+
+  purga_ubicacion:
+    if: github.event.schedule == '0 3 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r backend/requirements.txt
+      - name: purgar_ubicacion.py (retención 90 días por defecto)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python backend/db/purgar_ubicacion.py

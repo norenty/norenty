@@ -10,11 +10,9 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
-## Cola ACTIVA del loop autónomo — Auto-vigilancia (2026-07-14, MÁXIMA PRIORIDAD)
+## Auto-vigilancia (UBI.1-2) — CERRADA 2026-07-14
 
-**⚠️ El loop autónomo trabaja AHORA en esta cola.** Spec cerrada en `SPECS-AUTOVIGILANCIA.md`
-(leer OBLIGATORIO antes de cada ítem). Protocolo: uno por iteración, `ci.ps1` verde, commit, `[x]`
-aquí + línea en PROGRESS.md.
+Spec completa en `SPECS-AUTOVIGILANCIA.md`.
 
 - [x] `[LOOP]` **UBI.1 — Sub-muestreo de escritura en `ubicacion`** (arregla un coste real: hoy se
   guarda cada ping de live location, ~1.000 filas/chófer/día). §UBI.1.
@@ -25,12 +23,21 @@ aquí + línea en PROGRESS.md.
   ping (no se sub-muestrea, solo el guardado). 7 tests nuevos (4 de la función pura + 3 de
   integración en `handle_location`, incluido que la pregunta proactiva se sigue disparando aunque
   el punto no se guarde). 168 pytest, `ci.ps1` completo verde.
-- [ ] `[LOOP]` **UBI.2 — Workflow de GitHub Actions para los monitores** (cron de heartbeat/
+- [x] `[LOOP]` **UBI.2 — Workflow de GitHub Actions para los monitores** (cron de heartbeat/
   integridad/purga, listo para cuando haya despliegue). §UBI.2.
+  Construido (2026-07-14). `.github/workflows/monitores.yml`: 3 jobs (`heartbeat` cada 15 min,
+  `integridad` cada 6h, `purga_ubicacion` diario a las 03:00 UTC) + `workflow_dispatch` para
+  lanzarlo a mano desde la pestaña Actions sin esperar al cron. Cada job usa los secrets exactos
+  que necesita (`DATABASE_URL` los 3; `TELEGRAM_BOT_TOKEN` heartbeat+integridad;
+  `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` solo integridad). Sin secrets rellenos, cada job falla
+  en el paso del script con el mismo error claro que ya dan en local ("falta DATABASE_URL"), no en
+  silencio. `DEPLOY-PLAN.md` Fase 2 actualizada: ya no dice "falta escribirlo", ahora es un
+  checklist de qué Secrets rellenar al desplegar. YAML validado con un parser real (`pyyaml`), no
+  solo revisión visual. Sin tests (config, no código) — no aplica `ci.ps1`.
 
-**Al cerrar UBI.2:** `PushNotification` con el resumen + DETENER el loop. El modelo de checkpoint
-queda fuera de esta cola a propósito (ver el final de `SPECS-AUTOVIGILANCIA.md`) — no construir sin
-que el usuario lo confirme, cambia el modelo de datos de `hito`.
+**Cola de auto-vigilancia (UBI.1-2) CERRADA.** El modelo de checkpoint queda fuera a propósito (ver
+el final de `SPECS-AUTOVIGILANCIA.md`) — no construir sin que el usuario lo confirme, cambia el
+modelo de datos de `hito`.
 
 ---
 

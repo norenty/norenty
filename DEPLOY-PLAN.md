@@ -56,12 +56,21 @@ montar systemd/pm2 a mano.
 
 ## Fase 2 — Cron / tareas programadas en producción
 
-Los scripts de `backend/db/` (`monitor_heartbeat.py`, `monitor_integridad.py`,
-`purgar_ubicacion.py`) no tienen scheduler propio (documentado así a propósito, ver
-`ONBOARDING.md §8b`). En producción, la opción más simple sin montar infraestructura nueva:
-**GitHub Actions con `schedule:` (cron)** — el repo ya vive en GitHub, un workflow programado
-cada 5-15 min que hace `python db/monitor_heartbeat.py` con los secrets de producción guardados
-como GitHub Secrets. Gratis para repos con este volumen de uso, no depende de tu portátil.
+**El workflow YA EXISTE** (`.github/workflows/monitores.yml`, ítem UBI.2, 2026-07-14) — no falta
+escribirlo, solo rellenar los GitHub Secrets para que se active de verdad. Corre
+`monitor_heartbeat.py` cada 15 min, `monitor_integridad.py` cada 6 h y `purgar_ubicacion.py` una
+vez al día, gratis (GitHub Actions, sin depender de tu portátil). También lanzable a mano desde la
+pestaña Actions (`workflow_dispatch`) para probarlo sin esperar al cron.
+
+**Checklist para activarlo al desplegar** — en GitHub → Settings → Secrets and variables → Actions
+del repo, crear:
+- [ ] `DATABASE_URL` (los 3 jobs)
+- [ ] `TELEGRAM_BOT_TOKEN` (heartbeat + integridad)
+- [ ] `SUPABASE_URL` (solo integridad)
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` (solo integridad; el script también acepta `SUPABASE_ANON_KEY`)
+
+Sin esos secrets, cada job falla en el paso del script con un error claro de "falta DATABASE_URL"
+(no en silencio, no bloquea nada más del repo).
 
 ## Fase 3 — Invitar a los primeros usuarios reales
 
