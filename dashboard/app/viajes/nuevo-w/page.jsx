@@ -3,8 +3,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2, AlertTriangle, Check, ChevronRight } from "lucide-react";
-import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561, UMBRAL_MARGEN_AMBAR_PCT, getClientes } from "../../../lib/data";
+import { ArrowLeft, Plus, Trash2, AlertTriangle, Check, ChevronRight, Package } from "lucide-react";
+import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561, UMBRAL_MARGEN_AMBAR_PCT, getClientes, calcularOcupacion } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import SugerenciaChofer from "../../components/SugerenciaChofer";
 import { badgeMargen, fmtEur, fmtKm } from "../../../lib/format";
@@ -71,20 +71,32 @@ export default function NuevoViajeWizard() {
   const [error, setError] = useState(null);
   const [avisoAsignacion, setAvisoAsignacion] = useState(null);
   const [aviso561, setAviso561] = useState(null);
+  const [carga, setCarga] = useState({ ldm: "", kg: "", m3: "" });
   const debounceRef = useRef(null);
 
   useEffect(() => {
     getChoferes().then(setChoferes);
-    supabase.from("vehiculo").select("id, matricula, tipo, marca, modelo").eq("activo", true).order("matricula")
+    supabase.from("vehiculo").select("id, matricula, tipo, marca, modelo, capacidad_ldm, capacidad_kg, capacidad_m3").eq("activo", true).order("matricula")
       .then(({ data }) => setVehiculos(data || []));
     getClientes().then(setClientes);
   }, []);
 
   const tractoras = vehiculos.filter((v) => ["tractora", "rigido", "furgoneta"].includes(v.tipo));
   const remolques = vehiculos.filter((v) => v.tipo === "remolque");
+  const vehiculoSeleccionado = vehiculos.find((v) => v.id === vehiculoId) || null;
+  const tieneCapacidad = !!(vehiculoSeleccionado && (
+    vehiculoSeleccionado.capacidad_ldm != null || vehiculoSeleccionado.capacidad_kg != null || vehiculoSeleccionado.capacidad_m3 != null
+  ));
+  const ocupacion = tieneCapacidad
+    ? calcularOcupacion(
+        { ldm: carga.ldm === "" ? null : Number(carga.ldm), kg: carga.kg === "" ? null : Number(carga.kg), m3: carga.m3 === "" ? null : Number(carga.m3) },
+        { ldm: vehiculoSeleccionado.capacidad_ldm, kg: vehiculoSeleccionado.capacidad_kg, m3: vehiculoSeleccionado.capacidad_m3 }
+      )
+    : null;
 
   // Panel lateral: recalcula con debounce 500ms cuando cambian hitos con
-  // coords, vehículo o precio.
+  // coords, vehículo o precio. CARGA.3: la ocupación (arriba) es un cálculo
+  // puro y síncrono aparte, no necesita entrar en este debounce.
   useEffect(() => {
     clearTimeout(debounceRef.current);
     const puntos = hitos
@@ -147,6 +159,7 @@ export default function NuevoViajeWizard() {
         clienteId: clienteId || null,
         hitos: hitos.filter((h) => h.direccion.trim()),
         precio: precio !== "" ? Number(precio) : null,
+        carga,
       });
       router.push(`/viajes/${result.viaje.id}`);
     } catch (err) {
@@ -383,6 +396,61 @@ export default function NuevoViajeWizard() {
               </select>
             </div>
           </div>
+
+          {vehiculoId && (
+            <div>
+              <h2 className="text-sm font-medium text-ink mb-2 flex items-center gap-1.5">
+                <Package size={14} /> Carga (opcional)
+              </h2>
+              {!tieneCapacidad ? (
+                <p className="text-xs text-ink-secondary">
+                  Este vehículo no tiene capacidad configurada — <Link href={`/vehiculos/${vehiculoId}`} className="underline">añádela en su ficha</Link> para ver si la carga es camión completo o grupaje.
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 gap-3 max-w-md">
+                    <div>
+                      <label htmlFor="w-carga-ldm" className="block text-xs text-ink-secondary mb-1">LDM</label>
+                      <input id="w-carga-ldm" type="number" step="any" min="0" value={carga.ldm}
+                        onChange={(e) => setCarga((c) => ({ ...c, ldm: e.target.value }))}
+                        placeholder={`máx. ${vehiculoSeleccionado.capacidad_ldm ?? "—"}`}
+                        className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand" />
+                    </div>
+                    <div>
+                      <label htmlFor="w-carga-kg" className="block text-xs text-ink-secondary mb-1">kg</label>
+                      <input id="w-carga-kg" type="number" step="any" min="0" value={carga.kg}
+                        onChange={(e) => setCarga((c) => ({ ...c, kg: e.target.value }))}
+                        placeholder={`máx. ${vehiculoSeleccionado.capacidad_kg ?? "—"}`}
+                        className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand" />
+                    </div>
+                    <div>
+                      <label htmlFor="w-carga-m3" className="block text-xs text-ink-secondary mb-1">m³</label>
+                      <input id="w-carga-m3" type="number" step="any" min="0" value={carga.m3}
+                        onChange={(e) => setCarga((c) => ({ ...c, m3: e.target.value }))}
+                        placeholder={`máx. ${vehiculoSeleccionado.capacidad_m3 ?? "—"}`}
+                        className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand" />
+                    </div>
+                  </div>
+                  {ocupacion?.pctOcupacion != null && (
+                    <div className="mt-3 max-w-md">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ocupacion.tipo === "completo" ? "bg-brand/10 text-brand" : "bg-surface-alt text-ink-secondary"}`}>
+                          {ocupacion.tipo === "completo" ? "Camión completo (FTL)" : "Grupaje"}
+                        </span>
+                        <span className="text-xs text-ink-muted">
+                          {Math.round(ocupacion.pctOcupacion)}% — limita {ocupacion.dimensionLimitante?.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-surface-alt overflow-hidden">
+                        <div className={`h-full rounded-full ${ocupacion.tipo === "completo" ? "bg-brand" : "bg-ink-muted"}`} style={{ width: `${Math.min(100, ocupacion.pctOcupacion)}%` }} />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           <div className="flex gap-2">
             <button onClick={() => setPaso(1)} className="text-sm px-4 py-2 rounded-md border border-border text-ink-secondary">Atrás</button>
             <button onClick={() => setPaso(3)} className="text-sm px-4 py-2 rounded-md bg-brand text-white font-medium">Siguiente: Confirmar</button>

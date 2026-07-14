@@ -8,6 +8,11 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | CARGA.3 — Wizard: capturar carga + ocupación en vivo | (loop) | HECHO. Sección
+"Carga" en `/viajes/nuevo-w` paso 2, mismo componente visual que `/presupuesto` (COT.4),
+reutilizando `calcularOcupacion`. Select de vehículos gana capacidad_*. `ci.ps1` completo verde.
+Sigue CARGA.4 (detalle del viaje).
+
 2026-07-14 | CARGA.1+CARGA.2 — Carga real del viaje: migración + createViaje | (loop) | HECHO.
 Hallazgo: COT.3/4 (capacidad+FTL/grupaje) solo vivían en la calculadora `/presupuesto`, un viaje
 real no guardaba la carga. Migración `0052_viaje_carga.sql` aplicada y verificada Grupo B.

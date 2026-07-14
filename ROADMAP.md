@@ -23,7 +23,12 @@ calculadora `/presupuesto`, un viaje real no guarda ni muestra esa info — se c
   Construido (2026-07-14). `createViaje({..., carga = null})` acepta `{ldm, kg, m3}` y lo persiste
   en el insert de `viaje`, retrocompatible (sin `carga`, las 3 salen `null`). 2 tests nuevos. 346
   vitest, `ci.ps1` completo verde.
-- [ ] `[LOOP]` **CARGA.3 — Wizard: capturar carga + ver ocupación en vivo**. §CARGA.3.
+- [x] `[LOOP]` **CARGA.3 — Wizard: capturar carga + ver ocupación en vivo**. §CARGA.3.
+  Construido (2026-07-14). En `/viajes/nuevo-w` paso 2 (Asignación, donde ya se elige vehículo):
+  sección "Carga" con 3 inputs (LDM/kg/m³) + barra de ocupación y badge FTL/grupaje, mismo
+  componente visual que `/presupuesto` (COT.4), reutilizando `calcularOcupacion` sin lógica nueva.
+  El select de vehículos gana `capacidad_ldm/kg/m3` (ya existían desde COT.3). `crear()` pasa
+  `carga` a `createViaje`. Verificado por `ci.ps1` (build+lint) — ruta exige sesión.
 - [ ] `[LOOP]` **CARGA.4 — Detalle del viaje: mostrar carga + ocupación real**. §CARGA.4.
 
 **Al cerrar CARGA.4:** `PushNotification` con el resumen + DETENER el loop.
