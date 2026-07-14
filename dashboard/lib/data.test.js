@@ -146,6 +146,7 @@ const {
   calcularMargen,
   calcularCosteRuta,
   calcularPresupuesto,
+  aplicarOverridesPresupuesto,
   MARGEN_OBJETIVO_PCT_DEFAULT,
   kmCarreteraViaje,
   _limpiarCacheKmCarreteraParaTests,
@@ -943,6 +944,54 @@ describe("calcularPresupuesto (7A.6 — presupuestador instantáneo)", () => {
     const r = await calcularPresupuesto({ puntos: [MADRID] });
     expect(r.km).toBe(0);
     expect(r.precioSugerido).toBeNull();
+  });
+
+  // --- COT.1: overrides what-if ---
+  it("override de precioGasoilLitro sube combustible y total", async () => {
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 75, coste_km: 1.2, margen_objetivo_pct: 20, precio_gasoil_litro: 1.4 }];
+    TABLES.vehiculo = [{ id: "veh1", consumo_l_100km: 30 }];
+    osrmMock.mockResolvedValue(300);
+    const base = await calcularPresupuesto({ puntos: [MADRID, BARCELONA], vehiculoId: "veh1" });
+    osrmMock.mockResolvedValue(300);
+    const conGasoilCaro = await calcularPresupuesto({ puntos: [MADRID, BARCELONA], vehiculoId: "veh1", overrides: { precioGasoilLitro: 1.8 } });
+    expect(conGasoilCaro.coste.combustible).toBeGreaterThan(base.coste.combustible);
+    expect(conGasoilCaro.coste.total).toBeGreaterThan(base.coste.total);
+  });
+
+  it("override de velocidadKmh cambia las horas de conducción", async () => {
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 75, coste_km: 1.2 }];
+    osrmMock.mockResolvedValue(300);
+    const base = await calcularPresupuesto({ puntos: [MADRID, BARCELONA] });
+    osrmMock.mockResolvedValue(300);
+    const masRapido = await calcularPresupuesto({ puntos: [MADRID, BARCELONA], overrides: { velocidadKmh: 90 } });
+    expect(masRapido.horasConduccion).toBeLessThan(base.horasConduccion);
+  });
+
+  it("override de margenObjetivoPct cambia el precio sugerido", async () => {
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 75, coste_km: 1.2, margen_objetivo_pct: 20 }];
+    osrmMock.mockResolvedValue(300);
+    const r = await calcularPresupuesto({ puntos: [MADRID, BARCELONA], overrides: { margenObjetivoPct: 30 } });
+    expect(r.margenObjetivo).toBe(30);
+    expect(r.precioSugerido).toBeCloseTo(r.coste.total / (1 - 30 / 100), 2);
+  });
+
+  it("sin overrides el resultado es idéntico a no pasar el argumento", async () => {
+    TABLES.empresa = [{ velocidad_planificacion_kmh: 75, coste_km: 1.2, margen_objetivo_pct: 20 }];
+    osrmMock.mockResolvedValue(300);
+    const sinArg = await calcularPresupuesto({ puntos: [MADRID, BARCELONA] });
+    osrmMock.mockResolvedValue(300);
+    const conNull = await calcularPresupuesto({ puntos: [MADRID, BARCELONA], overrides: null });
+    expect(conNull).toEqual(sinArg);
+  });
+
+  it("aplicarOverridesPresupuesto no muta los objetos originales", () => {
+    const empresa = { coste_km: 1.2 };
+    const vehiculo = { consumo_l_100km: 30 };
+    const r = aplicarOverridesPresupuesto(empresa, vehiculo, { costeKm: 2, consumoL100km: 40 });
+    expect(empresa.coste_km).toBe(1.2);
+    expect(vehiculo.consumo_l_100km).toBe(30);
+    expect(r.empresa.coste_km).toBe(2);
+    expect(r.vehiculo.consumo_l_100km).toBe(40);
   });
 });
 

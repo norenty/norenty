@@ -8,6 +8,15 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | COT.1 — calcularPresupuesto acepta overrides (what-if del cotizador) | (loop) | HECHO.
+Nueva firma `calcularPresupuesto({ puntos, vehiculoId, overrides })` retrocompatible +
+`aplicarOverridesPresupuesto(empresa, vehiculo, overrides)` pura y exportada: fusiona valores
+hipotéticos (gasoil, velocidad, margen, consumo, coste/km, conductor, peajes, dietas) sobre la
+config real sin mutar los objetos. 5 tests nuevos (gasoil↑ sube combustible/total, velocidad cambia
+horas, margen cambia precio sugerido, sin overrides idéntico, no muta original). 321 vitest,
+`ci.ps1` verde. Primer ítem de la cola del cotizador (SPECS-COTIZADOR.md); el loop autónomo sigue
+con COT.2-4.
+
 2026-07-14 | Capa barata de validación de POD — cruce con evento de llegada (decisión 2026-07-13
 punto 3) | — | HECHO. `calcularDesfasePod(pod, eventos)` en `data.js`: pura, sin query nueva
 (reutiliza datos que `/viajes/[id]` ya carga), marca el POD como "tardío" si se sube más de

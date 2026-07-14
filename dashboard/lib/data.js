@@ -1839,7 +1839,27 @@ export const MARGEN_OBJETIVO_PCT_DEFAULT = 15; // valor inicial razonable, NO pa
  * @param {{puntos: {lat:number, lon:number}[], vehiculoId?: string|null}} args
  * `puntos` en orden de paso (origen → ... → destino), mínimo 2 para tener algo que calcular.
  */
-export async function calcularPresupuesto({ puntos, vehiculoId = null }) {
+// COT.1 — overrides "what-if" del cotizador: fusiona valores hipotéticos
+// (sube el gasoil, 78 km/h en vez de 75, otro margen) sobre la config REAL de
+// empresa/vehículo, SIN tocar lo guardado. Pura. Solo aplica claves no-nulas;
+// no muta los objetos originales. Mapeo clave override → columna.
+export function aplicarOverridesPresupuesto(empresa, vehiculo, overrides) {
+  if (!overrides) return { empresa, vehiculo };
+  const e = { ...(empresa || {}) };
+  const v = vehiculo ? { ...vehiculo } : vehiculo;
+  const setE = (col, val) => { if (val != null) e[col] = val; };
+  setE("velocidad_planificacion_kmh", overrides.velocidadKmh);
+  setE("precio_gasoil_litro", overrides.precioGasoilLitro);
+  setE("coste_km", overrides.costeKm);
+  setE("coste_conductor_km", overrides.costeConductorKm);
+  setE("coste_peaje_km", overrides.costePeajeKm);
+  setE("dieta_noche_eur", overrides.dietaNocheEur);
+  setE("margen_objetivo_pct", overrides.margenObjetivoPct);
+  if (v && overrides.consumoL100km != null) v.consumo_l_100km = overrides.consumoL100km;
+  return { empresa: e, vehiculo: v };
+}
+
+export async function calcularPresupuesto({ puntos, vehiculoId = null, overrides = null }) {
   const hitosFalsos = (puntos || []).map((p, i) => ({ ...p, orden: i + 1 }));
 
   if (hitosFalsos.length < 2) {
@@ -1862,8 +1882,9 @@ export async function calcularPresupuesto({ puntos, vehiculoId = null }) {
   // margen objetivo) -- un fallo real aquí no debe verse como "sin coste
   // configurado". vehiculo es opcional a propósito (cae a coste de empresa).
   if (errorEmpresas) throw errorEmpresas;
-  const empresa = (empresas || [])[0] || null;
-  const vehiculo = vehiculoRes.data || null;
+  const empresaReal = (empresas || [])[0] || null;
+  const vehiculoReal = vehiculoRes.data || null;
+  const { empresa, vehiculo } = aplicarOverridesPresupuesto(empresaReal, vehiculoReal, overrides);
 
   const velocidad = resolveVelocidadPlanificacion(empresa);
   const horasConduccion = km / velocidad;

@@ -10,6 +10,23 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
+## Cola ACTIVA del loop autónomo — Cotizador (2026-07-14, MÁXIMA PRIORIDAD)
+
+**⚠️ El loop autónomo trabaja AHORA en esta cola, en orden, ANTES que cualquier otra fase.** Spec
+cerrada completa en `SPECS-COTIZADOR.md` (leer OBLIGATORIO antes de cada ítem). Protocolo: uno por
+iteración, `ci.ps1` verde, commit, `[x]` aquí + línea en PROGRESS.md. Modelo: `sonnet` esfuerzo bajo.
+
+- [x] `[LOOP]` **COT.1 — `calcularPresupuesto` acepta overrides (what-if).** Ver SPECS-COTIZADOR.md §COT.1.
+- [ ] `[LOOP]` **COT.2 — Página calculadora con what-if en vivo** (gasoil/velocidad/margen recalculan). §COT.2.
+- [ ] `[LOOP]` **COT.3 — Capacidad de vehículo (LDM+kg+m³) + modelo de carga.** Migración 0050. §COT.3.
+- [ ] `[LOOP]` **COT.4 — Cálculo FTL / grupaje** (ocupación = máx de las 3 dimensiones). §COT.4.
+
+**Al cerrar COT.4:** `PushNotification` con el resumen + DETENER el loop. COT.5 (comparar con
+viajes reales similares) y COT.6 (audio→presupuesto) están GATED (datos reales / infra Whisper+LLM)
+— NO tocarlos en autónomo. Ver el final de `SPECS-COTIZADOR.md`.
+
+---
+
 ## Decisiones de producto vigentes — 2026-07-13 (LEER PRIMERO)
 
 Decisiones tomadas con el usuario que **reencuadran varios ítems `[DECISIÓN]` dispersos** más
