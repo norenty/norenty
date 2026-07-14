@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | CARGA.1+CARGA.2 — Carga real del viaje: migración + createViaje | (loop) | HECHO.
+Hallazgo: COT.3/4 (capacidad+FTL/grupaje) solo vivían en la calculadora `/presupuesto`, un viaje
+real no guardaba la carga. Migración `0052_viaje_carga.sql` aplicada y verificada Grupo B.
+`createViaje` acepta `carga={ldm,kg,m3}` opcional, retrocompatible. 2 tests. 346 vitest, `ci.ps1`
+completo verde. Sigue CARGA.3 (wizard) y CARGA.4 (detalle del viaje).
+
 2026-07-14 | CHK.5 — Badge de checkpoint en /viajes/[id] (cierra la cola de checkpoint CHK.1-5) |
 (loop) | HECHO. Badge "Checkpoint" + "Cruzado"/"Pendiente de cruzar" por hito, leyendo `eventos`
 ya cargado (sin query nueva). `ci.ps1` completo verde. **Cola CHK.1-5 (SPECS-CHECKPOINT.md)

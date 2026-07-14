@@ -2543,6 +2543,37 @@ describe("createViaje acepta precio (7A.11)", () => {
   });
 });
 
+describe("createViaje persiste la carga (CARGA.2)", () => {
+  it("guarda las 3 dimensiones de carga si se pasan", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.viaje = [];
+    TABLES.chofer = [];
+    TABLES.vehiculo = [];
+    TABLES.hito = [];
+    const { viaje } = await createViaje({
+      referencia: "CARGA-1", choferId: null, vehiculoId: null, remolqueId: null, hitos: [],
+      carga: { ldm: "13.6", kg: "24000", m3: "90" },
+    });
+    expect(viaje.carga_ldm).toBe(13.6);
+    expect(viaje.carga_kg).toBe(24000);
+    expect(viaje.carga_m3).toBe(90);
+  });
+
+  it("sin carga, las 3 columnas quedan null (retrocompatible)", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.viaje = [];
+    TABLES.chofer = [];
+    TABLES.vehiculo = [];
+    TABLES.hito = [];
+    const { viaje } = await createViaje({ referencia: "CARGA-2", choferId: null, vehiculoId: null, remolqueId: null, hitos: [] });
+    expect(viaje.carga_ldm).toBeNull();
+    expect(viaje.carga_kg).toBeNull();
+    expect(viaje.carga_m3).toBeNull();
+  });
+});
+
 describe("createViaje persiste es_checkpoint/radio_m (CHK.2)", () => {
   it("guarda es_checkpoint=true y radio_m tal cual", async () => {
     SESSION = { user: { id: "u1" } };

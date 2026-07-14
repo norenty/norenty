@@ -10,6 +10,26 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
+## Cola ACTIVA del loop autónomo — Carga del viaje (2026-07-14, MÁXIMA PRIORIDAD)
+
+**⚠️ El loop autónomo trabaja AHORA en esta cola.** Spec cerrada en `SPECS-CARGA-VIAJE.md` (leer
+OBLIGATORIO antes de cada ítem). Hallazgo: COT.3/4 (capacidad + FTL/grupaje) solo viven en la
+calculadora `/presupuesto`, un viaje real no guarda ni muestra esa info — se cierra el círculo.
+
+- [x] `[LOOP]` **CARGA.1 — Migración `viaje.carga_ldm/kg/m3`**. §CARGA.1.
+  Construido (2026-07-14). Migración `0052_viaje_carga.sql` aplicada con `migrate.py`. Verificado
+  Grupo B contra la BD real: las 3 columnas existen, nullable.
+- [x] `[LOOP]` **CARGA.2 — `createViaje` persiste la carga**. §CARGA.2.
+  Construido (2026-07-14). `createViaje({..., carga = null})` acepta `{ldm, kg, m3}` y lo persiste
+  en el insert de `viaje`, retrocompatible (sin `carga`, las 3 salen `null`). 2 tests nuevos. 346
+  vitest, `ci.ps1` completo verde.
+- [ ] `[LOOP]` **CARGA.3 — Wizard: capturar carga + ver ocupación en vivo**. §CARGA.3.
+- [ ] `[LOOP]` **CARGA.4 — Detalle del viaje: mostrar carga + ocupación real**. §CARGA.4.
+
+**Al cerrar CARGA.4:** `PushNotification` con el resumen + DETENER el loop.
+
+---
+
 ## Checkpoint (CHK.1-5) — CERRADA 2026-07-14
 
 Spec completa en `SPECS-CHECKPOINT.md`. Resultado: un hito puede marcarse "punto de control

@@ -2857,13 +2857,17 @@ export async function validarCambioEstado(viajeId, nuevoEstado) {
   return { errores, ok: errores.length === 0 };
 }
 
-export async function createViaje({ referencia, choferId, vehiculoId, remolqueId, hitos, precio = null, clienteId = null }) {
+export async function createViaje({ referencia, choferId, vehiculoId, remolqueId, hitos, precio = null, clienteId = null, carga = null }) {
   const validacion = await validarAsignacion({ choferId, vehiculoId, remolqueId, referencia });
   if (!validacion.ok) {
     throw new Error(validacion.errores.join(". "));
   }
 
   const empresa_id = await getCurrentEmpresaId();
+  // CARGA.2: cierra el círculo de COT.3/4 -- la carga real del viaje (LDM/kg/
+  // m3), antes solo capturada en la calculadora standalone. Retrocompatible:
+  // sin `carga`, las 3 columnas salen null igual que hoy.
+  const num = (v) => (v !== undefined && v !== "" && v != null ? Number(v) : null);
   const { data: viaje, error } = await supabase
     .from("viaje")
     .insert({
@@ -2875,6 +2879,9 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
       empresa_id,
       estado: "planificado",
       precio: precio != null ? precio : null,
+      carga_ldm: num(carga?.ldm),
+      carga_kg: num(carga?.kg),
+      carga_m3: num(carga?.m3),
     })
     .select()
     .single();
