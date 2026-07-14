@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | CHK.5 — Badge de checkpoint en /viajes/[id] (cierra la cola de checkpoint CHK.1-5) |
+(loop) | HECHO. Badge "Checkpoint" + "Cruzado"/"Pendiente de cruzar" por hito, leyendo `eventos`
+ya cargado (sin query nueva). `ci.ps1` completo verde. **Cola CHK.1-5 (SPECS-CHECKPOINT.md)
+CERRADA.** Queda anotada como `[DECISIÓN]` CHK.6 (alerta de checkpoint no cruzado a tiempo) —
+necesita que el usuario defina "a tiempo respecto a qué" antes de construirse.
+
 2026-07-14 | CHK.4 — Detección automática de checkpoint en el bot | (loop) | HECHO.
 `punto_en_checkpoint` pura + `handle_location` la evalúa SIEMPRE (antes de los early-return de la
 geo-llegada, que sigue intacta), idempotente vía consulta previa a `ejecucion_evento`, silenciosa

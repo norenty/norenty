@@ -393,6 +393,16 @@ export default function ViajeDetalle() {
                           {" "}({pvr.deltaMin <= 0 ? "a tiempo" : `+${pvr.deltaMin} min`})
                         </div>
                       )}
+                      {h.es_checkpoint && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-brand/10 text-brand font-medium">Checkpoint</span>
+                          {eventos.some((ev) => ev.tipo === "checkpoint_pasado" && ev.hito_id === h.id) ? (
+                            <span className="flex items-center gap-0.5 text-[11px] text-green-700"><Check size={11} /> Cruzado</span>
+                          ) : (
+                            <span className="text-[11px] text-ink-muted">Pendiente de cruzar</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <span className={`text-xs font-medium ${e.color}`}>{e.label}</span>
                   </div>

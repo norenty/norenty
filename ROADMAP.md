@@ -10,11 +10,15 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
-## Cola ACTIVA del loop autónomo — Checkpoint (2026-07-14, MÁXIMA PRIORIDAD)
+## Checkpoint (CHK.1-5) — CERRADA 2026-07-14
 
-**⚠️ El loop autónomo trabaja AHORA en esta cola.** Spec cerrada en `SPECS-CHECKPOINT.md` (leer
-OBLIGATORIO antes de cada ítem). Protocolo: uno por iteración, `ci.ps1` verde, commit, `[x]` aquí +
-línea en PROGRESS.md.
+Spec completa en `SPECS-CHECKPOINT.md`. Resultado: un hito puede marcarse "punto de control
+obligatorio" (`/viajes/nuevo-w`) y el bot lo detecta solo por GPS (`ejecucion_evento
+checkpoint_pasado`, silencioso, idempotente), visible en `/viajes/[id]` como "Cruzado"/"Pendiente".
+
+- [ ] `[DECISIÓN]` **CHK.6 — Alerta de checkpoint no cruzado a tiempo** — necesita decidir "a
+  tiempo respecto a qué" (ventana del hito, ETA calculado, hora fija). No construir sin cerrar
+  esto primero.
 
 - [x] `[LOOP]` **CHK.1 — Migración `hito.es_checkpoint`+`radio_m`**. §CHK.1.
   Construido (2026-07-14). Migración `0051_hito_checkpoint.sql` (DDL puro, cabecera de reversión)
@@ -43,10 +47,13 @@ línea en PROGRESS.md.
   diferencia de la pregunta de geo-llegada). 6 tests nuevos (3 de la función pura + 3 de
   integración: registra al entrar en el radio, no duplica, un hito normal no genera el evento).
   174 pytest, `ci.ps1` completo verde.
-- [ ] `[LOOP]` **CHK.5 — Visibilidad en el detalle del viaje**. §CHK.5.
+- [x] `[LOOP]` **CHK.5 — Visibilidad en el detalle del viaje**. §CHK.5.
+  Construido (2026-07-14). En `/viajes/[id]`, cada hito con `es_checkpoint` muestra un badge
+  "Checkpoint" + "Cruzado" (verde, si existe un evento `checkpoint_pasado` para ese `hito_id` en
+  `eventos`, ya cargado por `getViaje` sin query nueva) o "Pendiente de cruzar" (neutro). Sin
+  tests nuevos (lectura directa de datos ya testeados en otros sitios). `ci.ps1` completo verde.
 
-**Al cerrar CHK.5:** `PushNotification` con el resumen + DETENER el loop. La alerta de "no cruzado
-a tiempo" queda `[DECISIÓN]`, fuera de esta cola (ver el final de `SPECS-CHECKPOINT.md`).
+**Cola de checkpoint (CHK.1-5) CERRADA.**
 
 ---
 
