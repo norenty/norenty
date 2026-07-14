@@ -33,7 +33,16 @@ línea en PROGRESS.md.
   `createViaje({..., hitos})` ya pasaba el array completo — sin cambios ahí, los campos nuevos
   viajan solos. Sin tests de UI nuevos (precedente: esta página no tenía tests de componente
   antes). `ci.ps1` completo verde (build+lint).
-- [ ] `[LOOP]` **CHK.4 — Detección automática en `handle_location`**. §CHK.4.
+- [x] `[LOOP]` **CHK.4 — Detección automática en `handle_location`**. §CHK.4.
+  Construido (2026-07-14). `punto_en_checkpoint(lat, lon, hito, umbral_default=None)` pura: dentro
+  de `hito["radio_m"]` si está configurado, si no cae a `UMBRAL_GEO_LLEGADA_M`. En
+  `handle_location`, la comprobación de checkpoints corre ANTES de los `return` tempranos de la
+  geo-llegada (que sigue exactamente igual, sin tocar) — un checkpoint se detecta SIEMPRE, no solo
+  cuando hay hitos pendientes cerca. Idempotente: consulta si ya existe un `ejecucion_evento`
+  `checkpoint_pasado` para ese `hito_id` antes de insertar. Silencioso (sin mensaje al chófer, a
+  diferencia de la pregunta de geo-llegada). 6 tests nuevos (3 de la función pura + 3 de
+  integración: registra al entrar en el radio, no duplica, un hito normal no genera el evento).
+  174 pytest, `ci.ps1` completo verde.
 - [ ] `[LOOP]` **CHK.5 — Visibilidad en el detalle del viaje**. §CHK.5.
 
 **Al cerrar CHK.5:** `PushNotification` con el resumen + DETENER el loop. La alerta de "no cruzado

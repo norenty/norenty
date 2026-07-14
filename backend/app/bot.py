@@ -1116,15 +1116,46 @@ async def handle_location(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not viaje_r.data:
         return
 
+    viaje_id = viaje_r.data[0]["id"]
     hitos_r = (
         supabase.table("hito")
-        .select("id, orden, lat, lon, direccion, estado")
-        .eq("viaje_id", viaje_r.data[0]["id"])
+        .select("id, orden, lat, lon, direccion, estado, es_checkpoint, radio_m")
+        .eq("viaje_id", viaje_id)
         .order("orden")
         .execute()
     )
+    hitos = hitos_r.data or []
+
+    # CHK.4: los checkpoints se comprueban SIEMPRE (no dependen de que haya
+    # hitos pendientes ni de la distancia al más próximo, a diferencia de la
+    # pregunta de geo-llegada de abajo). Silencioso, sin mensaje al chófer —
+    # es aseguramiento pasivo, no exige confirmación.
+    checkpoints = [
+        h for h in hitos
+        if h.get("es_checkpoint") and h.get("lat") is not None and h.get("lon") is not None
+    ]
+    for cp in checkpoints:
+        if not punto_en_checkpoint(lat, lon, cp):
+            continue
+        ya_r = (
+            supabase.table("ejecucion_evento")
+            .select("id")
+            .eq("hito_id", cp["id"])
+            .eq("tipo", "checkpoint_pasado")
+            .execute()
+        )
+        if ya_r.data:
+            continue
+        supabase.table("ejecucion_evento").insert({
+            "viaje_id": viaje_id,
+            "hito_id": cp["id"],
+            "chofer_id": chofer["id"],
+            "tipo": "checkpoint_pasado",
+            "detalle": cp.get("direccion"),
+        }).execute()
+
     pendientes = [
-        h for h in (hitos_r.data or [])
+        h for h in hitos
         if h.get("estado") == "pendiente" and h.get("lat") is not None and h.get("lon") is not None
     ]
     if not pendientes:
@@ -1385,6 +1416,17 @@ def haversine_km(lat1, lon1, lat2, lon2):
         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
     )
     return 2 * r * math.asin(math.sqrt(a))
+
+
+def punto_en_checkpoint(lat, lon, hito, umbral_default=None):
+    """CHK.4: True si (lat, lon) está dentro del radio de un `hito` marcado
+    checkpoint. Usa `hito["radio_m"]` si está configurado, si no cae a
+    UMBRAL_GEO_LLEGADA_M (mismo criterio que la geo-llegada normal)."""
+    if umbral_default is None:
+        umbral_default = UMBRAL_GEO_LLEGADA_M
+    radio = hito.get("radio_m") or umbral_default
+    distancia_m = haversine_km(lat, lon, hito["lat"], hito["lon"]) * 1000
+    return distancia_m <= radio
 
 
 def debe_guardar_ubicacion(ultimo_punto, lat, lon, ahora=None):

@@ -765,6 +765,24 @@ def test_debe_guardar_ubicacion_movimiento_grande_guarda_aunque_sea_pronto():
     assert bot.debe_guardar_ubicacion(ultimo, 40.0, -2.7, ahora=ahora) is True
 
 
+# --- punto_en_checkpoint (CHK.4): detección pura de checkpoint ---
+
+def test_punto_en_checkpoint_dentro_del_radio_propio():
+    hito = {"lat": 40.0, "lon": -3.0, "radio_m": 500}
+    assert bot.punto_en_checkpoint(40.001, -3.0, hito) is True
+
+
+def test_punto_en_checkpoint_fuera_del_radio_propio():
+    hito = {"lat": 40.0, "lon": -3.0, "radio_m": 50}
+    assert bot.punto_en_checkpoint(41.0, -3.0, hito) is False
+
+
+def test_punto_en_checkpoint_sin_radio_cae_al_umbral_por_defecto():
+    hito = {"lat": 40.0, "lon": -3.0, "radio_m": None}
+    # UMBRAL_GEO_LLEGADA_M es 300 -- un punto a ~30m debe caer dentro.
+    assert bot.punto_en_checkpoint(40.0003, -3.0, hito) is True
+
+
 # --- handle_location (7A.4): guarda ubicación + pregunta proactiva de llegada ---
 
 def _location_update(lat, lon, edited=False, chat_id="chat-1"):
@@ -881,6 +899,56 @@ async def test_handle_location_geo_llegada_se_dispara_aunque_no_se_guarde_el_pun
     # El punto no se guarda (reciente y cercano) pero la pregunta proactiva sí se dispara.
     assert len(fake_db.tables["ubicacion"]) == 1
     ctx.bot.send_message.assert_awaited_once()
+
+
+# --- CHK.4: detección automática de checkpoint en handle_location ---
+
+@pytest.mark.asyncio
+async def test_handle_location_registra_checkpoint_pasado_al_entrar_en_el_radio(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "estado": "en_curso"}]
+    fake_db.tables["hito"] = [
+        {"id": "cp1", "viaje_id": "v1", "orden": 1, "estado": "completado", "lat": 43.0, "lon": -1.8,
+         "direccion": "Aduana Irún", "es_checkpoint": True, "radio_m": 200},
+        {"id": "h2", "viaje_id": "v1", "orden": 2, "estado": "pendiente", "lat": 41.0, "lon": 2.0, "direccion": "Barcelona"},
+    ]
+    ctx = SimpleNamespace(bot=AsyncMock(), chat_data={})
+    await bot.handle_location(_location_update(43.0, -1.8), ctx)
+    eventos = [e for e in fake_db.tables["ejecucion_evento"] if e["tipo"] == "checkpoint_pasado"]
+    assert len(eventos) == 1
+    assert eventos[0]["hito_id"] == "cp1"
+    assert eventos[0]["viaje_id"] == "v1"
+
+
+@pytest.mark.asyncio
+async def test_handle_location_no_registra_checkpoint_dos_veces(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "estado": "en_curso"}]
+    fake_db.tables["hito"] = [
+        {"id": "cp1", "viaje_id": "v1", "orden": 1, "estado": "completado", "lat": 43.0, "lon": -1.8,
+         "direccion": "Aduana Irún", "es_checkpoint": True, "radio_m": 200},
+    ]
+    fake_db.tables["ejecucion_evento"] = [
+        {"id": "ev1", "viaje_id": "v1", "hito_id": "cp1", "chofer_id": "c1", "tipo": "checkpoint_pasado"},
+    ]
+    ctx = SimpleNamespace(bot=AsyncMock(), chat_data={})
+    await bot.handle_location(_location_update(43.0, -1.8), ctx)
+    eventos = [e for e in fake_db.tables["ejecucion_evento"] if e["tipo"] == "checkpoint_pasado"]
+    assert len(eventos) == 1  # sigue siendo 1, no se duplica
+
+
+@pytest.mark.asyncio
+async def test_handle_location_hito_normal_no_genera_evento_checkpoint(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "estado": "en_curso"}]
+    fake_db.tables["hito"] = [
+        {"id": "h1", "viaje_id": "v1", "orden": 1, "estado": "pendiente", "lat": 43.0, "lon": -1.8,
+         "direccion": "Madrid", "es_checkpoint": False},
+    ]
+    ctx = SimpleNamespace(bot=AsyncMock(), chat_data={})
+    await bot.handle_location(_location_update(43.0, -1.8), ctx)
+    eventos = [e for e in fake_db.tables.get("ejecucion_evento", []) if e["tipo"] == "checkpoint_pasado"]
+    assert len(eventos) == 0
 
 
 # --- ejecutar_con_reintentos + manejar_error (8.2): "el canal con el chófer

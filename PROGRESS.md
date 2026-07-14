@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | CHK.4 — Detección automática de checkpoint en el bot | (loop) | HECHO.
+`punto_en_checkpoint` pura + `handle_location` la evalúa SIEMPRE (antes de los early-return de la
+geo-llegada, que sigue intacta), idempotente vía consulta previa a `ejecucion_evento`, silenciosa
+(sin mensaje al chófer). 6 tests nuevos. 174 pytest, `ci.ps1` completo verde. Sigue CHK.5
+(visibilidad en el detalle del viaje).
+
 2026-07-14 | CHK.3 — Checkbox de checkpoint en /viajes/nuevo-w | (loop) | HECHO. Checkbox "Punto de
 control obligatorio" + radio en metros por cada parada; `createViaje` ya pasaba el array de hitos
 completo, sin más cambios. `ci.ps1` completo verde. Sigue CHK.4 (detección en el bot).
