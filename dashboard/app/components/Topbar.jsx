@@ -18,7 +18,7 @@ export default function Topbar() {
         className="flex-1 flex items-center gap-2 bg-surface-alt border border-border rounded-md px-3 py-1.5 text-left hover:border-ink-muted transition-colors"
       >
         <Search size={15} className="text-ink-muted shrink-0" />
-        <span className="flex-1 text-sm text-ink-muted">Buscar viaje, chófer, vehículo…</span>
+        <span className="flex-1 text-sm text-ink-muted">Buscar o preguntar (documentos por caducar, viajes a pérdidas…)</span>
         <kbd className="hidden md:inline text-[10px] px-1.5 py-0.5 rounded bg-surface text-ink-muted font-mono shrink-0">Ctrl K</kbd>
       </button>
 

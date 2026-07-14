@@ -8,6 +8,17 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | Command palette de consultas (asistente sin IA, decisión 2026-07-13 punto 4) | — |
+HECHO. Nuevo `dashboard/lib/comandos.js`: `matchComandos(query, resumen)` puro y testeado, mapea
+texto a 5 comandos canónicos (documentos por caducar, incidencias abiertas, viajes en riesgo,
+chóferes cerca del límite 561, viajes a pérdidas) reutilizando `getResumenHoy()` ya existente —
+cero funciones nuevas de negocio, solo el mapeo texto→métrica→href. `GlobalSearch.jsx` (6.12)
+carga el resumen al abrir y funde comandos + búsqueda de entidad en una lista con navegación de
+teclado unificada. 10 tests nuevos (`comandos.test.js`): normalización sin acentos, singular/
+plural, comando inexistente. Verificado en navegador real sin sesión (vía /subprocesadores):
+"documentos"/"561" resuelven al conteo real de Supabase sin errores, clic navega. 310 vitest,
+`ci.ps1` completo verde.
+
 2026-07-13 | Decisiones de producto formalizadas en ROADMAP + ONBOARDING-CLIENTE.md | be747ca (doc) |
 HECHO. Sesión de decisiones estratégicas con el usuario de cara al lanzamiento. (1) Nuevo bloque
 "Decisiones de producto vigentes — 2026-07-13 (LEER PRIMERO)" al inicio de ROADMAP.md que reencuadra

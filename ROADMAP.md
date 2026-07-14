@@ -133,6 +133,19 @@ Todos `[LOOP]`: sin coste por uso, sin deploy. Construir EN ORDEN. Cada ítem: i
 - [ ] `[DECISIÓN]` **Adaptador WhatsApp** — Meta Business API, coste por conversación, la ventana de 24h rompe el push proactivo; decisión GTM. La abstracción (4.6) deja el terreno preparado.
 - [ ] `[DECISIÓN]` **Aprendizaje sobre conversaciones (chófer↔gestor, notas internas jefe tráfico/GM)** — decidido con el usuario 2026-07-01: interesante PERO explícitamente para DESPUÉS del despliegue, cuando haya volumen real de conversaciones que analizar (hoy no hay datos de producción). Lectura recomendada cuando se retome: (A) extracción de patrones vía llamadas puntuales a LLM sobre texto libre (clasificar incidencias, detectar clientes/rutas problemáticas, temas recurrentes) — coste acotado por uso, no requiere entrenar nada; (B) modelo que se re-entrena/mejora con el tiempo — proyecto mayor, requiere pipeline de datos y presupuesto serio, no es el punto de partida. Empezar por (A) si/cuando se retome. Cuesta dinero por uso → requiere rate-limit + presupuesto antes de construir, igual que el resto de esta sección.
 - [ ] `[DECISIÓN]` **Asistente in-dashboard (resolver dudas / sacar info al instante)** — propuesto por el usuario 2026-07-01. Llamaría a un LLM con contexto de los datos de la empresa (viajes, incidencias, chóferes...) para responder preguntas en lenguaje natural desde el dashboard. Cuesta dinero por consulta → requiere rate-limit + presupuesto antes de construir. Además hay una decisión de alcance previa: ¿solo lectura (responde preguntas sobre datos existentes, más seguro) o también puede *actuar* (cambiar estados, crear incidencias, más potente pero mucho más peligroso si alucina)? Recomendación: empezar solo-lectura con acceso de solo-lectura scoped por RLS del gestor logueado (nunca acceso cross-empresa), igual que el resto del dashboard. **Actualización 2026-07-13 (DECIDIDO):** NO se hace con IA. El asistente es un **command palette** (extensión del Ctrl+K de 6.12) que mapea frases a funciones ya existentes — determinista, gratis, sin alucinación, sin RGPD. El IA Brain (12.4) sigue diferido. Ver punto 4 de "Decisiones de producto vigentes".
+  **Construido (2026-07-14).** `dashboard/lib/comandos.js` (puro, testeado, sin dependencia de
+  Supabase): `matchComandos(query, resumen)` mapea texto normalizado (sin acentos/mayúsculas,
+  comparación por código de carácter — no regex con escapes Unicode, frágil según encoding) contra
+  5 comandos canónicos v1, cada uno un conjunto de sinónimos → la métrica correspondiente de
+  `getResumenHoy()` (ya existente, usada hoy en `ResumenHoy.jsx`) → su vista filtrada: documentos
+  por caducar, incidencias abiertas, viajes en riesgo, chóferes cerca del límite 561, viajes a
+  pérdidas. `GlobalSearch.jsx` (6.12) carga `getResumenHoy()` al abrir el modal y funde los
+  resultados de comando con los de búsqueda de entidad en una sola lista navegable con teclado
+  (`kind: "comando"` vs `"entidad"`, icono `Gauge` distinto). Alcance v1 deliberadamente pequeño —
+  se amplía si se usa. 10 tests nuevos en `comandos.test.js` (normalización, singular/plural,
+  insensibilidad a acentos, comando inexistente → `[]`). Verificado en navegador real (sin sesión,
+  vía `/subprocesadores`): "documentos" y "561" resuelven al conteo real contra Supabase real sin
+  errores de consola, clic navega a la vista filtrada. 310 vitest, `ci.ps1` completo verde.
 
 ### Auditoría de seguridad 2026-07-01 (a petición del usuario) — hallazgos y pendientes
 - [x] RLS en las 16 tablas de negocio + buckets de storage: correcto, verificado con `get_advisors` de Supabase + revisión manual de policies.

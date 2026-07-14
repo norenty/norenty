@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Search, ArrowRight } from "lucide-react";
+import { Search, ArrowRight, Gauge } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { getResumenHoy } from "../../lib/data";
+import { matchComandos } from "../../lib/comandos";
 
 const TIPO_LABEL = { viaje: "Viaje", chofer: "Chófer", vehiculo: "Vehículo" };
 
@@ -13,6 +15,7 @@ export default function GlobalSearch() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
+  const [resumen, setResumen] = useState(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef(null);
   const timer = useRef(null);
@@ -49,6 +52,14 @@ export default function GlobalSearch() {
     if (open) setTimeout(() => inputRef.current?.focus(), 0);
   }, [open]);
 
+  useEffect(() => {
+    if (open) getResumenHoy().then(setResumen);
+  }, [open]);
+
+  const comandoResults = useMemo(() => matchComandos(query, resumen), [query, resumen]);
+
+  const items = [...comandoResults, ...results];
+
   function buscar(q) {
     setQuery(q);
     setActiveIndex(0);
@@ -65,6 +76,7 @@ export default function GlobalSearch() {
 
       setResults([
         ...(viajes.data || []).map((v) => ({
+          kind: "entidad",
           tipo: "viaje",
           id: v.id,
           label: v.referencia || v.id.slice(0, 8),
@@ -72,6 +84,7 @@ export default function GlobalSearch() {
           href: `/viajes/${v.id}`,
         })),
         ...(choferes.data || []).map((c) => ({
+          kind: "entidad",
           tipo: "chofer",
           id: c.id,
           label: c.nombre,
@@ -79,6 +92,7 @@ export default function GlobalSearch() {
           href: `/choferes/${c.id}`,
         })),
         ...(vehiculos.data || []).map((v) => ({
+          kind: "entidad",
           tipo: "vehiculo",
           id: v.id,
           label: v.matricula,
@@ -95,16 +109,16 @@ export default function GlobalSearch() {
   }
 
   function onInputKeyDown(e) {
-    if (results.length === 0) return;
+    if (items.length === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActiveIndex((i) => (i + 1) % results.length);
+      setActiveIndex((i) => (i + 1) % items.length);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setActiveIndex((i) => (i - 1 + results.length) % results.length);
+      setActiveIndex((i) => (i - 1 + items.length) % items.length);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      const item = results[activeIndex];
+      const item = items[activeIndex];
       if (item) ir(item.href);
     }
   }
@@ -124,32 +138,47 @@ export default function GlobalSearch() {
             value={query}
             onChange={(e) => buscar(e.target.value)}
             onKeyDown={onInputKeyDown}
-            placeholder="Buscar viaje, chófer, vehículo…"
+            placeholder="Buscar viaje, chófer, vehículo, o preguntar algo…"
             className="flex-1 text-sm bg-transparent outline-none"
           />
           <kbd className="text-[10px] px-1.5 py-0.5 rounded bg-surface-alt text-ink-muted font-mono shrink-0">Esc</kbd>
         </div>
         <div className="max-h-96 overflow-y-auto">
-          {query.length >= 2 && results.length === 0 && (
+          {query.length >= 2 && items.length === 0 && (
             <div className="px-4 py-8 text-center text-xs text-ink-muted">Sin resultados</div>
           )}
-          {results.map((r, i) => (
-            <button
-              key={`${r.tipo}-${r.id}`}
-              onClick={() => ir(r.href)}
-              onMouseEnter={() => setActiveIndex(i)}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left border-b border-border last:border-0 transition-colors ${
-                i === activeIndex ? "bg-surface-alt" : "hover:bg-surface-alt"
-              }`}
-            >
-              <span className="text-xs px-1.5 py-0.5 rounded bg-surface-alt text-ink-muted font-mono shrink-0">
-                {TIPO_LABEL[r.tipo]}
-              </span>
-              <span className="text-sm text-ink flex-1 truncate">{r.label}</span>
-              <span className="text-xs text-ink-muted shrink-0">{r.sub}</span>
-              {i === activeIndex && <ArrowRight size={14} className="text-ink-muted shrink-0" />}
-            </button>
-          ))}
+          {items.map((r, i) =>
+            r.kind === "comando" ? (
+              <button
+                key={`comando-${r.id}`}
+                onClick={() => ir(r.href)}
+                onMouseEnter={() => setActiveIndex(i)}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left border-b border-border last:border-0 transition-colors ${
+                  i === activeIndex ? "bg-surface-alt" : "hover:bg-surface-alt"
+                }`}
+              >
+                <Gauge size={14} className="text-brand shrink-0" />
+                <span className="text-sm text-ink flex-1 truncate">{r.label}</span>
+                {i === activeIndex && <ArrowRight size={14} className="text-ink-muted shrink-0" />}
+              </button>
+            ) : (
+              <button
+                key={`${r.tipo}-${r.id}`}
+                onClick={() => ir(r.href)}
+                onMouseEnter={() => setActiveIndex(i)}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left border-b border-border last:border-0 transition-colors ${
+                  i === activeIndex ? "bg-surface-alt" : "hover:bg-surface-alt"
+                }`}
+              >
+                <span className="text-xs px-1.5 py-0.5 rounded bg-surface-alt text-ink-muted font-mono shrink-0">
+                  {TIPO_LABEL[r.tipo]}
+                </span>
+                <span className="text-sm text-ink flex-1 truncate">{r.label}</span>
+                <span className="text-xs text-ink-muted shrink-0">{r.sub}</span>
+                {i === activeIndex && <ArrowRight size={14} className="text-ink-muted shrink-0" />}
+              </button>
+            )
+          )}
         </div>
       </div>
     </div>
