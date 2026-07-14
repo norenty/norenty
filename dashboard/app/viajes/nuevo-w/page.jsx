@@ -17,7 +17,7 @@ import RequireRol from "../../components/RequireRol";
 // que solo pide dirección de texto) porque el panel de cálculo en vivo
 // necesita coordenadas para estimar km/coste/precio sugerido.
 function nuevoHito() {
-  return { tipo: "entrega", direccion: "", lat: "", lon: "", ventana_inicio: "", ventana_fin: "" };
+  return { tipo: "entrega", direccion: "", lat: "", lon: "", ventana_inicio: "", ventana_fin: "", es_checkpoint: false, radio_m: "" };
 }
 
 const PASOS = [
@@ -42,6 +42,8 @@ function prefillHitosDesdeUrl(searchParams) {
       lon: p.lon != null ? String(p.lon) : "",
       ventana_inicio: "",
       ventana_fin: "",
+      es_checkpoint: false,
+      radio_m: "",
     }));
   } catch {
     return null;
@@ -266,11 +268,29 @@ export default function NuevoViajeWizard() {
                       />
                       <span className="text-xs text-ink-muted">para calcular km/coste en vivo</span>
                     </div>
-                    <div className="flex items-center gap-2 pl-7">
+                    <div className="flex items-center gap-2 pl-7 mb-2">
                       <span className="text-xs text-ink-muted">Ventana:</span>
                       <input type="datetime-local" value={h.ventana_inicio} onChange={(e) => actualizarHito(i, "ventana_inicio", e.target.value)} className="text-xs border border-border rounded-md px-2 py-1 focus:outline-none focus:border-brand" />
                       <span className="text-xs text-ink-muted">–</span>
                       <input type="datetime-local" value={h.ventana_fin} onChange={(e) => actualizarHito(i, "ventana_fin", e.target.value)} className="text-xs border border-border rounded-md px-2 py-1 focus:outline-none focus:border-brand" />
+                    </div>
+                    <div className="flex items-center gap-2 pl-7">
+                      <label className="flex items-center gap-1.5 text-xs text-ink-secondary cursor-pointer">
+                        <input
+                          type="checkbox" checked={h.es_checkpoint}
+                          onChange={(e) => actualizarHito(i, "es_checkpoint", e.target.checked)}
+                          className="rounded border-border"
+                        />
+                        Punto de control obligatorio (checkpoint)
+                      </label>
+                      {h.es_checkpoint && (
+                        <input
+                          type="number" step="1" min="0" value={h.radio_m}
+                          onChange={(e) => actualizarHito(i, "radio_m", e.target.value)}
+                          placeholder="por defecto: 300m"
+                          className="w-32 text-xs border border-border rounded-md px-2 py-1 focus:outline-none focus:border-brand"
+                        />
+                      )}
                     </div>
                   </div>
                 ))}

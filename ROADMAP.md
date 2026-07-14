@@ -26,7 +26,13 @@ línea en PROGRESS.md.
   tests (`makeBuilder.insert`) ganó soporte para `insert([...filas])` (antes solo objeto único —
   el insert de hitos, un array, nunca se había ejercitado en un test). 2 tests nuevos. 344 vitest,
   `ci.ps1` completo verde.
-- [ ] `[LOOP]` **CHK.3 — Formulario `/viajes/nuevo-w`: marcar checkpoint**. §CHK.3.
+- [x] `[LOOP]` **CHK.3 — Formulario `/viajes/nuevo-w`: marcar checkpoint**. §CHK.3.
+  Construido (2026-07-14). `nuevoHito()` y `prefillHitosDesdeUrl` ganan `es_checkpoint: false,
+  radio_m: ""`. Checkbox "Punto de control obligatorio (checkpoint)" en cada tarjeta de parada +
+  input de radio en metros (solo visible si está marcado, placeholder "por defecto: 300m").
+  `createViaje({..., hitos})` ya pasaba el array completo — sin cambios ahí, los campos nuevos
+  viajan solos. Sin tests de UI nuevos (precedente: esta página no tenía tests de componente
+  antes). `ci.ps1` completo verde (build+lint).
 - [ ] `[LOOP]` **CHK.4 — Detección automática en `handle_location`**. §CHK.4.
 - [ ] `[LOOP]` **CHK.5 — Visibilidad en el detalle del viaje**. §CHK.5.
 

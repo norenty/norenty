@@ -8,6 +8,10 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | CHK.3 — Checkbox de checkpoint en /viajes/nuevo-w | (loop) | HECHO. Checkbox "Punto de
+control obligatorio" + radio en metros por cada parada; `createViaje` ya pasaba el array de hitos
+completo, sin más cambios. `ci.ps1` completo verde. Sigue CHK.4 (detección en el bot).
+
 2026-07-14 | CHK.1+CHK.2 — Modelo de checkpoint: migración + createViaje | (loop) | HECHO.
 Migración `0051_hito_checkpoint.sql` aplicada con `migrate.py`, verificada Grupo B contra la BD
 real (`es_checkpoint` bool default false, `radio_m` int nullable). `createViaje` persiste ambos
