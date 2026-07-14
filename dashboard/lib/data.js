@@ -2895,6 +2895,11 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
       ventana_inicio: h.ventana_inicio || null,
       ventana_fin: h.ventana_fin || null,
       estado: "pendiente",
+      // CHK.2: checkpoint = punto de control detectado por GPS, sin botón ni
+      // POD. Retrocompatible: si el llamador no manda estos campos (código
+      // existente), sale false/null, igual que hoy.
+      es_checkpoint: !!h.es_checkpoint,
+      radio_m: h.radio_m !== undefined && h.radio_m !== "" && h.radio_m != null ? Number(h.radio_m) : null,
     }));
     await supabase.from("hito").insert(rows);
   }

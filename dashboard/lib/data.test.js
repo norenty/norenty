@@ -50,13 +50,16 @@ function makeBuilder(table) {
           : { data: null, error: { message: "no rows", code: "PGRST116" } }
       );
     },
-    insert(obj) {
-      const row = { id: "new-id-" + Math.random().toString(36).slice(2), ...obj };
-      (TABLES[table] = TABLES[table] || []).push(row);
+    insert(objOrArr) {
+      // Soporta tanto insert(objeto) como insert([...filas]) (p.ej. los
+      // hitos de createViaje, que insertan varias filas de golpe).
+      const arr = Array.isArray(objOrArr) ? objOrArr : [objOrArr];
+      const inserted = arr.map((obj) => ({ id: "new-id-" + Math.random().toString(36).slice(2), ...obj }));
+      (TABLES[table] = TABLES[table] || []).push(...inserted);
       return {
         select() { return this; },
-        single() { return Promise.resolve({ data: row, error: null }); },
-        then(resolve) { resolve({ data: [row], error: null }); },
+        single() { return Promise.resolve({ data: inserted[0], error: null }); },
+        then(resolve) { resolve({ data: inserted, error: null }); },
       };
     },
     delete() {
@@ -2537,6 +2540,39 @@ describe("createViaje acepta precio (7A.11)", () => {
     TABLES.vehiculo = [];
     const { viaje } = await createViaje({ referencia: "REF2", choferId: null, vehiculoId: null, remolqueId: null, hitos: [] });
     expect(viaje.precio).toBeNull();
+  });
+});
+
+describe("createViaje persiste es_checkpoint/radio_m (CHK.2)", () => {
+  it("guarda es_checkpoint=true y radio_m tal cual", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.viaje = [];
+    TABLES.chofer = [];
+    TABLES.vehiculo = [];
+    TABLES.hito = [];
+    await createViaje({
+      referencia: "CHK-1", choferId: null, vehiculoId: null, remolqueId: null,
+      hitos: [{ tipo: "recogida", direccion: "Aduana Irún", es_checkpoint: true, radio_m: "150" }],
+    });
+    expect(TABLES.hito).toHaveLength(1);
+    expect(TABLES.hito[0].es_checkpoint).toBe(true);
+    expect(TABLES.hito[0].radio_m).toBe(150);
+  });
+
+  it("hito sin esos campos guarda false/null (retrocompatible)", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.viaje = [];
+    TABLES.chofer = [];
+    TABLES.vehiculo = [];
+    TABLES.hito = [];
+    await createViaje({
+      referencia: "CHK-2", choferId: null, vehiculoId: null, remolqueId: null,
+      hitos: [{ tipo: "entrega", direccion: "Almacén" }],
+    });
+    expect(TABLES.hito[0].es_checkpoint).toBe(false);
+    expect(TABLES.hito[0].radio_m).toBeNull();
   });
 });
 

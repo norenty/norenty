@@ -10,6 +10,31 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
+## Cola ACTIVA del loop autónomo — Checkpoint (2026-07-14, MÁXIMA PRIORIDAD)
+
+**⚠️ El loop autónomo trabaja AHORA en esta cola.** Spec cerrada en `SPECS-CHECKPOINT.md` (leer
+OBLIGATORIO antes de cada ítem). Protocolo: uno por iteración, `ci.ps1` verde, commit, `[x]` aquí +
+línea en PROGRESS.md.
+
+- [x] `[LOOP]` **CHK.1 — Migración `hito.es_checkpoint`+`radio_m`**. §CHK.1.
+  Construido (2026-07-14). Migración `0051_hito_checkpoint.sql` (DDL puro, cabecera de reversión)
+  aplicada con `migrate.py`. Verificado Grupo B contra la BD real: `es_checkpoint boolean NOT NULL
+  default false`, `radio_m integer` nullable.
+- [x] `[LOOP]` **CHK.2 — `createViaje` persiste los campos nuevos**. §CHK.2.
+  Construido (2026-07-14). `es_checkpoint`/`radio_m` en el insert de hitos de `createViaje`,
+  retrocompatible (hito sin esos campos → `false`/`null`, igual que hoy). De paso, el mock de
+  tests (`makeBuilder.insert`) ganó soporte para `insert([...filas])` (antes solo objeto único —
+  el insert de hitos, un array, nunca se había ejercitado en un test). 2 tests nuevos. 344 vitest,
+  `ci.ps1` completo verde.
+- [ ] `[LOOP]` **CHK.3 — Formulario `/viajes/nuevo-w`: marcar checkpoint**. §CHK.3.
+- [ ] `[LOOP]` **CHK.4 — Detección automática en `handle_location`**. §CHK.4.
+- [ ] `[LOOP]` **CHK.5 — Visibilidad en el detalle del viaje**. §CHK.5.
+
+**Al cerrar CHK.5:** `PushNotification` con el resumen + DETENER el loop. La alerta de "no cruzado
+a tiempo" queda `[DECISIÓN]`, fuera de esta cola (ver el final de `SPECS-CHECKPOINT.md`).
+
+---
+
 ## Importación masiva (IMP.1-3) — CERRADA 2026-07-14
 
 Spec completa en `SPECS-IMPORTADOR-MASIVO.md`. Resultado: `/importar` cubre ahora chóferes,

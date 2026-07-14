@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-14 | CHK.1+CHK.2 — Modelo de checkpoint: migración + createViaje | (loop) | HECHO.
+Migración `0051_hito_checkpoint.sql` aplicada con `migrate.py`, verificada Grupo B contra la BD
+real (`es_checkpoint` bool default false, `radio_m` int nullable). `createViaje` persiste ambos
+campos, retrocompatible. Mock de tests ganó soporte de `.insert([...filas])` (antes solo objeto
+único). 2 tests nuevos. 344 vitest, `ci.ps1` completo verde. Sigue CHK.3 (formulario wizard).
+
 2026-07-14 | IMP.3 — UI del importador: selector de tipo + flujo por lotes (cierra la cola de
 importación masiva IMP.1-3) | (loop) | HECHO. `/importar` gana un paso "¿Qué quieres importar?"
 (chóferes/vehículos/viajes) con aviso de orden de dependencia; el stepper existente se generalizó
