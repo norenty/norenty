@@ -8,6 +8,16 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | Rediseño visual — fase 2: MetricCard/KanbanColumn invisibles contra el fondo | (usuario) | HECHO.
+Encontrado auditando la home (`app/page.jsx`): `MetricCard` y `KanbanColumn` usaban
+`bg-surface-alt`, EXACTAMENTE el mismo color que el fondo de la página (`body` en `globals.css`)
+— las tarjetas de "Viajes/En curso/Incidencias/Completados" y las columnas del kanban eran
+invisibles, sin ningún borde que las separase del fondo. Corregido: `MetricCard` pasa a
+`bg-surface` (blanco) + `border-border` + `rounded-xl` (entra en la convención de tarjeta, coge
+la sombra de la fase 1 automáticamente); `KanbanColumn` mantiene su gris de "hueco" pero añade
+`border-border` para tener un límite visible. Verificado en navegador: fondo blanco, borde
+correcto, sombra aplicada. `ci.ps1` completo verde (187 backend, 381 vitest, build 21 páginas).
+
 2026-07-15 | Rediseño visual — fase 1: tokens + sidebar oscuro + sombra de tarjetas | (usuario) | HECHO.
 Primer paso del rediseño acordado (referencias tipo "Light Able" que confirmó el usuario, ver
 memoria `norenty-direccion-diseno-dashboard`): `--color-brand` pasa de indigo (#4F46E5) a azul
