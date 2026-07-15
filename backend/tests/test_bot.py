@@ -475,6 +475,29 @@ def test_obtener_ubicacion_chofer_none_si_no_hay_senal(fake_db):
     assert bot.obtener_ubicacion_chofer({"id": "c1"}) is None
 
 
+# --- empresa_requiere_pod: conecta empresa.requiere_pod (existía desde el
+# Milestone 3, nunca se usaba en ningún sitio) ---
+
+def test_empresa_requiere_pod_true_explicito(fake_db):
+    fake_db.tables["empresa"] = [{"id": "e1", "requiere_pod": True}]
+    assert bot.empresa_requiere_pod("e1") is True
+
+
+def test_empresa_requiere_pod_false_explicito(fake_db):
+    fake_db.tables["empresa"] = [{"id": "e1", "requiere_pod": False}]
+    assert bot.empresa_requiere_pod("e1") is False
+
+
+def test_empresa_requiere_pod_default_true_si_no_hay_fila(fake_db):
+    fake_db.tables["empresa"] = []
+    assert bot.empresa_requiere_pod("e1") is True
+
+
+def test_empresa_requiere_pod_default_true_si_valor_null(fake_db):
+    fake_db.tables["empresa"] = [{"id": "e1", "requiere_pod": None}]
+    assert bot.empresa_requiere_pod("e1") is True
+
+
 @pytest.mark.asyncio
 async def test_cmd_parking_no_vinculado(fake_db):
     fake_db.tables["chofer"] = []

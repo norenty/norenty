@@ -181,6 +181,7 @@ const {
   guardarTelefonoChofer,
   normalizarTelefonoE164,
   guardarObjetivoPuntualidadEmpresa,
+  guardarRequierePodEmpresa,
   guardarMargenObjetivoEmpresa,
   getRendimientoGestores,
   kmAproxViaje,
@@ -1542,6 +1543,13 @@ describe("ajustes de empresa (9.39 — extraído de ajustes/page.jsx a data.js)"
   it("guardarObjetivoPuntualidadEmpresa guarda un porcentaje válido", async () => {
     await guardarObjetivoPuntualidadEmpresa("e1", "95");
     expect(TABLES.empresa[0].objetivo_puntualidad_pct).toBe(95);
+  });
+
+  it("guardarRequierePodEmpresa guarda true/false tal cual", async () => {
+    await guardarRequierePodEmpresa("e1", false);
+    expect(TABLES.empresa[0].requiere_pod).toBe(false);
+    await guardarRequierePodEmpresa("e1", true);
+    expect(TABLES.empresa[0].requiere_pod).toBe(true);
   });
 
   it("guardarObjetivoPuntualidadEmpresa vacío guarda null (quitar el objetivo)", async () => {

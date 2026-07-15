@@ -19,6 +19,13 @@ completo del viaje real: alta → detalle.
 reutilizando `calcularOcupacion`. Select de vehículos gana capacidad_*. `ci.ps1` completo verde.
 Sigue CARGA.4 (detalle del viaje).
 
+2026-07-15 | POD opcional por empresa (empresa.requiere_pod) conectado al bot y a Ajustes | — |
+HECHO. Hallazgo: columna huérfana desde el Milestone 3, nunca usada en ningún sitio — todas las
+empresas pedían POD siempre. `empresa_requiere_pod()` + rama nueva en `cb_llegada` (completa la
+entrega sin pedir foto si el toggle está desactivado, clave `entrega_ok` en los 8 idiomas).
+Checkbox en Ajustes → Empresa. 9 tests nuevos, incluido un E2E completo con la infraestructura
+real de PTB. 179 pytest, 361 vitest, `ci.ps1` completo verde.
+
 2026-07-14 | Bot de llamadas fase 1 — captura y normalización de chofer.telefono | — | HECHO.
 Hallazgo: `chofer.telefono` existía en el esquema pero ninguna pantalla lo capturaba.
 `normalizarTelefonoE164` pura + `createChofer`/`guardarTelefonoChofer` la usan al guardar. UI en

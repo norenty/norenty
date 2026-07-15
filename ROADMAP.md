@@ -10,6 +10,25 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
+## POD opcional por empresa (`empresa.requiere_pod`) — CERRADA 2026-07-15
+
+Hallazgo (auditoría de columnas huérfanas, 2026-07-15): `empresa.requiere_pod` existía en el
+esquema desde el Milestone 3 (migración `0002_valoracion_y_pod.sql`, "toggle de POD por empresa:
+si no usan albarán físico, se desactiva") pero **nunca se conectó a nada** — ni al bot, ni al
+dashboard. Hasta ahora TODAS las empresas pedían foto de albarán siempre, sin excepción, aunque la
+casilla para desactivarlo llevaba desde el principio en la BD.
+
+Construido: `empresa_requiere_pod(empresa_id)` en `bot.py` (default `True` si no hay fila o el
+valor es `NULL`, mismo criterio que la columna). En `cb_llegada`, la rama de "entrega" ahora
+comprueba el toggle: si es `False`, el hito se completa solo (sin pedir foto), mismo patrón que ya
+usa la recogida — nueva clave `entrega_ok` en los 8 idiomas del bot. `guardarRequierePodEmpresa`
+en `data.js` + nueva sección "Prueba de entrega (POD)" en Ajustes → Empresa (checkbox, admin-only,
+guardado optimista). 9 tests nuevos (4 de `empresa_requiere_pod`, 1 E2E completo del flujo sin
+POD reutilizando la infraestructura real de PTB, 2 de `guardarRequierePodEmpresa`, más el smoke
+del componente actualizado). 179 pytest, 361 vitest, `ci.ps1` completo verde.
+
+---
+
 ## Carga del viaje (CARGA.1-4) — CERRADA 2026-07-14
 
 Spec completa en `SPECS-CARGA-VIAJE.md`. Cierra el círculo de COT.3/4: la capacidad+FTL/grupaje ya

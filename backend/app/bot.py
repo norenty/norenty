@@ -198,6 +198,7 @@ TEXTOS = {
         "cancelado": "Cancelado. Pulsa cuando llegues de verdad.",
         "pedir_foto": "Llegada registrada en {dir}.\n\nAhora necesito la FOTO DEL ALBARÁN.\nMándame la foto por aquí.",
         "recogida_ok": "Recogida completada en {dir}.",
+        "entrega_ok": "Entrega completada en {dir}.",
         "foto_subiendo": "Recibida. Subiendo foto...",
         "sin_entrega_esperando": "No hay ninguna entrega esperando albarán.\nUsa /estado para ver tu siguiente hito.",
         "pod_ok": "Albarán recibido para {dir}.\nEntrega completada.",
@@ -248,6 +249,7 @@ TEXTOS = {
         "cancelado": "Cancelled. Tap when you actually arrive.",
         "pedir_foto": "Arrival recorded at {dir}.\n\nNow I need the PROOF OF DELIVERY PHOTO.\nSend me the photo here.",
         "recogida_ok": "Pickup completed at {dir}.",
+        "entrega_ok": "Delivery completed at {dir}.",
         "foto_subiendo": "Received. Uploading...",
         "sin_entrega_esperando": "No delivery is waiting for a proof of delivery.\nUse /estado to see your next stop.",
         "pod_ok": "Proof of delivery received for {dir}.\nDelivery completed.",
@@ -298,6 +300,7 @@ TEXTOS = {
         "cancelado": "Anulat. Apasă când ajungi cu adevărat.",
         "pedir_foto": "Sosire înregistrată la {dir}.\n\nAcum am nevoie de FOTOGRAFIA DOCUMENTULUI.\nTrimite-mi fotografia aici.",
         "recogida_ok": "Ridicare finalizată la {dir}.",
+        "entrega_ok": "Livrare finalizată la {dir}.",
         "foto_subiendo": "Primit. Se încarcă...",
         "sin_entrega_esperando": "Nicio livrare nu așteaptă document.\nFolosește /estado pentru a vedea următoarea oprire.",
         "pod_ok": "Document primit pentru {dir}.\nLivrare finalizată.",
@@ -348,6 +351,7 @@ TEXTOS = {
         "cancelado": "Annulé. Appuyez quand vous arrivez vraiment.",
         "pedir_foto": "Arrivée enregistrée à {dir}.\n\nJ'ai besoin de la PHOTO DU BON DE LIVRAISON.\nEnvoyez-moi la photo ici.",
         "recogida_ok": "Enlèvement terminé à {dir}.",
+        "entrega_ok": "Livraison terminée à {dir}.",
         "foto_subiendo": "Reçu. Envoi en cours...",
         "sin_entrega_esperando": "Aucune livraison n'attend de bon.\nUtilisez /estado pour voir votre prochain arrêt.",
         "pod_ok": "Bon de livraison reçu pour {dir}.\nLivraison terminée.",
@@ -398,6 +402,7 @@ TEXTOS = {
         "cancelado": "Annullato. Premi quando arrivi davvero.",
         "pedir_foto": "Arrivo registrato a {dir}.\n\nOra ho bisogno della FOTO DELLA BOLLA DI CONSEGNA.\nInviami la foto qui.",
         "recogida_ok": "Ritiro completato a {dir}.",
+        "entrega_ok": "Consegna completata a {dir}.",
         "foto_subiendo": "Ricevuta. Caricamento foto...",
         "sin_entrega_esperando": "Nessuna consegna in attesa di bolla.\nUsa /estado per vedere la tua prossima tappa.",
         "pod_ok": "Bolla di consegna ricevuta per {dir}.\nConsegna completata.",
@@ -448,6 +453,7 @@ TEXTOS = {
         "cancelado": "Cancelado. Toca quando chegares mesmo.",
         "pedir_foto": "Chegada registada em {dir}.\n\nAgora preciso da FOTO DA GUIA DE TRANSPORTE.\nEnvia-me a foto por aqui.",
         "recogida_ok": "Recolha concluída em {dir}.",
+        "entrega_ok": "Entrega concluída em {dir}.",
         "foto_subiendo": "Recebida. A carregar foto...",
         "sin_entrega_esperando": "Não há nenhuma entrega à espera de guia.\nUsa /estado para veres a tua próxima paragem.",
         "pod_ok": "Guia de transporte recebida para {dir}.\nEntrega concluída.",
@@ -498,6 +504,7 @@ TEXTOS = {
         "cancelado": "Abgebrochen. Tippe, wenn du wirklich ankommst.",
         "pedir_foto": "Ankunft in {dir} erfasst.\n\nJetzt brauche ich das FOTO DES LIEFERSCHEINS.\nSchick mir das Foto hier.",
         "recogida_ok": "Abholung in {dir} abgeschlossen.",
+        "entrega_ok": "Lieferung in {dir} abgeschlossen.",
         "foto_subiendo": "Erhalten. Foto wird hochgeladen...",
         "sin_entrega_esperando": "Es wartet keine Lieferung auf einen Lieferschein.\nNutze /estado, um deinen nächsten Stopp zu sehen.",
         "pod_ok": "Lieferschein für {dir} erhalten.\nLieferung abgeschlossen.",
@@ -548,6 +555,7 @@ TEXTOS = {
         "cancelado": "تم الإلغاء. اضغط عند وصولك فعليًا.",
         "pedir_foto": "تم تسجيل الوصول في {dir}.\n\nأحتاج الآن إلى صورة سند التسليم.\nأرسل لي الصورة هنا.",
         "recogida_ok": "تم الاستلام في {dir}.",
+        "entrega_ok": "تم إتمام التسليم في {dir}.",
         "foto_subiendo": "تم الاستلام. جارٍ رفع الصورة...",
         "sin_entrega_esperando": "لا يوجد تسليم بانتظار سند.\nاستخدم /estado لمعرفة محطتك التالية.",
         "pod_ok": "تم استلام سند التسليم لـ {dir}.\nاكتمل التسليم.",
@@ -608,6 +616,21 @@ def get_chofer_by_chat(chat_id):
         contexto={"accion": "get_chofer_by_chat", "chat_id": str(chat_id)},
     )
     return r.data[0] if r.data else None
+
+
+def empresa_requiere_pod(empresa_id):
+    """`empresa.requiere_pod` existe en el esquema desde el Milestone 3
+    (migración 0002) pero nunca se conectó a nada -- hasta ahora TODAS las
+    empresas pedían foto de albarán siempre. True por defecto (mismo
+    criterio que la columna en la BD) si no hay fila o el valor es NULL."""
+    r = ejecutar_con_reintentos(
+        lambda: supabase.table("empresa").select("requiere_pod").eq("id", empresa_id).execute(),
+        contexto={"accion": "empresa_requiere_pod", "empresa_id": empresa_id},
+    )
+    if not r.data:
+        return True
+    valor = r.data[0].get("requiere_pod")
+    return True if valor is None else valor
 
 
 class Transporte:
@@ -1042,7 +1065,28 @@ async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     dir_hito = hito.get("direccion", "?")
     if hito["tipo"] == "entrega":
-        await query.edit_message_text(t(chofer, "pedir_foto", dir=dir_hito))
+        if empresa_requiere_pod(chofer["empresa_id"]):
+            await query.edit_message_text(t(chofer, "pedir_foto", dir=dir_hito))
+        else:
+            # Toggle "requiere_pod" desactivado: la entrega se completa sola,
+            # sin pedir foto de albarán (mismo patrón que la recogida de abajo).
+            supabase.table("hito").update({"estado": "completado"}).eq("id", hito_id).execute()
+            supabase.table("ejecucion_evento").insert({
+                "viaje_id": viaje["id"],
+                "hito_id": hito_id,
+                "chofer_id": chofer_id,
+                "tipo": "salida",
+            }).execute()
+
+            await query.edit_message_text(t(chofer, "entrega_ok", dir=dir_hito))
+
+            ref = viaje.get("referencia") or viaje["id"][:8]
+            await notificar_gestor_evento(
+                chofer["empresa_id"],
+                viaje["id"],
+                f"✅ Entrega completada (sin albarán) — Viaje {ref}, hito {hito['orden']} ({dir_hito}). Chófer: {chofer['nombre']}.",
+            )
+            await send_next_hito(chat_id, chofer, ctx.bot)
     else:
         supabase.table("hito").update({"estado": "completado"}).eq("id", hito_id).execute()
         supabase.table("ejecucion_evento").insert({

@@ -143,6 +143,8 @@ describe("AjustesEmpresaSection", () => {
         costeConductor=""
         setCosteConductor={() => {}}
         guardarDesglose={() => {}}
+        requierePod={true}
+        toggleRequierePod={() => {}}
         guardando={false}
       />
     );
@@ -150,6 +152,7 @@ describe("AjustesEmpresaSection", () => {
     expect(html).toContain("Ubicación base");
     expect(html).toContain("Coste de operación");
     expect(html).toContain("Velocidad de planificación");
+    expect(html).toContain("Prueba de entrega");
     expect(html).toContain("Coste desglosado");
   });
 });

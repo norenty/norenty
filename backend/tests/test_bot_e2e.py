@@ -274,6 +274,52 @@ async def test_e2e_flujo_completo_start_hito_llegada_pod_completar(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_e2e_entrega_sin_pod_cuando_empresa_no_lo_requiere(monkeypatch):
+    """Mismo flujo que arriba hasta el hito de ENTREGA, pero con
+    `empresa.requiere_pod = False`: la entrega se completa SOLA al confirmar
+    la llegada, sin pedir foto ni esperar `handle_photo`. Caza la regresión
+    de conectar `empresa.requiere_pod` (existía en el esquema desde el
+    Milestone 3 pero nunca se usaba en ningún sitio)."""
+    fake_db = FakeSupabase()
+    fake_db.tables["empresa"] = [{"id": "e1", "requiere_pod": False}]
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": None,
+    }]
+    fake_db.tables["viaje"] = [{
+        "id": "v1", "chofer_id": CHOFER_ID, "empresa_id": "e1", "estado": "en_curso", "referencia": "VJ-1",
+    }]
+    fake_db.tables["hito"] = [
+        {
+            "id": "h2", "viaje_id": "v1", "orden": 1, "tipo": "entrega", "direccion": "Destino",
+            "estado": "pendiente",
+            "viaje": {"id": "v1", "chofer_id": CHOFER_ID, "estado": "en_curso", "referencia": "VJ-1"},
+        },
+    ]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": None}]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(command_update(app, f"/start {CHOFER_ID}"))
+        assert any("ENTREGA" in s.get("text", "") for s in api.sent)
+        msg_hito = ultimo_mensaje_bot(app, api)
+
+        await app.process_update(callback_update(app, "pre_llegada:h2", msg_hito))
+        msg_confirmacion = mensaje_editado(app, api)
+
+        await app.process_update(callback_update(app, "llegada:h2", msg_confirmacion))
+
+        # No se pidió foto -- se completó directamente.
+        assert not any("FOTO DEL ALBARÁN" in e.get("text", "") for e in api.edited)
+        assert any("Entrega completada" in e.get("text", "") for e in api.edited)
+        assert fake_db.tables["hito"][0]["estado"] == "completado"
+        assert fake_db.tables["viaje"][0]["estado"] == "completado"
+        assert fake_db.tables.get("pod", []) == []  # sin POD, como se pidió
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_e2e_incidencia(monkeypatch):
     """/incidencia texto libre -> notifica al gestor. Camino real de
     CommandHandler con argumentos (ctx.args poblado por el propio framework,

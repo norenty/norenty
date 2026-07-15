@@ -1,6 +1,6 @@
 "use client";
 
-import { Save, Building2, MapPin, Euro, Gauge, Target } from "lucide-react";
+import { Save, Building2, MapPin, Euro, Gauge, Target, Camera } from "lucide-react";
 import RequireRol from "./RequireRol";
 
 /** Secciones de configuración de empresa en Ajustes (ítem 9.40): nombre,
@@ -39,6 +39,8 @@ export default function AjustesEmpresaSection({
   margenObjetivo,
   setMargenObjetivo,
   guardarMargen,
+  requierePod,
+  toggleRequierePod,
   guardando,
 }) {
   return (
@@ -240,6 +242,29 @@ export default function AjustesEmpresaSection({
             </button>
           </div>
         </div>
+      </section>
+      </RequireRol>
+
+      <RequireRol roles={["admin"]}>
+      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Camera size={18} className="text-brand" />
+          <h2 className="text-sm font-medium text-ink">Prueba de entrega (POD)</h2>
+        </div>
+        <p className="text-xs text-ink-secondary mb-4">
+          Si tu empresa NO usa albarán físico, desactívalo aquí: el chófer marcará la entrega
+          como completada directamente, sin que el bot le pida la foto.
+        </p>
+        <label className="flex items-center gap-2 text-sm text-ink cursor-pointer w-fit">
+          <input
+            type="checkbox"
+            checked={requierePod}
+            onChange={(e) => toggleRequierePod(e.target.checked)}
+            disabled={guardando}
+            className="rounded border-border"
+          />
+          Pedir foto de albarán en cada entrega
+        </label>
       </section>
       </RequireRol>
 

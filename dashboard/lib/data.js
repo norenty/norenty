@@ -482,6 +482,17 @@ export async function guardarMargenObjetivoEmpresa(empresaId, margenStr) {
   if (error) throw error;
 }
 
+/**
+ * `empresa.requiere_pod` existía en el esquema desde el Milestone 3
+ * (migración 0002) pero nunca se conectó a ninguna pantalla ni al bot —
+ * hasta hoy TODAS las empresas pedían foto de albarán siempre, sin
+ * excepción, aunque la casilla para desactivarlo ya estaba en la BD.
+ */
+export async function guardarRequierePodEmpresa(empresaId, requierePod) {
+  const { error } = await supabase.from("empresa").update({ requiere_pod: !!requierePod }).eq("id", empresaId);
+  if (error) throw error;
+}
+
 export async function guardarObjetivoPuntualidadEmpresa(empresaId, objetivoStr) {
   const objetivo = objetivoStr.trim() === "" ? null : Number(objetivoStr);
   if (objetivo != null && (Number.isNaN(objetivo) || objetivo < 0 || objetivo > 100)) {
