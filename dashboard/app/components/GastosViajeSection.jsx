@@ -222,7 +222,7 @@ export default function GastosViajeSection({ viajeId, choferId = null, vehiculoI
 
       <div className="p-4">
         {loading ? (
-          <div className="h-16 bg-surface-alt rounded-lg animate-pulse" />
+          <div className="h-16 bg-border rounded-lg animate-pulse" />
         ) : gastos.length === 0 ? (
           <p className="text-xs text-ink-muted">Sin gastos registrados todavía.</p>
         ) : (

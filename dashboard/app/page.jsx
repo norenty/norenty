@@ -102,7 +102,7 @@ export default function OperacionPage() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-surface-alt rounded-lg h-48 animate-pulse" />
+            <div key={i} className="bg-border rounded-lg h-48 animate-pulse" />
           ))}
         </div>
       ) : trips.length === 0 ? (

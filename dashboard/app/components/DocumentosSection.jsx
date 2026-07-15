@@ -116,7 +116,7 @@ export default function DocumentosSection({ ambito, entidadId, tipos, titulo = "
   }
 
   if (loading) {
-    return <div className="h-32 bg-surface-alt rounded-xl animate-pulse" />;
+    return <div className="h-32 bg-border rounded-xl animate-pulse" />;
   }
 
   return (

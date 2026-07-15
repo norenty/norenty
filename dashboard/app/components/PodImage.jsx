@@ -30,7 +30,7 @@ export default function PodImage({ path, className = "" }) {
   }
 
   if (!src) {
-    return <div className={`bg-surface-alt animate-pulse ${className}`} />;
+    return <div className={`bg-border animate-pulse ${className}`} />;
   }
 
   return (

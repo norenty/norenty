@@ -62,7 +62,7 @@ export default function ResumenHoy() {
     return (
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-24 bg-surface-alt rounded-xl animate-pulse" />
+          <div key={i} className="h-24 bg-border rounded-xl animate-pulse" />
         ))}
       </div>
     );

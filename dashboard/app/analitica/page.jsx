@@ -509,7 +509,7 @@ export default function Analitica() {
       {error ? (
         <ErrorCargaReintentar mensaje="No se pudo cargar esta vista de analítica." onReintentar={cargarVista} />
       ) : loading || !datos ? (
-        <div className="h-64 bg-surface-alt rounded-xl animate-pulse" />
+        <div className="h-64 bg-border rounded-xl animate-pulse" />
       ) : (
         <>
           {vista === "puntualidad" && <VistaPuntualidad datos={datos} comparativa={comparativa} />}

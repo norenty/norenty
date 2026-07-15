@@ -134,8 +134,8 @@ export default function ChoferDetalle() {
   if (loading) {
     return (
       <div className="max-w-3xl space-y-4">
-        <div className="h-24 bg-surface-alt rounded-xl animate-pulse" />
-        <div className="h-48 bg-surface-alt rounded-xl animate-pulse" />
+        <div className="h-24 bg-border rounded-xl animate-pulse" />
+        <div className="h-48 bg-border rounded-xl animate-pulse" />
       </div>
     );
   }

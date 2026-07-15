@@ -52,7 +52,7 @@ export default function SugerenciaChofer({ viajeId, hitosOverride, onAsignado })
     return (
       <div className="flex flex-col gap-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-14 bg-surface-alt rounded-lg animate-pulse" />
+          <div key={i} className="h-14 bg-border rounded-lg animate-pulse" />
         ))}
       </div>
     );

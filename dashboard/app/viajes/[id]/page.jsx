@@ -235,7 +235,7 @@ export default function ViajeDetalle() {
     setTimeout(() => setCopiadoEnlace(false), 2000);
   }
 
-  if (loading) return <div className="h-64 bg-surface-alt rounded-lg animate-pulse" />;
+  if (loading) return <div className="h-64 bg-border rounded-lg animate-pulse" />;
   if (!data) return <p className="text-sm text-ink-secondary">Viaje no encontrado.</p>;
 
   const { viaje, hitos, eventos, pods, valoraciones } = data;

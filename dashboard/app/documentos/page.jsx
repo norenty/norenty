@@ -20,8 +20,8 @@ export default function DocumentosPorCaducar() {
   if (loading) {
     return (
       <div className="space-y-3">
-        <div className="h-8 w-64 bg-surface-alt rounded animate-pulse" />
-        <div className="h-64 bg-surface-alt rounded-xl animate-pulse" />
+        <div className="h-8 w-64 bg-border rounded animate-pulse" />
+        <div className="h-64 bg-border rounded-xl animate-pulse" />
       </div>
     );
   }

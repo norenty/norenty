@@ -8,6 +8,20 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | Rediseño visual — fase 3: skeletons de carga invisibles contra el fondo | (usuario) | HECHO.
+Mismo bug de fase 2 (elemento en `bg-surface-alt`, idéntico al fondo de la página), pero en los
+`animate-pulse` de estado de carga: 16 ficheros usaban `bg-surface-alt` para el placeholder, que
+al ser el mismo color que el body se ve como "nada cargando" en vez de un esqueleto visible.
+Cambiado a `bg-border` (gris ya existente, con contraste real tanto contra el fondo de página como
+dentro de tarjetas blancas). NOTA operativa: el primer intento de este fix usó un script de
+PowerShell que reescribió TODOS los `.jsx` de `app/` con `Get-Content`/`Set-Content -Encoding
+utf8`, lo que corrompió los acentos (mojibake) en decenas de archivos no relacionados —
+revertido con `git checkout -- dashboard/app` (nada de eso estaba comiteado) y rehecho ficherero
+a fichero con la herramienta de edición dirigida. Lección: nunca reescribir árboles de ficheros
+con PowerShell Get-Content/Set-Content en este repo, solo ediciones dirigidas. `ci.ps1` completo
+verde (187 backend, 381 vitest, build 21 páginas), diff limpio (16 archivos, 19+/19-, solo las
+líneas previstas).
+
 2026-07-15 | Rediseño visual — fase 2: MetricCard/KanbanColumn invisibles contra el fondo | (usuario) | HECHO.
 Encontrado auditando la home (`app/page.jsx`): `MetricCard` y `KanbanColumn` usaban
 `bg-surface-alt`, EXACTAMENTE el mismo color que el fondo de la página (`body` en `globals.css`)

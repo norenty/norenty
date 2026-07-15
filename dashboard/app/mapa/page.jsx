@@ -186,7 +186,7 @@ export default function MapaPage() {
 
       <div style={{ height: "calc(100vh - 180px)" }}>
         {loading ? (
-          <div className="w-full h-full bg-surface-alt rounded-xl animate-pulse" />
+          <div className="w-full h-full bg-border rounded-xl animate-pulse" />
         ) : (
           <MapView
             hitos={hitos}

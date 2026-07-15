@@ -110,7 +110,7 @@ export default function Nomina() {
       {error ? (
         <ErrorCargaReintentar mensaje="No se pudo cargar el informe de nómina." onReintentar={cargar} />
       ) : loading || !informe ? (
-        <div className="h-64 bg-surface-alt rounded-xl animate-pulse" />
+        <div className="h-64 bg-border rounded-xl animate-pulse" />
       ) : (
         <>
           {!informe.tieneBase && (

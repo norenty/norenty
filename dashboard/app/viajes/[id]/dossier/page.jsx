@@ -23,7 +23,7 @@ export default function DossierViaje() {
   }, [id]);
 
   if (loading) {
-    return <div className="max-w-3xl"><div className="h-48 bg-surface-alt rounded-xl animate-pulse" /></div>;
+    return <div className="max-w-3xl"><div className="h-48 bg-border rounded-xl animate-pulse" /></div>;
   }
 
   if (!dossier) {

@@ -101,7 +101,7 @@ export default function IncidenciasPage() {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-surface-alt rounded-xl h-20 animate-pulse" />
+            <div key={i} className="bg-border rounded-xl h-20 animate-pulse" />
           ))}
         </div>
       ) : incidencias.length === 0 ? (
