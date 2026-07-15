@@ -186,6 +186,7 @@ const {
   guardarRequierePodEmpresa,
   guardarMargenObjetivoEmpresa,
   getRendimientoGestores,
+  getMetricasPorCliente,
   kmAproxViaje,
   getEstado561,
   getEstado561ParaChoferes,
@@ -629,6 +630,75 @@ describe("getRendimientoGestores (12.5 — comparación de gestores para el jefe
     ];
     const r = await getRendimientoGestores(RANGO_AMPLIO);
     expect(r.map((g) => g.nombre)).toEqual(["Mucho", "Poco"]);
+  });
+});
+
+describe("getMetricasPorCliente (F13.3 — SLA/rendimiento por cliente)", () => {
+  it("agrupa viajes, incidencias y puntualidad por cliente, y agrupa aparte los sin cliente", async () => {
+    TABLES.cliente = [{ id: "cl1", nombre: "Acme", activo: true }, { id: "cl2", nombre: "Beta", activo: true }];
+    TABLES.viaje = [
+      { id: "v1", cliente_id: "cl1", precio: null, created_at: "2026-01-01T10:00:00Z" },
+      { id: "v2", cliente_id: "cl1", precio: null, created_at: "2026-01-01T10:00:00Z" },
+      { id: "v3", cliente_id: "cl2", precio: null, created_at: "2026-01-01T10:00:00Z" },
+      { id: "v4", cliente_id: null, precio: null, created_at: "2026-01-01T10:00:00Z" },
+    ];
+    TABLES.incidencia = [
+      { viaje_id: "v1", tipo: "fuera_de_ventana", created_at: "2026-01-01T10:00:00Z" },
+      { viaje_id: "v3", tipo: "otro", created_at: "2026-01-01T10:00:00Z" },
+    ];
+    TABLES.hito = [
+      { viaje_id: "v1", ventana_fin: "2026-01-01T10:00:00Z" },
+      { viaje_id: "v2", ventana_fin: "2026-01-01T10:00:00Z" },
+      { viaje_id: "v3", ventana_fin: "2026-01-01T10:00:00Z" },
+    ];
+
+    const r = await getMetricasPorCliente(RANGO_AMPLIO);
+
+    const acme = r.find((c) => c.nombre === "Acme");
+    expect(acme.viajes).toBe(2);
+    expect(acme.incidencias).toBe(1);
+    expect(acme.pctPuntualidad).toBe(50); // 1 de 2 con ventana llegó tarde
+
+    const beta = r.find((c) => c.nombre === "Beta");
+    expect(beta.viajes).toBe(1);
+    expect(beta.pctPuntualidad).toBe(100);
+
+    const sinCliente = r.find((c) => c.nombre === "Sin cliente");
+    expect(sinCliente.viajes).toBe(1);
+  });
+
+  it("clientes activos sin viajes en el rango no aparecen (no aportan nada a la tabla)", async () => {
+    TABLES.cliente = [{ id: "cl1", nombre: "Sinviajes", activo: true }];
+    TABLES.viaje = [];
+    const r = await getMetricasPorCliente(RANGO_AMPLIO);
+    expect(r).toHaveLength(0);
+  });
+
+  it("calcula el margen medio real (precio - gastos) por cliente", async () => {
+    TABLES.cliente = [{ id: "cl1", nombre: "Acme", activo: true }];
+    TABLES.viaje = [
+      { id: "v1", cliente_id: "cl1", precio: 1000, vehiculo_id: null, created_at: "2026-01-01T10:00:00Z" },
+      { id: "v2", cliente_id: "cl1", precio: 500, vehiculo_id: null, created_at: "2026-01-01T10:00:00Z" },
+    ];
+    TABLES.gasto_viaje = [
+      { id: "g1", viaje_id: "v1", tipo: "repostaje", importe: 200 },
+      { id: "g2", viaje_id: "v2", tipo: "peaje", importe: 100 },
+    ];
+    const r = await getMetricasPorCliente(RANGO_AMPLIO);
+    const acme = r.find((c) => c.nombre === "Acme");
+    // margenes: 800 y 400 -> media 600
+    expect(acme.margenMedio).toBe(600);
+  });
+
+  it("ordena de más a menos viajes", async () => {
+    TABLES.cliente = [{ id: "cl1", nombre: "Poco", activo: true }, { id: "cl2", nombre: "Mucho", activo: true }];
+    TABLES.viaje = [
+      { id: "v1", cliente_id: "cl1", precio: null, created_at: "2026-01-01T10:00:00Z" },
+      { id: "v2", cliente_id: "cl2", precio: null, created_at: "2026-01-01T10:00:00Z" },
+      { id: "v3", cliente_id: "cl2", precio: null, created_at: "2026-01-01T10:00:00Z" },
+    ];
+    const r = await getMetricasPorCliente(RANGO_AMPLIO);
+    expect(r.map((c) => c.nombre)).toEqual(["Mucho", "Poco"]);
   });
 });
 

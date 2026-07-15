@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | F13.3 — Rendimiento/SLA por cliente | (loop) | HECHO.
+`getMetricasPorCliente()` agrupa viajes/incidencias/puntualidad por `cliente_id` (mismo patrón que
+gestores/chóferes), viajes sin cliente van a "Sin cliente", margen medio real vía `getPnlViaje`.
+Pestaña "Clientes" en `/analitica`, admin-only. 4 tests nuevos, `ci.ps1` completo verde. Sigue
+F13.4 (panel cotización vs. real).
+
 2026-07-15 | F13.5 — Aviso proactivo de descanso 561 | (loop) | HECHO.
 `horas_conduccion_estimadas_viaje()` suma distancias entre pings de `ubicacion` (UBI.1) desde el
 inicio del viaje; `debe_avisar_pausa()` dispara a partir de 4,5h, dedup por viaje en `chat_data`.

@@ -10,6 +10,7 @@ import {
   getMetricasRentabilidad,
   getComparativaMensual,
   getRendimientoGestores,
+  getMetricasPorCliente,
 } from "../../lib/data";
 import { fmtEur } from "../../lib/format";
 import ErrorCargaReintentar from "../components/ui/ErrorCargaReintentar";
@@ -24,6 +25,9 @@ const VISTAS = [
   // Gestores (12.5): solo tiene sentido para quien compara personal, no para
   // el propio gestor consultando su día a día — se gatea por rol más abajo.
   { id: "gestores", label: "Gestores", icon: Users, soloAdmin: true },
+  // Clientes (F13.3): SLA por cuenta -- solo tiene sentido para quien
+  // negocia/factura con el cliente, no para el chófer/gestor de a pie.
+  { id: "clientes", label: "Clientes", icon: Users, soloAdmin: true },
 ];
 
 // Ítem 12.2 — controlling en el tiempo: flecha + % frente al periodo anterior
@@ -338,6 +342,51 @@ function VistaGestores({ datos }) {
   );
 }
 
+function VistaClientes({ datos }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-xs text-ink-secondary">
+        Rendimiento por cliente en los últimos 90 días: volumen de viajes, % de puntualidad,
+        incidencias y margen real medio.
+      </p>
+      <div className="bg-surface border border-border rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-xs text-ink-secondary text-left">
+              <th className="px-4 py-2 font-medium">Cliente</th>
+              <th className="px-4 py-2 font-medium">Viajes</th>
+              <th className="px-4 py-2 font-medium">% puntualidad</th>
+              <th className="px-4 py-2 font-medium">Incidencias</th>
+              <th className="px-4 py-2 font-medium">Margen medio</th>
+            </tr>
+          </thead>
+          <tbody>
+            {datos.length === 0 ? (
+              <tr><td colSpan={5} className="px-4 py-6 text-center text-ink-secondary">Sin viajes con cliente en este periodo.</td></tr>
+            ) : (
+              datos.map((c) => (
+                <tr key={c.id ?? "sin-cliente"} className="border-b border-border last:border-0">
+                  <td className="px-4 py-2.5 text-ink">{c.nombre}</td>
+                  <td className="px-4 py-2.5 text-ink-secondary">{c.viajes}</td>
+                  <td className="px-4 py-2.5 text-ink-secondary">
+                    {c.pctPuntualidad != null ? `${c.pctPuntualidad}%` : "—"}
+                  </td>
+                  <td className="px-4 py-2.5 text-ink-secondary">{c.incidencias}</td>
+                  <td className="px-4 py-2.5 text-ink-secondary">
+                    {c.margenMedio != null ? fmtEur(c.margenMedio) : "—"}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Ítem 12.2: solo estas dos vistas tienen "comparar con el periodo anterior"
 // con sentido de negocio claro hoy (margen/pérdidas, puntualidad).
 const VISTAS_CON_COMPARATIVA = new Set(["puntualidad", "rentabilidad"]);
@@ -363,6 +412,7 @@ export default function Analitica() {
       flota: getMetricasFlota,
       rentabilidad: getMetricasRentabilidad,
       gestores: getRendimientoGestores,
+      clientes: getMetricasPorCliente,
     }[vista];
     cargar()
       .then((d) => setDatos(d))
@@ -379,7 +429,7 @@ export default function Analitica() {
   useEffect(() => {
     // Si el rol se resuelve DESPUÉS de haber caído en "gestores" (p.ej. porque
     // no es admin), no dejarlo varado en una pestaña oculta.
-    if (vista === "gestores" && rol && rol !== "admin") setVista("puntualidad");
+    if ((vista === "gestores" || vista === "clientes") && rol && rol !== "admin") setVista("puntualidad");
   }, [rol, vista]);
 
   useEffect(() => { cargarVista(); }, [vista]);
@@ -423,6 +473,7 @@ export default function Analitica() {
           {vista === "flota" && <VistaFlota datos={datos} />}
           {vista === "rentabilidad" && <VistaRentabilidad datos={datos} comparativa={comparativa} />}
           {vista === "gestores" && <VistaGestores datos={datos} />}
+          {vista === "clientes" && <VistaClientes datos={datos} />}
         </>
       )}
     </div>

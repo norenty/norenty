@@ -35,7 +35,13 @@ commit, `[x]` aquí + línea en PROGRESS.md.
   hash SHA-256, y la tabla completa de eventos con su hash — todo con `print:` (mismo patrón que
   `/nomina`, `window.print()` a PDF, sin librería nueva). Enlace "Dossier de evidencia" en
   `/viajes/[id]` junto a Albaranes. 2 tests nuevos. 363 vitest, `ci.ps1` completo verde.
-- [ ] `[LOOP]` **F13.3 — Rendimiento/SLA por cliente** (métricas agrupadas por `cliente_id`). §F13.3.
+- [x] `[LOOP]` **F13.3 — Rendimiento/SLA por cliente** (métricas agrupadas por `cliente_id`). §F13.3.
+  Construido (2026-07-15): `getMetricasPorCliente(rango)` en `data.js` — mismo patrón que
+  `getRendimientoGestores`/`getMetricasChoferes` (agrega viajes/incidencias/puntualidad por
+  entidad, viajes sin cliente en grupo "Sin cliente"), + margen medio real vía `getPnlViaje` por
+  viaje (mismo criterio que `getMetricasRentabilidad`). Nueva pestaña "Clientes" en `/analitica`
+  (admin-only, mismo patrón de tabla que Gestores). 4 tests nuevos. `ci.ps1` completo verde (187
+  backend, 370 vitest, build 21 páginas).
 - [ ] `[LOOP]` **F13.4 — Panel ejecutivo cotización vs. real** (gráfico visual sobre el cálculo ya
   existente). §F13.4.
 - [x] `[LOOP]` **F13.5 — Aviso proactivo de descanso 561** (el bot empuja el aviso, estimación

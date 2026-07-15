@@ -914,6 +914,86 @@ export async function getMetricasChoferes(rango = {}) {
 }
 
 /**
+ * F13.3: rendimiento/SLA por cliente para que el dueño/gestor vea qué cuentas
+ * dan más volumen, cuáles cumplen ventana y cuáles dejan margen — mismo
+ * patrón que getRendimientoGestores/getMetricasChoferes (agrega por entidad
+ * sobre el rango). Viajes sin cliente_id se agrupan aparte, no se descartan
+ * (id null, nombre "Sin cliente").
+ */
+export async function getMetricasPorCliente(rango = {}) {
+  const { desde, hasta } = resolveRango(rango);
+  const [{ data: clientes }, { data: viajes }, { data: incidencias }, { data: hitos }] = await Promise.all([
+    supabase.from("cliente").select("id, nombre").eq("activo", true),
+    supabase.from("viaje").select("id, cliente_id, precio").gte("created_at", desde).lt("created_at", hasta),
+    supabase.from("incidencia").select("viaje_id, tipo").gte("created_at", desde).lt("created_at", hasta),
+    supabase.from("hito").select("viaje_id, ventana_fin").gte("ventana_fin", desde).lt("ventana_fin", hasta),
+  ]);
+
+  const mapaViajeCliente = Object.fromEntries((viajes || []).map((v) => [v.id, v.cliente_id || null]));
+
+  const incidenciasPorCliente = {};
+  const tardePorCliente = {};
+  (incidencias || []).forEach((i) => {
+    const clienteId = mapaViajeCliente[i.viaje_id] ?? null;
+    incidenciasPorCliente[clienteId] = (incidenciasPorCliente[clienteId] || 0) + 1;
+    if (i.tipo === "fuera_de_ventana") {
+      tardePorCliente[clienteId] = (tardePorCliente[clienteId] || 0) + 1;
+    }
+  });
+
+  const conVentanaPorCliente = {};
+  (hitos || []).forEach((h) => {
+    if (!h.ventana_fin) return;
+    const clienteId = mapaViajeCliente[h.viaje_id] ?? null;
+    conVentanaPorCliente[clienteId] = (conVentanaPorCliente[clienteId] || 0) + 1;
+  });
+
+  const viajesConPrecio = (viajes || []).filter((v) => v.precio != null);
+  const pnls = await Promise.all(viajesConPrecio.map((v) => getPnlViaje(v.id)));
+  const margenesPorCliente = {};
+  viajesConPrecio.forEach((v, idx) => {
+    const clienteId = v.cliente_id || null;
+    const margenReal = pnls[idx].margenReal;
+    if (margenReal == null) return;
+    (margenesPorCliente[clienteId] ||= []).push(margenReal);
+  });
+
+  const viajesPorCliente = {};
+  (viajes || []).forEach((v) => {
+    const clienteId = v.cliente_id || null;
+    viajesPorCliente[clienteId] = (viajesPorCliente[clienteId] || 0) + 1;
+  });
+
+  const grupos = [...(clientes || []).map((c) => ({ id: c.id, nombre: c.nombre }))];
+  if (viajesPorCliente[null]) {
+    grupos.push({ id: null, nombre: "Sin cliente" });
+  }
+
+  return grupos
+    .map((g) => {
+      const totalConVentana = conVentanaPorCliente[g.id] || 0;
+      const tarde = tardePorCliente[g.id] || 0;
+      const pctPuntualidad = totalConVentana > 0
+        ? Math.round(((totalConVentana - tarde) / totalConVentana) * 100)
+        : null;
+      const margenes = margenesPorCliente[g.id] || [];
+      const margenMedio = margenes.length
+        ? Math.round(margenes.reduce((s, m) => s + m, 0) / margenes.length)
+        : null;
+      return {
+        id: g.id,
+        nombre: g.nombre,
+        viajes: viajesPorCliente[g.id] || 0,
+        pctPuntualidad,
+        incidencias: incidenciasPorCliente[g.id] || 0,
+        margenMedio,
+      };
+    })
+    .filter((g) => g.viajes > 0)
+    .sort((a, b) => b.viajes - a.viajes);
+}
+
+/**
  * Vista 4/4 de /analitica: estado de la flota. A diferencia de las otras 3
  * vistas, "vehículos activos"/"en uso"/"ITV pendientes" son estado ACTUAL
  * (instantáneo), no una serie histórica — no tiene sentido acotarlos a un
