@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | F13.2 — Dossier de evidencia para reclamaciones | (loop) | HECHO. `getDossierViaje`
+compone lecturas ya existentes (viaje, hitos, eventos con hash, pods con hash SHA-256). Nueva
+ruta `/viajes/[id]/dossier`, imprimible a PDF (`print:`, sin librería nueva), enlazada desde
+Albaranes en `/viajes/[id]`. 2 tests nuevos. 363 vitest, `ci.ps1` completo verde. Sigue F13.1
+(export facturación).
+
 2026-07-14 | CARGA.4 — Detalle del viaje: carga + ocupación real (cierra la cola CARGA.1-4) |
 (loop) | HECHO. Sección "Carga" en `/viajes/[id]` junto a Viabilidad, badge FTL/grupaje si el
 vehículo tiene capacidad. `ci.ps1` completo verde. **Cola CARGA.1-4 (SPECS-CARGA-VIAJE.md)

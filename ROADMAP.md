@@ -19,8 +19,14 @@ commit, `[x]` aquí + línea en PROGRESS.md.
 
 - [ ] `[LOOP]` **F13.1 — Export para facturación/integración** (CSV + Excel, formato mapeable a
   SAP/gestoría; NO módulo contable). §F13.1.
-- [ ] `[LOOP]` **F13.2 — Dossier de evidencia para reclamaciones** (POD + hash + GPS + timestamps →
+- [x] `[LOOP]` **F13.2 — Dossier de evidencia para reclamaciones** (POD + hash + GPS + timestamps →
   PDF imprimible). El diferenciador, ningún TMS lo tiene. §F13.2.
+  Construido (2026-07-15). `getDossierViaje(viajeId)` en `data.js` (composición de lecturas ya
+  existentes, sin query de negocio nueva). Nueva ruta `/viajes/[id]/dossier`: cabecera explicando
+  la cadena de hash, paradas con hora de llegada real, checkpoints marcados, fotos POD con su
+  hash SHA-256, y la tabla completa de eventos con su hash — todo con `print:` (mismo patrón que
+  `/nomina`, `window.print()` a PDF, sin librería nueva). Enlace "Dossier de evidencia" en
+  `/viajes/[id]` junto a Albaranes. 2 tests nuevos. 363 vitest, `ci.ps1` completo verde.
 - [ ] `[LOOP]` **F13.3 — Rendimiento/SLA por cliente** (métricas agrupadas por `cliente_id`). §F13.3.
 - [ ] `[LOOP]` **F13.4 — Panel ejecutivo cotización vs. real** (gráfico visual sobre el cálculo ya
   existente). §F13.4.

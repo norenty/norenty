@@ -316,6 +316,29 @@ export async function getViaje(id) {
 }
 
 /**
+ * F13.2 — Dossier de evidencia para reclamaciones: reúne todo lo probatorio de
+ * un viaje (cadena de hash de los eventos, POD con su hash SHA-256 y hora,
+ * checkpoints, llegadas) para un documento imprimible que enseñar a un cliente
+ * en una disputa. Solo lectura, composición de datos ya existentes.
+ */
+export async function getDossierViaje(viajeId) {
+  const { data: viaje } = await supabase
+    .from("viaje")
+    .select("*, chofer(nombre), cliente(nombre, cif)")
+    .eq("id", viajeId)
+    .single();
+  if (!viaje) return null;
+
+  const [{ data: hitos }, { data: eventos }, { data: pods }] = await Promise.all([
+    supabase.from("hito").select("id, orden, tipo, direccion, es_checkpoint").eq("viaje_id", viajeId).order("orden"),
+    supabase.from("ejecucion_evento").select("tipo, detalle, ocurrido_en, hash, hash_prev, hito_id").eq("viaje_id", viajeId).order("ocurrido_en", { ascending: true }),
+    supabase.from("pod").select("foto_url, hash_sha256, created_at, hito_id").eq("viaje_id", viajeId),
+  ]);
+
+  return { viaje, hitos: hitos || [], eventos: eventos || [], pods: pods || [] };
+}
+
+/**
  * Empresa del gestor actualmente logueado (multi-tenant: cada gestor pertenece
  * a una empresa, nunca "la primera que haya"). Lanza si no hay sesión o el
  * gestor no tiene empresa asociada — eso es un estado roto, no algo a ocultar.

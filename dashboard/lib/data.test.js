@@ -178,6 +178,7 @@ const {
   guardarCapacidadVehiculo,
   createVehiculo,
   createChofer,
+  getDossierViaje,
   guardarTelefonoChofer,
   normalizarTelefonoE164,
   guardarObjetivoPuntualidadEmpresa,
@@ -2542,6 +2543,27 @@ describe("calcularOcupacion — FTL vs. grupaje (COT.4)", () => {
   it("sin carga (todo vacío): tipo desconocido", () => {
     const r = calcularOcupacion({}, { ldm: 13.6, kg: 24000, m3: 90 });
     expect(r.tipo).toBe("desconocido");
+  });
+});
+
+describe("getDossierViaje (F13.2 — dossier de evidencia para reclamaciones)", () => {
+  it("reúne viaje, hitos, eventos y pods sin lanzar", async () => {
+    TABLES.viaje = [{ id: "v1", referencia: "VJ-1", estado: "completado", chofer: { nombre: "Mario" }, cliente: { nombre: "Acme", cif: "B1" } }];
+    TABLES.hito = [{ id: "h1", viaje_id: "v1", orden: 1, tipo: "entrega", direccion: "Madrid", es_checkpoint: false }];
+    TABLES.ejecucion_evento = [{ viaje_id: "v1", hito_id: "h1", tipo: "llegada", ocurrido_en: "2026-01-01T10:00:00Z", hash: "abc123" }];
+    TABLES.pod = [{ viaje_id: "v1", hito_id: "h1", foto_url: "e1/v1/h1/x.jpg", hash_sha256: "deadbeef", created_at: "2026-01-01T10:05:00Z" }];
+
+    const d = await getDossierViaje("v1");
+    expect(d.viaje.referencia).toBe("VJ-1");
+    expect(d.hitos).toHaveLength(1);
+    expect(d.eventos).toHaveLength(1);
+    expect(d.pods).toHaveLength(1);
+  });
+
+  it("viaje inexistente devuelve null", async () => {
+    TABLES.viaje = [];
+    const d = await getDossierViaje("no-existe");
+    expect(d).toBeNull();
   });
 });
 

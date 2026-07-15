@@ -672,10 +672,18 @@ export default function ViajeDetalle() {
           />
 
           <section>
-            <h2 className="text-sm font-medium text-ink mb-3 flex items-center gap-1.5">
-              Albaranes (POD)
-              <Ayuda texto="POD = Proof Of Delivery, la prueba de que la mercancía se entregó de verdad (foto, firma). Sirve para cobrar sin discusión y para reclamar si un cliente dice que no llegó." />
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-medium text-ink flex items-center gap-1.5">
+                Albaranes (POD)
+                <Ayuda texto="POD = Proof Of Delivery, la prueba de que la mercancía se entregó de verdad (foto, firma). Sirve para cobrar sin discusión y para reclamar si un cliente dice que no llegó." />
+              </h2>
+              <Link
+                href={`/viajes/${id}/dossier`}
+                className="flex items-center gap-1 text-xs text-ink-secondary hover:text-ink no-underline"
+              >
+                Dossier de evidencia
+              </Link>
+            </div>
             {pods.length === 0 ? (
               <p className="text-xs text-ink-secondary">Sin albaranes todavía.</p>
             ) : (
