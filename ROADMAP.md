@@ -10,6 +10,33 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
+## Cola ACTIVA del loop autónomo — Fase 13: valor comercial/financiero + rutas (2026-07-15)
+
+**⚠️ El loop autónomo trabaja AHORA en esta cola.** Spec cerrada completa en `SPECS-FASE13.md`
+(leer OBLIGATORIO antes de cada ítem). Features de paridad con TMS competidores, todas sobre datos
+que ya existen. Ejecución: `sonnet`, esfuerzo bajo. Protocolo: uno por iteración, `ci.ps1` verde,
+commit, `[x]` aquí + línea en PROGRESS.md.
+
+- [ ] `[LOOP]` **F13.1 — Export para facturación/integración** (CSV + Excel, formato mapeable a
+  SAP/gestoría; NO módulo contable). §F13.1.
+- [ ] `[LOOP]` **F13.2 — Dossier de evidencia para reclamaciones** (POD + hash + GPS + timestamps →
+  PDF imprimible). El diferenciador, ningún TMS lo tiene. §F13.2.
+- [ ] `[LOOP]` **F13.3 — Rendimiento/SLA por cliente** (métricas agrupadas por `cliente_id`). §F13.3.
+- [ ] `[LOOP]` **F13.4 — Panel ejecutivo cotización vs. real** (gráfico visual sobre el cálculo ya
+  existente). §F13.4.
+- [ ] `[LOOP]` **F13.5 — Aviso proactivo de descanso 561** (el bot empuja el aviso, estimación
+  etiquetada, no tacógrafo). §F13.5.
+- [ ] `[LOOP]` **F13.6 — Optimización de rutas multiparada (SUGERENCIA)** — override consciente de
+  `CLAUDE.md` ("no planificamos rutas"), decidido por el usuario 2026-07-15; se construye como
+  sugerencia que el gestor aprueba, nunca dispatch automático. §F13.6.
+- [ ] `[DECISIÓN]` **F13.7 — Firma digital en la entrega** — gated por el discovery del sábado
+  (ver cómo operan el albarán hoy antes de construir). §F13.7.
+
+**Al cerrar F13.6:** `PushNotification` con el resumen + DETENER el loop. F13.7 no se toca sin el
+discovery.
+
+---
+
 ## POD opcional por empresa (`empresa.requiere_pod`) — CERRADA 2026-07-15
 
 Hallazgo (auditoría de columnas huérfanas, 2026-07-15): `empresa.requiere_pod` existía en el
