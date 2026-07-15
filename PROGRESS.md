@@ -8,6 +8,18 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | Rediseño visual — fase 4: badges/stepper invisibles, auditoría del resto del sistema | (usuario) | HECHO.
+Auditoría dirigida (agente Explore) del resto de `app/**/*.jsx` en busca del mismo patrón (bug
+`bg-surface-alt` sin borde, sentado directamente sobre el fondo de página). Encontrados y
+corregidos 4 casos reales: stepper de `/importar` y `/viajes/nuevo-w` (círculos de paso
+incompletos invisibles), badge de idioma del chófer y badge de remolque en la cabecera de
+`/viajes/[id]` (sin envoltorio de tarjeta), y la barra de ocupación de carga en `/viajes/nuevo-w`
+(paso 2, fuera de cualquier card). Verificados y descartados como falsos positivos: los mismos
+patrones en `/viajes/[id]` (sección Carga) y `/presupuesto` SÍ están dentro de una tarjeta blanca
+con contraste correcto, así como fondos de pantalla completa (`LoginPage`, `MfaChallenge`,
+`not-found`, `/subprocesadores`) que usan `bg-surface-alt` intencionalmente como color de página.
+`ci.ps1` completo verde, diff limpio (3 archivos, 6 líneas, solo lo previsto).
+
 2026-07-15 | Rediseño visual — fase 3: skeletons de carga invisibles contra el fondo | (usuario) | HECHO.
 Mismo bug de fase 2 (elemento en `bg-surface-alt`, idéntico al fondo de la página), pero en los
 `animate-pulse` de estado de carga: 16 ficheros usaban `bg-surface-alt` para el placeholder, que

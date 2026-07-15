@@ -224,7 +224,7 @@ export default function ImportarPage() {
         {PASOS.map((label, i) => (
           <div key={i} className="flex items-center gap-2">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${
-              i <= paso ? "bg-brand text-white" : "bg-surface-alt text-ink-muted"
+              i <= paso ? "bg-brand text-white" : "bg-border text-ink-muted"
             }`}>
               {i < paso ? <Check size={14} /> : i + 1}
             </div>

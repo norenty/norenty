@@ -206,7 +206,7 @@ export default function NuevoViajeWizard() {
           <div key={p.n} className="flex items-center gap-2">
             <div className={`flex items-center gap-1.5 text-sm ${paso === p.n ? "text-ink font-medium" : paso > p.n ? "text-estado-ok" : "text-ink-muted"}`}>
               <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
-                paso > p.n ? "bg-green-50 text-estado-ok" : paso === p.n ? "bg-brand text-white" : "bg-surface-alt text-ink-muted"
+                paso > p.n ? "bg-green-50 text-estado-ok" : paso === p.n ? "bg-brand text-white" : "bg-border text-ink-muted"
               }`}>
                 {paso > p.n ? <Check size={12} /> : p.n}
               </span>
@@ -491,14 +491,14 @@ export default function NuevoViajeWizard() {
                   {ocupacion?.pctOcupacion != null && (
                     <div className="mt-3 max-w-md">
                       <div className="flex items-center justify-between mb-1">
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ocupacion.tipo === "completo" ? "bg-brand/10 text-brand" : "bg-surface-alt text-ink-secondary"}`}>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ocupacion.tipo === "completo" ? "bg-brand/10 text-brand" : "bg-border text-ink-secondary"}`}>
                           {ocupacion.tipo === "completo" ? "Camión completo (FTL)" : "Grupaje"}
                         </span>
                         <span className="text-xs text-ink-muted">
                           {Math.round(ocupacion.pctOcupacion)}% — limita {ocupacion.dimensionLimitante?.toUpperCase()}
                         </span>
                       </div>
-                      <div className="h-1.5 rounded-full bg-surface-alt overflow-hidden">
+                      <div className="h-1.5 rounded-full bg-border overflow-hidden">
                         <div className={`h-full rounded-full ${ocupacion.tipo === "completo" ? "bg-brand" : "bg-ink-muted"}`} style={{ width: `${Math.min(100, ocupacion.pctOcupacion)}%` }} />
                       </div>
                     </div>

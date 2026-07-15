@@ -312,7 +312,7 @@ export default function ViajeDetalle() {
           <button onClick={abrirEditChofer} className="flex items-center gap-1 hover:text-ink">
             {viaje.chofer?.nombre || "Sin asignar"}
             {viaje.chofer?.idioma && (
-              <span className="font-mono text-xs ml-1 px-1.5 py-0.5 rounded-full bg-surface-alt">
+              <span className="font-mono text-xs ml-1 px-1.5 py-0.5 rounded-full bg-border">
                 {viaje.chofer.idioma.toUpperCase()}
               </span>
             )}
@@ -327,7 +327,7 @@ export default function ViajeDetalle() {
           </span>
         )}
         {remolque && (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-surface-alt">
+          <span className="text-xs px-2 py-0.5 rounded-full bg-border">
             Remolque: {remolque.matricula}
           </span>
         )}
