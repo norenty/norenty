@@ -179,6 +179,7 @@ const {
   createVehiculo,
   createChofer,
   getDossierViaje,
+  getDatosFacturacion,
   guardarTelefonoChofer,
   normalizarTelefonoE164,
   guardarObjetivoPuntualidadEmpresa,
@@ -2543,6 +2544,57 @@ describe("calcularOcupacion — FTL vs. grupaje (COT.4)", () => {
   it("sin carga (todo vacío): tipo desconocido", () => {
     const r = calcularOcupacion({}, { ldm: 13.6, kg: 24000, m3: 90 });
     expect(r.tipo).toBe("desconocido");
+  });
+});
+
+describe("getDatosFacturacion (F13.1 — export para facturación/integración)", () => {
+  const MADRID = { lat: 40.4168, lon: -3.7038 };
+  const BARCELONA = { lat: 41.3851, lon: 2.1734 };
+
+  const ahora = new Date().toISOString();
+
+  beforeEach(() => {
+    osrmMock.mockResolvedValue(300);
+    TABLES.empresa = [{ id: "e1", coste_km: 1 }];
+  });
+
+  it("agrega un viaje completado con precio, coste, km y gastos por tipo", async () => {
+    TABLES.viaje = [{ id: "v1", referencia: "VJ-1", estado: "completado", precio: 1000, vehiculo_id: null, created_at: ahora, cliente: { nombre: "Acme", cif: "B1" } }];
+    TABLES.hito = [{ viaje_id: "v1", orden: 1, ...MADRID }, { viaje_id: "v1", orden: 2, ...BARCELONA }];
+    TABLES.gasto_viaje = [
+      { viaje_id: "v1", tipo: "repostaje", importe: 100 },
+      { viaje_id: "v1", tipo: "peaje", importe: 20 },
+    ];
+
+    const filas = await getDatosFacturacion({});
+    expect(filas).toHaveLength(1);
+    expect(filas[0].referencia).toBe("VJ-1");
+    expect(filas[0].cliente).toBe("Acme");
+    expect(filas[0].precio).toBe(1000);
+    expect(filas[0].repostaje).toBe(100);
+    expect(filas[0].peaje).toBe(20);
+    expect(filas[0].margenReal).toBe(880); // 1000 - 100 - 20
+  });
+
+  it("filtra por cliente cuando se pasa clienteId", async () => {
+    TABLES.viaje = [
+      { id: "v1", referencia: "VJ-1", estado: "completado", cliente_id: "c1", precio: 500, created_at: ahora, cliente: { nombre: "Acme" } },
+      { id: "v2", referencia: "VJ-2", estado: "completado", cliente_id: "c2", precio: 600, created_at: ahora, cliente: { nombre: "Otro" } },
+    ];
+    TABLES.hito = [];
+    TABLES.gasto_viaje = [];
+
+    const filas = await getDatosFacturacion({ clienteId: "c1" });
+    expect(filas).toHaveLength(1);
+    expect(filas[0].referencia).toBe("VJ-1");
+  });
+
+  it("sin viajes completados devuelve lista vacía, no lanza", async () => {
+    TABLES.viaje = [{ id: "v1", referencia: "VJ-1", estado: "planificado", precio: 500 }];
+    TABLES.hito = [];
+    TABLES.gasto_viaje = [];
+    const filas = await getDatosFacturacion({});
+    expect(filas).toEqual([]);
   });
 });
 

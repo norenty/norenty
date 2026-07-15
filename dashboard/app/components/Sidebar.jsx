@@ -22,6 +22,7 @@ import {
   X,
   ChevronDown,
   Building2,
+  Receipt,
 } from "lucide-react";
 
 // Ítem 9.30: enlace suelto (fuera de cualquier grupo, siempre visible/expandido).
@@ -65,6 +66,7 @@ const groups = [
     links: [
       { href: "/analitica", label: "Analítica", icon: BarChart3 },
       { href: "/nomina", label: "Nómina", icon: Wallet },
+      { href: "/facturacion", label: "Facturación", icon: Receipt },
       { href: "/presupuesto", label: "Presupuesto", icon: Calculator },
     ],
   },

@@ -2152,6 +2152,52 @@ export async function getMetricasRentabilidad(rango = {}) {
   };
 }
 
+/**
+ * F13.1 — Export para facturación/integración (NO módulo contable): una fila
+ * plana por viaje completado, lista para CSV/Excel hacia la gestoría o un
+ * ERP (SAP/similar). Composición pura sobre `getViabilidadViaje`/
+ * `getGastosViaje`, ya existentes — sin query de negocio nueva.
+ */
+export async function getDatosFacturacion({ desde, hasta, clienteId = null } = {}) {
+  const { desde: d, hasta: h } = resolveRango({ desde, hasta });
+  let query = supabase
+    .from("viaje")
+    .select("id, referencia, created_at, cliente(nombre, cif)")
+    .eq("estado", "completado")
+    .gte("created_at", d)
+    .lt("created_at", h);
+  if (clienteId) query = query.eq("cliente_id", clienteId);
+  const { data: viajes, error } = await query;
+  if (error) throw error;
+
+  return Promise.all((viajes || []).map(async (v) => {
+    const [viabilidad, gastos] = await Promise.all([
+      getViabilidadViaje(v.id),
+      getGastosViaje(v.id),
+    ]);
+    const gastosPorTipo = {};
+    for (const g of gastos) {
+      gastosPorTipo[g.tipo] = (gastosPorTipo[g.tipo] || 0) + Number(g.importe);
+    }
+    const totalGastos = Object.values(gastosPorTipo).reduce((s, x) => s + x, 0);
+    const margenReal = viabilidad?.precio != null ? +(viabilidad.precio - totalGastos).toFixed(2) : null;
+    return {
+      referencia: v.referencia || v.id.slice(0, 8),
+      cliente: v.cliente?.nombre || null,
+      clienteCif: v.cliente?.cif || null,
+      fecha: v.created_at,
+      km: viabilidad?.km ?? null,
+      precio: viabilidad?.precio ?? null,
+      costeEstimado: viabilidad?.coste ?? null,
+      margenReal,
+      repostaje: +((gastosPorTipo.repostaje || 0).toFixed(2)),
+      peaje: +((gastosPorTipo.peaje || 0).toFixed(2)),
+      multa: +((gastosPorTipo.multa || 0).toFixed(2)),
+      dieta: +((gastosPorTipo.dieta || 0).toFixed(2)),
+    };
+  }));
+}
+
 // ==========================================================================
 // Verdad observada (ítem 10.8) — registro histórico del error de estimación,
 // base de datos del aprendizaje (Bloque I). Cada snapshot es una FOTO de un

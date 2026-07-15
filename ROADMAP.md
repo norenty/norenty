@@ -17,8 +17,16 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 que ya existen. Ejecución: `sonnet`, esfuerzo bajo. Protocolo: uno por iteración, `ci.ps1` verde,
 commit, `[x]` aquí + línea en PROGRESS.md.
 
-- [ ] `[LOOP]` **F13.1 — Export para facturación/integración** (CSV + Excel, formato mapeable a
+- [x] `[LOOP]` **F13.1 — Export para facturación/integración** (CSV + Excel, formato mapeable a
   SAP/gestoría; NO módulo contable). §F13.1.
+  Construido (2026-07-15). `getDatosFacturacion({desde, hasta, clienteId})` en `data.js`:
+  composición pura sobre `getViabilidadViaje`/`getGastosViaje` ya existentes (sin query de negocio
+  nueva), una fila por viaje completado con referencia/cliente/CIF/fecha/km/precio/coste
+  estimado/margen real y gastos desglosados por tipo. Nueva página `/facturacion` (admin-only,
+  enlazada en Sidebar → Análisis): selector de cliente, tabla, y export a CSV (mismo patrón que
+  `/nomina`) y a Excel (`XLSX.writeFile`, dependencia ya existente vía el importador). Cabeceras
+  de columna estables a propósito (para no romper integraciones). 3 tests nuevos. 366 vitest,
+  `ci.ps1` completo verde.
 - [x] `[LOOP]` **F13.2 — Dossier de evidencia para reclamaciones** (POD + hash + GPS + timestamps →
   PDF imprimible). El diferenciador, ningún TMS lo tiene. §F13.2.
   Construido (2026-07-15). `getDossierViaje(viajeId)` en `data.js` (composición de lecturas ya

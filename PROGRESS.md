@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | F13.1 — Export para facturación/integración (CSV+Excel) | (loop) | HECHO.
+`getDatosFacturacion` compone `getViabilidadViaje`/`getGastosViaje` ya existentes, sin query de
+negocio nueva. Nueva página `/facturacion` (admin-only): filtro por cliente, tabla, export
+CSV/Excel con cabeceras estables. NO es módulo contable — no calcula IVA. 3 tests nuevos. 366
+vitest, `ci.ps1` completo verde. Sigue F13.5 (aviso proactivo 561).
+
 2026-07-15 | F13.2 — Dossier de evidencia para reclamaciones | (loop) | HECHO. `getDossierViaje`
 compone lecturas ya existentes (viaje, hitos, eventos con hash, pods con hash SHA-256). Nueva
 ruta `/viajes/[id]/dossier`, imprimible a PDF (`print:`, sin librería nueva), enlazada desde
