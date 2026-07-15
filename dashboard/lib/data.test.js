@@ -2315,6 +2315,27 @@ describe("P&L real del viaje (7A.8)", () => {
     expect(r.top5.length).toBeGreaterThan(0);
   });
 
+  it("F13.4: getMetricasRentabilidad agrega margen estimado vs. real por mes, solo con costeEstimado disponible", async () => {
+    TABLES.viaje = [
+      { id: "v1", referencia: "R1", precio: 1000, vehiculo_id: null, created_at: "2026-01-15T00:00:00Z" },
+      { id: "v2", referencia: "R2", precio: 800, vehiculo_id: null, created_at: "2026-02-10T00:00:00Z" },
+      // Sin gastos reales -> margenReal no null (gastosReales=0), pero SIN coste
+      // estimado (empresa sin coste_km/hitos consistentes) no debería faltar el mes.
+    ];
+    TABLES.hito = [
+      { orden: 1, ...MADRID, viaje_id: "v1" }, { orden: 2, ...BARCELONA, viaje_id: "v1" },
+      { orden: 1, ...MADRID, viaje_id: "v2" }, { orden: 2, ...BARCELONA, viaje_id: "v2" },
+    ];
+    TABLES.empresa = [{ coste_km: 1, velocidad_planificacion_kmh: 75 }];
+    TABLES.gasto_viaje = [{ id: "g1", viaje_id: "v1", tipo: "peaje", importe: 50 }];
+
+    const r = await getMetricasRentabilidad(RANGO_AMPLIO);
+    expect(r.porMes.map((m) => m.mes)).toEqual(["2026-01", "2026-02"]);
+    const enero = r.porMes.find((m) => m.mes === "2026-01");
+    expect(enero.margenRealMedio).toBe(1000 - 50);
+    expect(enero.numViajes).toBe(1);
+  });
+
   it("getComparativaMensual (12.2) compara el periodo actual contra el anterior de igual duración", async () => {
     TABLES.viaje = [
       // periodo actual: [2026-03-01, 2026-04-01)

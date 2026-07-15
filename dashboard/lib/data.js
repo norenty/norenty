@@ -2191,7 +2191,7 @@ export async function getMetricasRentabilidad(rango = {}) {
   const { desde, hasta } = resolveRango(rango);
   const { data: viajes, error: errorViajes } = await supabase
     .from("viaje")
-    .select("id, referencia, precio")
+    .select("id, referencia, precio, created_at")
     .gte("created_at", desde)
     .lt("created_at", hasta);
   // Ítem 9.35: un fallo real aquí no debe verse como "sin viajes en el
@@ -2204,7 +2204,7 @@ export async function getMetricasRentabilidad(rango = {}) {
   const filas = await Promise.all(
     conPrecio.map(async (v) => {
       const pnl = await getPnlViaje(v.id);
-      return { id: v.id, referencia: v.referencia || v.id.slice(0, 8), ...pnl };
+      return { id: v.id, referencia: v.referencia || v.id.slice(0, 8), mes: (v.created_at || "").slice(0, 7), ...pnl };
     })
   );
 
@@ -2219,6 +2219,23 @@ export async function getMetricasRentabilidad(rango = {}) {
 
   const ordenadas = [...filas].filter((f) => f.margenReal != null).sort((a, b) => b.margenReal - a.margenReal);
 
+  // F13.4: margen estimado vs. real por mes, para el panel ejecutivo de
+  // /analitica. Solo filas con AMBOS valores (mismo criterio que
+  // `desviacionMedia`) entran en la media del mes -- comparar estimado de
+  // unos viajes con real de otros distintos no sería honesto.
+  const porMesAcc = {};
+  filas.forEach((f) => {
+    if (!f.mes || f.margenEstimado == null || f.margenReal == null) return;
+    (porMesAcc[f.mes] ||= []).push(f);
+  });
+  const porMes = Object.keys(porMesAcc)
+    .sort()
+    .map((mes) => {
+      const fs = porMesAcc[mes];
+      const media = (campo) => Math.round(fs.reduce((s, f) => s + f[campo], 0) / fs.length);
+      return { mes, margenEstimadoMedio: media("margenEstimado"), margenRealMedio: media("margenReal"), numViajes: fs.length };
+    });
+
   return {
     margenRealMedio,
     viajesAPerdidasReales,
@@ -2229,6 +2246,7 @@ export async function getMetricasRentabilidad(rango = {}) {
     viajesConDesviacion: conAmbos.length,
     top5: ordenadas.slice(0, 5),
     bottom5: ordenadas.slice(-5).reverse(),
+    porMes,
   };
 }
 

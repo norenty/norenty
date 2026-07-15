@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | F13.4 — Panel ejecutivo cotización vs. real | (loop) | HECHO.
+`getMetricasRentabilidad` extendido con `porMes` (margen estimado vs. real medio, agrupado por
+mes, solo viajes con ambos valores). Gráfico de barras dobles CSS (sin librería nueva) en la vista
+Rentabilidad de `/analitica`. 1 test nuevo, `ci.ps1` completo verde. Sigue F13.6 (rutas
+multiparada como sugerencia).
+
 2026-07-15 | F13.3 — Rendimiento/SLA por cliente | (loop) | HECHO.
 `getMetricasPorCliente()` agrupa viajes/incidencias/puntualidad por `cliente_id` (mismo patrón que
 gestores/chóferes), viajes sin cliente van a "Sin cliente", margen medio real vía `getPnlViaje`.

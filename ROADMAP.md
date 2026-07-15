@@ -42,8 +42,13 @@ commit, `[x]` aquí + línea en PROGRESS.md.
   viaje (mismo criterio que `getMetricasRentabilidad`). Nueva pestaña "Clientes" en `/analitica`
   (admin-only, mismo patrón de tabla que Gestores). 4 tests nuevos. `ci.ps1` completo verde (187
   backend, 370 vitest, build 21 páginas).
-- [ ] `[LOOP]` **F13.4 — Panel ejecutivo cotización vs. real** (gráfico visual sobre el cálculo ya
+- [x] `[LOOP]` **F13.4 — Panel ejecutivo cotización vs. real** (gráfico visual sobre el cálculo ya
   existente). §F13.4.
+  Construido (2026-07-15): `getMetricasRentabilidad` extendido con `porMes` (margen estimado vs.
+  real medio por mes, solo viajes con ambos valores disponibles — mismo criterio honesto que
+  `desviacionMedia`). Gráfico de barras CSS dobles (`BarraDoble`, sin librería nueva, mismo
+  patrón que `Barra` de 4.5) en la vista Rentabilidad de `/analitica`. 1 test nuevo. `ci.ps1`
+  completo verde (187 backend, 371 vitest, build 21 páginas).
 - [x] `[LOOP]` **F13.5 — Aviso proactivo de descanso 561** (el bot empuja el aviso, estimación
   etiquetada, no tacógrafo). §F13.5.
   Construido (2026-07-15): `debe_avisar_pausa()` (pura, dedup por viaje vía `chat_data`) +

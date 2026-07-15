@@ -271,7 +271,38 @@ function TablaRentabilidad({ titulo, filas }) {
   );
 }
 
+// F13.4: barra doble (estimado vs. real) por mes -- mismo criterio visual que
+// `Barra` (CSS puro, sin librería de gráficos nueva), pero con dos series
+// superpuestas para que la brecha entre lo cotizado y lo que de verdad pasó
+// se vea de un vistazo, que es justo lo que un dueño enseñaría en una reunión.
+function BarraDoble({ mes, estimado, real, max }) {
+  const pctEstimado = max > 0 ? Math.round((Math.max(estimado, 0) / max) * 100) : 0;
+  const pctReal = max > 0 ? Math.round((Math.max(real, 0) / max) * 100) : 0;
+  return (
+    <div className="flex items-center gap-3 text-xs">
+      <span className="w-20 shrink-0 text-ink-secondary">{mes}</span>
+      <div className="flex-1 flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className="w-14 shrink-0 text-ink-muted">Estimado</span>
+          <div className="flex-1 h-2 bg-surface-alt rounded-full overflow-hidden">
+            <div className="h-full bg-ink-muted rounded-full" style={{ width: `${pctEstimado}%` }} />
+          </div>
+          <span className="w-16 shrink-0 text-right text-ink-secondary tabular-nums">{fmtEur(estimado)}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-14 shrink-0 text-ink-muted">Real</span>
+          <div className="flex-1 h-2 bg-surface-alt rounded-full overflow-hidden">
+            <div className="h-full bg-brand rounded-full" style={{ width: `${pctReal}%` }} />
+          </div>
+          <span className="w-16 shrink-0 text-right text-ink-secondary tabular-nums">{fmtEur(real)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function VistaRentabilidad({ datos, comparativa }) {
+  const maxMes = Math.max(1, ...(datos.porMes || []).flatMap((m) => [m.margenEstimadoMedio, m.margenRealMedio]));
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-3 gap-3">
@@ -293,6 +324,20 @@ function VistaRentabilidad({ datos, comparativa }) {
           sub="solo viajes con gastos reales registrados — dice si el motor de costes acierta"
         />
       </div>
+
+      <div className="bg-surface border border-border rounded-xl p-4">
+        <h3 className="text-sm font-medium text-ink mb-3">Margen estimado vs. real, por mes</h3>
+        {!datos.porMes || datos.porMes.length === 0 ? (
+          <p className="text-xs text-ink-secondary">Sin viajes con margen estimado y real en el mismo periodo todavía.</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {datos.porMes.map((m) => (
+              <BarraDoble key={m.mes} mes={m.mes} estimado={m.margenEstimadoMedio} real={m.margenRealMedio} max={maxMes} />
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <TablaRentabilidad titulo="Mejor margen real" filas={datos.top5} />
         <TablaRentabilidad titulo="Peor margen real" filas={datos.bottom5} />
