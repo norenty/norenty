@@ -71,3 +71,31 @@ describe("matchComandos (6.12 extendido — command palette sin IA)", () => {
     expect(matchComandos("xyzxyz", RESUMEN)).toEqual([]);
   });
 });
+
+describe("matchComandos — navegación (F13 extensión, deep-link a Ajustes)", () => {
+  it("los comandos de navegación funcionan SIN resumen cargado (a diferencia de los KPI)", () => {
+    const r = matchComandos("facturacion", null);
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ id: "nav_facturacion", href: "/facturacion", label: "Ir a Facturación" });
+  });
+
+  it("'contraseña' lleva directo al ancla de esa sección dentro de /ajustes", () => {
+    const r = matchComandos("contraseña", null);
+    expect(r[0]).toMatchObject({ id: "ajustes_contrasena", href: "/ajustes#ajustes-contrasena" });
+  });
+
+  it("'telegram' lleva al ancla de Alertas por Telegram", () => {
+    const r = matchComandos("telegram", null);
+    expect(r.map((x) => x.id)).toEqual(["ajustes_telegram"]);
+  });
+
+  it("'pod' lleva al ancla de Prueba de entrega", () => {
+    const r = matchComandos("pod", null);
+    expect(r[0]).toMatchObject({ id: "ajustes_pod", href: "/ajustes#ajustes-pod" });
+  });
+
+  it("con resumen cargado, los resultados KPI van primero y los de navegación después", () => {
+    const r = matchComandos("presupuesto", RESUMEN);
+    expect(r.map((x) => x.id)).toEqual(["nav_presupuesto"]); // no hay comando KPI con esa keyword, solo nav
+  });
+});

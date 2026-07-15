@@ -20,7 +20,7 @@ export default function AjustesMfaSection({
   desactivarMfa,
 }) {
   return (
-    <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+    <section id="ajustes-mfa" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
       <div className="flex items-center gap-2 mb-4">
         <KeyRound size={18} className="text-brand" />
         <h2 className="text-sm font-medium text-ink">Verificación en dos pasos</h2>

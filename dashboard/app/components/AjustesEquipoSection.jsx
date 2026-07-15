@@ -30,7 +30,7 @@ export default function AjustesEquipoSection({
   onReactivarGestor,
 }) {
   return (
-    <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+    <section id="ajustes-equipo" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
       <div className="flex items-center gap-2 mb-1">
         <Users size={18} className="text-brand" />
         <h2 className="text-sm font-medium text-ink">Equipo</h2>

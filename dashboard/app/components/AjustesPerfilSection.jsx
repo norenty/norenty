@@ -20,7 +20,7 @@ export default function AjustesPerfilSection({
 }) {
   return (
     <>
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+      <section id="ajustes-cuenta" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
         <div className="flex items-center gap-2 mb-4">
           <User size={18} className="text-brand" />
           <h2 className="text-sm font-medium text-ink">Tu cuenta</h2>
@@ -45,7 +45,7 @@ export default function AjustesPerfilSection({
         </div>
       </section>
 
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+      <section id="ajustes-contrasena" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
         <div className="flex items-center gap-2 mb-4">
           <Shield size={18} className="text-brand" />
           <h2 className="text-sm font-medium text-ink">Cambiar contraseña</h2>
@@ -73,7 +73,7 @@ export default function AjustesPerfilSection({
         </div>
       </section>
 
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+      <section id="ajustes-notificaciones" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
         <div className="flex items-center gap-2 mb-4">
           <Bell size={18} className="text-brand" />
           <h2 className="text-sm font-medium text-ink">Notificaciones</h2>

@@ -45,7 +45,7 @@ export default function AjustesEmpresaSection({
 }) {
   return (
     <>
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+      <section id="ajustes-empresa" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
         <div className="flex items-center gap-2 mb-4">
           <Building2 size={18} className="text-brand" />
           <h2 className="text-sm font-medium text-ink">Empresa</h2>
@@ -75,7 +75,7 @@ export default function AjustesEmpresaSection({
         )}
       </section>
 
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+      <section id="ajustes-ubicacion-base" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
         <div className="flex items-center gap-2 mb-1">
           <MapPin size={18} className="text-brand" />
           <h2 className="text-sm font-medium text-ink">Ubicación base</h2>
@@ -121,7 +121,7 @@ export default function AjustesEmpresaSection({
       </section>
 
       <RequireRol roles={["admin"]}>
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+      <section id="ajustes-coste-km" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
         <div className="flex items-center gap-2 mb-1">
           <Euro size={18} className="text-brand" />
           <h2 className="text-sm font-medium text-ink">Coste de operación</h2>
@@ -156,7 +156,7 @@ export default function AjustesEmpresaSection({
       </section>
       </RequireRol>
 
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+      <section id="ajustes-velocidad" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
         <div className="flex items-center gap-2 mb-1">
           <Gauge size={18} className="text-brand" />
           <h2 className="text-sm font-medium text-ink">Velocidad de planificación</h2>
@@ -190,7 +190,7 @@ export default function AjustesEmpresaSection({
       </section>
 
       <RequireRol roles={["admin"]}>
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+      <section id="ajustes-objetivos" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
         <div className="flex items-center gap-2 mb-1">
           <Target size={18} className="text-brand" />
           <h2 className="text-sm font-medium text-ink">Objetivos</h2>
@@ -246,7 +246,7 @@ export default function AjustesEmpresaSection({
       </RequireRol>
 
       <RequireRol roles={["admin"]}>
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+      <section id="ajustes-pod" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
         <div className="flex items-center gap-2 mb-1">
           <Camera size={18} className="text-brand" />
           <h2 className="text-sm font-medium text-ink">Prueba de entrega (POD)</h2>
@@ -269,7 +269,7 @@ export default function AjustesEmpresaSection({
       </RequireRol>
 
       <RequireRol roles={["admin"]}>
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+      <section id="ajustes-coste-desglosado" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
         <div className="flex items-center gap-2 mb-1">
           <Euro size={18} className="text-brand" />
           <h2 className="text-sm font-medium text-ink">Coste desglosado (avanzado)</h2>

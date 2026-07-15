@@ -9,7 +9,7 @@ import { Send, Copy, Check, Activity } from "lucide-react";
 export default function AjustesBotSection({ gestor, bot, copiado, copiarEnlaceTelegram, heartbeat }) {
   return (
     <>
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+      <section id="ajustes-telegram" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
         <div className="flex items-center gap-2 mb-4">
           <Send size={18} className="text-brand" />
           <h2 className="text-sm font-medium text-ink">Alertas por Telegram</h2>
@@ -35,7 +35,7 @@ export default function AjustesBotSection({ gestor, bot, copiado, copiarEnlaceTe
         )}
       </section>
 
-      <section className="bg-surface border border-border rounded-xl p-5 mb-4">
+      <section id="ajustes-estado-bot" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
         <div className="flex items-center gap-2 mb-1">
           <Activity size={18} className="text-brand" />
           <h2 className="text-sm font-medium text-ink">Estado del bot</h2>

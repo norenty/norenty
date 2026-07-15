@@ -8,6 +8,15 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | Extensión command palette: deep-link a Ajustes + navegación | (usuario) | HECHO.
+`NAV_COMANDOS` en `comandos.js` (código, sin IA, según decisión 2026-07-13): 8 destinos de
+navegación directa (Analítica, Facturación, Presupuesto, Importar, Mapa, Plantillas, Nómina,
+Nuevo viaje) + 14 anclas a secciones concretas de `/ajustes` (contraseña, 2FA, Telegram, POD,
+coste por km, objetivos, equipo...). A diferencia de los comandos KPI, funcionan SIN esperar a
+`getResumenHoy()`. Cada `<section>` de Ajustes lleva ahora `id` + `scroll-mt-20`. 5 tests nuevos,
+verificado en navegador (Ctrl+K → "contraseña" → resultado único "Ajustes → Cambiar contraseña").
+`ci.ps1` completo verde (187 backend, 381 vitest, build 21 páginas).
+
 2026-07-15 | Fix UX: alineación sidebar + nombres de sección poco intuitivos | (usuario) | HECHO.
 Reportado por el usuario: enunciados desalineados en el panel lateral. Causa real: el encabezado
 "Documentos y cumplimiento" (uppercase + tracking-wide) no cabía en una línea en los ~184px del
