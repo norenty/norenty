@@ -94,8 +94,8 @@ function NavLink({ href, label, icon: Icon, active, onClick }) {
       onClick={onClick}
       className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm no-underline transition-colors ${
         active
-          ? "bg-surface-alt text-ink font-medium"
-          : "text-ink-secondary hover:bg-surface-alt hover:text-ink"
+          ? "bg-brand/15 text-sidebar-text-active font-medium"
+          : "text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-text-active"
       }`}
     >
       <Icon size={18} className="shrink-0" />
@@ -167,7 +167,7 @@ export default function Sidebar() {
         <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center text-white">
           <Route size={16} />
         </div>
-        <span className="text-base font-semibold text-ink">Norenty</span>
+        <span className="text-base font-semibold text-sidebar-text-active">Norenty</span>
       </Link>
 
       <nav className="flex flex-col gap-0.5">
@@ -185,7 +185,7 @@ export default function Sidebar() {
                 type="button"
                 onClick={() => toggleGroup(group.id)}
                 aria-expanded={isExpanded}
-                className="flex items-center justify-between w-full gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wide text-ink-muted hover:bg-surface-alt hover:text-ink transition-colors focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+                className="flex items-center justify-between w-full gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wide text-sidebar-text/60 hover:bg-sidebar-hover hover:text-sidebar-text-active transition-colors focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
               >
                 <span className="truncate">{group.label}</span>
                 <ChevronDown
@@ -211,7 +211,7 @@ export default function Sidebar() {
           );
         })}
 
-        <div className="mt-1 pt-1 border-t border-border">
+        <div className="mt-1 pt-1 border-t border-sidebar-border">
           <NavLink
             {...bottomLink}
             active={pathname === bottomLink.href}
@@ -251,13 +251,13 @@ export default function Sidebar() {
 
       {/* Mobile drawer */}
       <aside
-        className={`md:hidden fixed inset-y-0 left-0 z-50 w-52 flex flex-col border-r border-border bg-surface p-3 gap-1 transform transition-transform ${
+        className={`md:hidden fixed inset-y-0 left-0 z-50 w-52 flex flex-col border-r border-sidebar-border bg-sidebar p-3 gap-1 transform transition-transform ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <button
           onClick={() => setOpen(false)}
-          className="absolute top-3 right-3 text-ink-muted"
+          className="absolute top-3 right-3 text-sidebar-text"
         >
           <X size={20} />
         </button>
@@ -265,7 +265,7 @@ export default function Sidebar() {
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-52 shrink-0 flex-col border-r border-border bg-surface p-3 gap-1 print:hidden">
+      <aside className="hidden md:flex w-52 shrink-0 flex-col border-r border-sidebar-border bg-sidebar p-3 gap-1 print:hidden">
         {content}
       </aside>
     </>

@@ -8,6 +8,19 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | Rediseño visual — fase 1: tokens + sidebar oscuro + sombra de tarjetas | (usuario) | HECHO.
+Primer paso del rediseño acordado (referencias tipo "Light Able" que confirmó el usuario, ver
+memoria `norenty-direccion-diseno-dashboard`): `--color-brand` pasa de indigo (#4F46E5) a azul
+protagonista (#2563EB), sustituye TODO uso de `bg-brand`/`text-brand`/`border-brand` en la app de
+un solo cambio de token. Sidebar (`Sidebar.jsx`) pasa a fondo oscuro (`--color-sidebar` #0F172A)
+con nuevos tokens `--color-sidebar-*` para texto/hover/borde. Sombra suave centralizada en
+`globals.css` vía selector `.border-border.rounded-xl` (la convención de "tarjeta" en todo el
+dashboard, ~75-80 usos) en vez de tocar archivo por archivo — excluye explícitamente `.shadow-lg`
+(modales) y `.border-dashed` (dropzone de /importar), y `box-shadow: none` en `@media print`.
+Verificado en navegador: sidebar oscuro, logo blanco, sombra de tarjeta, botón azul, y que el
+modal de búsqueda conserva su `shadow-lg` propio sin conflicto. `ci.ps1` completo verde (187
+backend, 381 vitest, build 21 páginas). Sigue: revisar cards/tablas individuales, tipografía.
+
 2026-07-15 | Extensión command palette: deep-link a Ajustes + navegación | (usuario) | HECHO.
 `NAV_COMANDOS` en `comandos.js` (código, sin IA, según decisión 2026-07-13): 8 destinos de
 navegación directa (Analítica, Facturación, Presupuesto, Importar, Mapa, Plantillas, Nómina,
