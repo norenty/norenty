@@ -806,6 +806,39 @@ def test_punto_en_checkpoint_sin_radio_cae_al_umbral_por_defecto():
     assert bot.punto_en_checkpoint(40.0003, -3.0, hito) is True
 
 
+# --- debe_avisar_pausa / horas_conduccion_estimadas_viaje (F13.5) ---
+
+def test_debe_avisar_pausa_por_debajo_del_umbral_no_avisa():
+    assert bot.debe_avisar_pausa(4.0, False) is False
+
+
+def test_debe_avisar_pausa_en_o_por_encima_del_umbral_avisa():
+    assert bot.debe_avisar_pausa(4.5, False) is True
+    assert bot.debe_avisar_pausa(5.0, False) is True
+
+
+def test_debe_avisar_pausa_ya_avisado_no_repite():
+    assert bot.debe_avisar_pausa(6.0, True) is False
+
+
+def test_horas_conduccion_estimadas_viaje_suma_distancias_entre_pings(fake_db):
+    fake_db.tables["ubicacion"] = [
+        {"chofer_id": "c1", "lat": 40.0, "lon": -3.0, "created_at": "2026-01-01T10:00:00Z"},
+        {"chofer_id": "c1", "lat": 40.5, "lon": -3.0, "created_at": "2026-01-01T10:30:00Z"},
+    ]
+    horas = bot.horas_conduccion_estimadas_viaje("c1", "2026-01-01T09:00:00Z", 75)
+    # ~55.6 km entre esos dos puntos / 75 km/h
+    assert 0.7 < horas < 0.8
+
+
+def test_horas_conduccion_estimadas_viaje_ignora_pings_de_otro_chofer(fake_db):
+    fake_db.tables["ubicacion"] = [
+        {"chofer_id": "otro", "lat": 40.0, "lon": -3.0, "created_at": "2026-01-01T10:00:00Z"},
+    ]
+    horas = bot.horas_conduccion_estimadas_viaje("c1", "2026-01-01T09:00:00Z", 75)
+    assert horas == 0.0
+
+
 # --- handle_location (7A.4): guarda ubicación + pregunta proactiva de llegada ---
 
 def _location_update(lat, lon, edited=False, chat_id="chat-1"):
@@ -972,6 +1005,64 @@ async def test_handle_location_hito_normal_no_genera_evento_checkpoint(fake_db):
     await bot.handle_location(_location_update(43.0, -1.8), ctx)
     eventos = [e for e in fake_db.tables.get("ejecucion_evento", []) if e["tipo"] == "checkpoint_pasado"]
     assert len(eventos) == 0
+
+
+# --- F13.5: aviso proactivo de pausa 561 en handle_location ---
+
+@pytest.mark.asyncio
+async def test_handle_location_avisa_pausa_561_al_superar_el_umbral(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "estado": "en_curso"}]
+    fake_db.tables["hito"] = []
+    fake_db.tables["empresa"] = [{"id": "e1", "velocidad_planificacion_kmh": 75}]
+    fake_db.tables["ejecucion_evento"] = [
+        {"viaje_id": "v1", "hito_id": None, "tipo": "llegada", "ocurrido_en": "2026-01-01T09:00:00Z"},
+    ]
+    # ~344 km entre estos dos puntos (3.1 grados de latitud) / 75 km/h ~ 4.6h > 4.5h
+    fake_db.tables["ubicacion"] = [
+        {"chofer_id": "c1", "lat": 40.0, "lon": -3.0, "created_at": "2026-01-01T09:30:00Z"},
+        {"chofer_id": "c1", "lat": 43.1, "lon": -3.0, "created_at": "2026-01-01T13:00:00Z"},
+    ]
+    ctx = SimpleNamespace(bot=AsyncMock(), chat_data={})
+    await bot.handle_location(_location_update(43.1, -3.0), ctx)
+    ctx.bot.send_message.assert_awaited_once()
+    assert "45 min" in ctx.bot.send_message.call_args.kwargs["text"]
+    assert ctx.chat_data["aviso_pausa_561_viaje"] == "v1"
+
+
+@pytest.mark.asyncio
+async def test_handle_location_no_avisa_pausa_561_dos_veces(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "estado": "en_curso"}]
+    fake_db.tables["hito"] = []
+    fake_db.tables["empresa"] = [{"id": "e1", "velocidad_planificacion_kmh": 75}]
+    fake_db.tables["ejecucion_evento"] = [
+        {"viaje_id": "v1", "hito_id": None, "tipo": "llegada", "ocurrido_en": "2026-01-01T09:00:00Z"},
+    ]
+    fake_db.tables["ubicacion"] = [
+        {"chofer_id": "c1", "lat": 40.0, "lon": -3.0, "created_at": "2026-01-01T09:30:00Z"},
+        {"chofer_id": "c1", "lat": 43.1, "lon": -3.0, "created_at": "2026-01-01T13:00:00Z"},
+    ]
+    ctx = SimpleNamespace(bot=AsyncMock(), chat_data={"aviso_pausa_561_viaje": "v1"})
+    await bot.handle_location(_location_update(43.1, -3.0), ctx)
+    ctx.bot.send_message.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_location_no_avisa_pausa_561_por_debajo_del_umbral(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "estado": "en_curso"}]
+    fake_db.tables["hito"] = []
+    fake_db.tables["empresa"] = [{"id": "e1", "velocidad_planificacion_kmh": 75}]
+    fake_db.tables["ejecucion_evento"] = [
+        {"viaje_id": "v1", "hito_id": None, "tipo": "llegada", "ocurrido_en": "2026-01-01T09:00:00Z"},
+    ]
+    fake_db.tables["ubicacion"] = [
+        {"chofer_id": "c1", "lat": 40.0, "lon": -3.0, "created_at": "2026-01-01T09:30:00Z"},
+    ]
+    ctx = SimpleNamespace(bot=AsyncMock(), chat_data={})
+    await bot.handle_location(_location_update(40.0, -3.0), ctx)
+    ctx.bot.send_message.assert_not_awaited()
 
 
 # --- ejecutar_con_reintentos + manejar_error (8.2): "el canal con el chófer

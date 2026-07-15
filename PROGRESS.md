@@ -8,6 +8,14 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | F13.5 — Aviso proactivo de descanso 561 | (loop) | HECHO.
+`horas_conduccion_estimadas_viaje()` suma distancias entre pings de `ubicacion` (UBI.1) desde el
+inicio del viaje; `debe_avisar_pausa()` dispara a partir de 4,5h, dedup por viaje en `chat_data`.
+Fix de CI en el camino: el fake de Python no soportaba `.gte()` — se resolvió filtrando
+`desde_iso` en Python en vez de en la query, y separando el "inicio de viaje" para no confundirlo
+con eventos de checkpoint que no traen `ocurrido_en`. `ci.ps1` completo verde. Sigue F13.3 (SLA
+por cliente).
+
 2026-07-15 | F13.1 — Export para facturación/integración (CSV+Excel) | (loop) | HECHO.
 `getDatosFacturacion` compone `getViabilidadViaje`/`getGastosViaje` ya existentes, sin query de
 negocio nueva. Nueva página `/facturacion` (admin-only): filtro por cliente, tabla, export

@@ -199,6 +199,7 @@ TEXTOS = {
         "pedir_foto": "Llegada registrada en {dir}.\n\nAhora necesito la FOTO DEL ALBARÁN.\nMándame la foto por aquí.",
         "recogida_ok": "Recogida completada en {dir}.",
         "entrega_ok": "Entrega completada en {dir}.",
+        "aviso_pausa_561": "🕐 Llevas cerca de 4,5 h de conducción — te toca una pausa de 45 min.",
         "foto_subiendo": "Recibida. Subiendo foto...",
         "sin_entrega_esperando": "No hay ninguna entrega esperando albarán.\nUsa /estado para ver tu siguiente hito.",
         "pod_ok": "Albarán recibido para {dir}.\nEntrega completada.",
@@ -250,6 +251,7 @@ TEXTOS = {
         "pedir_foto": "Arrival recorded at {dir}.\n\nNow I need the PROOF OF DELIVERY PHOTO.\nSend me the photo here.",
         "recogida_ok": "Pickup completed at {dir}.",
         "entrega_ok": "Delivery completed at {dir}.",
+        "aviso_pausa_561": "🕐 You've been driving for about 4.5 h — time for a 45-min break.",
         "foto_subiendo": "Received. Uploading...",
         "sin_entrega_esperando": "No delivery is waiting for a proof of delivery.\nUse /estado to see your next stop.",
         "pod_ok": "Proof of delivery received for {dir}.\nDelivery completed.",
@@ -301,6 +303,7 @@ TEXTOS = {
         "pedir_foto": "Sosire înregistrată la {dir}.\n\nAcum am nevoie de FOTOGRAFIA DOCUMENTULUI.\nTrimite-mi fotografia aici.",
         "recogida_ok": "Ridicare finalizată la {dir}.",
         "entrega_ok": "Livrare finalizată la {dir}.",
+        "aviso_pausa_561": "🕐 Conduci de aproape 4,5 h — e timpul pentru o pauză de 45 min.",
         "foto_subiendo": "Primit. Se încarcă...",
         "sin_entrega_esperando": "Nicio livrare nu așteaptă document.\nFolosește /estado pentru a vedea următoarea oprire.",
         "pod_ok": "Document primit pentru {dir}.\nLivrare finalizată.",
@@ -352,6 +355,7 @@ TEXTOS = {
         "pedir_foto": "Arrivée enregistrée à {dir}.\n\nJ'ai besoin de la PHOTO DU BON DE LIVRAISON.\nEnvoyez-moi la photo ici.",
         "recogida_ok": "Enlèvement terminé à {dir}.",
         "entrega_ok": "Livraison terminée à {dir}.",
+        "aviso_pausa_561": "🕐 Vous conduisez depuis environ 4,5 h — c'est l'heure d'une pause de 45 min.",
         "foto_subiendo": "Reçu. Envoi en cours...",
         "sin_entrega_esperando": "Aucune livraison n'attend de bon.\nUtilisez /estado pour voir votre prochain arrêt.",
         "pod_ok": "Bon de livraison reçu pour {dir}.\nLivraison terminée.",
@@ -403,6 +407,7 @@ TEXTOS = {
         "pedir_foto": "Arrivo registrato a {dir}.\n\nOra ho bisogno della FOTO DELLA BOLLA DI CONSEGNA.\nInviami la foto qui.",
         "recogida_ok": "Ritiro completato a {dir}.",
         "entrega_ok": "Consegna completata a {dir}.",
+        "aviso_pausa_561": "🕐 Stai guidando da circa 4,5 h — è ora di una pausa di 45 min.",
         "foto_subiendo": "Ricevuta. Caricamento foto...",
         "sin_entrega_esperando": "Nessuna consegna in attesa di bolla.\nUsa /estado per vedere la tua prossima tappa.",
         "pod_ok": "Bolla di consegna ricevuta per {dir}.\nConsegna completata.",
@@ -454,6 +459,7 @@ TEXTOS = {
         "pedir_foto": "Chegada registada em {dir}.\n\nAgora preciso da FOTO DA GUIA DE TRANSPORTE.\nEnvia-me a foto por aqui.",
         "recogida_ok": "Recolha concluída em {dir}.",
         "entrega_ok": "Entrega concluída em {dir}.",
+        "aviso_pausa_561": "🕐 Estás a conduzir há cerca de 4,5 h — é hora de uma pausa de 45 min.",
         "foto_subiendo": "Recebida. A carregar foto...",
         "sin_entrega_esperando": "Não há nenhuma entrega à espera de guia.\nUsa /estado para veres a tua próxima paragem.",
         "pod_ok": "Guia de transporte recebida para {dir}.\nEntrega concluída.",
@@ -505,6 +511,7 @@ TEXTOS = {
         "pedir_foto": "Ankunft in {dir} erfasst.\n\nJetzt brauche ich das FOTO DES LIEFERSCHEINS.\nSchick mir das Foto hier.",
         "recogida_ok": "Abholung in {dir} abgeschlossen.",
         "entrega_ok": "Lieferung in {dir} abgeschlossen.",
+        "aviso_pausa_561": "🕐 Du fährst seit etwa 4,5 Std. — Zeit für eine 45-Min-Pause.",
         "foto_subiendo": "Erhalten. Foto wird hochgeladen...",
         "sin_entrega_esperando": "Es wartet keine Lieferung auf einen Lieferschein.\nNutze /estado, um deinen nächsten Stopp zu sehen.",
         "pod_ok": "Lieferschein für {dir} erhalten.\nLieferung abgeschlossen.",
@@ -556,6 +563,7 @@ TEXTOS = {
         "pedir_foto": "تم تسجيل الوصول في {dir}.\n\nأحتاج الآن إلى صورة سند التسليم.\nأرسل لي الصورة هنا.",
         "recogida_ok": "تم الاستلام في {dir}.",
         "entrega_ok": "تم إتمام التسليم في {dir}.",
+        "aviso_pausa_561": "🕐 أنت تقود منذ حوالي 4.5 ساعة — حان وقت استراحة 45 دقيقة.",
         "foto_subiendo": "تم الاستلام. جارٍ رفع الصورة...",
         "sin_entrega_esperando": "لا يوجد تسليم بانتظار سند.\nاستخدم /estado لمعرفة محطتك التالية.",
         "pod_ok": "تم استلام سند التسليم لـ {dir}.\nاكتمل التسليم.",
@@ -1198,6 +1206,26 @@ async def handle_location(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             "detalle": cp.get("direccion"),
         }).execute()
 
+    # F13.5: aviso proactivo de pausa legal (561) -- una vez por viaje,
+    # independiente de la lógica de geo-llegada de abajo.
+    if ctx.chat_data.get("aviso_pausa_561_viaje") != viaje_id:
+        inicio_r = (
+            supabase.table("ejecucion_evento")
+            .select("ocurrido_en")
+            .eq("viaje_id", viaje_id)
+            .order("ocurrido_en")
+            .limit(1)
+            .execute()
+        )
+        inicio = inicio_r.data[0].get("ocurrido_en") if inicio_r.data else None
+        if inicio:
+            emp_r = supabase.table("empresa").select("velocidad_planificacion_kmh").eq("id", chofer["empresa_id"]).execute()
+            velocidad = (emp_r.data[0].get("velocidad_planificacion_kmh") if emp_r.data else None) or VELOCIDAD_PLANIFICACION_KMH_DEFAULT
+            horas = horas_conduccion_estimadas_viaje(chofer["id"], inicio, velocidad)
+            if debe_avisar_pausa(horas, False):
+                ctx.chat_data["aviso_pausa_561_viaje"] = viaje_id
+                await ctx.bot.send_message(chat_id=chat_id, text=t(chofer, "aviso_pausa_561"))
+
     pendientes = [
         h for h in hitos
         if h.get("estado") == "pendiente" and h.get("lat") is not None and h.get("lon") is not None
@@ -1471,6 +1499,34 @@ def punto_en_checkpoint(lat, lon, hito, umbral_default=None):
     radio = hito.get("radio_m") or umbral_default
     distancia_m = haversine_km(lat, lon, hito["lat"], hito["lon"]) * 1000
     return distancia_m <= radio
+
+
+def debe_avisar_pausa(horas_conduccion, ya_avisado):
+    """F13.5: True si toca avisar de la pausa legal (Reglamento 561, pausa
+    tras 4,5h de conducción) y todavía no se ha avisado en este viaje. Pura,
+    testeable. `ya_avisado` es el dedup por viaje (se guarda en chat_data,
+    igual que `geo_preguntado`) -- se avisa UNA vez, nunca en bucle."""
+    if ya_avisado:
+        return False
+    return horas_conduccion >= _PAUSA_TRAS_HORAS
+
+
+def horas_conduccion_estimadas_viaje(chofer_id, desde_iso, velocidad_kmh):
+    """F13.5: estima horas de conducción del viaje EN CURSO sumando la
+    distancia entre los pings de `ubicacion` de este chófer desde que
+    empezó el viaje (`desde_iso`) -- misma base honesta km/velocidad que
+    `getEstado561` (JS), v1 conservadora, NO tacógrafo real (7B.4). Se apoya
+    en los puntos ya guardados por UBI.1, sin llamada externa nueva."""
+    r = ejecutar_con_reintentos(
+        lambda: supabase.table("ubicacion").select("lat, lon, created_at")
+        .eq("chofer_id", chofer_id).order("created_at").execute(),
+        contexto={"accion": "horas_conduccion_estimadas_viaje", "chofer_id": chofer_id},
+    )
+    puntos = [p for p in (r.data or []) if p.get("created_at", "") >= desde_iso]
+    km = 0.0
+    for i in range(1, len(puntos)):
+        km += haversine_km(puntos[i - 1]["lat"], puntos[i - 1]["lon"], puntos[i]["lat"], puntos[i]["lon"])
+    return km / velocidad_kmh if velocidad_kmh else 0.0
 
 
 def debe_guardar_ubicacion(ultimo_punto, lat, lon, ahora=None):

@@ -38,8 +38,14 @@ commit, `[x]` aquí + línea en PROGRESS.md.
 - [ ] `[LOOP]` **F13.3 — Rendimiento/SLA por cliente** (métricas agrupadas por `cliente_id`). §F13.3.
 - [ ] `[LOOP]` **F13.4 — Panel ejecutivo cotización vs. real** (gráfico visual sobre el cálculo ya
   existente). §F13.4.
-- [ ] `[LOOP]` **F13.5 — Aviso proactivo de descanso 561** (el bot empuja el aviso, estimación
+- [x] `[LOOP]` **F13.5 — Aviso proactivo de descanso 561** (el bot empuja el aviso, estimación
   etiquetada, no tacógrafo). §F13.5.
+  Construido (2026-07-15): `debe_avisar_pausa()` (pura, dedup por viaje vía `chat_data`) +
+  `horas_conduccion_estimadas_viaje()` (suma distancias entre pings de `ubicacion` ya guardados por
+  UBI.1 desde el inicio del viaje, km/velocidad — misma base honesta que `getEstado561`, NO
+  tacógrafo real, 7B.4). Integrado en `handle_location()`: dispara una vez a partir de 4,5h
+  estimadas. Nueva clave i18n `aviso_pausa_561` en los 8 idiomas. 6 tests nuevos en
+  `test_bot.py`. `ci.ps1` completo verde (187 backend, 366 vitest, build 21 páginas).
 - [ ] `[LOOP]` **F13.6 — Optimización de rutas multiparada (SUGERENCIA)** — override consciente de
   `CLAUDE.md` ("no planificamos rutas"), decidido por el usuario 2026-07-15; se construye como
   sugerencia que el gestor aprueba, nunca dispatch automático. §F13.6.
