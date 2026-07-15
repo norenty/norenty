@@ -31,7 +31,7 @@ const topLink = { href: "/", label: "Hoy", icon: LayoutDashboard };
 // Ítem 9.30: grupos colapsables. "Parkings" no tiene página propia hoy (vive
 // dentro de /mapa), así que no se añade entrada nueva para él.
 // "Importar" no estaba contemplado en la spec original; se coloca en
-// "Maestros" por afinidad (es donde se dan de alta datos maestros).
+// "Recursos" por afinidad (es donde se dan de alta vehículos/chóferes/clientes).
 const groups = [
   {
     id: "operacion",
@@ -43,8 +43,12 @@ const groups = [
     ],
   },
   {
-    id: "maestros",
-    label: "Maestros",
+    id: "recursos",
+    // Ítem de diseño (2026-07-15): "Maestros" es jerga técnica ("datos
+    // maestros") que no dice nada a un gestor de flota no técnico —
+    // "Recursos" describe lo mismo (vehículos, chóferes, clientes...) en
+    // lenguaje llano.
+    label: "Recursos",
     links: [
       { href: "/vehiculos", label: "Vehículos", icon: CarFront },
       { href: "/choferes", label: "Chóferes", icon: Users },
@@ -55,9 +59,15 @@ const groups = [
   },
   {
     id: "documentos",
-    label: "Documentos y cumplimiento",
+    // Ítem de diseño (2026-07-15): "Documentos y cumplimiento" es un
+    // encabezado uppercase+tracking-wide demasiado largo para los ~184px de
+    // ancho útil del sidebar (w-52) -- envolvía a dos líneas y chocaba con el
+    // icono de plegado. Acortado; el enlace de dentro pasa a "Caducidades"
+    // (la página es en realidad la alerta de documentos por caducar, no un
+    // repositorio de documentos — "Documentos" a secas no lo describía bien).
+    label: "Documentos",
     links: [
-      { href: "/documentos", label: "Documentos", icon: FileWarning },
+      { href: "/documentos", label: "Caducidades", icon: FileWarning },
     ],
   },
   {
@@ -88,8 +98,8 @@ function NavLink({ href, label, icon: Icon, active, onClick }) {
           : "text-ink-secondary hover:bg-surface-alt hover:text-ink"
       }`}
     >
-      <Icon size={18} />
-      {label}
+      <Icon size={18} className="shrink-0" />
+      <span className="truncate">{label}</span>
     </Link>
   );
 }
@@ -177,10 +187,10 @@ export default function Sidebar() {
                 aria-expanded={isExpanded}
                 className="flex items-center justify-between w-full gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wide text-ink-muted hover:bg-surface-alt hover:text-ink transition-colors focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
               >
-                <span>{group.label}</span>
+                <span className="truncate">{group.label}</span>
                 <ChevronDown
                   size={14}
-                  className={`transition-transform ${isExpanded ? "" : "-rotate-90"}`}
+                  className={`shrink-0 transition-transform ${isExpanded ? "" : "-rotate-90"}`}
                 />
               </button>
               {isExpanded && (

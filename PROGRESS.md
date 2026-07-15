@@ -8,6 +8,16 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | Fix UX: alineación sidebar + nombres de sección poco intuitivos | (usuario) | HECHO.
+Reportado por el usuario: enunciados desalineados en el panel lateral. Causa real: el encabezado
+"Documentos y cumplimiento" (uppercase + tracking-wide) no cabía en una línea en los ~184px del
+sidebar y envolvía chocando con el icono de plegado — sin `truncate`/`shrink-0` de seguridad.
+Arreglado con `truncate` en las etiquetas y `shrink-0` en iconos (NavLink y cabeceras de grupo,
+blindado contra el mismo bug en el futuro). De paso, renombrado: "Maestros" (jerga) → "Recursos";
+"Documentos y cumplimiento" → "Documentos"; el enlace interno "Documentos" → "Caducidades" (la
+página es la alerta de documentos por caducar, no un repositorio — el nombre anterior no lo
+describía). Verificado en el navegador con datos demo reales. `ci.ps1` completo verde.
+
 2026-07-15 | F13.6 — Optimización de rutas multiparada (sugerencia) | (loop) | HECHO.
 `sugerirOrdenParadas()` puro en `data.js`: origen/destino fijos, reordena solo intermedios del
 mismo tipo, puntúa con Haversine (no OSRM — inviable por permutación), fuerza bruta ≤7 puntos o
