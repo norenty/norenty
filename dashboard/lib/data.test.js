@@ -188,6 +188,7 @@ const {
   getRendimientoGestores,
   getMetricasPorCliente,
   kmAproxViaje,
+  sugerirOrdenParadas,
   getEstado561,
   getEstado561ParaChoferes,
   LIMITE_561_SEMANAL_H,
@@ -1863,6 +1864,52 @@ describe("estado 561 (7A.1)", () => {
       { orden: 2, lat: null, lon: null },
     ]);
     expect(km).toBe(0);
+  });
+
+  describe("sugerirOrdenParadas (F13.6 — sugerencia de orden, nunca dispatch automático)", () => {
+    const A = { id: "a", orden: 1, tipo: "recogida", lat: 0, lon: 0 };
+    const B = { id: "b", orden: 2, tipo: "recogida", lat: 0, lon: 2 };
+    const C = { id: "c", orden: 3, tipo: "recogida", lat: 0, lon: 1 };
+    const D = { id: "d", orden: 4, tipo: "recogida", lat: 0, lon: 3 };
+    const E = { id: "e", orden: 5, tipo: "recogida", lat: 0, lon: 4 };
+
+    it("con 4 puntos en línea fuera de orden, sugiere el orden que minimiza km y fija origen/destino", () => {
+      const r = sugerirOrdenParadas([A, B, C, D, E]);
+      expect(r.mereceLaPena).toBe(true);
+      expect(r.ordenSugerido[0]).toBe("a");
+      expect(r.ordenSugerido[r.ordenSugerido.length - 1]).toBe("e");
+      expect(r.ordenSugerido).toEqual(["a", "c", "b", "d", "e"]); // orden por longitud creciente
+      expect(r.kmSugerido).toBeLessThan(r.kmActual);
+    });
+
+    it("si el orden actual ya es (casi) óptimo, no sugiere (mereceLaPena: false, sin ordenSugerido)", () => {
+      // El campo `orden` (no la posición en el array) es lo que define la
+      // secuencia actual -- estos puntos ya están en orden de longitud creciente.
+      const yaOptimo = [
+        { id: "a", orden: 1, tipo: "recogida", lat: 0, lon: 0 },
+        { id: "c", orden: 2, tipo: "recogida", lat: 0, lon: 1 },
+        { id: "b", orden: 3, tipo: "recogida", lat: 0, lon: 2 },
+        { id: "d", orden: 4, tipo: "recogida", lat: 0, lon: 3 },
+        { id: "e", orden: 5, tipo: "recogida", lat: 0, lon: 4 },
+      ];
+      const r = sugerirOrdenParadas(yaOptimo);
+      expect(r.mereceLaPena).toBe(false);
+      expect(r.ordenSugerido).toBeUndefined();
+    });
+
+    it("intermedios con tipos mezclados (recogida+entrega) devuelve null -- limitación v1", () => {
+      const r = sugerirOrdenParadas([A, B, { ...C, tipo: "entrega" }, D, E]);
+      expect(r).toBeNull();
+    });
+
+    it("con menos de 3 hitos con coordenadas devuelve null (nada que reordenar)", () => {
+      expect(sugerirOrdenParadas([A, E])).toBeNull();
+    });
+
+    it("ignora hitos sin coordenadas al decidir si hay algo que reordenar", () => {
+      const r = sugerirOrdenParadas([A, B, C, D, E, { id: "sin-coords", orden: 6, lat: null, lon: null }]);
+      expect(r.ordenSugerido[0]).toBe("a");
+    });
   });
 
   it("sin eventos de llegada devuelve todo a cero y margen completo", async () => {

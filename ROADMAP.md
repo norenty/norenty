@@ -57,9 +57,18 @@ commit, `[x]` aquí + línea en PROGRESS.md.
   tacógrafo real, 7B.4). Integrado en `handle_location()`: dispara una vez a partir de 4,5h
   estimadas. Nueva clave i18n `aviso_pausa_561` en los 8 idiomas. 6 tests nuevos en
   `test_bot.py`. `ci.ps1` completo verde (187 backend, 366 vitest, build 21 páginas).
-- [ ] `[LOOP]` **F13.6 — Optimización de rutas multiparada (SUGERENCIA)** — override consciente de
+- [x] `[LOOP]` **F13.6 — Optimización de rutas multiparada (SUGERENCIA)** — override consciente de
   `CLAUDE.md` ("no planificamos rutas"), decidido por el usuario 2026-07-15; se construye como
   sugerencia que el gestor aprueba, nunca dispatch automático. §F13.6.
+  Construido (2026-07-15): `sugerirOrdenParadas(hitos)` puro en `data.js` — origen/destino fijos,
+  solo reordena intermedios, y SOLO si todos comparten `tipo` (limitación v1 documentada, no
+  rompe precedencia recogida→entrega mezclando tipos; v2 respetará precedencias mixtas). Puntúa
+  con Haversine × `FACTOR_SINUOSIDAD_FALLBACK` (mismo criterio que `kmAproxViaje`), NO con OSRM —
+  una llamada de red por permutación sería inviable. Fuerza bruta hasta 7 intermedios, si no
+  nearest-neighbor + 2-opt. Umbral de ahorro 2% para no generar ruido. Botón "Sugerir orden
+  óptimo" en `/viajes/nuevo-w` (solo con >3 paradas): muestra el ahorro estimado y un botón
+  "Aplicar" que reordena el formulario — el gestor decide, nunca se aplica solo. 5 tests nuevos.
+  `ci.ps1` completo verde (187 backend, 376 vitest, build 21 páginas).
 - [ ] `[DECISIÓN]` **F13.7 — Firma digital en la entrega** — gated por el discovery del sábado
   (ver cómo operan el albarán hoy antes de construir). §F13.7.
 

@@ -1066,6 +1066,127 @@ function haversineKm(a, b) {
 }
 
 // ==========================================================================
+// F13.6: sugerencia de orden de paradas (SUGERENCIA, no dispatch automático —
+// override consciente de "no planificamos rutas", decisión del usuario
+// 2026-07-15). Pura: usa Haversine × FACTOR_SINUOSIDAD_FALLBACK para puntuar
+// permutaciones (mismo criterio que kmAproxViaje) en vez de OSRM, que sería
+// una llamada de red por permutación evaluada -- inviable incluso para pocos
+// puntos intermedios. Origen y destino final quedan FIJOS; solo se reordenan
+// los hitos intermedios, y v1 SOLO si todos son del mismo `tipo` (no rompe
+// precedencia recogida→entrega mezclando tipos) -- ver limitación documentada
+// en SPECS-FASE13.md, la versión que respeta precedencias mixtas es v2.
+// ==========================================================================
+
+const UMBRAL_AHORRO_SUGERENCIA_PCT = 2; // por debajo de esto, no molesta con la sugerencia
+
+function distanciaTotalPuntos(puntos) {
+  let km = 0;
+  for (let i = 0; i < puntos.length - 1; i++) {
+    km += haversineKm(puntos[i], puntos[i + 1]) * FACTOR_SINUOSIDAD_FALLBACK;
+  }
+  return km;
+}
+
+function permutaciones(arr) {
+  if (arr.length <= 1) return [arr];
+  const resultado = [];
+  for (let i = 0; i < arr.length; i++) {
+    const resto = [...arr.slice(0, i), ...arr.slice(i + 1)];
+    for (const p of permutaciones(resto)) resultado.push([arr[i], ...p]);
+  }
+  return resultado;
+}
+
+function vecinoMasCercanoOrden(origen, intermedios) {
+  const restantes = [...intermedios];
+  const ruta = [];
+  let actual = origen;
+  while (restantes.length) {
+    let idxMin = 0, dMin = Infinity;
+    restantes.forEach((p, idx) => {
+      const d = haversineKm(actual, p);
+      if (d < dMin) { dMin = d; idxMin = idx; }
+    });
+    const [siguiente] = restantes.splice(idxMin, 1);
+    ruta.push(siguiente);
+    actual = siguiente;
+  }
+  return ruta;
+}
+
+// Mejora local 2-opt: para N > 7 intermedios, fuerza bruta (N!) deja de ser
+// viable -- nearest-neighbor da un punto de partida razonable y 2-opt lo pule
+// invirtiendo tramos mientras siga reduciendo la distancia total.
+function dosOpt(origen, rutaInicial, destino) {
+  let actual = [...rutaInicial];
+  const distanciaRuta = (r) => distanciaTotalPuntos([origen, ...r, destino]);
+  let mejorDist = distanciaRuta(actual);
+  let mejorada = true;
+  while (mejorada) {
+    mejorada = false;
+    for (let i = 0; i < actual.length - 1; i++) {
+      for (let j = i + 1; j < actual.length; j++) {
+        const candidato = [...actual.slice(0, i), ...actual.slice(i, j + 1).reverse(), ...actual.slice(j + 1)];
+        const d = distanciaRuta(candidato);
+        if (d < mejorDist - 1e-9) {
+          actual = candidato;
+          mejorDist = d;
+          mejorada = true;
+        }
+      }
+    }
+  }
+  return actual;
+}
+
+/**
+ * Sugiere un reorden de los hitos INTERMEDIOS (origen y destino final fijos)
+ * que minimiza km totales estimados. Devuelve `null` si no hay nada que
+ * reordenar (menos de 3 hitos con coordenadas, o los intermedios mezclan
+ * tipos recogida/entrega -- limitación v1). Si el ahorro no supera
+ * `umbralAhorroPct`, devuelve `mereceLaPena: false` sin `ordenSugerido` (no
+ * es ruido si el orden actual ya es casi óptimo).
+ */
+export function sugerirOrdenParadas(hitos, umbralAhorroPct = UMBRAL_AHORRO_SUGERENCIA_PCT) {
+  const conCoords = (hitos || [])
+    .filter((h) => h.lat != null && h.lon != null)
+    .sort((a, b) => a.orden - b.orden);
+  if (conCoords.length < 3) return null;
+
+  const origen = conCoords[0];
+  const destino = conCoords[conCoords.length - 1];
+  const intermedios = conCoords.slice(1, -1);
+
+  const tipos = new Set(intermedios.map((h) => h.tipo));
+  if (tipos.size > 1) return null;
+
+  const kmActual = distanciaTotalPuntos([origen, ...intermedios, destino]);
+
+  const ordenSugerido = intermedios.length <= 7
+    ? permutaciones(intermedios).reduce(
+        (mejor, perm) => (distanciaTotalPuntos([origen, ...perm, destino]) < distanciaTotalPuntos([origen, ...mejor, destino]) ? perm : mejor),
+        intermedios
+      )
+    : dosOpt(origen, vecinoMasCercanoOrden(origen, intermedios), destino);
+
+  const kmSugerido = distanciaTotalPuntos([origen, ...ordenSugerido, destino]);
+  const ahorroKm = kmActual - kmSugerido;
+  const ahorroPct = kmActual > 0 ? (ahorroKm / kmActual) * 100 : 0;
+
+  if (ahorroPct <= umbralAhorroPct) {
+    return { mereceLaPena: false, kmActual: Math.round(kmActual), kmSugerido: Math.round(kmSugerido), ahorroKm: Math.round(ahorroKm) };
+  }
+
+  return {
+    mereceLaPena: true,
+    ordenSugerido: [origen.id, ...ordenSugerido.map((h) => h.id), destino.id],
+    kmActual: Math.round(kmActual),
+    kmSugerido: Math.round(kmSugerido),
+    ahorroKm: Math.round(ahorroKm),
+  };
+}
+
+// ==========================================================================
 // Estado 561 por chófer (ítem 7A.1) — horas de conducción estimadas vs. límites
 // ==========================================================================
 

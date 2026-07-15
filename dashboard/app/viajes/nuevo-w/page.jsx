@@ -3,8 +3,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2, AlertTriangle, Check, ChevronRight, Package } from "lucide-react";
-import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561, UMBRAL_MARGEN_AMBAR_PCT, getClientes, calcularOcupacion } from "../../../lib/data";
+import { ArrowLeft, Plus, Trash2, AlertTriangle, Check, ChevronRight, Package, Route } from "lucide-react";
+import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561, UMBRAL_MARGEN_AMBAR_PCT, getClientes, calcularOcupacion, sugerirOrdenParadas } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import SugerenciaChofer from "../../components/SugerenciaChofer";
 import { badgeMargen, fmtEur, fmtKm } from "../../../lib/format";
@@ -72,6 +72,7 @@ export default function NuevoViajeWizard() {
   const [avisoAsignacion, setAvisoAsignacion] = useState(null);
   const [aviso561, setAviso561] = useState(null);
   const [carga, setCarga] = useState({ ldm: "", kg: "", m3: "" });
+  const [sugerenciaOrden, setSugerenciaOrden] = useState(null);
   const debounceRef = useRef(null);
 
   useEffect(() => {
@@ -117,6 +118,27 @@ export default function NuevoViajeWizard() {
 
   function actualizarHito(i, campo, valor) {
     setHitos((hs) => hs.map((h, idx) => (idx === i ? { ...h, [campo]: valor } : h)));
+    setSugerenciaOrden(null); // F13.6: cualquier edición manual invalida la sugerencia calculada
+  }
+
+  // F13.6 (SUGERENCIA, no dispatch automático): usa el índice del array como
+  // id sintético -- estos hitos aún no existen en BD, no tienen id real.
+  function sugerirOrden() {
+    const conId = hitos.map((h, i) => ({
+      ...h, id: i, orden: i,
+      lat: h.lat === "" ? null : Number(h.lat),
+      lon: h.lon === "" ? null : Number(h.lon),
+    }));
+    const r = sugerirOrdenParadas(conId);
+    // null = falta coordenadas o las paradas intermedias mezclan tipos
+    // (recogida+entrega, limitación v1) -- se comunica igual, no en silencio.
+    setSugerenciaOrden(r || { mereceLaPena: false, sinDatos: true });
+  }
+
+  function aplicarOrdenSugerido() {
+    if (!sugerenciaOrden?.mereceLaPena) return;
+    setHitos((hs) => sugerenciaOrden.ordenSugerido.map((idx) => hs[idx]));
+    setSugerenciaOrden(null);
   }
 
   async function irAPaso2() {
@@ -240,13 +262,48 @@ export default function NuevoViajeWizard() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-medium text-ink">Paradas</label>
-                <button
-                  type="button" onClick={() => setHitos((hs) => [...hs, nuevoHito()])}
-                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-border text-ink-secondary hover:bg-surface-alt"
-                >
-                  <Plus size={14} /> Añadir parada
-                </button>
+                <div className="flex items-center gap-2">
+                  {hitos.length > 3 && (
+                    <button
+                      type="button" onClick={sugerirOrden}
+                      className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-border text-ink-secondary hover:bg-surface-alt"
+                    >
+                      <Route size={14} /> Sugerir orden óptimo
+                    </button>
+                  )}
+                  <button
+                    type="button" onClick={() => setHitos((hs) => [...hs, nuevoHito()])}
+                    className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-border text-ink-secondary hover:bg-surface-alt"
+                  >
+                    <Plus size={14} /> Añadir parada
+                  </button>
+                </div>
               </div>
+              {sugerenciaOrden && (
+                <div className="mb-3 text-xs bg-surface-alt border border-border rounded-md px-3 py-2 flex items-center justify-between gap-2">
+                  {sugerenciaOrden.mereceLaPena ? (
+                    <>
+                      <span className="text-ink-secondary">
+                        Ahorro estimado reordenando las paradas intermedias: <strong className="text-ink">{sugerenciaOrden.ahorroKm} km</strong>
+                        {" "}({sugerenciaOrden.kmActual} km → {sugerenciaOrden.kmSugerido} km). Estimación en línea recta, no sustituye el cálculo con OSRM.
+                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button type="button" onClick={aplicarOrdenSugerido} className="text-xs px-2 py-1 rounded-md bg-brand text-white font-medium">Aplicar</button>
+                        <button type="button" onClick={() => setSugerenciaOrden(null)} className="text-xs px-2 py-1 rounded-md border border-border text-ink-secondary">Descartar</button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-ink-secondary">
+                        {sugerenciaOrden.sinDatos
+                          ? "No se puede sugerir un orden: faltan coordenadas en alguna parada, o las paradas intermedias mezclan recogidas y entregas."
+                          : "El orden actual ya es (casi) óptimo — no merece la pena reordenar."}
+                      </span>
+                      <button type="button" onClick={() => setSugerenciaOrden(null)} className="text-xs px-2 py-1 rounded-md border border-border text-ink-secondary shrink-0">Cerrar</button>
+                    </>
+                  )}
+                </div>
+              )}
               <div className="flex flex-col gap-3">
                 {hitos.map((h, i) => (
                   <div key={i} className="bg-surface border border-border rounded-xl p-3">

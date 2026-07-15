@@ -8,6 +8,13 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | F13.6 — Optimización de rutas multiparada (sugerencia) | (loop) | HECHO.
+`sugerirOrdenParadas()` puro en `data.js`: origen/destino fijos, reordena solo intermedios del
+mismo tipo, puntúa con Haversine (no OSRM — inviable por permutación), fuerza bruta ≤7 puntos o
+nearest-neighbor+2-opt. Botón "Sugerir orden óptimo" en `/viajes/nuevo-w`, el gestor aplica o
+descarta. 5 tests nuevos, `ci.ps1` completo verde. Cierra la cola F13 (F13.7 firma digital sigue
+`[DECISIÓN]`, gated por discovery del sábado).
+
 2026-07-15 | F13.4 — Panel ejecutivo cotización vs. real | (loop) | HECHO.
 `getMetricasRentabilidad` extendido con `porMes` (margen estimado vs. real medio, agrupado por
 mes, solo viajes con ambos valores). Gráfico de barras dobles CSS (sin librería nueva) en la vista
