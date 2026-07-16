@@ -335,7 +335,17 @@ export default function ViajeDetalle() {
 
       {editandoChofer && (
         <div className="mb-4">
-          <SugerenciaChofer viajeId={id} onAsignado={(choferId) => cambiarChofer(choferId)} />
+          {/* F14.3: si el viaje está en curso (reasignación a mitad de ruta, p.ej. baja del
+              chófer), la sugerencia debe puntuar solo lo que QUEDA por recorrer -- pasar la
+              ruta completa (incluyendo hitos ya completados) sesgaría el ranking hacia el
+              origen del viaje, no hacia dónde está realmente el chófer que hace falta. */}
+          <SugerenciaChofer
+            viajeId={id}
+            hitosOverride={hitos
+              .filter((h) => h.estado === "pendiente" && h.lat != null && h.lon != null)
+              .map((h) => ({ orden: h.orden, lat: h.lat, lon: h.lon }))}
+            onAsignado={(choferId) => cambiarChofer(choferId)}
+          />
         </div>
       )}
 

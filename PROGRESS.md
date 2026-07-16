@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | F14.3 — Reasignación sugerida a mitad de ruta | (loop) | HECHO.
+`SugerenciaChofer` en `/viajes/[id]` puntuaba sobre la ruta completa (incluidos hitos ya
+completados); corregido pasando `hitosOverride` filtrado a hitos `pendiente` -- reutiliza
+`sugerirChofer` sin tocar su lógica. `ci.ps1` completo verde. Sigue F14.4 (comparativa
+antes/después con verdad_observada).
+
 2026-07-15 | F14.2 — Alerta de hueco de ubicación | (loop) | HECHO.
 `detectarHuecoUbicacion()` puro (umbral 3h) + `getViajesConHuecoUbicacion()` sobre los pings de
 UBI.1. Nueva 6ª tarjeta en `ResumenHoy`. 6 tests nuevos + smoke test actualizado, `ci.ps1`

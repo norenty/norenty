@@ -34,9 +34,15 @@ navegador cuando aplique, commit, `[x]` aquí + línea en PROGRESS.md.
   guardados por UBI.1. Integrado en `getResumenHoy()` como 6ª clave `huecosUbicacion`, nueva
   tarjeta en `ResumenHoy.jsx` (grid a 6 columnas). 6 tests nuevos + smoke test actualizado.
   `ci.ps1` completo verde (187 backend, 391 vitest, build 21 páginas).
-- [ ] `[LOOP]` **F14.3 — Reasignación sugerida si un viaje se queda sin chófer a mitad de ruta** —
+- [x] `[LOOP]` **F14.3 — Reasignación sugerida si un viaje se queda sin chófer a mitad de ruta** —
   hoy `SugerenciaChofer` solo sugiere para viajes NUEVOS; falta el flujo para un viaje `en_curso`
   que pierde su chófer (baja, avería). §F14.3.
+  Construido (2026-07-15): `SugerenciaChofer` ya estaba cableado en `/viajes/[id]` al editar el
+  chófer, pero puntuaba sobre la ruta COMPLETA del viaje (incluyendo hitos ya completados) —
+  sesgaba el ranking hacia el origen, no hacia dónde está realmente el chófer que hace falta.
+  Corregido pasando `hitosOverride` filtrado a los hitos `pendiente` con coordenadas (reutiliza
+  `sugerirChofer` tal cual, sin tocar su lógica). `ci.ps1` completo verde (187 backend, 391
+  vitest, build 21 páginas) — verificación por build, es cableado de UI sobre función ya testeada.
 - [ ] `[LOOP]` **F14.4 — Comparativa "antes/después" para founding partners** — usar los snapshots
   ya guardados en `verdad_observada` para enseñar la evolución de puntualidad/margen mes a mes,
   el argumento de venta más fuerte para un founding partner. §F14.4.
