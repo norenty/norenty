@@ -26,9 +26,33 @@ no una feature de dashboard). Orden estricto: F15.1 → F15.2 → F15.3 → revi
   ninguna política RLS todavía (eso es F15.2, deliberadamente aparte). Aplicada con
   `migrate.py` y verificada con una query de solo lectura contra la BD real: columna existe,
   nullable, función existe, los 10 chóferes existentes intactos. `ci.ps1` completo verde.
-- [ ] `[LOOP]` **F15.2 — Políticas RLS de `chofer`/`viaje` con scoping por gestor** (el núcleo de
+- [x] `[LOOP]` **F15.2 — Políticas RLS de `chofer`/`viaje` con scoping por gestor** (el núcleo de
   seguridad; hereda automáticamente a hito/ejecucion_evento/pod/incidencia/valoracion/ubicacion).
   §F15.2.
+  Construido (2026-07-15): migración `0054_rls_scoping_gestor.sql` — políticas de `chofer`/
+  `viaje` reescritas: `empresa_id = current_empresa_id() AND (current_gestor_rol()='admin' OR
+  gestor_id = current_gestor_id() OR gestor_id IS NULL)`. `gestor_id IS NULL` = visible para
+  todos (evita dejar invisibles los chóferes/viajes existentes el día del despliegue). Hereda
+  automáticamente a hito/ejecucion_evento/pod/incidencia/valoracion (vía `viaje_id`) y a
+  `ubicacion` (vía `chofer_id`) sin tocarlas. `gasto_viaje`/`decision_asignacion` (tienen su
+  PROPIA política, no heredan) reescritas con el mismo criterio; `nota_gestor` revisada y dejada
+  sin cambio a propósito (bitácora compartida del equipo). Nombres de política verificados
+  contra `pg_policies` ANTES de aplicar (los de `gasto_viaje`/`nota_gestor`/`decision_asignacion`
+  no eran los que asumía la spec — corregido antes de tocar nada) y re-verificados después: una
+  sola política activa por tabla, sin restos de las antiguas.
+  **F15.2b añadida sobre la marcha** (`0055_gestor_id_solo_admin.sql`): al escribir el test se
+  descubrió que `authenticated` no tenía NI el GRANT de columna para escribir `gestor_id` en
+  `chofer`/`viaje` — ni admin podría asignar equipo todavía. Añadido el GRANT + un trigger
+  `gestor_id_solo_admin()` (mismo patrón que `rol_bloquea_columnas_sensibles`, 0032) que solo
+  deja cambiar `gestor_id` al rol `admin` — sin esto, la política RLS por sí sola habría dejado
+  que un `gestor_operativo` se "auto-asignara" cualquier chófer sin asignar, y el pedido
+  explícito del usuario es que la asignación de equipo es cosa del jefe de tráfico.
+  **Tests de aislamiento reales** (`roles-isolation.test.js`, contra Postgres real, no el mock —
+  mismo principio que el resto de la suite): 8 tests nuevos reutilizando los fixtures
+  admin/operativo/lectura ya existentes — operativo no ve chófer/viaje de otro gestor, sí ve los
+  suyos y los sin asignar, admin ve todo, operativo NO puede reasignar `gestor_id` (bloqueado por
+  el trigger) ni siquiera sobre una fila que sí puede ver, admin sí puede. `ci.ps1` completo
+  verde (187 backend, 398 vitest incluyendo los 8 nuevos contra la BD real).
 - [ ] `[LOOP]` **F15.3 — Pantalla de asignación de chóferes/rutas a gestor** (Ajustes → Equipo,
   admin-only). §F15.3.
 - [ ] `[DECISIÓN parcial]` **F15.4 — Revisar si hace falta un dashboard/KPI diferenciado para

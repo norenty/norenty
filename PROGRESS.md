@@ -8,6 +8,16 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | F15.2 — Núcleo de seguridad: RLS scoping por gestor | (usuario) | HECHO.
+`0054_rls_scoping_gestor.sql`: chofer/viaje solo visibles para admin, el gestor asignado, o si
+gestor_id IS NULL (visible a todos). Hereda a hito/pod/incidencia/etc. sin tocarlas.
+`0055_gestor_id_solo_admin.sql` (descubierto sobre la marcha): faltaba el GRANT de columna Y un
+trigger para que SOLO admin pueda asignar gestor_id (si no, un gestor_operativo podría
+auto-asignarse chóferes sin dueño). 8 tests de aislamiento nuevos contra la BD REAL (no el mock),
+todos verdes. Nombres de políticas verificados contra pg_policies antes y después de aplicar
+(cero políticas duplicadas/huérfanas). `ci.ps1` completo verde. Sigue F15.3 (pantalla de
+asignación en Ajustes → Equipo).
+
 2026-07-15 | F15.1 — Migración chofer.gestor_id + current_gestor_id() | (usuario) | HECHO.
 Base de la Fase 15 (scoping de datos por gestor, pedido explícito tras confirmar que hoy NO
 existe esa restricción). Migración `0053_gestor_id_chofer.sql` aplicada y verificada contra la

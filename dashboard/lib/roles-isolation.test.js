@@ -331,4 +331,97 @@ describe.skipIf(!tieneCredenciales)("aislamiento por rol contra la BD real (9.31
   // El diseño (§2.3/§2.5 de SPECS-9-ROLES.md) ya deja pasar auth.uid() IS NULL
   // explícitamente; verificar con datos reales en cuanto D1 se resuelva.
   it.skip("(B12) service role no se bloquea por los triggers de rol", () => {});
+
+  // F15.2 (2026-07-15): scoping de chofer/viaje por gestor_id, contra la BD
+  // real -- mismo principio que el resto de esta suite (RLS no se prueba con
+  // el mock, se DEMUESTRA con Postgres real). Reutiliza los fixtures de
+  // arriba (operativo/idOperativo, lectura/idLectura, viajeId sin gestor_id).
+  describe("F15.2: scoping de chofer/viaje por gestor_id", () => {
+    let choferAjeno, viajeAjeno, choferPropio;
+
+    beforeAll(async () => {
+      // Asignados a "lectura" (OTRO gestor no-admin, no operativo) -- operativo
+      // no debe verlos aunque sean de su misma empresa.
+      const { data: cAjeno, error: cAjenoError } = await admin
+        .from("chofer")
+        .insert({ empresa_id: empresaId, nombre: "F15.2 Ajeno", gestor_id: idLectura })
+        .select("id").single();
+      if (cAjenoError) throw new Error(`No se pudo crear el fixture choferAjeno: ${cAjenoError.message}`);
+      choferAjeno = cAjeno.id;
+
+      const { data: vAjeno, error: vAjenoError } = await admin
+        .from("viaje")
+        .insert({ empresa_id: empresaId, referencia: "F15.2-AJENO", gestor_id: idLectura })
+        .select("id").single();
+      if (vAjenoError) throw new Error(`No se pudo crear el fixture viajeAjeno: ${vAjenoError.message}`);
+      viajeAjeno = vAjeno.id;
+
+      const { data: cPropio, error: cPropioError } = await admin
+        .from("chofer")
+        .insert({ empresa_id: empresaId, nombre: "F15.2 Propio", gestor_id: idOperativo })
+        .select("id").single();
+      if (cPropioError) throw new Error(`No se pudo crear el fixture choferPropio: ${cPropioError.message}`);
+      choferPropio = cPropio.id;
+    }, 30000);
+
+    afterAll(async () => {
+      // Limpieza vía admin (siempre puede, es admin) -- no dejar fixtures de
+      // test permanentes en la empresa demo.
+      await admin.from("viaje").delete().eq("id", viajeAjeno);
+      await admin.from("chofer").delete().eq("id", choferAjeno);
+      await admin.from("chofer").delete().eq("id", choferPropio);
+    });
+
+    it("operativo NO ve un chófer asignado a otro gestor (mismo empresa_id)", async () => {
+      const { data, error } = await operativo.from("chofer").select("id").eq("id", choferAjeno);
+      expect(error).toBeNull();
+      expect(data).toEqual([]);
+    });
+
+    it("operativo NO ve un viaje asignado a otro gestor (mismo empresa_id)", async () => {
+      const { data, error } = await operativo.from("viaje").select("id").eq("id", viajeAjeno);
+      expect(error).toBeNull();
+      expect(data).toEqual([]);
+    });
+
+    it("operativo SÍ ve su propio chófer asignado", async () => {
+      const { data, error } = await operativo.from("chofer").select("id").eq("id", choferPropio);
+      expect(error).toBeNull();
+      expect(data).toHaveLength(1);
+    });
+
+    it("operativo SÍ ve un viaje sin gestor_id asignado (estado 'sin repartir', visible a todos)", async () => {
+      const { data, error } = await operativo.from("viaje").select("id").eq("id", viajeId);
+      expect(error).toBeNull();
+      expect(data).toHaveLength(1);
+    });
+
+    it("admin ve TODO independientemente del gestor_id asignado", async () => {
+      const { data: c } = await admin.from("chofer").select("id").eq("id", choferAjeno);
+      expect(c).toHaveLength(1);
+      const { data: v } = await admin.from("viaje").select("id").eq("id", viajeAjeno);
+      expect(v).toHaveLength(1);
+    });
+
+    it("operativo NO puede asignarse ni reasignar gestor_id (solo admin gestiona equipo, F15.2b)", async () => {
+      // Ni siquiera sobre un chófer que SÍ puede ver (el propio, o uno sin
+      // asignar) -- gestor_id_solo_admin() bloquea el cambio para cualquier
+      // rol que no sea admin, independientemente de si la fila es visible.
+      const { error } = await operativo.from("chofer").update({ gestor_id: idLectura }).eq("id", choferPropio);
+      expect(error).toBeTruthy();
+      expect(error.message).toMatch(/solo un admin puede asignar/);
+
+      const { data: sigueIgual } = await admin.from("chofer").select("gestor_id").eq("id", choferPropio).single();
+      expect(sigueIgual.gestor_id).toBe(idOperativo); // sin cambios (seguía siendo el asignado en el beforeAll)
+    });
+
+    it("admin SÍ puede asignar/reasignar gestor_id de un chófer", async () => {
+      const { error } = await admin.from("chofer").update({ gestor_id: idLectura }).eq("id", choferPropio);
+      expect(error).toBeNull();
+      const { data } = await admin.from("chofer").select("gestor_id").eq("id", choferPropio).single();
+      expect(data.gestor_id).toBe(idLectura);
+
+      await admin.from("chofer").update({ gestor_id: idOperativo }).eq("id", choferPropio); // deja el fixture como estaba
+    });
+  });
 });
