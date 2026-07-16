@@ -184,6 +184,8 @@ const {
   getDossierViaje,
   getDatosFacturacion,
   guardarTelefonoChofer,
+  getChoferesConGestor,
+  guardarGestorChofer,
   normalizarTelefonoE164,
   guardarObjetivoPuntualidadEmpresa,
   guardarRequierePodEmpresa,
@@ -1800,6 +1802,30 @@ describe("createChofer / guardarTelefonoChofer (bot de llamadas, fase 1)", () =>
     TABLES.chofer = [{ id: "c1", nombre: "Mario", telefono: "+34600111222" }];
     await expect(guardarTelefonoChofer("c1", "abc")).rejects.toThrow("no parece válido");
     expect(TABLES.chofer[0].telefono).toBe("+34600111222");
+  });
+});
+
+describe("getChoferesConGestor / guardarGestorChofer (F15.3 — asignación de equipo)", () => {
+  it("getChoferesConGestor devuelve id/nombre/gestor_id, ordenados por nombre", async () => {
+    TABLES.chofer = [
+      { id: "c1", nombre: "Zoe", gestor_id: "g1" },
+      { id: "c2", nombre: "Ana", gestor_id: null },
+    ];
+    const r = await getChoferesConGestor();
+    expect(r.map((c) => c.nombre)).toEqual(["Ana", "Zoe"]);
+    expect(r.find((c) => c.nombre === "Zoe").gestor_id).toBe("g1");
+  });
+
+  it("guardarGestorChofer asigna un gestor_id", async () => {
+    TABLES.chofer = [{ id: "c1", nombre: "Mario", gestor_id: null }];
+    await guardarGestorChofer("c1", "g1");
+    expect(TABLES.chofer[0].gestor_id).toBe("g1");
+  });
+
+  it("guardarGestorChofer con null desasigna (vuelve a 'Sin asignar')", async () => {
+    TABLES.chofer = [{ id: "c1", nombre: "Mario", gestor_id: "g1" }];
+    await guardarGestorChofer("c1", null);
+    expect(TABLES.chofer[0].gestor_id).toBeNull();
   });
 });
 

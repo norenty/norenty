@@ -610,6 +610,31 @@ export async function reactivarGestor(gestorId) {
 }
 
 /**
+ * F15.3: chóferes con su `gestor_id` (para la pantalla de asignación de
+ * equipo, Ajustes → Equipo, admin-only). Distinto de `getChoferes()` (que no
+ * expone `gestor_id`, usado en flujos que no lo necesitan) para no arrastrar
+ * un campo nuevo a callers que no lo esperan.
+ */
+export async function getChoferesConGestor() {
+  const { data } = await supabase
+    .from("chofer")
+    .select("id, nombre, gestor_id")
+    .order("nombre");
+  return data || [];
+}
+
+/**
+ * F15.3: asigna (o desasigna con `gestorId = null`) un chófer a un gestor.
+ * Solo `admin` puede escribir `gestor_id` (GRANT de columna + trigger
+ * `gestor_id_solo_admin`, F15.2b) — un no-admin recibe el error de Postgres
+ * tal cual, no se intenta adivinar el mensaje aquí.
+ */
+export async function guardarGestorChofer(choferId, gestorId) {
+  const { error } = await supabase.from("chofer").update({ gestor_id: gestorId || null }).eq("id", choferId);
+  if (error) throw error;
+}
+
+/**
  * Documentos con fecha de caducidad ya pasada o dentro de los próximos 30
  * días, ordenados por urgencia (los más próximos/caducados primero). Junta
  * la etiqueta y el enlace de la entidad (viaje/vehículo/chófer) a la que

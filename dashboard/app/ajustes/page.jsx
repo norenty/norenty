@@ -8,7 +8,7 @@ import {
   getGestoresEmpresa, actualizarRolGestor, desactivarGestor, reactivarGestor, INVITACION_VALIDEZ_DIAS,
   guardarNombreEmpresa, guardarBaseEmpresa, guardarCosteKmEmpresa, guardarVelocidadEmpresa,
   guardarDesgloseCosteEmpresa, guardarObjetivoPuntualidadEmpresa, guardarMargenObjetivoEmpresa,
-  guardarRequierePodEmpresa,
+  guardarRequierePodEmpresa, getChoferesConGestor, guardarGestorChofer,
 } from "../../lib/data";
 import RequireRol from "../components/RequireRol";
 import AjustesPerfilSection from "../components/AjustesPerfilSection";
@@ -48,6 +48,8 @@ export default function AjustesPage() {
   const [heartbeat, setHeartbeat] = useState(null);
   const [gestores, setGestores] = useState([]);
   const [gestorAccionandoId, setGestorAccionandoId] = useState(null);
+  const [choferesEquipo, setChoferesEquipo] = useState([]);
+  const [choferAccionandoId, setChoferAccionandoId] = useState(null);
   const [mfaFactores, setMfaFactores] = useState([]);
   const [mfaEnrolando, setMfaEnrolando] = useState(false);
   const [mfaQr, setMfaQr] = useState(null);
@@ -116,6 +118,7 @@ export default function AjustesPage() {
           setRequierePod(emp?.requiere_pod ?? true);
           setInvitaciones(await getInvitaciones());
           setGestores(await getGestoresEmpresa());
+          setChoferesEquipo(await getChoferesConGestor());
         }
       }
     }
@@ -124,6 +127,17 @@ export default function AjustesPage() {
 
   async function refrescarGestores() {
     setGestores(await getGestoresEmpresa());
+  }
+
+  async function cambiarGestorChofer(choferId, gestorId) {
+    setChoferAccionandoId(choferId);
+    try {
+      await guardarGestorChofer(choferId, gestorId);
+      setChoferesEquipo(await getChoferesConGestor());
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
+    setChoferAccionandoId(null);
   }
 
   async function cambiarRolGestor(gestorId, nuevoRol) {
@@ -457,6 +471,9 @@ export default function AjustesPage() {
           cambiarRolGestor={cambiarRolGestor}
           onDesactivarGestor={onDesactivarGestor}
           onReactivarGestor={onReactivarGestor}
+          choferes={choferesEquipo}
+          cambiarGestorChofer={cambiarGestorChofer}
+          choferAccionandoId={choferAccionandoId}
         />
       </RequireRol>
 

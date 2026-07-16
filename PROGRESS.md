@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | F15.3 — Pantalla de asignación de chóferes a gestor | (usuario) | HECHO.
+`getChoferesConGestor()`/`guardarGestorChofer()` en data.js + sección "Asignación de chóferes"
+en Ajustes → Equipo (admin-only, confía en el trigger de F15.2b para el rechazo real). 3 tests
+nuevos. Cierra la Fase 15 — F15.4 (KPI diferenciado admin) queda pendiente de revisión con uso
+real. `ci.ps1` completo verde.
+
 2026-07-15 | F15.2 — Núcleo de seguridad: RLS scoping por gestor | (usuario) | HECHO.
 `0054_rls_scoping_gestor.sql`: chofer/viaje solo visibles para admin, el gestor asignado, o si
 gestor_id IS NULL (visible a todos). Hereda a hito/pod/incidencia/etc. sin tocarlas.

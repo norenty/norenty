@@ -53,8 +53,20 @@ no una feature de dashboard). Orden estricto: F15.1 → F15.2 → F15.3 → revi
   suyos y los sin asignar, admin ve todo, operativo NO puede reasignar `gestor_id` (bloqueado por
   el trigger) ni siquiera sobre una fila que sí puede ver, admin sí puede. `ci.ps1` completo
   verde (187 backend, 398 vitest incluyendo los 8 nuevos contra la BD real).
-- [ ] `[LOOP]` **F15.3 — Pantalla de asignación de chóferes/rutas a gestor** (Ajustes → Equipo,
+- [x] `[LOOP]` **F15.3 — Pantalla de asignación de chóferes/rutas a gestor** (Ajustes → Equipo,
   admin-only). §F15.3.
+  Construido (2026-07-15): `getChoferesConGestor()`/`guardarGestorChofer()` en `data.js` (esta
+  última confía en el trigger `gestor_id_solo_admin` de F15.2b para el rechazo real — no
+  duplica la comprobación de rol en JS). Nueva sección "Asignación de chóferes" en
+  `AjustesEquipoSection.jsx` (ya admin-only vía `RequireRol`): selector "Sin asignar / gestor"
+  por cada chófer. Asignación de rutas por viaje se deja para cuando haga falta en la práctica —
+  `viaje.gestor_id` ya se puede editar por API/consola si surge antes; no se prioriza una UI
+  dedicada sin uso real que la pida (mismo criterio "no construir a ciegas" del resto del
+  proyecto). 3 tests Grupo A nuevos. `ci.ps1` completo verde (187 backend, 401 vitest, build 21
+  páginas) — no verificado visualmente en navegador (pantalla tras login, sin credenciales
+  disponibles para esta sesión), pero build limpio + tests cubren la lógica.
+  **Cierra la Fase 15.** F15.4 (revisar si hace falta un dashboard/KPI diferenciado para admin)
+  queda pendiente de revisión con uso real, probablemente ya resuelto por el scoping en sí.
 - [ ] `[DECISIÓN parcial]` **F15.4 — Revisar si hace falta un dashboard/KPI diferenciado para
   `admin`** una vez el scoping esté activo (probablemente ya lo resuelve solo). §F15.4.
 

@@ -28,6 +28,9 @@ export default function AjustesEquipoSection({
   cambiarRolGestor,
   onDesactivarGestor,
   onReactivarGestor,
+  choferes,
+  cambiarGestorChofer,
+  choferAccionandoId,
 }) {
   return (
     <section id="ajustes-equipo" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
@@ -155,6 +158,36 @@ export default function AjustesEquipoSection({
               </div>
             );
           })}
+        </div>
+      )}
+
+      <h3 className="text-xs font-medium text-ink-secondary mb-2 mt-4">
+        Asignación de chóferes (F15.3)
+      </h3>
+      <p className="text-xs text-ink-secondary mb-3">
+        Un chófer "Sin asignar" es visible para todos los gestores. Asígnalo a uno para que
+        solo ese gestor vea sus rutas — tú (admin) siempre ves todo, asignado o no.
+      </p>
+      {!choferes || choferes.length === 0 ? (
+        <p className="text-xs text-ink-muted">Sin chóferes todavía.</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {choferes.map((c) => (
+            <div key={c.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-md bg-surface-alt">
+              <span className="flex-1 min-w-0 truncate text-ink">{c.nombre}</span>
+              <select
+                value={c.gestor_id || ""}
+                disabled={choferAccionandoId === c.id}
+                onChange={(e) => cambiarGestorChofer(c.id, e.target.value || null)}
+                className="text-xs border border-border rounded-md px-2 py-1 disabled:opacity-40"
+              >
+                <option value="">Sin asignar</option>
+                {gestores.filter((g) => g.activo).map((g) => (
+                  <option key={g.id} value={g.id}>{g.nombre}</option>
+                ))}
+              </select>
+            </div>
+          ))}
         </div>
       )}
     </section>
