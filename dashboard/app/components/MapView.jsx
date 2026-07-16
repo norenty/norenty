@@ -21,7 +21,7 @@ const ICON_ENTREGA = new L.DivIcon({
 });
 const ICON_CHOFER = new L.DivIcon({
   className: "",
-  html: '<div style="width:32px;height:32px;border-radius:50%;background:#4F46E5;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px">🚛</div>',
+  html: '<div style="width:32px;height:32px;border-radius:50%;background:#2563EB;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px">🚛</div>',
   iconSize: [32, 32],
   iconAnchor: [16, 16],
 });

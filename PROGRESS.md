@@ -8,6 +8,14 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | Rediseño visual — fase 5: colores del rebrand en hex literal fuera del token CSS | (usuario) | HECHO.
+El swap de `--color-brand` (fase 1) solo alcanza a clases Tailwind (`bg-brand`, etc.) — quedaron 3
+strings hex literales del indigo antiguo (#4F46E5) sin tocar, invisibles a un `grep` de clases:
+`viewport.themeColor` en `layout.jsx` (color de la barra del navegador en móvil), el marcador de
+chófer en `MapView.jsx` (icono Leaflet, HTML inyectado), y `public/favicon.svg`. Los tres
+actualizados a `#2563EB`. Barrido con `grep` de los hex antiguos en todo `dashboard/` para
+confirmar que no quedaba ninguno más. `ci.ps1` completo verde.
+
 2026-07-15 | Rediseño visual — fase 4: badges/stepper invisibles, auditoría del resto del sistema | (usuario) | HECHO.
 Auditoría dirigida (agente Explore) del resto de `app/**/*.jsx` en busca del mismo patrón (bug
 `bg-surface-alt` sin borde, sentado directamente sobre el fondo de página). Encontrados y
