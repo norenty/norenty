@@ -8,6 +8,11 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | F14.2 — Alerta de hueco de ubicación | (loop) | HECHO.
+`detectarHuecoUbicacion()` puro (umbral 3h) + `getViajesConHuecoUbicacion()` sobre los pings de
+UBI.1. Nueva 6ª tarjeta en `ResumenHoy`. 6 tests nuevos + smoke test actualizado, `ci.ps1`
+completo verde. Sigue F14.3 (reasignación si el viaje se queda sin chófer).
+
 2026-07-15 | F14.1 — Aviso ITV/seguro que choca con un viaje ya asignado | (loop) | HECHO.
 `getConflictosMantenimientoViaje()` cruza ITV pendiente contra viajes asignados usando el hito
 de mayor orden con `ventana_fin`. Sección nueva en `/documentos`. 5 tests nuevos, `ci.ps1`

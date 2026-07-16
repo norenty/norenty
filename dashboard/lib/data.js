@@ -1636,6 +1636,50 @@ export async function registrarDecisionAsignacion({
 // orden, ese es el mensaje — no hay que ir a buscar nada más.
 // ==========================================================================
 
+export const UMBRAL_HUECO_UBICACION_H = 3; // valor inicial razonable, mismo estatus que otros umbrales del proyecto
+
+/**
+ * F14.2: pura. Dado el `created_at` del último ping de `ubicacion` de un chófer, decide si hay
+ * un "hueco sospechoso" (posible GPS caído / app de Telegram cerrada) -- hoy solo se detecta si
+ * alguien mira el mapa a mano. `null` (nunca hubo ningún ping) NO se marca: sería ruido avisar
+ * de todo viaje que acaba de arrancar, se le da margen hasta el primer ping real.
+ */
+export function detectarHuecoUbicacion(ultimoPingIso, ahora = new Date(), umbralHoras = UMBRAL_HUECO_UBICACION_H) {
+  if (!ultimoPingIso) return { hueco: false, horasSinSenal: null };
+  const horas = (ahora.getTime() - new Date(ultimoPingIso).getTime()) / 3600000;
+  return { hueco: horas >= umbralHoras, horasSinSenal: Math.round(horas) };
+}
+
+/**
+ * F14.2: viajes `en_curso` cuyo chófer lleva `UMBRAL_HUECO_UBICACION_H` horas sin ningún ping de
+ * `ubicacion` (UBI.1 ya los guarda) -- señal barata reutilizando datos que ya existen, sin
+ * llamada externa nueva.
+ */
+export async function getViajesConHuecoUbicacion() {
+  const { data: viajesEnCurso } = await supabase
+    .from("viaje")
+    .select("id, referencia, chofer_id")
+    .eq("estado", "en_curso");
+
+  const conChofer = (viajesEnCurso || []).filter((v) => v.chofer_id);
+  if (conChofer.length === 0) return [];
+
+  const ultimos = await Promise.all(
+    conChofer.map((v) =>
+      supabase.from("ubicacion").select("created_at").eq("chofer_id", v.chofer_id)
+        .order("created_at", { ascending: false }).limit(1)
+    )
+  );
+
+  return conChofer
+    .map((v, i) => {
+      const ultimoPing = ultimos[i].data?.[0]?.created_at || null;
+      const { hueco, horasSinSenal } = detectarHuecoUbicacion(ultimoPing);
+      return hueco ? { viajeId: v.id, referencia: v.referencia || v.id.slice(0, 8), horasSinSenal } : null;
+    })
+    .filter(Boolean);
+}
+
 export async function getResumenHoy() {
   const ahoraIso = new Date().toISOString();
 
@@ -1644,12 +1688,15 @@ export async function getResumenHoy() {
     { data: incidenciasAbiertas },
     { data: viajesEnCurso },
     { data: viajesActivosConPrecio },
+    viajesConHueco,
   ] = await Promise.all([
     getDocumentosPorCaducar(),
     supabase.from("incidencia").select("id, created_at").in("estado", ALERTA_ESTADOS),
     supabase.from("viaje").select("id, referencia, chofer_id").eq("estado", "en_curso"),
     supabase.from("viaje").select("id, precio").in("estado", ESTADOS_ACTIVOS),
+    getViajesConHuecoUbicacion(),
   ]);
+  const huecosUbicacion = { count: viajesConHueco.length, refs: viajesConHueco.map((v) => v.referencia).slice(0, 3) };
 
   // Incidencias abiertas
   let masAntiguaDias = null;
@@ -1700,7 +1747,8 @@ export async function getResumenHoy() {
     (incidenciasAbiertas || []).length === 0 &&
     viajesEnRiesgo.count === 0 &&
     choferes561.count === 0 &&
-    viajesPerdidas.count === 0;
+    viajesPerdidas.count === 0 &&
+    huecosUbicacion.count === 0;
 
   return {
     docsPorCaducar: documentosPorCaducar.length,
@@ -1708,6 +1756,7 @@ export async function getResumenHoy() {
     viajesEnRiesgo,
     choferes561,
     viajesPerdidas,
+    huecosUbicacion,
     todoEnOrden,
   };
 }

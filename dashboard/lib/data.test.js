@@ -141,6 +141,8 @@ const {
   getCurrentEmpresaId,
   getDocumentosPorCaducar,
   getConflictosMantenimientoViaje,
+  detectarHuecoUbicacion,
+  getViajesConHuecoUbicacion,
   getMetricasPuntualidad,
   getMetricasIncidencias,
   getMetricasChoferes,
@@ -2207,6 +2209,47 @@ describe("motor de asignación (7A.2)", () => {
     await expect(
       registrarDecisionAsignacion({ viajeId: "v1", choferSugeridoId: null, choferElegidoId: "c1" })
     ).resolves.not.toThrow();
+  });
+});
+
+describe("detectarHuecoUbicacion / getViajesConHuecoUbicacion (F14.2)", () => {
+  it("sin ningún ping todavía, no marca hueco (margen a viajes recién empezados)", () => {
+    const r = detectarHuecoUbicacion(null);
+    expect(r.hueco).toBe(false);
+    expect(r.horasSinSenal).toBeNull();
+  });
+
+  it("último ping reciente (dentro del umbral), no marca hueco", () => {
+    const haceUnaHora = new Date(Date.now() - 3600000).toISOString();
+    const r = detectarHuecoUbicacion(haceUnaHora);
+    expect(r.hueco).toBe(false);
+  });
+
+  it("último ping más antiguo que el umbral, marca hueco", () => {
+    const hace4h = new Date(Date.now() - 4 * 3600000).toISOString();
+    const r = detectarHuecoUbicacion(hace4h);
+    expect(r.hueco).toBe(true);
+    expect(r.horasSinSenal).toBeGreaterThanOrEqual(4);
+  });
+
+  it("getViajesConHuecoUbicacion detecta el viaje con chófer sin señal reciente", async () => {
+    TABLES.viaje = [
+      { id: "v1", referencia: "REF1", chofer_id: "c1", estado: "en_curso" },
+      { id: "v2", referencia: "REF2", chofer_id: "c2", estado: "en_curso" },
+    ];
+    TABLES.ubicacion = [
+      { chofer_id: "c1", created_at: new Date(Date.now() - 5 * 3600000).toISOString() },
+      { chofer_id: "c2", created_at: new Date().toISOString() },
+    ];
+    const r = await getViajesConHuecoUbicacion();
+    expect(r.map((x) => x.referencia)).toEqual(["REF1"]);
+  });
+
+  it("getViajesConHuecoUbicacion ignora viajes sin chófer asignado", async () => {
+    TABLES.viaje = [{ id: "v1", referencia: "REF1", chofer_id: null, estado: "en_curso" }];
+    TABLES.ubicacion = [];
+    const r = await getViajesConHuecoUbicacion();
+    expect(r).toEqual([]);
   });
 });
 

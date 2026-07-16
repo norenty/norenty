@@ -58,13 +58,14 @@ describe.skipIf(!tieneCredenciales)("smoke test contra la BD real (8.1)", () => 
     expect(Array.isArray(r)).toBe(true);
   });
 
-  it("getResumenHoy() no lanza y trae las 5 claves esperadas", async () => {
+  it("getResumenHoy() no lanza y trae las 6 claves esperadas", async () => {
     const r = await data.getResumenHoy();
     expect(r).toHaveProperty("docsPorCaducar");
     expect(r).toHaveProperty("incidencias");
     expect(r).toHaveProperty("viajesEnRiesgo");
     expect(r).toHaveProperty("choferes561");
     expect(r).toHaveProperty("viajesPerdidas");
+    expect(r).toHaveProperty("huecosUbicacion");
     expect(typeof r.todoEnOrden).toBe("boolean");
   });
 

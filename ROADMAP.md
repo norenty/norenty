@@ -26,9 +26,14 @@ navegador cuando aplique, commit, `[x]` aquí + línea en PROGRESS.md.
   `ventana_fin` como fecha de fin estimada. Sin `ventana_fin` → se omite (sin dato, no falso
   positivo). Nueva sección "Conflictos ITV/viaje" en `/documentos`, arriba de la lista de
   documentos. 5 tests nuevos. `ci.ps1` completo verde (187 backend, 386 vitest, build 21 páginas).
-- [ ] `[LOOP]` **F14.2 — Alerta de "hueco sospechoso" en la cadena de ubicación** — si un viaje
+- [x] `[LOOP]` **F14.2 — Alerta de "hueco sospechoso" en la cadena de ubicación** — si un viaje
   en curso lleva más de N horas sin ningún ping de `ubicacion`, avisar (fallo de GPS/app cerrada,
   hoy solo se detecta si alguien mira a mano). §F14.2.
+  Construido (2026-07-15): `detectarHuecoUbicacion()` puro (umbral 3h, sin ningún ping todavía →
+  no marca, margen a viajes recién empezados) + `getViajesConHuecoUbicacion()` sobre los pings ya
+  guardados por UBI.1. Integrado en `getResumenHoy()` como 6ª clave `huecosUbicacion`, nueva
+  tarjeta en `ResumenHoy.jsx` (grid a 6 columnas). 6 tests nuevos + smoke test actualizado.
+  `ci.ps1` completo verde (187 backend, 391 vitest, build 21 páginas).
 - [ ] `[LOOP]` **F14.3 — Reasignación sugerida si un viaje se queda sin chófer a mitad de ruta** —
   hoy `SugerenciaChofer` solo sugiere para viajes NUEVOS; falta el flujo para un viaje `en_curso`
   que pierde su chófer (baja, avería). §F14.3.

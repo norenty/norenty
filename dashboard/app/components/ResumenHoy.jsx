@@ -76,7 +76,7 @@ export default function ResumenHoy() {
           Todo en orden — nada requiere tu atención ahora mismo.
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
           <Tarjeta href="/documentos" valor={resumen.docsPorCaducar} label="Documentos por caducar" tono="ambar" />
           <Tarjeta
             href="/incidencias"
@@ -98,6 +98,13 @@ export default function ResumenHoy() {
             detalle={resumen.choferes561.nombres.length ? resumen.choferes561.nombres.join(", ") : null}
           />
           <Tarjeta href="/viajes" valor={resumen.viajesPerdidas.count} label="Viajes a pérdidas (est.)" />
+          <Tarjeta
+            href="/mapa"
+            valor={resumen.huecosUbicacion.count}
+            label="Huecos de ubicación"
+            tono="ambar"
+            detalle={resumen.huecosUbicacion.refs.length ? resumen.huecosUbicacion.refs.join(", ") : null}
+          />
         </div>
       )}
 
