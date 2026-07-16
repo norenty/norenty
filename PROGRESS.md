@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | F14.5 — Resumen de ruta al chófer por Telegram | (loop) | HECHO.
+`resumen_ruta_completada()` (km/horas estimados vía `km_desde_pings`, honesto si no hay datos)
+integrado en `send_next_hito()`: al completar el último hito, segundo mensaje con el resumen de
+la ruta. Claves i18n en los 8 idiomas. 4 tests nuevos. `ci.ps1` completo verde. Cierra la Fase 14
+por completo (F14.6/F14.7 aparcados).
+
 2026-07-15 | F15.3 — Pantalla de asignación de chóferes a gestor | (usuario) | HECHO.
 `getChoferesConGestor()`/`guardarGestorChofer()` en data.js + sección "Asignación de chóferes"
 en Ajustes → Equipo (admin-only, confía en el trigger de F15.2b para el rechazo real). 3 tests

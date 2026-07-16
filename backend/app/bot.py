@@ -185,6 +185,8 @@ TEXTOS = {
     "es": {
         "sin_viaje_activo": "No tienes ningún viaje activo.",
         "viaje_completado": "Viaje {ref} completado — {total}/{total} hitos.\n\nBuen trabajo.",
+        "resumen_ruta": "📊 Resumen de tu ruta: {paradas} paradas · {km} km · {horas} h de conducción (estimado).",
+        "resumen_ruta_sin_datos": "📊 {paradas} paradas completadas. Sin datos de GPS suficientes para estimar km/horas de esta ruta.",
         "pulsa_llegada": "Pulsa cuando llegues al punto.",
         "btn_llegado": "He llegado",
         "no_vinculado": "No estás vinculado. Usa /start TU_CODIGO primero.",
@@ -237,6 +239,8 @@ TEXTOS = {
     "en": {
         "sin_viaje_activo": "You have no active trip.",
         "viaje_completado": "Trip {ref} completed — {total}/{total} stops.\n\nWell done!",
+        "resumen_ruta": "📊 Route summary: {paradas} stops · {km} km · {horas} h driving (estimated).",
+        "resumen_ruta_sin_datos": "📊 {paradas} stops completed. Not enough GPS data to estimate km/hours for this route.",
         "pulsa_llegada": "Tap when you arrive at the location.",
         "btn_llegado": "I've arrived",
         "no_vinculado": "You are not linked. Use /start YOUR_CODE first.",
@@ -289,6 +293,8 @@ TEXTOS = {
     "ro": {
         "sin_viaje_activo": "Nu ai nicio cursă activă.",
         "viaje_completado": "Cursa {ref} finalizată — {total}/{total} opriri.\n\nBravo!",
+        "resumen_ruta": "📊 Rezumatul cursei: {paradas} opriri · {km} km · {horas} h de condus (estimat).",
+        "resumen_ruta_sin_datos": "📊 {paradas} opriri finalizate. Date GPS insuficiente pentru a estima km/orele acestei curse.",
         "pulsa_llegada": "Apasă când ajungi la destinație.",
         "btn_llegado": "Am ajuns",
         "no_vinculado": "Nu ești conectat. Folosește /start CODUL_TĂU mai întâi.",
@@ -341,6 +347,8 @@ TEXTOS = {
     "fr": {
         "sin_viaje_activo": "Vous n'avez aucun trajet actif.",
         "viaje_completado": "Trajet {ref} terminé — {total}/{total} arrêts.\n\nBravo !",
+        "resumen_ruta": "📊 Résumé du trajet : {paradas} arrêts · {km} km · {horas} h de conduite (estimé).",
+        "resumen_ruta_sin_datos": "📊 {paradas} arrêts terminés. Données GPS insuffisantes pour estimer les km/heures de ce trajet.",
         "pulsa_llegada": "Appuyez quand vous arrivez au point.",
         "btn_llegado": "Je suis arrivé",
         "no_vinculado": "Vous n'êtes pas connecté. Utilisez /start VOTRE_CODE d'abord.",
@@ -393,6 +401,8 @@ TEXTOS = {
     "it": {
         "sin_viaje_activo": "Non hai nessun viaggio attivo.",
         "viaje_completado": "Viaggio {ref} completato — {total}/{total} tappe.\n\nOttimo lavoro.",
+        "resumen_ruta": "📊 Riepilogo del viaggio: {paradas} tappe · {km} km · {horas} h di guida (stimato).",
+        "resumen_ruta_sin_datos": "📊 {paradas} tappe completate. Dati GPS insufficienti per stimare km/ore di questo viaggio.",
         "pulsa_llegada": "Premi quando arrivi al punto.",
         "btn_llegado": "Sono arrivato",
         "no_vinculado": "Non sei collegato. Usa prima /start IL_TUO_CODICE.",
@@ -445,6 +455,8 @@ TEXTOS = {
     "pt": {
         "sin_viaje_activo": "Não tens nenhuma viagem ativa.",
         "viaje_completado": "Viagem {ref} concluída — {total}/{total} paragens.\n\nBom trabalho.",
+        "resumen_ruta": "📊 Resumo da viagem: {paradas} paragens · {km} km · {horas} h de condução (estimado).",
+        "resumen_ruta_sin_datos": "📊 {paradas} paragens concluídas. Dados de GPS insuficientes para estimar km/horas desta viagem.",
         "pulsa_llegada": "Toca quando chegares ao ponto.",
         "btn_llegado": "Cheguei",
         "no_vinculado": "Não estás associado. Usa /start O_TEU_CODIGO primeiro.",
@@ -497,6 +509,8 @@ TEXTOS = {
     "de": {
         "sin_viaje_activo": "Du hast keine aktive Fahrt.",
         "viaje_completado": "Fahrt {ref} abgeschlossen — {total}/{total} Stopps.\n\nGut gemacht!",
+        "resumen_ruta": "📊 Fahrtzusammenfassung: {paradas} Stopps · {km} km · {horas} Std. Fahrzeit (geschätzt).",
+        "resumen_ruta_sin_datos": "📊 {paradas} Stopps abgeschlossen. Nicht genug GPS-Daten, um km/Stunden dieser Fahrt zu schätzen.",
         "pulsa_llegada": "Tippe, wenn du am Punkt ankommst.",
         "btn_llegado": "Ich bin angekommen",
         "no_vinculado": "Du bist nicht verknüpft. Nutze zuerst /start DEIN_CODE.",
@@ -549,6 +563,8 @@ TEXTOS = {
     "ar": {
         "sin_viaje_activo": "ليس لديك أي رحلة نشطة.",
         "viaje_completado": "اكتملت الرحلة {ref} — {total}/{total} محطات.\n\nعمل ممتاز.",
+        "resumen_ruta": "📊 ملخص الرحلة: {paradas} محطات · {km} كم · {horas} ساعة قيادة (تقديري).",
+        "resumen_ruta_sin_datos": "📊 اكتملت {paradas} محطات. لا توجد بيانات GPS كافية لتقدير الكيلومترات/الساعات لهذه الرحلة.",
         "pulsa_llegada": "اضغط عند وصولك إلى النقطة.",
         "btn_llegado": "لقد وصلت",
         "no_vinculado": "لست مرتبطًا بعد. استخدم /start رمزك أولاً.",
@@ -821,6 +837,26 @@ async def send_next_hito(chat_id, chofer, bot):
             chat_id=chat_id,
             text=t(chofer, "viaje_completado", ref=ref, total=total),
         )
+
+        # F14.5: resumen de ruta al chófer, disparado al TERMINAR la ruta
+        # (evento, no cron -- decisión del usuario 2026-07-15).
+        inicio_r = (
+            supabase.table("ejecucion_evento")
+            .select("ocurrido_en")
+            .eq("viaje_id", viaje["id"])
+            .order("ocurrido_en")
+            .limit(1)
+            .execute()
+        )
+        inicio = inicio_r.data[0].get("ocurrido_en") if inicio_r.data else None
+        emp_r = supabase.table("empresa").select("velocidad_planificacion_kmh").eq("id", chofer["empresa_id"]).execute()
+        velocidad = (emp_r.data[0].get("velocidad_planificacion_kmh") if emp_r.data else None) or VELOCIDAD_PLANIFICACION_KMH_DEFAULT
+        resumen = resumen_ruta_completada(chofer_id, inicio, velocidad, total)
+        if resumen["km"] is not None:
+            texto_resumen = t(chofer, "resumen_ruta", paradas=resumen["paradas"], km=resumen["km"], horas=resumen["horas"])
+        else:
+            texto_resumen = t(chofer, "resumen_ruta_sin_datos", paradas=resumen["paradas"])
+        await bot.send_message(chat_id=chat_id, text=texto_resumen)
         return
 
     idioma = chofer.get("idioma", "es")
@@ -1511,22 +1547,45 @@ def debe_avisar_pausa(horas_conduccion, ya_avisado):
     return horas_conduccion >= _PAUSA_TRAS_HORAS
 
 
+def km_desde_pings(chofer_id, desde_iso):
+    """Suma la distancia (Haversine) entre los pings consecutivos de
+    `ubicacion` de un chófer desde `desde_iso` -- extraído de
+    horas_conduccion_estimadas_viaje (F13.5) para reutilizarlo también en
+    resumen_ruta_completada (F14.5), sin duplicar la query/el bucle."""
+    r = ejecutar_con_reintentos(
+        lambda: supabase.table("ubicacion").select("lat, lon, created_at")
+        .eq("chofer_id", chofer_id).order("created_at").execute(),
+        contexto={"accion": "km_desde_pings", "chofer_id": chofer_id},
+    )
+    puntos = [p for p in (r.data or []) if p.get("created_at", "") >= desde_iso]
+    km = 0.0
+    for i in range(1, len(puntos)):
+        km += haversine_km(puntos[i - 1]["lat"], puntos[i - 1]["lon"], puntos[i]["lat"], puntos[i]["lon"])
+    return km
+
+
 def horas_conduccion_estimadas_viaje(chofer_id, desde_iso, velocidad_kmh):
     """F13.5: estima horas de conducción del viaje EN CURSO sumando la
     distancia entre los pings de `ubicacion` de este chófer desde que
     empezó el viaje (`desde_iso`) -- misma base honesta km/velocidad que
     `getEstado561` (JS), v1 conservadora, NO tacógrafo real (7B.4). Se apoya
     en los puntos ya guardados por UBI.1, sin llamada externa nueva."""
-    r = ejecutar_con_reintentos(
-        lambda: supabase.table("ubicacion").select("lat, lon, created_at")
-        .eq("chofer_id", chofer_id).order("created_at").execute(),
-        contexto={"accion": "horas_conduccion_estimadas_viaje", "chofer_id": chofer_id},
-    )
-    puntos = [p for p in (r.data or []) if p.get("created_at", "") >= desde_iso]
-    km = 0.0
-    for i in range(1, len(puntos)):
-        km += haversine_km(puntos[i - 1]["lat"], puntos[i - 1]["lon"], puntos[i]["lat"], puntos[i]["lon"])
+    km = km_desde_pings(chofer_id, desde_iso)
     return km / velocidad_kmh if velocidad_kmh else 0.0
+
+
+def resumen_ruta_completada(chofer_id, desde_iso, velocidad_kmh, paradas):
+    """F14.5: km/horas estimados de la ruta que el chófer acaba de terminar,
+    para el mensaje de resumen (disparador = evento al completar el viaje,
+    decisión del usuario 2026-07-15, NO cron). Reutiliza `km_desde_pings`
+    (F13.5) -- misma base honesta que el resto de estimaciones por GPS, no
+    tacógrafo real. `desde_iso=None` (viaje sin ningún evento registrado,
+    caso raro) -> sin datos, se devuelve `km=None` en vez de fingir un 0."""
+    if desde_iso is None:
+        return {"km": None, "horas": None, "paradas": paradas}
+    km = km_desde_pings(chofer_id, desde_iso)
+    horas = km / velocidad_kmh if velocidad_kmh else 0.0
+    return {"km": round(km), "horas": round(horas, 1), "paradas": paradas}
 
 
 def debe_guardar_ubicacion(ultimo_punto, lat, lon, ahora=None):

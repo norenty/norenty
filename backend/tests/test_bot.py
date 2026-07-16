@@ -352,6 +352,55 @@ async def test_handle_menu_texto_boton_mi_viaje_llama_send_next_hito(fake_db):
 
 
 @pytest.mark.asyncio
+async def test_send_next_hito_al_completar_manda_resumen_de_ruta_sin_datos(fake_db):
+    # F14.5: sin ejecucion_evento previo -> no hay "inicio" del viaje -> el
+    # resumen se manda igual, pero honesto sobre la falta de datos de GPS.
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "es"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "referencia": "VJ-1", "chofer_id": "c1", "estado": "en_curso"}]
+    fake_db.tables["hito"] = [
+        {"id": "h1", "viaje_id": "v1", "orden": 1, "estado": "completado"},
+        {"id": "h2", "viaje_id": "v1", "orden": 2, "estado": "completado"},
+    ]
+    fake_db.tables["gestor"] = []
+    update = fake_menu_update("📋 Mi viaje")
+    ctx = SimpleNamespace(bot=AsyncMock())
+    await bot.handle_menu_texto(update, ctx)
+
+    assert ctx.bot.send_message.await_count == 2
+    primero = ctx.bot.send_message.call_args_list[0].kwargs["text"]
+    segundo = ctx.bot.send_message.call_args_list[1].kwargs["text"]
+    assert "completado" in primero
+    assert "Sin datos de GPS suficientes" in segundo
+    assert fake_db.tables["viaje"][0]["estado"] == "completado"
+
+
+@pytest.mark.asyncio
+async def test_send_next_hito_al_completar_manda_resumen_de_ruta_con_km_y_horas(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "es"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "referencia": "VJ-1", "chofer_id": "c1", "estado": "en_curso"}]
+    fake_db.tables["hito"] = [
+        {"id": "h1", "viaje_id": "v1", "orden": 1, "estado": "completado"},
+        {"id": "h2", "viaje_id": "v1", "orden": 2, "estado": "completado"},
+    ]
+    fake_db.tables["ejecucion_evento"] = [
+        {"viaje_id": "v1", "chofer_id": "c1", "tipo": "llegada", "ocurrido_en": "2026-01-01T09:00:00Z"},
+    ]
+    fake_db.tables["ubicacion"] = [
+        {"chofer_id": "c1", "lat": 40.0, "lon": -3.0, "created_at": "2026-01-01T10:00:00Z"},
+        {"chofer_id": "c1", "lat": 40.5, "lon": -3.0, "created_at": "2026-01-01T10:30:00Z"},
+    ]
+    fake_db.tables["empresa"] = [{"id": "e1", "velocidad_planificacion_kmh": 75}]
+    fake_db.tables["gestor"] = []
+    update = fake_menu_update("📋 Mi viaje")
+    ctx = SimpleNamespace(bot=AsyncMock())
+    await bot.handle_menu_texto(update, ctx)
+
+    segundo = ctx.bot.send_message.call_args_list[1].kwargs["text"]
+    assert "Resumen de tu ruta" in segundo
+    assert "2 paradas" in segundo
+
+
+@pytest.mark.asyncio
 async def test_handle_menu_texto_boton_contactar_con_gestor(fake_db):
     fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "es"}]
     fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "nombre": "Ana", "email": "ana@norenty.com"}]
@@ -837,6 +886,24 @@ def test_horas_conduccion_estimadas_viaje_ignora_pings_de_otro_chofer(fake_db):
     ]
     horas = bot.horas_conduccion_estimadas_viaje("c1", "2026-01-01T09:00:00Z", 75)
     assert horas == 0.0
+
+
+# --- resumen_ruta_completada (F14.5) ---
+
+def test_resumen_ruta_completada_sin_desde_iso_no_finge_datos(fake_db):
+    r = bot.resumen_ruta_completada("c1", None, 75, paradas=3)
+    assert r == {"km": None, "horas": None, "paradas": 3}
+
+
+def test_resumen_ruta_completada_estima_km_y_horas_desde_los_pings(fake_db):
+    fake_db.tables["ubicacion"] = [
+        {"chofer_id": "c1", "lat": 40.0, "lon": -3.0, "created_at": "2026-01-01T10:00:00Z"},
+        {"chofer_id": "c1", "lat": 40.5, "lon": -3.0, "created_at": "2026-01-01T10:30:00Z"},
+    ]
+    r = bot.resumen_ruta_completada("c1", "2026-01-01T09:00:00Z", 75, paradas=2)
+    assert r["paradas"] == 2
+    assert 50 < r["km"] < 60  # ~55.6 km entre esos dos puntos
+    assert 0.7 <= r["horas"] < 0.8
 
 
 # --- handle_location (7A.4): guarda ubicación + pregunta proactiva de llegada ---

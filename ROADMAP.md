@@ -116,12 +116,22 @@ navegador cuando aplique, commit, `[x]` aquí + línea en PROGRESS.md.
   tests nuevos (capa de datos ya testeada; esto es cableado de UI). `ci.ps1` completo verde (187
   backend, 391 vitest, build 21 páginas). **Cierra la Fase 14** — F14.5-F14.7 siguen
   `[DECISIÓN]`, no ejecutadas.
-- [ ] `[LOOP]` **F14.5 — Resumen de ruta/jornada al chófer por Telegram** — **Decidido
+- [x] `[LOOP]` **F14.5 — Resumen de ruta/jornada al chófer por Telegram** — **Decidido
   (2026-07-15) por el usuario**: disparador = al TERMINAR la ruta/jornada (evento, cuando el
   viaje pasa a `completado`), NO una hora fija de cron. Resumen semanal/mensual queda como
   ampliación futura, pendiente de validar con empresas reales antes de comprometerse a una
   cadencia programada (eso sí necesitaría cron). v1: solo el resumen POR RUTA al completarla
   (km, paradas, horas de conducción — datos que ya se calculan). §F14.5.
+  Construido (2026-07-15): `km_desde_pings()` extraído de `horas_conduccion_estimadas_viaje`
+  (F13.5) para reutilizarlo; `resumen_ruta_completada(chofer_id, desde_iso, velocidad_kmh,
+  paradas)` — si no hay ningún evento de inicio (`desde_iso=None`), devuelve `km=None` en vez de
+  fingir un 0 (honesto). Integrado en `send_next_hito()`: al completar el último hito, tras el
+  mensaje `viaje_completado` ya existente, se manda un SEGUNDO mensaje con el resumen (o
+  `resumen_ruta_sin_datos` si no hay pings de GPS suficientes). Claves `resumen_ruta`/
+  `resumen_ruta_sin_datos` en los 8 idiomas. 4 tests nuevos (2 unitarios de la función pura, 2 de
+  integración vía `handle_menu_texto` → `send_next_hito`, con y sin datos de GPS). `ci.ps1`
+  completo verde (191 backend, 401 vitest, build 21 páginas). **Cierra la Fase 14 por completo**
+  (F14.6/F14.7 quedan aparcados, decisión explícita del usuario).
 - [ ] `[DECISIÓN]` **F14.6 — Chófer adjunta foto a una incidencia desde el chat** — hoy solo se
   reporta texto; añadir foto necesita ampliar el flujo de conversación del bot (nuevo estado),
   más alcance que un `[LOOP]` mecánico. §F14.6.
