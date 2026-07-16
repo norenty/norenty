@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FileWarning, Truck, CarFront, Users } from "lucide-react";
-import { getDocumentosPorCaducar } from "../../lib/data";
+import { FileWarning, Truck, CarFront, Users, AlertTriangle } from "lucide-react";
+import { getDocumentosPorCaducar, getConflictosMantenimientoViaje } from "../../lib/data";
 import { TIPO_DOC_LABEL, AMBITO_LABEL } from "../../lib/labels";
 import { fmtFecha, badgeCaducidad } from "../../lib/format";
 
@@ -11,10 +11,15 @@ const AMBITO_ICON = { viaje: Truck, vehiculo: CarFront, chofer: Users };
 
 export default function DocumentosPorCaducar() {
   const [docs, setDocs] = useState([]);
+  const [conflictos, setConflictos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getDocumentosPorCaducar().then((d) => { setDocs(d); setLoading(false); });
+    Promise.all([getDocumentosPorCaducar(), getConflictosMantenimientoViaje()]).then(([d, c]) => {
+      setDocs(d);
+      setConflictos(c);
+      setLoading(false);
+    });
   }, []);
 
   if (loading) {
@@ -38,6 +43,27 @@ export default function DocumentosPorCaducar() {
       <p className="text-sm text-ink-secondary mb-4">
         Documentos de viajes, vehículos y chóferes caducados o que caducan en los próximos 30 días.
       </p>
+
+      {conflictos.length > 0 && (
+        <div className="bg-surface border border-border rounded-xl overflow-hidden mb-4">
+          <div className="px-4 py-2 bg-yellow-50 text-xs font-medium text-yellow-700 flex items-center gap-1.5">
+            <AlertTriangle size={14} /> Conflictos ITV/viaje — {conflictos.length}
+          </div>
+          {conflictos.map((c) => (
+            <Link
+              key={`${c.vehiculoId}-${c.viajeId}`}
+              href={`/viajes/${c.viajeId}`}
+              className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0 no-underline hover:bg-surface-alt transition-colors"
+            >
+              <CarFront size={16} className="text-ink-muted shrink-0" />
+              <div className="flex-1 min-w-0 text-sm text-ink">
+                <span className="font-mono">{c.matricula}</span> tiene ITV el {fmtFecha(c.fechaVencimiento)},
+                pero el viaje <span className="font-mono">{c.referencia}</span> termina el {fmtFecha(c.fechaFinViaje)}
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {docs.length === 0 ? (
         <div className="bg-surface border border-border rounded-xl p-8 text-center text-sm text-ink-secondary">

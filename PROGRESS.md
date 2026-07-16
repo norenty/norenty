@@ -8,6 +8,11 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | F14.1 — Aviso ITV/seguro que choca con un viaje ya asignado | (loop) | HECHO.
+`getConflictosMantenimientoViaje()` cruza ITV pendiente contra viajes asignados usando el hito
+de mayor orden con `ventana_fin`. Sección nueva en `/documentos`. 5 tests nuevos, `ci.ps1`
+completo verde. Sigue F14.2 (hueco de ubicación).
+
 2026-07-15 | Rediseño visual — fase 6: títulos de página inconsistentes (text-lg vs text-xl) | (usuario) | HECHO.
 Auditoría de tipografía (agente Explore): todas las páginas de nivel superior usan `text-xl
 font-medium` para su `<h1>` de título, EXCEPTO Analítica, Facturación y Nómina, que usaban

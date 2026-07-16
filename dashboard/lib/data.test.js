@@ -140,6 +140,7 @@ const {
   validarCambioEstado,
   getCurrentEmpresaId,
   getDocumentosPorCaducar,
+  getConflictosMantenimientoViaje,
   getMetricasPuntualidad,
   getMetricasIncidencias,
   getMetricasChoferes,
@@ -463,6 +464,62 @@ describe("getDocumentosPorCaducar", () => {
     expect(r[0].href).toBe("/choferes/c1");
     expect(r[1].entidadEtiqueta).toBe("VJ-1");
     expect(r[2].entidadEtiqueta).toBe("1234ABC");
+  });
+});
+
+describe("getConflictosMantenimientoViaje (F14.1 — ITV pendiente vs. viaje asignado)", () => {
+  it("detecta conflicto: ITV antes de que termine el viaje", async () => {
+    TABLES.mantenimiento_vehiculo = [
+      { id: "m1", vehiculo_id: "veh1", tipo: "itv", estado: "pendiente", fecha: "2026-08-20" },
+    ];
+    TABLES.vehiculo = [{ id: "veh1", matricula: "1234ABC" }];
+    TABLES.viaje = [{ id: "v1", referencia: "VJ-1", vehiculo_id: "veh1", estado: "planificado" }];
+    TABLES.hito = [
+      { viaje_id: "v1", orden: 1, ventana_fin: "2026-08-21T10:00:00Z" },
+      { viaje_id: "v1", orden: 2, ventana_fin: "2026-08-22T10:00:00Z" },
+    ];
+    const r = await getConflictosMantenimientoViaje();
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ matricula: "1234ABC", referencia: "VJ-1", fechaVencimiento: "2026-08-20" });
+  });
+
+  it("no detecta conflicto si el viaje termina antes del vencimiento", async () => {
+    TABLES.mantenimiento_vehiculo = [
+      { id: "m1", vehiculo_id: "veh1", tipo: "itv", estado: "pendiente", fecha: "2026-08-20" },
+    ];
+    TABLES.vehiculo = [{ id: "veh1", matricula: "1234ABC" }];
+    TABLES.viaje = [{ id: "v1", referencia: "VJ-1", vehiculo_id: "veh1", estado: "planificado" }];
+    TABLES.hito = [{ viaje_id: "v1", orden: 1, ventana_fin: "2026-08-10T10:00:00Z" }];
+    const r = await getConflictosMantenimientoViaje();
+    expect(r).toEqual([]);
+  });
+
+  it("omite el viaje si no tiene ventana_fin (sin dato, no falso positivo)", async () => {
+    TABLES.mantenimiento_vehiculo = [
+      { id: "m1", vehiculo_id: "veh1", tipo: "itv", estado: "pendiente", fecha: "2026-08-20" },
+    ];
+    TABLES.vehiculo = [{ id: "veh1", matricula: "1234ABC" }];
+    TABLES.viaje = [{ id: "v1", referencia: "VJ-1", vehiculo_id: "veh1", estado: "planificado" }];
+    TABLES.hito = [{ viaje_id: "v1", orden: 1, ventana_fin: null }];
+    const r = await getConflictosMantenimientoViaje();
+    expect(r).toEqual([]);
+  });
+
+  it("ignora ITV completadas y viajes ya finalizados/cancelados", async () => {
+    TABLES.mantenimiento_vehiculo = [
+      { id: "m1", vehiculo_id: "veh1", tipo: "itv", estado: "completado", fecha: "2026-08-20" },
+    ];
+    TABLES.vehiculo = [{ id: "veh1", matricula: "1234ABC" }];
+    TABLES.viaje = [{ id: "v1", referencia: "VJ-1", vehiculo_id: "veh1", estado: "completado" }];
+    TABLES.hito = [{ viaje_id: "v1", orden: 1, ventana_fin: "2026-08-25T10:00:00Z" }];
+    const r = await getConflictosMantenimientoViaje();
+    expect(r).toEqual([]);
+  });
+
+  it("sin ITV pendientes, no consulta nada más y devuelve vacío", async () => {
+    TABLES.mantenimiento_vehiculo = [];
+    const r = await getConflictosMantenimientoViaje();
+    expect(r).toEqual([]);
   });
 });
 

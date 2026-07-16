@@ -653,6 +653,69 @@ export async function getDocumentosPorCaducar() {
   });
 }
 
+/**
+ * F14.1: cruza ITV pendiente de un vehículo contra los viajes que ya tiene
+ * asignados -- `/documentos` ya avisa de la caducidad en sí, pero no de que
+ * choque con la operación (un vehículo con ITV el día 20 con un viaje
+ * asignado que termina el día 22). Solo evalúa viajes con `ventana_fin` en su
+ * último hito (por `orden`); sin esa fecha no se puede comparar, se omite
+ * -- mejor "sin dato" que un falso positivo.
+ */
+export async function getConflictosMantenimientoViaje() {
+  const { data: pendientes } = await supabase
+    .from("mantenimiento_vehiculo")
+    .select("id, vehiculo_id, tipo, fecha")
+    .eq("tipo", "itv")
+    .eq("estado", "pendiente")
+    .not("fecha", "is", null);
+
+  const idsVehiculo = [...new Set((pendientes || []).map((m) => m.vehiculo_id))];
+  if (idsVehiculo.length === 0) return [];
+
+  const [{ data: vehiculos }, { data: viajes }] = await Promise.all([
+    supabase.from("vehiculo").select("id, matricula").in("id", idsVehiculo),
+    supabase.from("viaje").select("id, referencia, vehiculo_id").in("vehiculo_id", idsVehiculo).in("estado", ["planificado", "en_curso"]),
+  ]);
+
+  const idsViaje = (viajes || []).map((v) => v.id);
+  const { data: hitos } = idsViaje.length
+    ? await supabase.from("hito").select("viaje_id, orden, ventana_fin").in("viaje_id", idsViaje)
+    : { data: [] };
+
+  const finPorViaje = {};
+  (hitos || []).forEach((h) => {
+    if (!h.ventana_fin) return;
+    const actual = finPorViaje[h.viaje_id];
+    if (!actual || h.orden > actual.orden) finPorViaje[h.viaje_id] = { orden: h.orden, ventana_fin: h.ventana_fin };
+  });
+
+  const mapaVehiculo = Object.fromEntries((vehiculos || []).map((v) => [v.id, v.matricula]));
+  const viajesPorVehiculo = {};
+  (viajes || []).forEach((v) => {
+    (viajesPorVehiculo[v.vehiculo_id] ||= []).push(v);
+  });
+
+  const conflictos = [];
+  (pendientes || []).forEach((m) => {
+    (viajesPorVehiculo[m.vehiculo_id] || []).forEach((v) => {
+      const fin = finPorViaje[v.id];
+      if (!fin) return; // sin ventana_fin en el viaje, no se puede evaluar
+      if (fin.ventana_fin > m.fecha) {
+        conflictos.push({
+          vehiculoId: m.vehiculo_id,
+          matricula: mapaVehiculo[m.vehiculo_id] || m.vehiculo_id,
+          fechaVencimiento: m.fecha,
+          viajeId: v.id,
+          referencia: v.referencia || v.id.slice(0, 8),
+          fechaFinViaje: fin.ventana_fin,
+        });
+      }
+    });
+  });
+
+  return conflictos.sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento));
+}
+
 /** Semana ISO (YYYY-Www) de una fecha, para agrupar tendencias por semana. */
 function semanaISO(fechaStr) {
   const d = new Date(fechaStr);

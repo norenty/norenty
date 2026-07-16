@@ -10,6 +10,43 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
+## Cola ACTIVA del loop autónomo — Fase 14: brainstorm de continuidad (2026-07-15)
+
+**⚠️ El loop autónomo trabaja AHORA en esta cola.** Ideas propuestas en brainstorm dentro de esta
+misma sesión de chat (2026-07-15, tras cerrar Fase 13), confirmadas por el usuario como pendientes
+a construir. Spec cerrada en `SPECS-FASE14.md` (leer OBLIGATORIO antes de cada ítem). Ejecución:
+`sonnet`, esfuerzo bajo-medio. Protocolo: uno por iteración, `ci.ps1` verde, verificado en
+navegador cuando aplique, commit, `[x]` aquí + línea en PROGRESS.md.
+
+- [x] `[LOOP]` **F14.1 — Aviso de ITV/seguro que choca con un viaje ya asignado** — cruzar
+  `mantenimiento_vehiculo` (tipo itv, pendiente) con los viajes futuros asignados a ese vehículo;
+  avisar si el vencimiento cae ANTES de que termine un viaje planificado. §F14.1.
+  Construido (2026-07-15): `getConflictosMantenimientoViaje()` en `data.js` — cruza ITV pendiente
+  por `vehiculo_id` contra viajes `planificado`/`en_curso`, usando el hito de mayor `orden` con
+  `ventana_fin` como fecha de fin estimada. Sin `ventana_fin` → se omite (sin dato, no falso
+  positivo). Nueva sección "Conflictos ITV/viaje" en `/documentos`, arriba de la lista de
+  documentos. 5 tests nuevos. `ci.ps1` completo verde (187 backend, 386 vitest, build 21 páginas).
+- [ ] `[LOOP]` **F14.2 — Alerta de "hueco sospechoso" en la cadena de ubicación** — si un viaje
+  en curso lleva más de N horas sin ningún ping de `ubicacion`, avisar (fallo de GPS/app cerrada,
+  hoy solo se detecta si alguien mira a mano). §F14.2.
+- [ ] `[LOOP]` **F14.3 — Reasignación sugerida si un viaje se queda sin chófer a mitad de ruta** —
+  hoy `SugerenciaChofer` solo sugiere para viajes NUEVOS; falta el flujo para un viaje `en_curso`
+  que pierde su chófer (baja, avería). §F14.3.
+- [ ] `[LOOP]` **F14.4 — Comparativa "antes/después" para founding partners** — usar los snapshots
+  ya guardados en `verdad_observada` para enseñar la evolución de puntualidad/margen mes a mes,
+  el argumento de venta más fuerte para un founding partner. §F14.4.
+- [ ] `[DECISIÓN]` **F14.5 — Resumen de jornada al chófer por Telegram** — mensaje diario con
+  km/paradas/horas de conducción. Necesita decidir el disparador (¿a qué hora? ¿cron o al
+  completar el último hito del día?) — no es mecánico, requiere criterio de producto. §F14.5.
+- [ ] `[DECISIÓN]` **F14.6 — Chófer adjunta foto a una incidencia desde el chat** — hoy solo se
+  reporta texto; añadir foto necesita ampliar el flujo de conversación del bot (nuevo estado),
+  más alcance que un `[LOOP]` mecánico. §F14.6.
+- [ ] `[DECISIÓN]` **F14.7 — Página pública de "prueba de fiabilidad" por empresa** — variante
+  agregada de `/t/[token]` pensada para que el CLIENTE del cliente la vea; implica decidir qué
+  cifras exponer públicamente y con qué marca de agua/legal. §F14.7.
+
+---
+
 ## Cola ACTIVA del loop autónomo — Fase 13: valor comercial/financiero + rutas (2026-07-15)
 
 **⚠️ El loop autónomo trabaja AHORA en esta cola.** Spec cerrada completa en `SPECS-FASE13.md`
