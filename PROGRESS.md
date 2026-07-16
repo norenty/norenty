@@ -8,6 +8,14 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | Rediseño visual — fase 6: títulos de página inconsistentes (text-lg vs text-xl) | (usuario) | HECHO.
+Auditoría de tipografía (agente Explore): todas las páginas de nivel superior usan `text-xl
+font-medium` para su `<h1>` de título, EXCEPTO Analítica, Facturación y Nómina, que usaban
+`text-lg` — un escalón más pequeño que el resto, discordante. Corregidas las 3 a `text-xl` para
+igualar el resto del sistema. Botones primarios/secundarios auditados y confirmados ya
+consistentes (solo drift menor y de bajo impacto en un par de botones "Cargar más", no se toca).
+`ci.ps1` completo verde.
+
 2026-07-15 | Rediseño visual — fase 5: colores del rebrand en hex literal fuera del token CSS | (usuario) | HECHO.
 El swap de `--color-brand` (fase 1) solo alcanza a clases Tailwind (`bg-brand`, etc.) — quedaron 3
 strings hex literales del indigo antiguo (#4F46E5) sin tocar, invisibles a un `grep` de clases:

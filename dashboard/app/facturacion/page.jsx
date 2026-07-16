@@ -80,7 +80,7 @@ export default function FacturacionPage() {
   return (
     <RequireRol roles={["admin"]} fallback={<p className="text-sm text-ink-muted">Visible solo para administradores.</p>}>
       <div>
-        <h1 className="text-lg font-medium text-ink mb-1 flex items-center gap-2">
+        <h1 className="text-xl font-medium text-ink mb-1 flex items-center gap-2">
           <Receipt size={18} /> Facturación
         </h1>
         <p className="text-xs text-ink-secondary mb-4">

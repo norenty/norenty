@@ -57,7 +57,7 @@ export default function Nomina() {
   return (
     <div>
       <div className="flex items-start justify-between gap-3 mb-1 print:block">
-        <h1 className="text-lg font-medium text-ink">Nómina</h1>
+        <h1 className="text-xl font-medium text-ink">Nómina</h1>
         {informe && (
           <div className="flex gap-2 print:hidden">
             <RequireRol roles={["admin"]}>

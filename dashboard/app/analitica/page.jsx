@@ -482,7 +482,7 @@ export default function Analitica() {
   return (
     <div>
       <div className="flex items-baseline gap-2 mb-4">
-        <h1 className="text-lg font-medium text-ink">Analítica</h1>
+        <h1 className="text-xl font-medium text-ink">Analítica</h1>
         <span className="text-xs text-ink-muted">
           {vista === "flota" ? "estado actual (averías: últimos 90 días)" : "últimos 90 días"}
         </span>
