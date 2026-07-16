@@ -67,8 +67,14 @@ no una feature de dashboard). Orden estricto: F15.1 → F15.2 → F15.3 → revi
   disponibles para esta sesión), pero build limpio + tests cubren la lógica.
   **Cierra la Fase 15.** F15.4 (revisar si hace falta un dashboard/KPI diferenciado para admin)
   queda pendiente de revisión con uso real, probablemente ya resuelto por el scoping en sí.
-- [ ] `[DECISIÓN parcial]` **F15.4 — Revisar si hace falta un dashboard/KPI diferenciado para
+- [x] `[DECISIÓN parcial]` **F15.4 — Revisar si hace falta un dashboard/KPI diferenciado para
   `admin`** una vez el scoping esté activo (probablemente ya lo resuelve solo). §F15.4.
+  Revisado (2026-07-15), sin construir nada — no hacía falta. `dashboard/lib/supabase.js` es un
+  único cliente (clave anónima + sesión del usuario), sin ningún bypass de rol en ninguna función
+  de `data.js`: TODAS las queries (Analítica → Chóferes/Puntualidad/Rentabilidad, `getResumenHoy`
+  de la home, etc.) pasan por RLS igual que `chofer`/`viaje`. El scoping de F15.2 se hereda
+  automáticamente en todo el dashboard sin tocar una línea más — un `gestor_operativo` ya ve
+  "sus" KPIs en cada vista existente, `admin` sigue viendo todo. **Cierra la Fase 15 al 100%.**
 
 ---
 

@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | F15.4 — Revisión: KPI diferenciado para admin | (usuario) | HECHO (sin construir nada).
+Confirmado por código: `dashboard/lib/supabase.js` es un único cliente sin bypass de rol —
+TODAS las queries de `data.js` pasan por RLS igual que `chofer`/`viaje`. El scoping de F15.2 se
+hereda automáticamente en cada vista existente (Analítica, home) sin tocar nada más. Cierra la
+Fase 15 al 100%.
+
 2026-07-15 | F14.5 — Resumen de ruta al chófer por Telegram | (loop) | HECHO.
 `resumen_ruta_completada()` (km/horas estimados vía `km_desde_pings`, honesto si no hay datos)
 integrado en `send_next_hito()`: al completar el último hito, segundo mensaje con el resumen de
