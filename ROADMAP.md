@@ -10,6 +10,32 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
+## Cola ACTIVA del loop autónomo — Fase 15: scoping de datos por gestor (2026-07-15)
+
+**⚠️ El loop autónomo trabaja AHORA en esta cola — PRIORIDAD sobre la Fase 14 restante.** Pedido
+explícito del usuario tras confirmar (auditoría de código) que hoy NO existe scoping por gestor
+(cualquier gestor ve todos los chóferes/viajes de su empresa). Spec cerrada completa en
+`SPECS-SCOPING-GESTOR.md` (leer OBLIGATORIO antes de cada ítem — es un cambio de seguridad real,
+no una feature de dashboard). Orden estricto: F15.1 → F15.2 → F15.3 → revisar F15.4. Ningún
+ítem de UI antes de que F15.2 (RLS) esté verificado con tests de aislamiento reales.
+
+- [x] `[LOOP]` **F15.1 — Migración: `chofer.gestor_id` + función `current_gestor_id()`**. §F15.1.
+  Construido (2026-07-15): migración `0053_gestor_id_chofer.sql` — `chofer.gestor_id` (uuid,
+  nullable, `REFERENCES gestor(id) ON DELETE SET NULL`, índice), + `current_gestor_id()` (mismo
+  patrón `SECURITY DEFINER STABLE` que `current_empresa_id()`/`current_gestor_rol()`). NO cambia
+  ninguna política RLS todavía (eso es F15.2, deliberadamente aparte). Aplicada con
+  `migrate.py` y verificada con una query de solo lectura contra la BD real: columna existe,
+  nullable, función existe, los 10 chóferes existentes intactos. `ci.ps1` completo verde.
+- [ ] `[LOOP]` **F15.2 — Políticas RLS de `chofer`/`viaje` con scoping por gestor** (el núcleo de
+  seguridad; hereda automáticamente a hito/ejecucion_evento/pod/incidencia/valoracion/ubicacion).
+  §F15.2.
+- [ ] `[LOOP]` **F15.3 — Pantalla de asignación de chóferes/rutas a gestor** (Ajustes → Equipo,
+  admin-only). §F15.3.
+- [ ] `[DECISIÓN parcial]` **F15.4 — Revisar si hace falta un dashboard/KPI diferenciado para
+  `admin`** una vez el scoping esté activo (probablemente ya lo resuelve solo). §F15.4.
+
+---
+
 ## Cola ACTIVA del loop autónomo — Fase 14: brainstorm de continuidad (2026-07-15)
 
 **⚠️ El loop autónomo trabaja AHORA en esta cola.** Ideas propuestas en brainstorm dentro de esta
@@ -54,9 +80,12 @@ navegador cuando aplique, commit, `[x]` aquí + línea en PROGRESS.md.
   tests nuevos (capa de datos ya testeada; esto es cableado de UI). `ci.ps1` completo verde (187
   backend, 391 vitest, build 21 páginas). **Cierra la Fase 14** — F14.5-F14.7 siguen
   `[DECISIÓN]`, no ejecutadas.
-- [ ] `[DECISIÓN]` **F14.5 — Resumen de jornada al chófer por Telegram** — mensaje diario con
-  km/paradas/horas de conducción. Necesita decidir el disparador (¿a qué hora? ¿cron o al
-  completar el último hito del día?) — no es mecánico, requiere criterio de producto. §F14.5.
+- [ ] `[LOOP]` **F14.5 — Resumen de ruta/jornada al chófer por Telegram** — **Decidido
+  (2026-07-15) por el usuario**: disparador = al TERMINAR la ruta/jornada (evento, cuando el
+  viaje pasa a `completado`), NO una hora fija de cron. Resumen semanal/mensual queda como
+  ampliación futura, pendiente de validar con empresas reales antes de comprometerse a una
+  cadencia programada (eso sí necesitaría cron). v1: solo el resumen POR RUTA al completarla
+  (km, paradas, horas de conducción — datos que ya se calculan). §F14.5.
 - [ ] `[DECISIÓN]` **F14.6 — Chófer adjunta foto a una incidencia desde el chat** — hoy solo se
   reporta texto; añadir foto necesita ampliar el flujo de conversación del bot (nuevo estado),
   más alcance que un `[LOOP]` mecánico. §F14.6.

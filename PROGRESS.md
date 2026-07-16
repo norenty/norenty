@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | F15.1 — Migración chofer.gestor_id + current_gestor_id() | (usuario) | HECHO.
+Base de la Fase 15 (scoping de datos por gestor, pedido explícito tras confirmar que hoy NO
+existe esa restricción). Migración `0053_gestor_id_chofer.sql` aplicada y verificada contra la
+BD real (solo lectura). Sin cambios de política RLS todavía — eso es F15.2, el núcleo de
+seguridad, siguiente paso. `ci.ps1` completo verde.
+
 2026-07-15 | F14.4 — Comparativa antes/después para founding partners | (loop) | HECHO.
 Nueva pestaña "Evolución" en `/analitica`: usa `getTendenciaVerdadObservada()` (ya existía) con
 el componente `Barra` ya existente para mostrar puntualidad y desviación de coste mes a mes.
