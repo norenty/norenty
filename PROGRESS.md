@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | F14.4 — Comparativa antes/después para founding partners | (loop) | HECHO.
+Nueva pestaña "Evolución" en `/analitica`: usa `getTendenciaVerdadObservada()` (ya existía) con
+el componente `Barra` ya existente para mostrar puntualidad y desviación de coste mes a mes.
+Botón "Generar snapshot ahora" (`crearSnapshotVerdadObservada`, existía sin UI). `ci.ps1`
+completo verde. Cierra la Fase 14 — F14.5-F14.7 siguen `[DECISIÓN]`, sin ejecutar.
+
 2026-07-15 | F14.3 — Reasignación sugerida a mitad de ruta | (loop) | HECHO.
 `SugerenciaChofer` en `/viajes/[id]` puntuaba sobre la ruta completa (incluidos hitos ya
 completados); corregido pasando `hitosOverride` filtrado a hitos `pendiente` -- reutiliza

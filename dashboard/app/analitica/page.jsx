@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock, AlertTriangle, Users, CarFront, TrendingUp } from "lucide-react";
+import { Clock, AlertTriangle, Users, CarFront, TrendingUp, History } from "lucide-react";
 import {
   getMetricasPuntualidad,
   getMetricasIncidencias,
@@ -11,6 +11,8 @@ import {
   getComparativaMensual,
   getRendimientoGestores,
   getMetricasPorCliente,
+  getTendenciaVerdadObservada,
+  crearSnapshotVerdadObservada,
 } from "../../lib/data";
 import { fmtEur } from "../../lib/format";
 import ErrorCargaReintentar from "../components/ui/ErrorCargaReintentar";
@@ -28,6 +30,10 @@ const VISTAS = [
   // Clientes (F13.3): SLA por cuenta -- solo tiene sentido para quien
   // negocia/factura con el cliente, no para el chófer/gestor de a pie.
   { id: "clientes", label: "Clientes", icon: Users, soloAdmin: true },
+  // Evolución (F14.4): comparativa antes/después sobre los snapshots de
+  // verdad_observada (10.9) -- el argumento de venta para un founding
+  // partner, solo tiene sentido para quien vende/negocia, no operativo.
+  { id: "evolucion", label: "Evolución", icon: History, soloAdmin: true },
 ];
 
 // Ítem 12.2 — controlling en el tiempo: flecha + % frente al periodo anterior
@@ -432,6 +438,88 @@ function VistaClientes({ datos }) {
   );
 }
 
+function VistaEvolucion({ datos }) {
+  const [generando, setGenerando] = useState(false);
+  const [mensaje, setMensaje] = useState(null);
+
+  async function generarSnapshot() {
+    setGenerando(true);
+    setMensaje(null);
+    try {
+      await crearSnapshotVerdadObservada();
+      setMensaje("Snapshot generado — recarga la pestaña para verlo en la línea de tiempo.");
+    } catch (err) {
+      setMensaje("Error: " + err.message);
+    }
+    setGenerando(false);
+  }
+
+  // Más antiguo primero (izquierda→derecha), getTendenciaVerdadObservada ya
+  // viene más reciente primero.
+  const cronologico = [...datos].reverse();
+  const maxPuntualidad = 100; // es un %, escala fija, no depende de los datos
+  const maxDesviacion = Math.max(1, ...cronologico.map((s) => Math.abs(s.desviacion_coste_pct_media ?? 0)));
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-xs text-ink-secondary">
+        Snapshots mensuales de "verdad observada" (10.9): la evolución real de puntualidad y
+        desviación de coste, mes a mes — el argumento más honesto para enseñar a un founding
+        partner que el producto mejora algo de verdad.
+      </p>
+
+      <div className="bg-surface border border-border rounded-xl p-4 flex items-center justify-between gap-3">
+        <span className="text-xs text-ink-secondary">
+          Sin cadencia programada todavía (10.9): genera el snapshot del último mes a mano.
+        </span>
+        <button
+          onClick={generarSnapshot}
+          disabled={generando}
+          className="text-xs px-3 py-1.5 rounded-md bg-brand text-white font-medium disabled:opacity-40 shrink-0"
+        >
+          {generando ? "Generando…" : "Generar snapshot ahora"}
+        </button>
+      </div>
+      {mensaje && <p className="text-xs text-ink-secondary">{mensaje}</p>}
+
+      {cronologico.length === 0 ? (
+        <div className="bg-surface border border-border rounded-xl p-8 text-center text-sm text-ink-secondary">
+          Aún no hay histórico suficiente — genera el primer snapshot arriba.
+        </div>
+      ) : (
+        <>
+          <div className="bg-surface border border-border rounded-xl p-4">
+            <h3 className="text-sm font-medium text-ink mb-3">% de hitos a tiempo, por periodo</h3>
+            <div className="flex flex-col gap-1.5">
+              {cronologico.map((s) => (
+                <Barra
+                  key={s.id}
+                  label={s.periodo_desde?.slice(0, 10) || s.id}
+                  count={s.pct_hitos_a_tiempo ?? 0}
+                  max={maxPuntualidad}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="bg-surface border border-border rounded-xl p-4">
+            <h3 className="text-sm font-medium text-ink mb-3">Desviación de coste real vs. estimado (%), por periodo</h3>
+            <div className="flex flex-col gap-1.5">
+              {cronologico.map((s) => (
+                <Barra
+                  key={s.id}
+                  label={s.periodo_desde?.slice(0, 10) || s.id}
+                  count={Math.abs(s.desviacion_coste_pct_media ?? 0)}
+                  max={maxDesviacion}
+                />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // Ítem 12.2: solo estas dos vistas tienen "comparar con el periodo anterior"
 // con sentido de negocio claro hoy (margen/pérdidas, puntualidad).
 const VISTAS_CON_COMPARATIVA = new Set(["puntualidad", "rentabilidad"]);
@@ -458,6 +546,7 @@ export default function Analitica() {
       rentabilidad: getMetricasRentabilidad,
       gestores: getRendimientoGestores,
       clientes: getMetricasPorCliente,
+      evolucion: getTendenciaVerdadObservada,
     }[vista];
     cargar()
       .then((d) => setDatos(d))
@@ -474,7 +563,7 @@ export default function Analitica() {
   useEffect(() => {
     // Si el rol se resuelve DESPUÉS de haber caído en "gestores" (p.ej. porque
     // no es admin), no dejarlo varado en una pestaña oculta.
-    if ((vista === "gestores" || vista === "clientes") && rol && rol !== "admin") setVista("puntualidad");
+    if ((vista === "gestores" || vista === "clientes" || vista === "evolucion") && rol && rol !== "admin") setVista("puntualidad");
   }, [rol, vista]);
 
   useEffect(() => { cargarVista(); }, [vista]);
@@ -519,6 +608,7 @@ export default function Analitica() {
           {vista === "rentabilidad" && <VistaRentabilidad datos={datos} comparativa={comparativa} />}
           {vista === "gestores" && <VistaGestores datos={datos} />}
           {vista === "clientes" && <VistaClientes datos={datos} />}
+          {vista === "evolucion" && <VistaEvolucion datos={datos} />}
         </>
       )}
     </div>

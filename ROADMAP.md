@@ -43,9 +43,17 @@ navegador cuando aplique, commit, `[x]` aquí + línea en PROGRESS.md.
   Corregido pasando `hitosOverride` filtrado a los hitos `pendiente` con coordenadas (reutiliza
   `sugerirChofer` tal cual, sin tocar su lógica). `ci.ps1` completo verde (187 backend, 391
   vitest, build 21 páginas) — verificación por build, es cableado de UI sobre función ya testeada.
-- [ ] `[LOOP]` **F14.4 — Comparativa "antes/después" para founding partners** — usar los snapshots
+- [x] `[LOOP]` **F14.4 — Comparativa "antes/después" para founding partners** — usar los snapshots
   ya guardados en `verdad_observada` para enseñar la evolución de puntualidad/margen mes a mes,
   el argumento de venta más fuerte para un founding partner. §F14.4.
+  Construido (2026-07-15): nueva pestaña "Evolución" en `/analitica` (admin-only), usa
+  `getTendenciaVerdadObservada()` (ya existía) para pintar dos series con el `Barra` ya existente
+  (% de hitos a tiempo y desviación de coste, mes a mes). Botón "Generar snapshot ahora"
+  (`crearSnapshotVerdadObservada`, ya existía pero sin UI) para poder arrancar el histórico a
+  mano hasta que exista cron. Con 0 snapshots, mensaje honesto en vez de una gráfica vacía. Sin
+  tests nuevos (capa de datos ya testeada; esto es cableado de UI). `ci.ps1` completo verde (187
+  backend, 391 vitest, build 21 páginas). **Cierra la Fase 14** — F14.5-F14.7 siguen
+  `[DECISIÓN]`, no ejecutadas.
 - [ ] `[DECISIÓN]` **F14.5 — Resumen de jornada al chófer por Telegram** — mensaje diario con
   km/paradas/horas de conducción. Necesita decidir el disparador (¿a qué hora? ¿cron o al
   completar el último hito del día?) — no es mecánico, requiere criterio de producto. §F14.5.
