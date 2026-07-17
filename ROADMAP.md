@@ -125,6 +125,15 @@ las señales?". Spec cerrada completa en `SPECS-FASE16.md` (leer OBLIGATORIO ant
   columna de 0019/0055 solo restringen `UPDATE`, no `INSERT`. 4 tests nuevos en `data.test.js`
   (admin vs no-admin, chofer y viaje). `ci.ps1` completo verde (214 backend, 415 vitest, build 22
   páginas).
+- [x] `[LOOP]` **R9 — N+1 en la alerta de margen de la campana de notificaciones** (auditoría de
+  código 2026-07-15: al añadir R6, `NotificationCenter` llamaba a `getMetricasRentabilidad()`
+  completa en cada montaje/cambio de rol Y en cada `INSERT` realtime de incidencia/evento, solo
+  sesiones admin, es decir ~2N+2 idas a BD solo para comparar dos números).
+  Construido (2026-07-15): nueva `getAlertaMargen(rango)` en `data.js` — 2 consultas en bloque
+  (viajes del rango, gastos de esos viajes con `.in()`) y suma en JS, sin `getViabilidadViaje`/
+  `getGastosViaje` por viaje ni el desglose `top5`/`bottom5`/`porMes` que la notificación no usa.
+  `NotificationCenter.jsx` usa la versión ligera; `/analitica` y `/analitica/informe` siguen con
+  la completa. 2 tests nuevos. `ci.ps1` completo verde (214 backend, 417 vitest, build 22 páginas).
 
 ---
 

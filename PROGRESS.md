@@ -15,6 +15,13 @@ enteraba por Telegram de viajes que no puede ver en su dashboard. Corregido en a
 filtra al gestor asignado o a un admin, mismo criterio que la RLS de F15.2, replicado porque
 estos procesos corren con privilegios de servicio. 9 tests nuevos. `ci.ps1` completo verde.
 
+2026-07-15 | R9 — N+1 en la alerta de margen de la campana de notificaciones | ea5d099 | HECHO.
+`NotificationCenter` (R6) llamaba a `getMetricasRentabilidad()` completa (getViabilidadViaje +
+getGastosViaje POR viaje con precio) en cada montaje/cambio de rol admin y en cada INSERT
+realtime — ~2N+2 idas a BD para comparar dos números. Nueva `getAlertaMargen(rango)`: 2 consultas
+en bloque (viajes, gastos con `.in()`) y suma en JS, sin N+1. 2 tests nuevos. `ci.ps1` completo
+verde.
+
 2026-07-15 | R8 — `gestor_id` nunca se asignaba al crear chofer/viaje | 91a07d7 | HECHO.
 `createChofer`/`createViaje` (data.js) no escribían `gestor_id` — con `NULL` = visible a todo el
 equipo (regla de F15.2), todo lo creado por un gestor no-admin quedaba sin scoping real hacia
