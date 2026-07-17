@@ -15,6 +15,13 @@ enteraba por Telegram de viajes que no puede ver en su dashboard. Corregido en a
 filtra al gestor asignado o a un admin, mismo criterio que la RLS de F15.2, replicado porque
 estos procesos corren con privilegios de servicio. 9 tests nuevos. `ci.ps1` completo verde.
 
+2026-07-15 | R8 — `gestor_id` nunca se asignaba al crear chofer/viaje | 91a07d7 | HECHO.
+`createChofer`/`createViaje` (data.js) no escribían `gestor_id` — con `NULL` = visible a todo el
+equipo (regla de F15.2), todo lo creado por un gestor no-admin quedaba sin scoping real hacia
+adelante. Nuevo `gestorIdPorDefecto()`: no-admin se autoasigna, admin (o rol ausente) queda sin
+asignar. Sin migración — los GRANT de columna de 0019/0055 solo restringen UPDATE. 4 tests
+nuevos. `ci.ps1` completo verde (214 backend, 415 vitest, build 22 páginas).
+
 2026-07-15 | R5 + R6 — Auditoría bot.py + alerta de margen | (usuario) | HECHO.
 R5: `procesar_notificaciones_asignacion` marcaba "avisado" aunque nadie (ni chófer ni gestor)
 recibiera nada — corregido, `notificar_gestor_evento` devuelve cuántos recibieron, solo se marca

@@ -114,6 +114,17 @@ las señales?". Spec cerrada completa en `SPECS-FASE16.md` (leer OBLIGATORIO ant
   ver ese viaje). 9 tests nuevos (4 en `test_bot.py`, 5 en `test_monitor_retraso_silencioso.py`,
   cubriendo gestor asignado/no asignado/admin/sin asignar). `ci.ps1` completo verde (214 backend,
   411 vitest, build 22 páginas).
+- [x] `[LOOP]` **R8 — `gestor_id` nunca se asignaba al crear chofer/viaje** (auditoría de código
+  2026-07-15, interacciones entre fases: `createChofer`/`createViaje` en `data.js` nunca escribían
+  `gestor_id`, y la RLS de F15.2 trata `gestor_id IS NULL` como "visible a todo el equipo" —
+  intencional para no huerfanar datos previos a la migración, pero significaba que TODO lo creado
+  desde entonces por un gestor no-admin seguía sin scoping real, anulando la Fase 15 hacia
+  adelante). Construido (2026-07-15): nuevo helper `getCurrentGestor()`/`gestorIdPorDefecto()` en
+  `data.js` — un gestor no-admin se autoasigna el recurso que crea; un admin (o rol ausente, el
+  default en BD desde 0032) lo deja sin asignar, igual que antes. Sin migración: los `GRANT` de
+  columna de 0019/0055 solo restringen `UPDATE`, no `INSERT`. 4 tests nuevos en `data.test.js`
+  (admin vs no-admin, chofer y viaje). `ci.ps1` completo verde (214 backend, 415 vitest, build 22
+  páginas).
 
 ---
 
