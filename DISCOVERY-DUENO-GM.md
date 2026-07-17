@@ -41,6 +41,12 @@ operativo muy fino, redirigir amablemente — para eso está la otra entrevista.
    que pasó de verdad?
 3. ¿Cómo gestionáis hoy la caducidad de documentos legales (ITV, seguros, CAP, ADR)? ¿Alguna vez
    se os ha caducado algo sin daros cuenta?
+4. **(F14.7 — página pública de fiabilidad, pendiente de decisión de producto)** ¿Os pide algún
+   cliente hoy un informe/resumen de puntualidad o fiabilidad de los viajes que os ha contratado
+   (aunque sea informal, por email)? Si sí: ¿con qué frecuencia, y quién dentro de vuestra empresa
+   se lo prepara hoy (tú, el gestor, administración)? Si no: ¿te parece algo que un cliente
+   pediría, o no es una práctica habitual del sector? Si existiera esa página, ¿preferirías fijar
+   tú qué cifras se ven, o que cada cliente elija sus propios KPIs negociando contigo?
 
 ## 4. Cómo entra y sale el trabajo (encaje con TMS/bolsas de carga)
 

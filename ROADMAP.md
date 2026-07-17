@@ -278,7 +278,9 @@ navegador cuando aplique, commit, `[x]` aquí + línea en PROGRESS.md.
   hablar con más calma (2026-07-17): hay dos diseños distintos (KPIs elegidos por el cliente del
   cliente vía negociación con tu cliente, vs. informe fijo mensual) y no está claro que "pedir un
   resumen de viajes contratados a la empresa transportista" sea una práctica habitual del sector
-  — no se construye hasta decidir el enfoque. §F14.7.
+  — no se construye hasta decidir el enfoque. Pregunta añadida al guion de discovery
+  (`DISCOVERY-DUENO-GM.md` §3.4) para validarlo con un dueño/gerente real antes de construir.
+  §F14.7.
 
 ---
 
