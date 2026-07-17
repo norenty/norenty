@@ -265,12 +265,20 @@ navegador cuando aplique, commit, `[x]` aquí + línea en PROGRESS.md.
   integración vía `handle_menu_texto` → `send_next_hito`, con y sin datos de GPS). `ci.ps1`
   completo verde (191 backend, 401 vitest, build 21 páginas). **Cierra la Fase 14 por completo**
   (F14.6/F14.7 quedan aparcados, decisión explícita del usuario).
-- [ ] `[DECISIÓN]` **F14.6 — Chófer adjunta foto a una incidencia desde el chat** — hoy solo se
-  reporta texto; añadir foto necesita ampliar el flujo de conversación del bot (nuevo estado),
-  más alcance que un `[LOOP]` mecánico. §F14.6.
-- [ ] `[DECISIÓN]` **F14.7 — Página pública de "prueba de fiabilidad" por empresa** — variante
-  agregada de `/t/[token]` pensada para que el CLIENTE del cliente la vea; implica decidir qué
-  cifras exponer públicamente y con qué marca de agua/legal. §F14.7.
+- [x] `[LOOP]` **F14.6 — Chófer adjunta foto a una incidencia desde el chat** (decidido
+  2026-07-17: sin coste por uso, se construye ya). Construido: migración
+  `0057_incidencia_foto.sql` (`incidencia.foto_url`/`foto_hash_sha256`, mismo hash-antes-de-subir
+  que POD, reutiliza el bucket privado `pods`). `alertar_gestor()` devuelve el id de la
+  incidencia; `cmd_incidencia` abre una ventana de 5 min (`INCIDENCIA_FOTO_VENTANA_S`) tras
+  reportar en la que la siguiente foto se adjunta a esa incidencia en vez de tratarse como POD.
+  16 claves de traducción en los 8 idiomas. `/incidencias` del dashboard muestra la miniatura
+  (`PodImage.jsx` generalizado con prop `alt`). 2 tests e2e nuevos. `ci.ps1` completo verde (224
+  backend, 417 vitest, build 22 páginas).
+- [ ] `[DECISIÓN]` **F14.7 — Página pública de "prueba de fiabilidad" por empresa** — pendiente de
+  hablar con más calma (2026-07-17): hay dos diseños distintos (KPIs elegidos por el cliente del
+  cliente vía negociación con tu cliente, vs. informe fijo mensual) y no está claro que "pedir un
+  resumen de viajes contratados a la empresa transportista" sea una práctica habitual del sector
+  — no se construye hasta decidir el enfoque. §F14.7.
 
 ---
 
@@ -396,9 +404,15 @@ Spec completa en `SPECS-CHECKPOINT.md`. Resultado: un hito puede marcarse "punto
 obligatorio" (`/viajes/nuevo-w`) y el bot lo detecta solo por GPS (`ejecucion_evento
 checkpoint_pasado`, silencioso, idempotente), visible en `/viajes/[id]` como "Cruzado"/"Pendiente".
 
-- [ ] `[DECISIÓN]` **CHK.6 — Alerta de checkpoint no cruzado a tiempo** — necesita decidir "a
-  tiempo respecto a qué" (ventana del hito, ETA calculado, hora fija). No construir sin cerrar
-  esto primero.
+- [x] `[LOOP]` **CHK.6 — Alerta de checkpoint no cruzado a tiempo** — decisión final
+  (2026-07-17): no alertar solo por "no se ha marcado" (rutas alternativas, paradas distintas y
+  huecos de cobertura son legítimos) — solo cuando hay evidencia real de que el chófer nunca pasó
+  por ahí. Construido: `backend/db/monitor_checkpoint_saltado.py` — dispara cuando el viaje ya
+  avanzó más allá del checkpoint (hito de orden posterior completado, o viaje completado) sin
+  evento `checkpoint_pasado`; recorre el histórico completo de `ubicacion` del chófer durante el
+  viaje — si algún ping cayó dentro del radio, autocorrige (evento tardío, sin avisar); si
+  ninguno, crea incidencia `checkpoint_saltado` y avisa (respeta R2/Fase 15). Añadido al cron de
+  `.github/workflows/monitores.yml`. 10 tests nuevos. `ci.ps1` completo verde (224 backend).
 
 - [x] `[LOOP]` **CHK.1 — Migración `hito.es_checkpoint`+`radio_m`**. §CHK.1.
   Construido (2026-07-14). Migración `0051_hito_checkpoint.sql` (DDL puro, cabecera de reversión)
@@ -648,7 +662,10 @@ aporta la empresa; ninguna API es obligatoria para arrancar).
   **12.5** (ver Fase 12).
 - [ ] `[DECISIÓN]` **Validación POD con visión LLM** — cuesta dinero por uso; requiere rate-limit + presupuesto definidos ANTES de construir. **Actualización 2026-07-13:** reencuadrado — la visión LLM es la ÚLTIMA capa opcional; primero cruce del evento de llegada (gratis) + OCR. Ver "Decisiones de producto vigentes" arriba, punto 3.
 - [ ] `[DECISIÓN]` **Voz en el bot (Whisper/TTS)** — coste por uso; ¿lo piden los chóferes de verdad? **Actualización 2026-07-13:** decidido Whisper SELF-HOSTED (€0, RGPD-friendly) — deja de estar gateado por presupuesto. Ver punto 2 de "Decisiones de producto vigentes".
-- [ ] `[DECISIÓN]` **Drag-and-drop Kanban** — decisión de UX.
+- [x] `[DECISIÓN]` **Drag-and-drop Kanban** — decisión de UX cerrada 2026-07-17: solo reordena
+  DENTRO de una columna (prioridad/preferencia visual, en `localStorage`), nunca mueve una
+  tarjeta entre columnas — el estado de un viaje lo determina la verdad observada (bot/GPS/POD),
+  no un arrastre en el dashboard. HTML5 drag nativo, sin librería nueva (mismo patrón que 9.30).
 
 ## Fase 3 — Hardening (pre-deploy)
 

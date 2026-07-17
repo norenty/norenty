@@ -15,6 +15,26 @@ enteraba por Telegram de viajes que no puede ver en su dashboard. Corregido en a
 filtra al gestor asignado o a un admin, mismo criterio que la RLS de F15.2, replicado porque
 estos procesos corren con privilegios de servicio. 9 tests nuevos. `ci.ps1` completo verde.
 
+2026-07-17 | Kanban drag-and-drop (reordenar dentro de columna) | 0969f6d | HECHO.
+Decisión de UX cerrada con el usuario: solo reordena DENTRO de una columna (localStorage),
+nunca mueve tarjetas entre columnas — el estado real de un viaje lo marca la verdad observada,
+no arrastrarlo. HTML5 drag nativo, sin librería nueva. Build limpio, sin capa de datos que
+testear en vitest (interacción DOM pura). No verificado visualmente (misma limitación de sesión
+de siempre en este entorno).
+
+2026-07-17 | CHK.6 — Alerta de checkpoint no cruzado, con evidencia GPS | 45b2e2b | HECHO.
+Decisión del usuario: no alertar solo por "no marcado" (rutas alternativas/paradas distintas son
+legítimas) — solo con evidencia real de que nunca pasó por ahí. Nuevo
+monitor_checkpoint_saltado.py: si el viaje avanzó más allá sin evento checkpoint_pasado, recorre
+el histórico de ubicacion; ping cercano -> autocorrige sin avisar; ninguno -> incidencia +
+aviso (respeta R2/Fase 15). Añadido al cron. 10 tests nuevos. ci.ps1 completo verde.
+
+2026-07-17 | F14.6 — Foto adjunta a una incidencia desde el bot | 82098e0 | HECHO.
+Migración 0057 (incidencia.foto_url/foto_hash_sha256, reutiliza bucket "pods"). alertar_gestor()
+devuelve el id de la incidencia; ventana de 5 min tras /incidencia para adjuntar foto sin
+confundirla con un POD. 16 claves en 8 idiomas. Miniatura en /incidencias del dashboard
+(PodImage.jsx generalizado). 2 tests e2e nuevos. ci.ps1 completo verde.
+
 2026-07-15 | R9 — N+1 en la alerta de margen de la campana de notificaciones | ea5d099 | HECHO.
 `NotificationCenter` (R6) llamaba a `getMetricasRentabilidad()` completa (getViabilidadViaje +
 getGastosViaje POR viaje con precio) en cada montaje/cambio de rol admin y en cada INSERT
