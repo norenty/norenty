@@ -320,6 +320,88 @@ async def test_e2e_entrega_sin_pod_cuando_empresa_no_lo_requiere(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_e2e_llegada_tarde_sin_incidencia_previa_alerta_reactivamente(monkeypatch):
+    """R1 (2026-07-15): si el chófer confirma tarde SIN que
+    monitor_retraso_silencioso.py haya pasado antes por ese hito, se
+    mantiene el aviso reactivo de siempre (alertar_gestor crea la
+    incidencia)."""
+    fake_db = FakeSupabase()
+    ventana_pasada = "2020-01-01T00:00:00+00:00"
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": None,
+    }]
+    fake_db.tables["viaje"] = [{
+        "id": "v1", "chofer_id": CHOFER_ID, "empresa_id": "e1", "estado": "en_curso", "referencia": "VJ-1",
+    }]
+    fake_db.tables["hito"] = [
+        {
+            "id": "h1", "viaje_id": "v1", "orden": 1, "tipo": "entrega", "direccion": "Destino",
+            "estado": "pendiente", "ventana_fin": ventana_pasada,
+            "viaje": {"id": "v1", "chofer_id": CHOFER_ID, "estado": "en_curso", "referencia": "VJ-1"},
+        },
+    ]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": None}]
+    fake_db.tables["incidencia"] = []
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(command_update(app, f"/start {CHOFER_ID}"))
+        msg_hito = ultimo_mensaje_bot(app, api)
+        await app.process_update(callback_update(app, "pre_llegada:h1", msg_hito))
+        msg_confirmacion = mensaje_editado(app, api)
+        await app.process_update(callback_update(app, "llegada:h1", msg_confirmacion))
+
+        assert len(fake_db.tables["incidencia"]) == 1
+        assert fake_db.tables["incidencia"][0]["tipo"] == "fuera_de_ventana"
+        assert fake_db.tables["incidencia"][0]["estado"] == "abierta"
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_e2e_llegada_tarde_con_incidencia_previa_la_cierra_sin_duplicar(monkeypatch):
+    """R1 (2026-07-15): si monitor_retraso_silencioso.py YA detectó y avisó de
+    este hito (incidencia fuera_de_ventana abierta con hito_id), al confirmar
+    la llegada NO se crea una segunda incidencia -- se cierra la existente."""
+    fake_db = FakeSupabase()
+    ventana_pasada = "2020-01-01T00:00:00+00:00"
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": None,
+    }]
+    fake_db.tables["viaje"] = [{
+        "id": "v1", "chofer_id": CHOFER_ID, "empresa_id": "e1", "estado": "en_curso", "referencia": "VJ-1",
+    }]
+    fake_db.tables["hito"] = [
+        {
+            "id": "h1", "viaje_id": "v1", "orden": 1, "tipo": "entrega", "direccion": "Destino",
+            "estado": "pendiente", "ventana_fin": ventana_pasada,
+            "viaje": {"id": "v1", "chofer_id": CHOFER_ID, "estado": "en_curso", "referencia": "VJ-1"},
+        },
+    ]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": None}]
+    fake_db.tables["incidencia"] = [{
+        "id": "inc-monitor", "viaje_id": "v1", "hito_id": "h1", "tipo": "fuera_de_ventana", "estado": "abierta",
+    }]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(command_update(app, f"/start {CHOFER_ID}"))
+        msg_hito = ultimo_mensaje_bot(app, api)
+        await app.process_update(callback_update(app, "pre_llegada:h1", msg_hito))
+        msg_confirmacion = mensaje_editado(app, api)
+        await app.process_update(callback_update(app, "llegada:h1", msg_confirmacion))
+
+        assert len(fake_db.tables["incidencia"]) == 1  # no se duplicó
+        assert fake_db.tables["incidencia"][0]["id"] == "inc-monitor"
+        assert fake_db.tables["incidencia"][0]["estado"] == "resuelta"
+        assert fake_db.tables["incidencia"][0]["resuelta_en"] is not None
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_e2e_incidencia(monkeypatch):
     """/incidencia texto libre -> notifica al gestor. Camino real de
     CommandHandler con argumentos (ctx.args poblado por el propio framework,

@@ -1119,12 +1119,32 @@ async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             ventana_fin = datetime.fromisoformat(hito["ventana_fin"].replace("Z", "+00:00"))
             if datetime.now(timezone.utc) > ventana_fin:
                 ref = viaje.get("referencia") or viaje["id"][:8]
-                await alertar_gestor(
-                    chofer["empresa_id"],
-                    viaje["id"],
-                    "fuera_de_ventana",
-                    f"Chófer {chofer['nombre']} llegó fuera de ventana al hito {hito['orden']} ({hito.get('direccion', '?')}) del viaje {ref}.",
+                # R1 (2026-07-15): si monitor_retraso_silencioso.py ya detectó
+                # y avisó de este hito ANTES de que el chófer confirmara, no
+                # duplicar el aviso -- solo cerrar esa incidencia (el
+                # "silencio" acaba de terminar). Si no había ninguna abierta
+                # (el chófer confirmó tarde antes de que el monitor llegara a
+                # correr), se mantiene el aviso reactivo de siempre.
+                existente_r = (
+                    supabase.table("incidencia")
+                    .select("id")
+                    .eq("hito_id", hito_id)
+                    .eq("tipo", "fuera_de_ventana")
+                    .eq("estado", "abierta")
+                    .execute()
                 )
+                if existente_r.data:
+                    supabase.table("incidencia").update({
+                        "estado": "resuelta",
+                        "resuelta_en": datetime.now(timezone.utc).isoformat(),
+                    }).eq("id", existente_r.data[0]["id"]).execute()
+                else:
+                    await alertar_gestor(
+                        chofer["empresa_id"],
+                        viaje["id"],
+                        "fuera_de_ventana",
+                        f"Chófer {chofer['nombre']} llegó fuera de ventana al hito {hito['orden']} ({hito.get('direccion', '?')}) del viaje {ref}.",
+                    )
         except (ValueError, TypeError):
             pass
 

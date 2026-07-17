@@ -8,6 +8,15 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | R1 — Escalación proactiva de retraso silencioso | (usuario) | HECHO.
+`monitor_retraso_silencioso.py` (mismo patrón que `monitor_heartbeat.py`, cron 15 min ya
+existente): nivel 1 detecta hito con ventana vencida sin confirmar (dedup vía
+`incidencia.hito_id`), avisa respetando `notif_fuera_ventana`; nivel 2 escala a todo el equipo
+tras 45 min sin resolver (`incidencia.escalada_en`, migración 0056). Hallazgo real al conectar
+la resolución: `cb_llegada` habría duplicado el aviso si el monitor ya había creado la
+incidencia — corregido (cierra en vez de duplicar). 9 tests nuevos. `ci.ps1` completo verde.
+Sigue R3 (informe exportable).
+
 2026-07-15 | R2 — Las preferencias de notificación empiezan a respetarse | (usuario) | HECHO.
 `alertar_gestor`/`notificar_gestor_evento` ignoraban `gestor.activo` y las 3 preferencias
 `notif_*` (decorativas desde 0007). Añadido `columna_pref_notificacion()` +

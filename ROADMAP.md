@@ -31,10 +31,28 @@ las señales?". Spec cerrada completa en `SPECS-FASE16.md` (leer OBLIGATORIO ant
   completado/asignación sin vincular) → `notif_entregas`. 5 tests nuevos + 4 fixtures existentes
   actualizadas (ya no pasaban `activo`/`notif_*`, necesario con el filtro nuevo). `ci.ps1`
   completo verde (195 backend, 401 vitest, build 21 páginas).
-- [ ] `[LOOP]` **R1 — Escalación proactiva de retraso silencioso** (monitor nuevo,
+- [x] `[LOOP]` **R1 — Escalación proactiva de retraso silencioso** (monitor nuevo,
   `monitor_retraso_silencioso.py`, mismo patrón que `monitor_heartbeat.py`: detecta hitos con
   ventana vencida sin confirmar, nivel 1 avisa al gestor respetando preferencia, nivel 2 escala
   a todos los gestores activos tras 45 min sin resolver). §R1.
+  Construido (2026-07-15): migración `0056_incidencia_escalada.sql` (`incidencia.escalada_en`).
+  `monitor_retraso_silencioso.py` (standalone, `psycopg2` + `urllib` directo a la Bot API, mismo
+  patrón que `monitor_heartbeat.py`, `enviar_fn` inyectable): nivel 1 detecta hitos con
+  `ventana_fin` vencida sin completar y SIN incidencia `fuera_de_ventana` ya registrada (dedup
+  reutilizando `incidencia.hito_id`, sin tabla nueva), crea la incidencia y avisa a los gestores
+  con `notif_fuera_ventana=true` (R2); nivel 2 escala a TODOS los gestores activos (ignora la
+  preferencia) si la incidencia sigue abierta 45+ min después, marca `escalada_en`, una vez.
+  **Hallazgo real al conectar la resolución**: si el monitor ya creaba la incidencia y el chófer
+  luego confirmaba tarde, `cb_llegada` habría disparado un SEGUNDO aviso duplicado vía
+  `alertar_gestor` — corregido: `cb_llegada` ahora comprueba si ya existe una incidencia
+  `fuera_de_ventana` abierta para ese hito; si la hay, la CIERRA (`resuelta`) en vez de duplicar;
+  si no la hay (caso de siempre: chófer confirma tarde antes de que el monitor llegue a correr),
+  se mantiene el aviso reactivo sin cambios. Nuevo job `retraso_silencioso` en `monitores.yml`
+  (mismo cron de 15 min que heartbeat, sin cron nuevo que añadir). 7 tests del monitor
+  (`FakeCursor`, mismo patrón que `test_monitor_heartbeat.py`) + 2 tests E2E nuevos (con/sin
+  incidencia previa, confirman que NO se duplica). SQL verificado con `EXPLAIN` de solo lectura
+  contra la BD real (sin tocar datos). `ci.ps1` completo verde (204 backend, 401 vitest, build
+  21 páginas).
 - [ ] `[LOOP]` **R3 — Informe exportable/imprimible para el jefe de tráfico** (KPIs agregados del
   periodo, mismo patrón `print:` que `/nomina`/dossier, admin-only). §R3.
 
