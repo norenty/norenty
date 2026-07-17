@@ -359,6 +359,35 @@ export async function getCurrentEmpresaId() {
   return gestor.empresa_id;
 }
 
+/**
+ * Id y rol del gestor logueado, o null si no hay sesión (p.ej. contexto de
+ * servidor/cron). Pensado para asignar `gestor_id` al crear un recurso
+ * (Fase 15): un admin deja el recurso sin asignar (visible a todo el equipo,
+ * igual que hoy), un gestor no-admin se lo asigna a sí mismo por defecto para
+ * que la RLS de F15.2 lo siga viendo -- sin esto, todo lo creado por un
+ * gestor no-admin quedaba huérfano (gestor_id NULL = visible a todos) y la
+ * Fase 15 no protegía nada nuevo.
+ */
+async function getCurrentGestor() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return null;
+  const { data: gestor } = await supabase
+    .from("gestor")
+    .select("id, rol")
+    .eq("auth_user_id", session.user.id)
+    .single();
+  return gestor || null;
+}
+
+/** `gestor_id` por defecto para un recurso recién creado: el propio gestor si
+ * no es admin, o `null` (sin asignar) si es admin o no hay sesión. */
+async function gestorIdPorDefecto() {
+  const gestor = await getCurrentGestor();
+  // rol ausente = admin por defecto en BD (0032) -- tratarlo igual aquí.
+  if (!gestor || !gestor.rol || gestor.rol === "admin") return null;
+  return gestor.id;
+}
+
 // ==========================================================================
 // Clientes (ítem 11.1) — el cliente como entidad de primera clase, para que el
 // conocimiento gestor↔cliente tenga dónde vivir (precursor de la capa de
@@ -3187,6 +3216,7 @@ export function normalizarTelefonoE164(telefono, prefijoDefault = "+34") {
 
 export async function createChofer({ nombre, idioma, telefono = null }) {
   const empresa_id = await getCurrentEmpresaId();
+  const gestor_id = await gestorIdPorDefecto();
   let telefonoNormalizado = null;
   if (telefono != null && telefono.toString().trim() !== "") {
     telefonoNormalizado = normalizarTelefonoE164(telefono);
@@ -3194,7 +3224,7 @@ export async function createChofer({ nombre, idioma, telefono = null }) {
   }
   const { data, error } = await supabase
     .from("chofer")
-    .insert({ nombre, idioma: idioma || "es", telefono: telefonoNormalizado, empresa_id })
+    .insert({ nombre, idioma: idioma || "es", telefono: telefonoNormalizado, empresa_id, gestor_id })
     .select()
     .single();
   if (error) throw error;
@@ -3394,6 +3424,7 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
   }
 
   const empresa_id = await getCurrentEmpresaId();
+  const gestor_id = await gestorIdPorDefecto();
   // CARGA.2: cierra el círculo de COT.3/4 -- la carga real del viaje (LDM/kg/
   // m3), antes solo capturada en la calculadora standalone. Retrocompatible:
   // sin `carga`, las 3 columnas salen null igual que hoy.
@@ -3407,6 +3438,7 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
       remolque_id: remolqueId || null,
       cliente_id: clienteId || null,
       empresa_id,
+      gestor_id,
       estado: "planificado",
       precio: precio != null ? precio : null,
       carga_ldm: num(carga?.ldm),

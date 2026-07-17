@@ -1828,6 +1828,18 @@ describe("createChofer / guardarTelefonoChofer (bot de llamadas, fase 1)", () =>
     expect(TABLES.chofer).toHaveLength(0);
   });
 
+  it("createChofer creado por un gestor no-admin se auto-asigna su gestor_id (hallazgo post-F15.2: si no, quedaba visible a todo el equipo para siempre)", async () => {
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "emp1", id: "g-operativo", rol: "gestor_operativo" }];
+    const c = await createChofer({ nombre: "Mario", idioma: "es" });
+    expect(c.gestor_id).toBe("g-operativo");
+  });
+
+  it("createChofer creado por un admin queda sin asignar (visible a todo el equipo, igual que hoy)", async () => {
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "emp1", id: "g-admin", rol: "admin" }];
+    const c = await createChofer({ nombre: "Mario", idioma: "es" });
+    expect(c.gestor_id).toBeNull();
+  });
+
   it("guardarTelefonoChofer actualiza el teléfono normalizado", async () => {
     TABLES.chofer = [{ id: "c1", nombre: "Mario", telefono: null }];
     await guardarTelefonoChofer("c1", "600111222");
@@ -3037,6 +3049,16 @@ describe("createViaje acepta precio (7A.11)", () => {
     TABLES.vehiculo = [];
     const { viaje } = await createViaje({ referencia: "REF1", choferId: null, vehiculoId: null, remolqueId: null, hitos: [], precio: 1234 });
     expect(viaje.precio).toBe(1234);
+  });
+
+  it("creado por un gestor no-admin se auto-asigna su gestor_id (hallazgo post-F15.2)", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g-operativo", rol: "gestor_operativo" }];
+    TABLES.viaje = [];
+    TABLES.chofer = [];
+    TABLES.vehiculo = [];
+    const { viaje } = await createViaje({ referencia: "REF1B", choferId: null, vehiculoId: null, remolqueId: null, hitos: [] });
+    expect(viaje.gestor_id).toBe("g-operativo");
   });
 
   it("sin precio, se guarda null (no rompe el alta existente)", async () => {
