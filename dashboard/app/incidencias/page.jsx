@@ -6,6 +6,7 @@ import { AlertTriangle, Clock, CheckCircle2, ExternalLink, ChevronDown } from "l
 import { supabase } from "../../lib/supabase";
 import { ESTADO_INCIDENCIA as ESTADO_LABELS, TIPO_INCIDENCIA_LABEL as TIPO_LABELS } from "../../lib/labels";
 import EmptyState from "../components/ui/EmptyState";
+import PodImage from "../components/PodImage";
 import { fmtFechaHora } from "../../lib/format";
 
 const PAGE_SIZE = 20;
@@ -135,6 +136,9 @@ export default function IncidenciasPage() {
                       </div>
                       {inc.descripcion && (
                         <p className="text-xs text-ink-secondary mb-1">{inc.descripcion}</p>
+                      )}
+                      {inc.foto_url && (
+                        <PodImage path={inc.foto_url} className="w-20 h-20 rounded-lg mb-1" alt="Foto de la incidencia" />
                       )}
                       <div className="flex items-center gap-3 text-xs text-ink-muted">
                         {inc.viaje && (

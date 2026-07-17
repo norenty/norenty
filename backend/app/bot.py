@@ -208,6 +208,8 @@ TEXTOS = {
         "foto_invalida": "Esa foto no parece válida. Mándame una foto normal del albarán (no un fichero ni un vídeo).",
         "incidencia_ayuda": "Escribe qué ha pasado: /incidencia avería en la rueda trasera",
         "incidencia_ok": "Incidencia reportada para viaje {ref}. Tu gestor ha sido notificado.",
+        "incidencia_foto_pregunta": "Si quieres, mándame una foto ahora (opcional).",
+        "incidencia_foto_ok": "Foto adjuntada a la incidencia.",
         "btn_incidencia": "📍 Reportar incidencia",
         "btn_mi_viaje": "📋 Mi viaje",
         "btn_contactar": "📞 Contactar gestor",
@@ -262,6 +264,8 @@ TEXTOS = {
         "foto_invalida": "That photo doesn't look valid. Send me a normal photo of the proof of delivery (not a file or a video).",
         "incidencia_ayuda": "Describe what happened: /incidencia flat tyre on rear wheel",
         "incidencia_ok": "Incident reported for trip {ref}. Your manager has been notified.",
+        "incidencia_foto_pregunta": "If you want, send me a photo now (optional).",
+        "incidencia_foto_ok": "Photo attached to the incident.",
         "btn_incidencia": "📍 Report incident",
         "btn_mi_viaje": "📋 My trip",
         "btn_contactar": "📞 Contact manager",
@@ -316,6 +320,8 @@ TEXTOS = {
         "foto_invalida": "Fotografia nu pare validă. Trimite-mi o fotografie normală a documentului (nu un fișier sau un videoclip).",
         "incidencia_ayuda": "Descrie ce s-a întâmplat: /incidencia pană la roata din spate",
         "incidencia_ok": "Incident raportat pentru cursa {ref}. Managerul tău a fost notificat.",
+        "incidencia_foto_pregunta": "Dacă vrei, trimite-mi o poză acum (opțional).",
+        "incidencia_foto_ok": "Poză atașată incidentului.",
         "btn_incidencia": "📍 Raportează un incident",
         "btn_mi_viaje": "📋 Cursa mea",
         "btn_contactar": "📞 Contactează managerul",
@@ -370,6 +376,8 @@ TEXTOS = {
         "foto_invalida": "Cette photo ne semble pas valide. Envoyez-moi une photo normale du bon de livraison (pas un fichier ni une vidéo).",
         "incidencia_ayuda": "Décrivez ce qui s'est passé : /incidencia crevaison roue arrière",
         "incidencia_ok": "Incident signalé pour le trajet {ref}. Votre responsable a été notifié.",
+        "incidencia_foto_pregunta": "Si vous voulez, envoyez-moi une photo maintenant (facultatif).",
+        "incidencia_foto_ok": "Photo jointe à l'incident.",
         "btn_incidencia": "📍 Signaler un incident",
         "btn_mi_viaje": "📋 Mon trajet",
         "btn_contactar": "📞 Contacter le responsable",
@@ -424,6 +432,8 @@ TEXTOS = {
         "foto_invalida": "Questa foto non sembra valida. Inviami una foto normale della bolla di consegna (non un file né un video).",
         "incidencia_ayuda": "Scrivi cosa è successo: /incidencia foratura ruota posteriore",
         "incidencia_ok": "Incidente segnalato per il viaggio {ref}. Il tuo responsabile è stato avvisato.",
+        "incidencia_foto_pregunta": "Se vuoi, mandami una foto ora (facoltativo).",
+        "incidencia_foto_ok": "Foto allegata all'incidente.",
         "btn_incidencia": "📍 Segnala un incidente",
         "btn_mi_viaje": "📋 Il mio viaggio",
         "btn_contactar": "📞 Contatta il responsabile",
@@ -478,6 +488,8 @@ TEXTOS = {
         "foto_invalida": "Essa foto não parece válida. Envia-me uma foto normal da guia de transporte (não um ficheiro nem um vídeo).",
         "incidencia_ayuda": "Escreve o que aconteceu: /incidencia furo no pneu traseiro",
         "incidencia_ok": "Incidência reportada para a viagem {ref}. O teu gestor foi notificado.",
+        "incidencia_foto_pregunta": "Se quiseres, manda-me uma foto agora (opcional).",
+        "incidencia_foto_ok": "Foto anexada à incidência.",
         "btn_incidencia": "📍 Reportar incidência",
         "btn_mi_viaje": "📋 A minha viagem",
         "btn_contactar": "📞 Contactar gestor",
@@ -532,6 +544,8 @@ TEXTOS = {
         "foto_invalida": "Dieses Foto scheint ungültig zu sein. Schick mir ein normales Foto des Lieferscheins (keine Datei und kein Video).",
         "incidencia_ayuda": "Schreib, was passiert ist: /incidencia Reifenpanne hinten",
         "incidencia_ok": "Vorfall für Fahrt {ref} gemeldet. Dein Disponent wurde benachrichtigt.",
+        "incidencia_foto_pregunta": "Wenn du magst, schick mir jetzt ein Foto (optional).",
+        "incidencia_foto_ok": "Foto zum Vorfall hinzugefügt.",
         "btn_incidencia": "📍 Vorfall melden",
         "btn_mi_viaje": "📋 Meine Fahrt",
         "btn_contactar": "📞 Disponent kontaktieren",
@@ -586,6 +600,8 @@ TEXTOS = {
         "foto_invalida": "هذه الصورة لا تبدو صالحة. أرسل لي صورة عادية لسند التسليم (وليس ملفًا أو فيديو).",
         "incidencia_ayuda": "اكتب ما حدث: /incidencia عطل في الإطار الخلفي",
         "incidencia_ok": "تم الإبلاغ عن حادثة للرحلة {ref}. تم إخطار المسؤول عنك.",
+        "incidencia_foto_pregunta": "إذا أردت، أرسل لي صورة الآن (اختياري).",
+        "incidencia_foto_ok": "تم إرفاق الصورة بالحادثة.",
         "btn_incidencia": "📍 الإبلاغ عن حادثة",
         "btn_mi_viaje": "📋 رحلتي",
         "btn_contactar": "📞 الاتصال بالمسؤول",
@@ -748,13 +764,16 @@ def _gestores_a_notificar(empresa_id, columna_pref, viaje_id=None):
 async def alertar_gestor(empresa_id, viaje_id, tipo, descripcion):
     """Crea una incidencia y notifica a los gestores de la empresa por Telegram
     -- solo a los ACTIVOS con la preferencia correspondiente activada (R2),
-    y solo al gestor asignado del viaje si lo tiene (Fase 15)."""
-    supabase.table("incidencia").insert({
+    y solo al gestor asignado del viaje si lo tiene (Fase 15). Devuelve el id
+    de la incidencia creada (F14.6: el chófer puede adjuntarle una foto justo
+    después, necesita saber a cuál)."""
+    r = supabase.table("incidencia").insert({
         "viaje_id": viaje_id,
         "tipo": tipo,
         "descripcion": descripcion,
         "estado": "abierta",
     }).execute()
+    incidencia_id = r.data[0]["id"] if r.data else None
 
     chats = _gestores_a_notificar(empresa_id, columna_pref_notificacion(tipo), viaje_id)
     for chat in chats:
@@ -770,6 +789,8 @@ async def alertar_gestor(empresa_id, viaje_id, tipo, descripcion):
                 "Error notificando gestor %s: %s", chat, e,
                 extra={"empresa_id": empresa_id, "viaje_id": viaje_id, "tipo": tipo, "chat_id": chat},
             )
+
+    return incidencia_id
 
 
 async def notificar_gestor_evento(empresa_id, viaje_id, mensaje, tipo_notif="entregas"):
@@ -1359,6 +1380,44 @@ async def handle_location(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
 
 
+INCIDENCIA_FOTO_VENTANA_S = 300  # F14.6: margen para adjuntar foto tras /incidencia antes de
+# que la siguiente foto que mande el chófer se trate como un POD normal en vez de "la foto de
+# la incidencia que reportó hace un rato" (evita mezclar dos fotos de contextos distintos).
+
+
+async def _subir_foto_incidencia(update, ctx, chofer, incidencia_id, viaje_id):
+    """F14.6 (2026-07-17): igual que el POD (hash de integridad antes de subir, mismo bucket
+    privado "pods" -- reutilizado porque su RLS ya scopa por empresa_id en el primer segmento
+    de carpeta, ver 0057), pero sobre `incidencia` en vez de `pod`/`hito`: no hay hito que
+    completar, es solo evidencia adjunta a lo que el chófer ya reportó por texto."""
+    photo = update.message.photo[-1]
+    file = await ctx.bot.get_file(photo.file_id)
+    file_bytes = await file.download_as_bytearray()
+
+    if not _foto_pod_valida(file_bytes):
+        await update.message.reply_text(t(chofer, "foto_invalida"))
+        return
+
+    file_path = f"{chofer['empresa_id']}/incidencia/{incidencia_id}/{uuid.uuid4()}.jpg"
+    hash_sha256 = hashlib.sha256(bytes(file_bytes)).hexdigest()
+
+    supabase.storage.from_("pods").upload(
+        path=file_path,
+        file=bytes(file_bytes),
+        file_options={"content-type": "image/jpeg"},
+    )
+    supabase.table("incidencia").update({
+        "foto_url": file_path,
+        "foto_hash_sha256": hash_sha256,
+    }).eq("id", incidencia_id).execute()
+
+    await update.message.reply_text(t(chofer, "incidencia_foto_ok"))
+    logger.info(
+        "Foto adjuntada a incidencia %s (viaje %s)", incidencia_id, viaje_id,
+        extra={"incidencia_id": incidencia_id, "viaje_id": viaje_id, "chofer_id": chofer["id"]},
+    )
+
+
 async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     chat_id = str(update.effective_chat.id)
 
@@ -1368,6 +1427,17 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     chofer_id = chofer["id"]
+
+    # F14.6: si el chófer acaba de reportar una incidencia y esto es la
+    # primera foto que manda dentro de la ventana, es la foto de ESA
+    # incidencia, no un POD -- se atiende aquí y se sale, sin tocar el flujo
+    # de entrega de abajo.
+    pendiente = ctx.chat_data.get("incidencia_pendiente_foto")
+    if pendiente and pendiente.get("hasta", 0) >= time.time():
+        ctx.chat_data.pop("incidencia_pendiente_foto", None)
+        await _subir_foto_incidencia(update, ctx, chofer, pendiente["id"], pendiente["viaje_id"])
+        return
+    ctx.chat_data.pop("incidencia_pendiente_foto", None)
 
     viajes_r = (
         supabase.table("viaje")
@@ -1497,7 +1567,7 @@ async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     viaje = viajes_r.data[0]
     ref = viaje.get("referencia") or viaje["id"][:8]
 
-    await alertar_gestor(
+    incidencia_id = await alertar_gestor(
         chofer["empresa_id"],
         viaje["id"],
         "otro",
@@ -1505,6 +1575,17 @@ async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(t(chofer, "incidencia_ok", ref=ref))
+    # F14.6: el texto ya se mandó; si además quiere adjuntar una foto
+    # (avería, carga mal estibada...), la siguiente foto que mande dentro de
+    # INCIDENCIA_FOTO_VENTANA_S se atribuye a esta incidencia. Puramente
+    # opcional -- no bloquea nada si no manda ninguna.
+    if incidencia_id:
+        ctx.chat_data["incidencia_pendiente_foto"] = {
+            "id": incidencia_id,
+            "viaje_id": viaje["id"],
+            "hasta": time.time() + INCIDENCIA_FOTO_VENTANA_S,
+        }
+        await update.message.reply_text(t(chofer, "incidencia_foto_pregunta"))
     logger.info(
         "Incidencia manual: chofer %s, viaje %s", chofer["id"], viaje["id"],
         extra={"chofer_id": chofer["id"], "viaje_id": viaje["id"], "empresa_id": chofer["empresa_id"]},

@@ -6,7 +6,7 @@ import { supabase } from "../../lib/supabase";
 
 const SIGNED_URL_TTL = 3600;
 
-export default function PodImage({ path, className = "" }) {
+export default function PodImage({ path, className = "", alt = "Albarán" }) {
   const [src, setSrc] = useState(null);
   const [error, setError] = useState(false);
 
@@ -36,7 +36,7 @@ export default function PodImage({ path, className = "" }) {
   return (
     <img
       src={src}
-      alt="Albarán"
+      alt={alt}
       className={`object-cover bg-surface-alt ${className}`}
     />
   );

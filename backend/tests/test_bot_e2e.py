@@ -426,6 +426,69 @@ async def test_e2e_incidencia(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_e2e_incidencia_foto_se_adjunta_a_la_incidencia_no_crea_pod(monkeypatch):
+    """F14.6 (2026-07-17): tras /incidencia, la siguiente foto que mande el
+    chófer se adjunta a ESA incidencia (foto_url/foto_hash_sha256), no se
+    trata como un POD -- aunque haya un hito de entrega en_curso esperando
+    albarán al mismo tiempo (caso real: incidencia durante la propia
+    entrega)."""
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": str(CHAT_ID),
+    }]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": CHOFER_ID, "estado": "en_curso", "referencia": "VJ-1"}]
+    fake_db.tables["hito"] = [{
+        "id": "h1", "viaje_id": "v1", "orden": 1, "tipo": "entrega", "direccion": "Destino",
+        "estado": "en_curso",
+    }]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": "chat-gestor-1"}]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(command_update(app, "/incidencia carga mal estibada"))
+        incidencia_id = fake_db.tables["incidencia"][0]["id"]
+        assert any("adjuntar" in s.get("text", "").lower() or "foto" in s.get("text", "").lower() for s in api.sent)
+
+        await app.process_update(photo_update(app))
+
+        assert fake_db.tables["incidencia"][0]["foto_url"] is not None
+        assert fake_db.tables["incidencia"][0]["foto_hash_sha256"] == hashlib.sha256(b"\xff\xd8\xfffake-jpg-bytes").hexdigest()
+        # NO se creó ningún POD ni se completó el hito de entrega -- la foto
+        # era de la incidencia, no del albarán.
+        assert fake_db.tables.get("pod", []) == []
+        assert fake_db.tables["hito"][0]["estado"] == "en_curso"
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_e2e_foto_sin_incidencia_pendiente_sigue_siendo_pod_normal(monkeypatch):
+    """Regresión: sin haber reportado ninguna incidencia antes, una foto sigue
+    yendo al flujo de POD de siempre (F14.6 no debe robar fotos que no le
+    corresponden)."""
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": str(CHAT_ID),
+    }]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": CHOFER_ID, "estado": "en_curso", "referencia": "VJ-1"}]
+    fake_db.tables["hito"] = [{
+        "id": "h1", "viaje_id": "v1", "orden": 1, "tipo": "entrega", "direccion": "Destino",
+        "estado": "en_curso",
+    }]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": "chat-gestor-1"}]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(photo_update(app))
+        assert fake_db.tables["pod"][0]["hito_id"] == "h1"
+        assert fake_db.tables["hito"][0]["estado"] == "completado"
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_e2e_comando_desconocido_no_rompe_nada(monkeypatch):
     """Un update que no matchea NINGÚN handler no debe lanzar — Application.process_update
     ya garantiza esto, pero confirma que el wiring no tiene un catch-all roto."""
