@@ -10,6 +10,36 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
+## Cola ACTIVA del loop autónomo — Fase 16: escalación proactiva + informe de jefe de tráfico (2026-07-15)
+
+**⚠️ El loop autónomo trabaja AHORA en esta cola — PRIORIDAD sobre fases anteriores.** Revisión
+de código pedida por el usuario tras cerrar Fase 15: encontró dos huecos reales en la promesa
+central del producto (preferencias de notificación decorativas, sin aviso proactivo si el
+chófer ignora el bot) y pidió explícitamente un plan de escalación para "¿y si la gente ignora
+las señales?". Spec cerrada completa en `SPECS-FASE16.md` (leer OBLIGATORIO antes de cada
+ítem). Orden estricto: R2 → R1 → R3.
+
+- [x] `[LOOP]` **R2 — Las preferencias de notificación empiezan a respetarse**
+  (`notif_incidencias`/`notif_entregas`/`notif_fuera_ventana` son botones decorativos hoy,
+  `alertar_gestor`/`notificar_gestor_evento` nunca los leen ni filtran por `gestor.activo`).
+  §R2.
+  Construido (2026-07-15): `columna_pref_notificacion(tipo)` (mapea `fuera_de_ventana` →
+  `notif_fuera_ventana`, cualquier otro tipo de incidencia → `notif_incidencias`) +
+  `_gestores_a_notificar(empresa_id, columna_pref)` (filtra `activo=True` Y la preferencia,
+  reemplaza el `SELECT` sin filtrar de ambas funciones). `notificar_gestor_evento` gana
+  `tipo_notif="entregas"` (default, cubre sus 4 usos actuales: entrega sin albarán/POD/viaje
+  completado/asignación sin vincular) → `notif_entregas`. 5 tests nuevos + 4 fixtures existentes
+  actualizadas (ya no pasaban `activo`/`notif_*`, necesario con el filtro nuevo). `ci.ps1`
+  completo verde (195 backend, 401 vitest, build 21 páginas).
+- [ ] `[LOOP]` **R1 — Escalación proactiva de retraso silencioso** (monitor nuevo,
+  `monitor_retraso_silencioso.py`, mismo patrón que `monitor_heartbeat.py`: detecta hitos con
+  ventana vencida sin confirmar, nivel 1 avisa al gestor respetando preferencia, nivel 2 escala
+  a todos los gestores activos tras 45 min sin resolver). §R1.
+- [ ] `[LOOP]` **R3 — Informe exportable/imprimible para el jefe de tráfico** (KPIs agregados del
+  periodo, mismo patrón `print:` que `/nomina`/dossier, admin-only). §R3.
+
+---
+
 ## Cola ACTIVA del loop autónomo — Fase 15: scoping de datos por gestor (2026-07-15)
 
 **⚠️ El loop autónomo trabaja AHORA en esta cola — PRIORIDAD sobre la Fase 14 restante.** Pedido

@@ -702,8 +702,34 @@ def verificar_hito_pertenece_a_chofer(hito_id, chofer_id):
     return hito, None
 
 
+def columna_pref_notificacion(tipo):
+    """R2 (2026-07-15): qué columna `gestor.notif_*` gatea cada tipo de aviso.
+    Las tres son NOT NULL con su propio DEFAULT (0007) -- no hace falta tratar
+    NULL aquí, cada gestor siempre tiene un valor real."""
+    if tipo == "fuera_de_ventana":
+        return "notif_fuera_ventana"
+    return "notif_incidencias"
+
+
+def _gestores_a_notificar(empresa_id, columna_pref):
+    """Gestores ACTIVOS de la empresa con la preferencia `columna_pref`
+    activada y Telegram vinculado -- R2 (2026-07-15): antes `alertar_gestor`/
+    `notificar_gestor_evento` mandaban a TODOS los gestores con chat_id, sin
+    mirar ni `activo` ni ninguna preferencia (las tres quedaban decorativas)."""
+    r = (
+        supabase.table("gestor")
+        .select("telegram_chat_id")
+        .eq("empresa_id", empresa_id)
+        .eq("activo", True)
+        .eq(columna_pref, True)
+        .execute()
+    )
+    return [g["telegram_chat_id"] for g in (r.data or []) if g.get("telegram_chat_id")]
+
+
 async def alertar_gestor(empresa_id, viaje_id, tipo, descripcion):
-    """Crea una incidencia y notifica a los gestores de la empresa por Telegram."""
+    """Crea una incidencia y notifica a los gestores de la empresa por Telegram
+    -- solo a los ACTIVOS con la preferencia correspondiente activada (R2)."""
     supabase.table("incidencia").insert({
         "viaje_id": viaje_id,
         "tipo": tipo,
@@ -711,37 +737,37 @@ async def alertar_gestor(empresa_id, viaje_id, tipo, descripcion):
         "estado": "abierta",
     }).execute()
 
-    gestores_r = supabase.table("gestor").select("telegram_chat_id").eq("empresa_id", empresa_id).execute()
-    for g in (gestores_r.data or []):
-        chat = g.get("telegram_chat_id")
-        if chat:
-            try:
-                viaje_r = supabase.table("viaje").select("referencia").eq("id", viaje_id).execute()
-                ref = viaje_r.data[0]["referencia"] if viaje_r.data else viaje_id[:8]
-                await transporte_gestor.enviar_texto(
-                    chat,
-                    f"⚠️ ALERTA — {tipo.replace('_', ' ').upper()}\n\nViaje: {ref}\n{descripcion}",
-                )
-            except Exception as e:
-                logger.error(
-                    "Error notificando gestor %s: %s", chat, e,
-                    extra={"empresa_id": empresa_id, "viaje_id": viaje_id, "tipo": tipo, "chat_id": chat},
-                )
+    chats = _gestores_a_notificar(empresa_id, columna_pref_notificacion(tipo))
+    for chat in chats:
+        try:
+            viaje_r = supabase.table("viaje").select("referencia").eq("id", viaje_id).execute()
+            ref = viaje_r.data[0]["referencia"] if viaje_r.data else viaje_id[:8]
+            await transporte_gestor.enviar_texto(
+                chat,
+                f"⚠️ ALERTA — {tipo.replace('_', ' ').upper()}\n\nViaje: {ref}\n{descripcion}",
+            )
+        except Exception as e:
+            logger.error(
+                "Error notificando gestor %s: %s", chat, e,
+                extra={"empresa_id": empresa_id, "viaje_id": viaje_id, "tipo": tipo, "chat_id": chat},
+            )
 
 
-async def notificar_gestor_evento(empresa_id, viaje_id, mensaje):
-    """Envía notificación informativa (no incidencia) a los gestores."""
-    gestores_r = supabase.table("gestor").select("telegram_chat_id").eq("empresa_id", empresa_id).execute()
-    for g in (gestores_r.data or []):
-        chat = g.get("telegram_chat_id")
-        if chat:
-            try:
-                await transporte_gestor.enviar_texto(chat, mensaje)
-            except Exception as e:
-                logger.error(
-                    "Error notificando gestor %s: %s", chat, e,
-                    extra={"empresa_id": empresa_id, "viaje_id": viaje_id, "chat_id": chat},
-                )
+async def notificar_gestor_evento(empresa_id, viaje_id, mensaje, tipo_notif="entregas"):
+    """Envía notificación informativa (no incidencia) a los gestores -- solo a
+    los ACTIVOS con la preferencia correspondiente (R2). `tipo_notif`:
+    "entregas" (default, cubre entrega/POD/viaje completado/asignación, los
+    4 usos actuales) o "incidencias"."""
+    columna_pref = "notif_entregas" if tipo_notif == "entregas" else "notif_incidencias"
+    chats = _gestores_a_notificar(empresa_id, columna_pref)
+    for chat in chats:
+        try:
+            await transporte_gestor.enviar_texto(chat, mensaje)
+        except Exception as e:
+            logger.error(
+                "Error notificando gestor %s: %s", chat, e,
+                extra={"empresa_id": empresa_id, "viaje_id": viaje_id, "chat_id": chat},
+            )
 
 
 def nav_buttons(hito):

@@ -446,7 +446,7 @@ async def test_handle_menu_texto_texto_desconocido_no_responde(fake_db):
 
 @pytest.mark.asyncio
 async def test_alertar_gestor_crea_incidencia_y_usa_el_transporte(fake_db, fake_transporte):
-    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": "chat-1"}]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": "chat-1", "activo": True, "notif_incidencias": True}]
     fake_db.tables["viaje"] = [{"id": "v1", "referencia": "VJ-1"}]
 
     await bot.alertar_gestor("e1", "v1", "averia", "Rueda pinchada")
@@ -461,7 +461,7 @@ async def test_alertar_gestor_crea_incidencia_y_usa_el_transporte(fake_db, fake_
 
 @pytest.mark.asyncio
 async def test_alertar_gestor_no_envia_a_gestores_sin_telegram(fake_db, fake_transporte):
-    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": None}]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": None, "activo": True, "notif_incidencias": True}]
     fake_db.tables["viaje"] = [{"id": "v1", "referencia": "VJ-1"}]
 
     await bot.alertar_gestor("e1", "v1", "otro", "texto")
@@ -472,13 +472,59 @@ async def test_alertar_gestor_no_envia_a_gestores_sin_telegram(fake_db, fake_tra
 @pytest.mark.asyncio
 async def test_notificar_gestor_evento_usa_el_transporte(fake_db, fake_transporte):
     fake_db.tables["gestor"] = [
-        {"id": "g1", "empresa_id": "e1", "telegram_chat_id": "chat-1"},
-        {"id": "g2", "empresa_id": "e1", "telegram_chat_id": "chat-2"},
+        {"id": "g1", "empresa_id": "e1", "telegram_chat_id": "chat-1", "activo": True, "notif_entregas": True},
+        {"id": "g2", "empresa_id": "e1", "telegram_chat_id": "chat-2", "activo": True, "notif_entregas": True},
     ]
 
     await bot.notificar_gestor_evento("e1", "v1", "Mensaje de prueba")
 
     assert fake_transporte.enviados == [("chat-1", "Mensaje de prueba"), ("chat-2", "Mensaje de prueba")]
+
+
+# --- R2 (2026-07-15): las preferencias de notificación dejan de ser decorativas ---
+
+@pytest.mark.asyncio
+async def test_alertar_gestor_no_avisa_a_gestor_inactivo(fake_db, fake_transporte):
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": "chat-1", "activo": False, "notif_incidencias": True}]
+    fake_db.tables["viaje"] = [{"id": "v1", "referencia": "VJ-1"}]
+
+    await bot.alertar_gestor("e1", "v1", "otro", "texto")
+
+    assert fake_transporte.enviados == []
+
+
+@pytest.mark.asyncio
+async def test_alertar_gestor_respeta_notif_incidencias_desactivada(fake_db, fake_transporte):
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": "chat-1", "activo": True, "notif_incidencias": False}]
+    fake_db.tables["viaje"] = [{"id": "v1", "referencia": "VJ-1"}]
+
+    await bot.alertar_gestor("e1", "v1", "otro", "texto")
+
+    assert fake_transporte.enviados == []
+
+
+@pytest.mark.asyncio
+async def test_alertar_gestor_fuera_de_ventana_usa_su_propia_preferencia(fake_db, fake_transporte):
+    # notif_incidencias=False pero notif_fuera_ventana=True -- SÍ debe avisar,
+    # es la columna correcta para este tipo (columna_pref_notificacion).
+    fake_db.tables["gestor"] = [{
+        "id": "g1", "empresa_id": "e1", "telegram_chat_id": "chat-1",
+        "activo": True, "notif_incidencias": False, "notif_fuera_ventana": True,
+    }]
+    fake_db.tables["viaje"] = [{"id": "v1", "referencia": "VJ-1"}]
+
+    await bot.alertar_gestor("e1", "v1", "fuera_de_ventana", "Llegó tarde")
+
+    assert len(fake_transporte.enviados) == 1
+
+
+@pytest.mark.asyncio
+async def test_notificar_gestor_evento_respeta_notif_entregas_desactivada(fake_db, fake_transporte):
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": "chat-1", "activo": True, "notif_entregas": False}]
+
+    await bot.notificar_gestor_evento("e1", "v1", "Mensaje de prueba")
+
+    assert fake_transporte.enviados == []
 
 
 # --- /parking (ítem 6.7) ---
@@ -772,7 +818,7 @@ async def test_procesar_notificaciones_chofer_sin_chat_id_notifica_gestor(fake_d
         {"id": "v1", "referencia": "REF1", "chofer_id": "c1", "estado": "planificado", "notificado_asignacion_en": None},
     ]
     fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": None, "empresa_id": "e1"}]
-    fake_db.tables["gestor"] = [{"empresa_id": "e1", "telegram_chat_id": "gestor-chat"}]
+    fake_db.tables["gestor"] = [{"empresa_id": "e1", "telegram_chat_id": "gestor-chat", "activo": True, "notif_entregas": True}]
     ctx = SimpleNamespace(bot=AsyncMock())
     await bot.procesar_notificaciones_asignacion(ctx)
 

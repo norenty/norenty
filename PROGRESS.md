@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | R2 — Las preferencias de notificación empiezan a respetarse | (usuario) | HECHO.
+`alertar_gestor`/`notificar_gestor_evento` ignoraban `gestor.activo` y las 3 preferencias
+`notif_*` (decorativas desde 0007). Añadido `columna_pref_notificacion()` +
+`_gestores_a_notificar()`, filtro real. 5 tests nuevos, 4 fixtures viejas actualizadas.
+`ci.ps1` completo verde. Sigue R1 (escalación de retraso silencioso).
+
 2026-07-15 | F15.4 — Revisión: KPI diferenciado para admin | (usuario) | HECHO (sin construir nada).
 Confirmado por código: `dashboard/lib/supabase.js` es un único cliente sin bypass de rol —
 TODAS las queries de `data.js` pasan por RLS igual que `chofer`/`viaje`. El scoping de F15.2 se
