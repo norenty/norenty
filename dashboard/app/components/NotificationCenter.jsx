@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, AlertTriangle, Check, Truck, X, FileWarning } from "lucide-react";
+import { Bell, AlertTriangle, Check, Truck, X, FileWarning, Target } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { getDocumentosPorCaducar } from "../../lib/data";
+import { getDocumentosPorCaducar, getMetricasPuntualidad, alertaObjetivoPuntualidad } from "../../lib/data";
 import { TIPO_DOC_LABEL } from "../../lib/labels";
 
 export default function NotificationCenter() {
@@ -25,7 +25,7 @@ export default function NotificationCenter() {
   async function loadNotifs() {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    const [incRes, evtRes, docsPorCaducar] = await Promise.all([
+    const [incRes, evtRes, docsPorCaducar, metricasPuntualidad] = await Promise.all([
       supabase
         .from("incidencia")
         .select("id, tipo, descripcion, created_at, viaje_id, viaje(referencia)")
@@ -39,9 +39,25 @@ export default function NotificationCenter() {
         .order("ocurrido_en", { ascending: false })
         .limit(10),
       getDocumentosPorCaducar(),
+      getMetricasPuntualidad(),
     ]);
 
+    const alertaObjetivo = alertaObjetivoPuntualidad(metricasPuntualidad);
+
     const items = [
+      ...(alertaObjetivo
+        ? [{
+            id: "objetivo-puntualidad",
+            type: "objetivo",
+            icon: Target,
+            iconColor: "text-estado-incidencia",
+            title: "Objetivo de puntualidad incumplido",
+            sub: `${alertaObjetivo.actual}% actual, objetivo ${alertaObjetivo.objetivo}%`,
+            ref: "Analítica",
+            href: "/analitica",
+            time: new Date().toISOString(),
+          }]
+        : []),
       ...(incRes.data || []).map((i) => ({
         id: `inc-${i.id}`,
         type: "incidencia",
@@ -78,7 +94,7 @@ export default function NotificationCenter() {
     ].sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 15);
 
     setNotifs(items);
-    setUnread(items.filter((n) => n.type === "incidencia" || n.type === "documento").length);
+    setUnread(items.filter((n) => n.type === "incidencia" || n.type === "documento" || n.type === "objetivo").length);
   }
 
   useEffect(() => {

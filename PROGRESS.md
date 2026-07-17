@@ -8,6 +8,12 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | R4 — Alerta de objetivo de puntualidad incumplido | (usuario) | HECHO.
+Auditoría del lado dashboard (mismo patrón que R1/R2): `objetivo_puntualidad_pct` era solo un
+color pasivo en Analítica. `alertaObjetivoPuntualidad()` pura + cableado en `NotificationCenter`
+(la campana). 4 tests nuevos. `ci.ps1` completo verde. Margen queda fuera a propósito (no hay
+agregado de margen en % hoy).
+
 2026-07-15 | R3 — Informe ejecutivo para el jefe de tráfico | (usuario) | HECHO.
 `getInformeEjecutivo(rango)` compone métricas ya existentes en un objeto plano. Página nueva
 `/analitica/informe` (admin-only), imprimible a PDF, enlazada desde la cabecera de Analítica.

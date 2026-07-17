@@ -2806,6 +2806,21 @@ export async function getComparativaMensual(rango = {}) {
 }
 
 /**
+ * Auditoría de código (2026-07-15, mismo patrón que R1/R2 de Fase 16):
+ * `empresa.objetivo_puntualidad_pct` (Ajustes → Empresa) solo se usaba como
+ * color pasivo en una card de `/analitica` — un gestor que no abre esa
+ * pestaña nunca se entera de que el objetivo se está incumpliendo. Pura:
+ * dado el resultado ya calculado de `getMetricasPuntualidad()` (que ya trae
+ * `objetivoPuntualidadPct`, sin query nueva), decide si hay que alertar.
+ * `null` si no hay objetivo configurado, o si se está cumpliendo.
+ */
+export function alertaObjetivoPuntualidad(metricas) {
+  if (!metricas || metricas.objetivoPuntualidadPct == null || metricas.pctPuntualidad == null) return null;
+  if (metricas.pctPuntualidad >= metricas.objetivoPuntualidadPct) return null;
+  return { objetivo: metricas.objetivoPuntualidadPct, actual: metricas.pctPuntualidad };
+}
+
+/**
  * R3 (Fase 16, 2026-07-15): informe ejecutivo para el jefe de tráfico —
  * compone (sin queries de negocio nuevas) las métricas que ya existen en un
  * único objeto plano pensado para imprimir/exportar, no para pintar cards

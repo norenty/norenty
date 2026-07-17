@@ -64,6 +64,16 @@ las señales?". Spec cerrada completa en `SPECS-FASE16.md` (leer OBLIGATORIO ant
   completo verde (204 backend, 402 vitest, build 22 páginas) — no verificado visualmente en
   navegador (pantalla tras login, sin credenciales disponibles esta sesión, mismo caso que
   F15.3), pero build limpio + test de composición. **Cierra la Fase 16 al 100%.**
+- [x] `[LOOP]` **R4 — Alerta de objetivo de puntualidad incumplido** (auditoría de código
+  2026-07-15, mismo patrón que R1/R2: `objetivo_puntualidad_pct` solo era un color pasivo en
+  Analítica, nadie se entera si no abre esa pestaña). §R4.
+  Construido (2026-07-15): `alertaObjetivoPuntualidad(metricas)` pura en `data.js` (reutiliza
+  `getMetricasPuntualidad()`, que ya trae `objetivoPuntualidadPct`, sin query nueva). Conectada a
+  `NotificationCenter.jsx` (la campana del dashboard): si el % actual cae por debajo del
+  objetivo, aparece como notificación con enlace a Analítica. 4 tests nuevos. `ci.ps1` completo
+  verde (204 backend, 406 vitest, build 22 páginas). Margen (`margen_objetivo_pct`) se deja fuera
+  a propósito: no existe hoy un agregado de margen en % (solo € y desviación), construir la
+  comparación sin ese dato sería inventar una cifra, no arreglar un bug.
 
 ---
 

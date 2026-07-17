@@ -213,6 +213,7 @@ const {
   getMetricasRentabilidad,
   getComparativaMensual,
   getInformeEjecutivo,
+  alertaObjetivoPuntualidad,
   crearSnapshotVerdadObservada,
   getTendenciaVerdadObservada,
   getSugerenciaCalibracion,
@@ -579,6 +580,26 @@ describe("getMetricasPuntualidad", () => {
     TABLES.empresa = [{ objetivo_puntualidad_pct: 95 }];
     const r = await getMetricasPuntualidad();
     expect(r.objetivoPuntualidadPct).toBe(95);
+  });
+});
+
+describe("alertaObjetivoPuntualidad (auditoría 2026-07-15 — objetivo dejaba de ser solo un color pasivo)", () => {
+  it("null si no hay objetivo configurado", () => {
+    expect(alertaObjetivoPuntualidad({ pctPuntualidad: 50, objetivoPuntualidadPct: null })).toBeNull();
+  });
+
+  it("null si no hay datos de puntualidad todavía", () => {
+    expect(alertaObjetivoPuntualidad({ pctPuntualidad: null, objetivoPuntualidadPct: 95 })).toBeNull();
+  });
+
+  it("null si el objetivo se está cumpliendo (actual >= objetivo)", () => {
+    expect(alertaObjetivoPuntualidad({ pctPuntualidad: 95, objetivoPuntualidadPct: 95 })).toBeNull();
+    expect(alertaObjetivoPuntualidad({ pctPuntualidad: 98, objetivoPuntualidadPct: 95 })).toBeNull();
+  });
+
+  it("alerta si el objetivo se está incumpliendo", () => {
+    const r = alertaObjetivoPuntualidad({ pctPuntualidad: 80, objetivoPuntualidadPct: 95 });
+    expect(r).toEqual({ objetivo: 95, actual: 80 });
   });
 });
 
