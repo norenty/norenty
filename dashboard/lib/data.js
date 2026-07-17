@@ -2805,6 +2805,28 @@ export async function getComparativaMensual(rango = {}) {
   };
 }
 
+/**
+ * R3 (Fase 16, 2026-07-15): informe ejecutivo para el jefe de tráfico —
+ * compone (sin queries de negocio nuevas) las métricas que ya existen en un
+ * único objeto plano pensado para imprimir/exportar, no para pintar cards
+ * interactivas. `getMetricasPuntualidad`/`getMetricasRentabilidad` se piden
+ * dos veces cada una (aquí y dentro de `getComparativaMensual`) porque son
+ * funciones independientes ya usadas así en el resto de `/analitica` (mismo
+ * criterio que el resto del proyecto: composición simple sobre datos ya
+ * cacheables por Supabase, no una optimización prematura).
+ */
+export async function getInformeEjecutivo(rango = {}) {
+  const { desde, hasta } = resolveRango(rango);
+  const [puntualidad, rentabilidad, flota, comparativa] = await Promise.all([
+    getMetricasPuntualidad({ desde, hasta }),
+    getMetricasRentabilidad({ desde, hasta }),
+    getMetricasFlota({ desde, hasta }),
+    getComparativaMensual({ desde, hasta }),
+  ]);
+
+  return { periodo: { desde, hasta }, puntualidad, rentabilidad, flota, comparativa };
+}
+
 // ==========================================================================
 // Plan-vs-real por hito (ítem 7A.9) — para cada hito, la ventana planificada
 // vs. la llegada real (evento de tipo "llegada"), con el delta en minutos.

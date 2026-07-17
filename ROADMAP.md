@@ -53,8 +53,17 @@ las señales?". Spec cerrada completa en `SPECS-FASE16.md` (leer OBLIGATORIO ant
   incidencia previa, confirman que NO se duplica). SQL verificado con `EXPLAIN` de solo lectura
   contra la BD real (sin tocar datos). `ci.ps1` completo verde (204 backend, 401 vitest, build
   21 páginas).
-- [ ] `[LOOP]` **R3 — Informe exportable/imprimible para el jefe de tráfico** (KPIs agregados del
+- [x] `[LOOP]` **R3 — Informe exportable/imprimible para el jefe de tráfico** (KPIs agregados del
   periodo, mismo patrón `print:` que `/nomina`/dossier, admin-only). §R3.
+  Construido (2026-07-15): `getInformeEjecutivo(rango)` en `data.js` — compone
+  `getMetricasPuntualidad`/`getMetricasRentabilidad`/`getMetricasFlota`/`getComparativaMensual`
+  (ya existían) en un único objeto plano. Nueva página `/analitica/informe` (admin-only,
+  `RequireRol`): bloques de Puntualidad/Rentabilidad/Flota con variación vs. periodo anterior,
+  botón "Imprimir / PDF" (`window.print()`, mismo patrón que `/nomina`). Enlace "Informe
+  ejecutivo" en la cabecera de `/analitica`, visible solo para `admin`. 1 test nuevo. `ci.ps1`
+  completo verde (204 backend, 402 vitest, build 22 páginas) — no verificado visualmente en
+  navegador (pantalla tras login, sin credenciales disponibles esta sesión, mismo caso que
+  F15.3), pero build limpio + test de composición. **Cierra la Fase 16 al 100%.**
 
 ---
 

@@ -212,6 +212,7 @@ const {
   getPnlViaje,
   getMetricasRentabilidad,
   getComparativaMensual,
+  getInformeEjecutivo,
   crearSnapshotVerdadObservada,
   getTendenciaVerdadObservada,
   getSugerenciaCalibracion,
@@ -2507,6 +2508,23 @@ describe("P&L real del viaje (7A.8)", () => {
     const enero = r.porMes.find((m) => m.mes === "2026-01");
     expect(enero.margenRealMedio).toBe(1000 - 50);
     expect(enero.numViajes).toBe(1);
+  });
+
+  it("getInformeEjecutivo (R3) no lanza y compone la forma esperada", async () => {
+    TABLES.viaje = [{ id: "v1", referencia: "R1", precio: 1000, vehiculo_id: null, created_at: "2026-03-15T00:00:00Z" }];
+    TABLES.hito = [{ orden: 1, ...MADRID, viaje_id: "v1" }, { orden: 2, ...BARCELONA, viaje_id: "v1" }];
+    TABLES.empresa = [{ coste_km: 0, velocidad_planificacion_kmh: 75 }];
+    TABLES.vehiculo = [{ id: "veh1", matricula: "1234ABC", activo: true }];
+    TABLES.gasto_viaje = [];
+    TABLES.incidencia = [];
+    TABLES.mantenimiento_vehiculo = [];
+
+    const r = await getInformeEjecutivo({ desde: "2026-03-01T00:00:00Z", hasta: "2026-04-01T00:00:00Z" });
+    expect(r.periodo.desde).toBe("2026-03-01T00:00:00Z");
+    expect(r.puntualidad).toHaveProperty("pctPuntualidad");
+    expect(r.rentabilidad).toHaveProperty("margenRealMedio");
+    expect(r.flota).toHaveProperty("totalVehiculos");
+    expect(r.comparativa).toHaveProperty("margenRealMedio");
   });
 
   it("getComparativaMensual (12.2) compara el periodo actual contra el anterior de igual duración", async () => {

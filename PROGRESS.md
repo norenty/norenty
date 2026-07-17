@@ -8,6 +8,11 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | R3 — Informe ejecutivo para el jefe de tráfico | (usuario) | HECHO.
+`getInformeEjecutivo(rango)` compone métricas ya existentes en un objeto plano. Página nueva
+`/analitica/informe` (admin-only), imprimible a PDF, enlazada desde la cabecera de Analítica.
+1 test nuevo. `ci.ps1` completo verde. Cierra la Fase 16 al 100% (R2 + R1 + R3).
+
 2026-07-15 | R1 — Escalación proactiva de retraso silencioso | (usuario) | HECHO.
 `monitor_retraso_silencioso.py` (mismo patrón que `monitor_heartbeat.py`, cron 15 min ya
 existente): nivel 1 detecta hito con ventana vencida sin confirmar (dedup vía

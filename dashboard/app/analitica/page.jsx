@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock, AlertTriangle, Users, CarFront, TrendingUp, History } from "lucide-react";
+import Link from "next/link";
+import { Clock, AlertTriangle, Users, CarFront, TrendingUp, History, ClipboardList } from "lucide-react";
 import {
   getMetricasPuntualidad,
   getMetricasIncidencias,
@@ -570,11 +571,21 @@ export default function Analitica() {
 
   return (
     <div>
-      <div className="flex items-baseline gap-2 mb-4">
-        <h1 className="text-xl font-medium text-ink">Analítica</h1>
-        <span className="text-xs text-ink-muted">
-          {vista === "flota" ? "estado actual (averías: últimos 90 días)" : "últimos 90 días"}
-        </span>
+      <div className="flex items-baseline justify-between gap-2 mb-4">
+        <div className="flex items-baseline gap-2">
+          <h1 className="text-xl font-medium text-ink">Analítica</h1>
+          <span className="text-xs text-ink-muted">
+            {vista === "flota" ? "estado actual (averías: últimos 90 días)" : "últimos 90 días"}
+          </span>
+        </div>
+        {rol === "admin" && (
+          <Link
+            href="/analitica/informe"
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border text-ink-secondary hover:bg-surface-alt no-underline shrink-0"
+          >
+            <ClipboardList size={13} /> Informe ejecutivo
+          </Link>
+        )}
       </div>
 
       <div className="flex gap-1 mb-4 border-b border-border" role="tablist" aria-label="Vista de analítica">
