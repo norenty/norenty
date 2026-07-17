@@ -527,6 +527,63 @@ async def test_notificar_gestor_evento_respeta_notif_entregas_desactivada(fake_d
     assert fake_transporte.enviados == []
 
 
+# --- Fase 15 (2026-07-15, hallazgo posterior a F15.2): las alertas por
+# Telegram deben respetar el mismo scoping por gestor_id que la RLS de
+# chofer/viaje -- si no, un gestor no asignado se enteraba por Telegram de
+# viajes que ni siquiera puede ver en su propio dashboard. ---
+
+@pytest.mark.asyncio
+async def test_alertar_gestor_no_avisa_a_gestor_no_asignado_si_el_viaje_tiene_dueño(fake_db, fake_transporte):
+    fake_db.tables["viaje"] = [{"id": "v1", "referencia": "VJ-1", "gestor_id": "g-asignado"}]
+    fake_db.tables["gestor"] = [{
+        "id": "g-otro", "empresa_id": "e1", "telegram_chat_id": "chat-ajeno",
+        "activo": True, "notif_incidencias": True, "rol": "gestor_operativo",
+    }]
+
+    await bot.alertar_gestor("e1", "v1", "otro", "texto")
+
+    assert fake_transporte.enviados == []
+
+
+@pytest.mark.asyncio
+async def test_alertar_gestor_avisa_al_gestor_asignado(fake_db, fake_transporte):
+    fake_db.tables["viaje"] = [{"id": "v1", "referencia": "VJ-1", "gestor_id": "g-asignado"}]
+    fake_db.tables["gestor"] = [
+        {"id": "g-asignado", "empresa_id": "e1", "telegram_chat_id": "chat-asignado", "activo": True, "notif_incidencias": True, "rol": "gestor_operativo"},
+        {"id": "g-otro", "empresa_id": "e1", "telegram_chat_id": "chat-ajeno", "activo": True, "notif_incidencias": True, "rol": "gestor_operativo"},
+    ]
+
+    await bot.alertar_gestor("e1", "v1", "otro", "texto")
+
+    assert len(fake_transporte.enviados) == 1
+    assert fake_transporte.enviados[0][0] == "chat-asignado"
+
+
+@pytest.mark.asyncio
+async def test_alertar_gestor_avisa_a_admin_aunque_no_sea_el_asignado(fake_db, fake_transporte):
+    fake_db.tables["viaje"] = [{"id": "v1", "referencia": "VJ-1", "gestor_id": "g-asignado"}]
+    fake_db.tables["gestor"] = [
+        {"id": "g-admin", "empresa_id": "e1", "telegram_chat_id": "chat-admin", "activo": True, "notif_incidencias": True, "rol": "admin"},
+    ]
+
+    await bot.alertar_gestor("e1", "v1", "otro", "texto")
+
+    assert len(fake_transporte.enviados) == 1
+
+
+@pytest.mark.asyncio
+async def test_alertar_gestor_sin_gestor_id_en_el_viaje_avisa_a_todos_los_de_la_preferencia(fake_db, fake_transporte):
+    fake_db.tables["viaje"] = [{"id": "v1", "referencia": "VJ-1", "gestor_id": None}]
+    fake_db.tables["gestor"] = [
+        {"id": "g1", "empresa_id": "e1", "telegram_chat_id": "chat-1", "activo": True, "notif_incidencias": True, "rol": "gestor_operativo"},
+        {"id": "g2", "empresa_id": "e1", "telegram_chat_id": "chat-2", "activo": True, "notif_incidencias": True, "rol": "gestor_operativo"},
+    ]
+
+    await bot.alertar_gestor("e1", "v1", "otro", "texto")
+
+    assert len(fake_transporte.enviados) == 2
+
+
 # --- /parking (ítem 6.7) ---
 
 MADRID = (40.4168, -3.7038)

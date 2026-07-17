@@ -711,25 +711,44 @@ def columna_pref_notificacion(tipo):
     return "notif_incidencias"
 
 
-def _gestores_a_notificar(empresa_id, columna_pref):
+def _gestores_a_notificar(empresa_id, columna_pref, viaje_id=None):
     """Gestores ACTIVOS de la empresa con la preferencia `columna_pref`
     activada y Telegram vinculado -- R2 (2026-07-15): antes `alertar_gestor`/
     `notificar_gestor_evento` mandaban a TODOS los gestores con chat_id, sin
-    mirar ni `activo` ni ninguna preferencia (las tres quedaban decorativas)."""
+    mirar ni `activo` ni ninguna preferencia (las tres quedaban decorativas).
+
+    Fase 15 (2026-07-15, hallazgo posterior): si el viaje tiene `gestor_id`
+    asignado, solo ESE gestor (o un `admin`) debe enterarse -- mismo criterio
+    de visibilidad que la política RLS de `chofer`/`viaje` (F15.2). El bot
+    corre con privilegios de servicio y NO pasa por RLS, así que sin este
+    filtro un gestor NO asignado seguía recibiendo por Telegram avisos de
+    viajes que ni siquiera puede ver en su propio dashboard -- una fuga de
+    información entre el modelo de visibilidad (Fase 15) y el de avisos
+    (R1/R2), construidos en sesiones distintas y no coordinados hasta ahora."""
+    gestor_id_asignado = None
+    if viaje_id:
+        v = supabase.table("viaje").select("gestor_id").eq("id", viaje_id).execute()
+        if v.data:
+            gestor_id_asignado = v.data[0].get("gestor_id")
+
     r = (
         supabase.table("gestor")
-        .select("telegram_chat_id")
+        .select("telegram_chat_id, rol, id")
         .eq("empresa_id", empresa_id)
         .eq("activo", True)
         .eq(columna_pref, True)
         .execute()
     )
-    return [g["telegram_chat_id"] for g in (r.data or []) if g.get("telegram_chat_id")]
+    gestores = r.data or []
+    if gestor_id_asignado:
+        gestores = [g for g in gestores if g.get("rol") == "admin" or g.get("id") == gestor_id_asignado]
+    return [g["telegram_chat_id"] for g in gestores if g.get("telegram_chat_id")]
 
 
 async def alertar_gestor(empresa_id, viaje_id, tipo, descripcion):
     """Crea una incidencia y notifica a los gestores de la empresa por Telegram
-    -- solo a los ACTIVOS con la preferencia correspondiente activada (R2)."""
+    -- solo a los ACTIVOS con la preferencia correspondiente activada (R2),
+    y solo al gestor asignado del viaje si lo tiene (Fase 15)."""
     supabase.table("incidencia").insert({
         "viaje_id": viaje_id,
         "tipo": tipo,
@@ -737,7 +756,7 @@ async def alertar_gestor(empresa_id, viaje_id, tipo, descripcion):
         "estado": "abierta",
     }).execute()
 
-    chats = _gestores_a_notificar(empresa_id, columna_pref_notificacion(tipo))
+    chats = _gestores_a_notificar(empresa_id, columna_pref_notificacion(tipo), viaje_id)
     for chat in chats:
         try:
             viaje_r = supabase.table("viaje").select("referencia").eq("id", viaje_id).execute()
@@ -763,7 +782,7 @@ async def notificar_gestor_evento(empresa_id, viaje_id, mensaje, tipo_notif="ent
     realidad no llegó a NADIE (chofer sin Telegram Y sin ningún gestor
     notificable), que antes se daba por resuelto en silencio."""
     columna_pref = "notif_entregas" if tipo_notif == "entregas" else "notif_incidencias"
-    chats = _gestores_a_notificar(empresa_id, columna_pref)
+    chats = _gestores_a_notificar(empresa_id, columna_pref, viaje_id)
     notificados = 0
     for chat in chats:
         try:

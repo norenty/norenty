@@ -8,6 +8,13 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | R7 — Fuga de información entre scoping (Fase 15) y alertas (R1/R2) | (usuario) | HECHO.
+`_gestores_a_notificar` (bot.py) y el monitor de retraso silencioso avisaban a TODOS los
+gestores con la preferencia activada, sin mirar `gestor_id` del viaje — un gestor no asignado se
+enteraba por Telegram de viajes que no puede ver en su dashboard. Corregido en ambos sitios:
+filtra al gestor asignado o a un admin, mismo criterio que la RLS de F15.2, replicado porque
+estos procesos corren con privilegios de servicio. 9 tests nuevos. `ci.ps1` completo verde.
+
 2026-07-15 | R5 + R6 — Auditoría bot.py + alerta de margen | (usuario) | HECHO.
 R5: `procesar_notificaciones_asignacion` marcaba "avisado" aunque nadie (ni chófer ni gestor)
 recibiera nada — corregido, `notificar_gestor_evento` devuelve cuántos recibieron, solo se marca

@@ -52,7 +52,7 @@ def obtener_hitos_sin_alertar(cur):
     `incidencia.hito_id` existe desde 0001, se reutiliza como marca de "ya
     alertado" sin tabla nueva para el nivel 1)."""
     cur.execute("""
-        SELECT h.id, h.orden, h.direccion, v.id, v.referencia, v.empresa_id, c.nombre
+        SELECT h.id, h.orden, h.direccion, v.id, v.referencia, v.empresa_id, c.nombre, v.gestor_id
         FROM hito h
         JOIN viaje v ON v.id = h.viaje_id
         LEFT JOIN chofer c ON c.id = v.chofer_id
@@ -81,7 +81,7 @@ def obtener_incidencias_a_escalar(cur, umbral_min=UMBRAL_ESCALACION_MIN):
     """Incidencias fuera_de_ventana abiertas, creadas hace más de umbral_min,
     que aún no se escalaron."""
     cur.execute(
-        "SELECT i.id, i.viaje_id, v.referencia, v.empresa_id "
+        "SELECT i.id, i.viaje_id, v.referencia, v.empresa_id, v.gestor_id "
         "FROM incidencia i JOIN viaje v ON v.id = i.viaje_id "
         "WHERE i.tipo = 'fuera_de_ventana' AND i.estado = 'abierta' "
         "AND i.escalada_en IS NULL "
@@ -95,27 +95,44 @@ def marcar_escalada(cur, incidencia_id):
     cur.execute("UPDATE incidencia SET escalada_en = now() WHERE id = %s", (incidencia_id,))
 
 
-def chats_gestores_nivel1(cur, empresa_id):
-    """Solo gestores activos con la preferencia notif_fuera_ventana activada
-    (R2) -- nivel 1 respeta la preferencia."""
+def _filtrar_por_asignacion(gestores, gestor_id_asignado):
+    """Fase 15 (2026-07-15, hallazgo posterior a F15.2): si el viaje tiene
+    `gestor_id` asignado, solo ESE gestor (o un `admin`) debe enterarse --
+    mismo criterio de visibilidad que la política RLS de F15.2. Este script
+    conecta con `DATABASE_URL` (privilegios de servicio, sin RLS), así que
+    sin este filtro un gestor no asignado recibía por Telegram avisos de
+    viajes que ni siquiera puede ver en su propio dashboard."""
+    if not gestor_id_asignado:
+        return gestores
+    return [g for g in gestores if g[1] == "admin" or g[2] == gestor_id_asignado]
+
+
+def chats_gestores_nivel1(cur, empresa_id, gestor_id_asignado=None):
+    """Gestores activos con la preferencia notif_fuera_ventana activada (R2)
+    -- nivel 1 respeta la preferencia -- y, si el viaje tiene gestor
+    asignado, solo ese gestor o un admin (Fase 15)."""
     cur.execute(
-        "SELECT telegram_chat_id FROM gestor "
+        "SELECT telegram_chat_id, rol, id FROM gestor "
         "WHERE empresa_id = %s AND activo = true AND notif_fuera_ventana = true "
         "AND telegram_chat_id IS NOT NULL",
         (empresa_id,),
     )
-    return [fila[0] for fila in cur.fetchall()]
+    gestores = _filtrar_por_asignacion(cur.fetchall(), gestor_id_asignado)
+    return [fila[0] for fila in gestores]
 
 
-def chats_gestores_todos(cur, empresa_id):
+def chats_gestores_todos(cur, empresa_id, gestor_id_asignado=None):
     """Todos los gestores activos de la empresa, IGNORANDO la preferencia --
-    nivel 2 (escalación): a los 45 min sin resolver deja de ser opcional."""
+    nivel 2 (escalación): a los 45 min sin resolver deja de ser opcional.
+    SIGUE respetando la asignación (Fase 15): la urgencia no es excusa para
+    filtrar información a quien no debería verla."""
     cur.execute(
-        "SELECT telegram_chat_id FROM gestor "
+        "SELECT telegram_chat_id, rol, id FROM gestor "
         "WHERE empresa_id = %s AND activo = true AND telegram_chat_id IS NOT NULL",
         (empresa_id,),
     )
-    return [fila[0] for fila in cur.fetchall()]
+    gestores = _filtrar_por_asignacion(cur.fetchall(), gestor_id_asignado)
+    return [fila[0] for fila in gestores]
 
 
 def mensaje_nivel1(referencia, orden, direccion, nombre_chofer):
@@ -142,18 +159,18 @@ def revisar_y_escalar(cur, token, umbral_min=UMBRAL_ESCALACION_MIN, enviar_fn=en
     ni Postgres real)."""
     resultado = {"nivel1_creadas": 0, "nivel1_notificados": 0, "nivel2_escaladas": 0, "nivel2_notificados": 0}
 
-    for hito_id, orden, direccion, viaje_id, referencia, empresa_id, nombre_chofer in obtener_hitos_sin_alertar(cur):
+    for hito_id, orden, direccion, viaje_id, referencia, empresa_id, nombre_chofer, gestor_id in obtener_hitos_sin_alertar(cur):
         ref = referencia or str(viaje_id)[:8]
         descripcion = f"{nombre_chofer or 'Chófer'} no confirmó la llegada a {direccion or f'hito {orden}'} (ventana vencida)."
         crear_incidencia(cur, hito_id, viaje_id, descripcion)
         resultado["nivel1_creadas"] += 1
-        for chat in chats_gestores_nivel1(cur, empresa_id):
+        for chat in chats_gestores_nivel1(cur, empresa_id, gestor_id):
             enviar_fn(token, chat, mensaje_nivel1(ref, orden, direccion, nombre_chofer))
             resultado["nivel1_notificados"] += 1
 
-    for incidencia_id, viaje_id, referencia, empresa_id in obtener_incidencias_a_escalar(cur, umbral_min):
+    for incidencia_id, viaje_id, referencia, empresa_id, gestor_id in obtener_incidencias_a_escalar(cur, umbral_min):
         ref = referencia or str(viaje_id)[:8]
-        for chat in chats_gestores_todos(cur, empresa_id):
+        for chat in chats_gestores_todos(cur, empresa_id, gestor_id):
             enviar_fn(token, chat, mensaje_nivel2(ref))
             resultado["nivel2_notificados"] += 1
         marcar_escalada(cur, incidencia_id)

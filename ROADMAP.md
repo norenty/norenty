@@ -99,6 +99,21 @@ las señales?". Spec cerrada completa en `SPECS-FASE16.md` (leer OBLIGATORIO ant
   carrera de milisegundos (`.lt()` estricto) — corregido a `haceUnaHora`, mismo patrón ya usado
   en el test vecino. `ci.ps1` completo verde (205 backend, 411 vitest, build 22 páginas),
   verificado estable en 3 ejecuciones seguidas tras el fix.
+- [x] `[LOOP]` **R7 — Fuga de información entre el scoping de Fase 15 y las alertas de R1/R2**
+  (auditoría de código 2026-07-15: `_gestores_a_notificar` y el monitor de retraso silencioso
+  avisaban a TODOS los gestores de la empresa con la preferencia activada, sin mirar el
+  `gestor_id` del viaje — un gestor no asignado se enteraba por Telegram de viajes que ni
+  siquiera puede ver en su propio dashboard tras F15.2). §R7.
+  Construido (2026-07-15): `_gestores_a_notificar()` (bot.py) ahora consulta el `gestor_id` del
+  viaje y, si tiene uno asignado, filtra a ESE gestor o a un `admin` — mismo criterio que la
+  política RLS de F15.2, replicado en código porque el bot corre con privilegios de servicio y no
+  pasa por RLS. `alertar_gestor`/`notificar_gestor_evento` pasan `viaje_id` para que el filtro
+  pueda resolverlo. `monitor_retraso_silencioso.py` recibe el mismo tratamiento: sus dos queries
+  ahora traen `v.gestor_id`, y `chats_gestores_nivel1`/`chats_gestores_todos` filtran igual —
+  incluida la escalación de nivel 2 (la urgencia no es excusa para filtrar a quien no debería
+  ver ese viaje). 9 tests nuevos (4 en `test_bot.py`, 5 en `test_monitor_retraso_silencioso.py`,
+  cubriendo gestor asignado/no asignado/admin/sin asignar). `ci.ps1` completo verde (214 backend,
+  411 vitest, build 22 páginas).
 
 ---
 
