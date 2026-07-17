@@ -74,6 +74,31 @@ las señales?". Spec cerrada completa en `SPECS-FASE16.md` (leer OBLIGATORIO ant
   verde (204 backend, 406 vitest, build 22 páginas). Margen (`margen_objetivo_pct`) se deja fuera
   a propósito: no existe hoy un agregado de margen en % (solo € y desviación), construir la
   comparación sin ese dato sería inventar una cifra, no arreglar un bug.
+- [x] `[LOOP]` **R5 — Notificación de asignación "resuelta en falso" cuando nadie se entera**
+  (auditoría de código 2026-07-15: si el chófer no tiene Telegram Y tampoco había ningún gestor
+  notificable, se marcaba `notificado_asignacion_en` igualmente — el viaje quedaba "avisado" sin
+  que nadie se hubiera enterado, nunca se reintentaba). §R5.
+  Construido (2026-07-15): `notificar_gestor_evento()` ahora devuelve cuántos gestores recibieron
+  el mensaje de verdad. `procesar_notificaciones_asignacion()` solo marca
+  `notificado_asignacion_en` si ese fallback llegó a AL MENOS UNO — si no, se deja sin marcar
+  para que el siguiente tick lo reintente (mismo criterio que el reintento ya existente si
+  `send_message` al chófer falla). 2 tests nuevos (el caso ya cubierto + el nuevo). `ci.ps1`
+  completo verde.
+- [x] `[LOOP]` **R6 — Alerta de objetivo de margen incumplido** (auditoría de código 2026-07-15,
+  hermano de R4: `margen_objetivo_pct` no se leía en NINGÚN sitio del bot, y en el dashboard solo
+  alimentaba el precio sugerido hacia adelante — nunca se comparaba contra el margen REAL ya
+  conseguido). §R6.
+  Construido (2026-07-15): `getMetricasRentabilidad` extendido con `margenRealMedioPct` (media de
+  `margenReal/precio` por viaje, NO €medio/€medio que sesgaría hacia los viajes caros) y
+  `margenObjetivoPct` (nueva query a `empresa`, mismo patrón que `objetivoPuntualidadPct`).
+  `alertaObjetivoMargen(metricas)` pura, conectada a `NotificationCenter.jsx` — admin-only (dato
+  de coste, mismo criterio que el resto del proyecto), con `rol` añadido a las deps del efecto de
+  carga para que aparezca sin tener que reabrir la campana a mano. 5 tests nuevos (incluida la
+  cobertura de `margenRealMedioPct`). Cazado y arreglado un test flaky en el camino: usar
+  `new Date()` para el fixture Y para el borde de la ventana por defecto puede empatar por una
+  carrera de milisegundos (`.lt()` estricto) — corregido a `haceUnaHora`, mismo patrón ya usado
+  en el test vecino. `ci.ps1` completo verde (205 backend, 411 vitest, build 22 páginas),
+  verificado estable en 3 ejecuciones seguidas tras el fix.
 
 ---
 

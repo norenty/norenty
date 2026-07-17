@@ -214,6 +214,7 @@ const {
   getComparativaMensual,
   getInformeEjecutivo,
   alertaObjetivoPuntualidad,
+  alertaObjetivoMargen,
   crearSnapshotVerdadObservada,
   getTendenciaVerdadObservada,
   getSugerenciaCalibracion,
@@ -600,6 +601,25 @@ describe("alertaObjetivoPuntualidad (auditoría 2026-07-15 — objetivo dejaba d
   it("alerta si el objetivo se está incumpliendo", () => {
     const r = alertaObjetivoPuntualidad({ pctPuntualidad: 80, objetivoPuntualidadPct: 95 });
     expect(r).toEqual({ objetivo: 95, actual: 80 });
+  });
+});
+
+describe("alertaObjetivoMargen (auditoría 2026-07-15 — margen_objetivo_pct no se leía en ningún sitio)", () => {
+  it("null si no hay objetivo configurado", () => {
+    expect(alertaObjetivoMargen({ margenRealMedioPct: 5, margenObjetivoPct: null })).toBeNull();
+  });
+
+  it("null si no hay datos de margen todavía", () => {
+    expect(alertaObjetivoMargen({ margenRealMedioPct: null, margenObjetivoPct: 15 })).toBeNull();
+  });
+
+  it("null si el objetivo se está cumpliendo", () => {
+    expect(alertaObjetivoMargen({ margenRealMedioPct: 20, margenObjetivoPct: 15 })).toBeNull();
+  });
+
+  it("alerta si el margen real está por debajo del objetivo", () => {
+    const r = alertaObjetivoMargen({ margenRealMedioPct: 5, margenObjetivoPct: 15 });
+    expect(r).toEqual({ objetivo: 15, actual: 5 });
   });
 });
 
@@ -2508,6 +2528,28 @@ describe("P&L real del viaje (7A.8)", () => {
     expect(r.viajesAPerdidasReales).toBe(1);
     expect(r.margenRealMedio).not.toBeNull();
     expect(r.top5.length).toBeGreaterThan(0);
+  });
+
+  it("margenRealMedioPct (auditoría 2026-07-15): media de margenReal/precio, no €/€ (no sesga a los viajes caros)", async () => {
+    // haceUnaHora, no new Date(): claramente dentro de la ventana, sin
+    // empatar con "hasta" (mismo criterio que el test de arriba -- usar el
+    // instante exacto de "ahora" puede caer justo en el borde de `.lt()` y
+    // volverse flaky por una carrera de milisegundos).
+    const haceUnaHora = new Date(Date.now() - 3600000).toISOString();
+    TABLES.viaje = [
+      { id: "v1", referencia: "R1", precio: 1000, vehiculo_id: null, created_at: haceUnaHora }, // margen 1000, 100%
+      { id: "v2", referencia: "R2", precio: 100, vehiculo_id: null, created_at: haceUnaHora },  // margen 50, 50%
+    ];
+    TABLES.hito = [
+      { orden: 1, ...MADRID, viaje_id: "v1" }, { orden: 2, ...BARCELONA, viaje_id: "v1" },
+      { orden: 1, ...MADRID, viaje_id: "v2" }, { orden: 2, ...BARCELONA, viaje_id: "v2" },
+    ];
+    TABLES.empresa = [{ coste_km: 0, velocidad_planificacion_kmh: 75, margen_objetivo_pct: 60 }];
+    TABLES.gasto_viaje = [{ id: "g1", viaje_id: "v2", tipo: "peaje", importe: 50 }];
+
+    const r = await getMetricasRentabilidad();
+    expect(r.margenRealMedioPct).toBe(75); // media de (100+50)/2, NO ponderada por precio
+    expect(r.margenObjetivoPct).toBe(60);
   });
 
   it("F13.4: getMetricasRentabilidad agrega margen estimado vs. real por mes, solo con costeEstimado disponible", async () => {

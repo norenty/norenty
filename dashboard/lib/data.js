@@ -2447,15 +2447,15 @@ export async function getPnlViaje(viajeId) {
  */
 export async function getMetricasRentabilidad(rango = {}) {
   const { desde, hasta } = resolveRango(rango);
-  const { data: viajes, error: errorViajes } = await supabase
-    .from("viaje")
-    .select("id, referencia, precio, created_at")
-    .gte("created_at", desde)
-    .lt("created_at", hasta);
+  const [{ data: viajes, error: errorViajes }, { data: empresas }] = await Promise.all([
+    supabase.from("viaje").select("id, referencia, precio, created_at").gte("created_at", desde).lt("created_at", hasta),
+    supabase.from("empresa").select("margen_objetivo_pct").limit(1),
+  ]);
   // Ítem 9.35: un fallo real aquí no debe verse como "sin viajes en el
   // periodo" (0 viajes a pérdidas, margen medio null es un resultado
   // legítimo distinto de "la consulta falló").
   if (errorViajes) throw errorViajes;
+  const margenObjetivoPct = empresas?.[0]?.margen_objetivo_pct != null ? Number(empresas[0].margen_objetivo_pct) : null;
 
   const conPrecio = (viajes || []).filter((v) => v.precio != null);
 
@@ -2469,6 +2469,15 @@ export async function getMetricasRentabilidad(rango = {}) {
   const conAmbos = filas.filter((f) => f.desviacionPct != null);
   const margenRealMedio = filas.length
     ? Math.round(filas.reduce((s, f) => s + (f.margenReal ?? 0), 0) / filas.length)
+    : null;
+  // Auditoría 2026-07-15 (mismo patrón que R4): margen_objetivo_pct
+  // (Ajustes → Empresa) es un %, pero margenRealMedio es € -- no se pueden
+  // comparar. margenRealMedioPct sí es directamente comparable (media de
+  // margenReal/precio por viaje, no margenRealMedio€/precioMedio€, que
+  // pesaría de más a los viajes caros).
+  const conMargenPct = filas.filter((f) => f.margenReal != null && f.precio > 0);
+  const margenRealMedioPct = conMargenPct.length
+    ? Math.round(conMargenPct.reduce((s, f) => s + (f.margenReal / f.precio) * 100, 0) / conMargenPct.length)
     : null;
   const viajesAPerdidasReales = filas.filter((f) => f.margenReal != null && f.margenReal < 0).length;
   const desviacionMedia = conAmbos.length
@@ -2496,6 +2505,8 @@ export async function getMetricasRentabilidad(rango = {}) {
 
   return {
     margenRealMedio,
+    margenRealMedioPct,
+    margenObjetivoPct,
     viajesAPerdidasReales,
     desviacionMedia,
     // viajesConDesviacion (10.8): cuántos viajes tenían gastos reales Y coste
@@ -2818,6 +2829,20 @@ export function alertaObjetivoPuntualidad(metricas) {
   if (!metricas || metricas.objetivoPuntualidadPct == null || metricas.pctPuntualidad == null) return null;
   if (metricas.pctPuntualidad >= metricas.objetivoPuntualidadPct) return null;
   return { objetivo: metricas.objetivoPuntualidadPct, actual: metricas.pctPuntualidad };
+}
+
+/**
+ * Auditoría de código (2026-07-15, mismo patrón que `alertaObjetivoPuntualidad`
+ * y R1/R2 de Fase 16): `empresa.margen_objetivo_pct` no se leía en NINGÚN
+ * sitio del bot, y en el dashboard solo alimentaba el precio sugerido del
+ * presupuestador (hacia adelante) -- nunca se comparaba contra el margen
+ * REAL ya conseguido. Pura: usa `margenRealMedioPct` (media de
+ * margenReal/precio por viaje, no €/€ que sesgaría hacia los viajes caros).
+ */
+export function alertaObjetivoMargen(metricas) {
+  if (!metricas || metricas.margenObjetivoPct == null || metricas.margenRealMedioPct == null) return null;
+  if (metricas.margenRealMedioPct >= metricas.margenObjetivoPct) return null;
+  return { objetivo: metricas.margenObjetivoPct, actual: metricas.margenRealMedioPct };
 }
 
 /**

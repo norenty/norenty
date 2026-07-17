@@ -757,17 +757,24 @@ async def notificar_gestor_evento(empresa_id, viaje_id, mensaje, tipo_notif="ent
     """Envía notificación informativa (no incidencia) a los gestores -- solo a
     los ACTIVOS con la preferencia correspondiente (R2). `tipo_notif`:
     "entregas" (default, cubre entrega/POD/viaje completado/asignación, los
-    4 usos actuales) o "incidencias"."""
+    4 usos actuales) o "incidencias". Devuelve cuántos gestores recibieron el
+    mensaje de verdad -- el llamador (p.ej. `procesar_notificaciones_asignacion`,
+    hallazgo 2026-07-15) lo usa para no marcar "ya avisado" cuando en
+    realidad no llegó a NADIE (chofer sin Telegram Y sin ningún gestor
+    notificable), que antes se daba por resuelto en silencio."""
     columna_pref = "notif_entregas" if tipo_notif == "entregas" else "notif_incidencias"
     chats = _gestores_a_notificar(empresa_id, columna_pref)
+    notificados = 0
     for chat in chats:
         try:
             await transporte_gestor.enviar_texto(chat, mensaje)
+            notificados += 1
         except Exception as e:
             logger.error(
                 "Error notificando gestor %s: %s", chat, e,
                 extra={"empresa_id": empresa_id, "viaje_id": viaje_id, "chat_id": chat},
             )
+    return notificados
 
 
 def nav_buttons(hito):
@@ -1886,11 +1893,21 @@ async def procesar_notificaciones_asignacion(ctx: ContextTypes.DEFAULT_TYPE):
             continue
 
         if not chofer.get("chat_id"):
-            supabase.table("viaje").update({"notificado_asignacion_en": ahora}).eq("id", viaje["id"]).execute()
-            await notificar_gestor_evento(
+            # Hallazgo 2026-07-15: antes se marcaba "avisado" AQUÍ mismo, sin
+            # comprobar si el aviso al gestor (el único que queda como
+            # fallback) llegó a alguien de verdad. Si tampoco había ningún
+            # gestor notificable (inactivo, sin Telegram, o con la
+            # preferencia desactivada), el viaje quedaba "notificado" para
+            # siempre sin que NADIE se hubiera enterado. Ahora solo se marca
+            # si el fallback llegó a al menos un gestor; si no, se deja sin
+            # marcar para que el siguiente tick lo reintente (mismo criterio
+            # que el reintento ya existente más abajo si send_message falla).
+            notificados = await notificar_gestor_evento(
                 chofer["empresa_id"], viaje["id"],
                 f"⚠️ {chofer['nombre']} no está vinculado a Telegram — no se le pudo avisar del viaje {ref}.",
             )
+            if notificados > 0:
+                supabase.table("viaje").update({"notificado_asignacion_en": ahora}).eq("id", viaje["id"]).execute()
             continue
 
         hitos_r = supabase.table("hito").select("orden, lat, lon, direccion").eq("viaje_id", viaje["id"]).order("orden").execute()

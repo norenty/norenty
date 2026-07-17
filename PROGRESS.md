@@ -8,6 +8,14 @@ depender del historial de conversación.
 
 ---
 
+2026-07-15 | R5 + R6 — Auditoría bot.py + alerta de margen | (usuario) | HECHO.
+R5: `procesar_notificaciones_asignacion` marcaba "avisado" aunque nadie (ni chófer ni gestor)
+recibiera nada — corregido, `notificar_gestor_evento` devuelve cuántos recibieron, solo se marca
+si >0. R6: `margen_objetivo_pct` nunca se comparaba contra el margen real — nuevo
+`margenRealMedioPct` (media de %, no €/€) + `alertaObjetivoMargen`, admin-only en la campana.
+7 tests nuevos + 1 test flaky arreglado (carrera de milisegundos con `new Date()`). `ci.ps1`
+completo verde, estable en 3 ejecuciones.
+
 2026-07-15 | R4 — Alerta de objetivo de puntualidad incumplido | (usuario) | HECHO.
 Auditoría del lado dashboard (mismo patrón que R1/R2): `objetivo_puntualidad_pct` era solo un
 color pasivo en Analítica. `alertaObjetivoPuntualidad()` pura + cableado en `NotificationCenter`

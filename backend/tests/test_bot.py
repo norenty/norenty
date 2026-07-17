@@ -829,6 +829,25 @@ async def test_procesar_notificaciones_chofer_sin_chat_id_notifica_gestor(fake_d
 
 
 @pytest.mark.asyncio
+async def test_procesar_notificaciones_chofer_y_gestor_sin_alcance_no_marca_avisado(fake_db, fake_transporte):
+    """Hallazgo 2026-07-15: si el chófer no tiene Telegram Y tampoco hay
+    ningún gestor notificable (aquí: notif_entregas desactivada), antes se
+    marcaba `notificado_asignacion_en` igualmente -- el viaje quedaba
+    "avisado" sin que nadie se hubiera enterado. Ahora se deja sin marcar
+    para que el siguiente tick lo reintente."""
+    fake_db.tables["viaje"] = [
+        {"id": "v1", "referencia": "REF1", "chofer_id": "c1", "estado": "planificado", "notificado_asignacion_en": None},
+    ]
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": None, "empresa_id": "e1"}]
+    fake_db.tables["gestor"] = [{"empresa_id": "e1", "telegram_chat_id": "gestor-chat", "activo": True, "notif_entregas": False}]
+    ctx = SimpleNamespace(bot=AsyncMock())
+    await bot.procesar_notificaciones_asignacion(ctx)
+
+    assert fake_transporte.enviados == []
+    assert fake_db.tables["viaje"][0]["notificado_asignacion_en"] is None  # se reintentará
+
+
+@pytest.mark.asyncio
 async def test_procesar_notificaciones_nada_pendiente_no_hace_nada(fake_db):
     fake_db.tables["viaje"] = [
         {"id": "v1", "referencia": "REF1", "chofer_id": "c1", "estado": "planificado", "notificado_asignacion_en": "2026-01-01T00:00:00+00:00"},

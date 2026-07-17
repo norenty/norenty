@@ -2,13 +2,18 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, AlertTriangle, Check, Truck, X, FileWarning, Target } from "lucide-react";
+import { Bell, AlertTriangle, Check, Truck, X, FileWarning, Target, Euro } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { getDocumentosPorCaducar, getMetricasPuntualidad, alertaObjetivoPuntualidad } from "../../lib/data";
+import {
+  getDocumentosPorCaducar, getMetricasPuntualidad, alertaObjetivoPuntualidad,
+  getMetricasRentabilidad, alertaObjetivoMargen,
+} from "../../lib/data";
 import { TIPO_DOC_LABEL } from "../../lib/labels";
+import { useRol } from "./RolProvider";
 
 export default function NotificationCenter() {
   const router = useRouter();
+  const { rol } = useRol();
   const [notifs, setNotifs] = useState([]);
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
@@ -25,7 +30,7 @@ export default function NotificationCenter() {
   async function loadNotifs() {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    const [incRes, evtRes, docsPorCaducar, metricasPuntualidad] = await Promise.all([
+    const [incRes, evtRes, docsPorCaducar, metricasPuntualidad, metricasRentabilidad] = await Promise.all([
       supabase
         .from("incidencia")
         .select("id, tipo, descripcion, created_at, viaje_id, viaje(referencia)")
@@ -40,19 +45,36 @@ export default function NotificationCenter() {
         .limit(10),
       getDocumentosPorCaducar(),
       getMetricasPuntualidad(),
+      // Margen es dato de coste -- admin-only en todo el proyecto (mismo
+      // criterio que Analítica → Rentabilidad); no se pide si no hace falta.
+      rol === "admin" ? getMetricasRentabilidad() : Promise.resolve(null),
     ]);
 
-    const alertaObjetivo = alertaObjetivoPuntualidad(metricasPuntualidad);
+    const alertaPuntualidad = alertaObjetivoPuntualidad(metricasPuntualidad);
+    const alertaMargen = rol === "admin" ? alertaObjetivoMargen(metricasRentabilidad) : null;
 
     const items = [
-      ...(alertaObjetivo
+      ...(alertaPuntualidad
         ? [{
             id: "objetivo-puntualidad",
             type: "objetivo",
             icon: Target,
             iconColor: "text-estado-incidencia",
             title: "Objetivo de puntualidad incumplido",
-            sub: `${alertaObjetivo.actual}% actual, objetivo ${alertaObjetivo.objetivo}%`,
+            sub: `${alertaPuntualidad.actual}% actual, objetivo ${alertaPuntualidad.objetivo}%`,
+            ref: "Analítica",
+            href: "/analitica",
+            time: new Date().toISOString(),
+          }]
+        : []),
+      ...(alertaMargen
+        ? [{
+            id: "objetivo-margen",
+            type: "objetivo",
+            icon: Euro,
+            iconColor: "text-estado-incidencia",
+            title: "Objetivo de margen incumplido",
+            sub: `${alertaMargen.actual}% actual, objetivo ${alertaMargen.objetivo}%`,
             ref: "Analítica",
             href: "/analitica",
             time: new Date().toISOString(),
@@ -98,6 +120,9 @@ export default function NotificationCenter() {
   }
 
   useEffect(() => {
+    // rol en las deps: si se resuelve DESPUÉS del montaje inicial (async,
+    // useRol), hay que recargar para que la alerta de margen (admin-only)
+    // aparezca sin tener que cerrar/reabrir la campana a mano.
     loadNotifs();
     const channel = supabase
       .channel("notifs")
@@ -105,7 +130,7 @@ export default function NotificationCenter() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "ejecucion_evento" }, loadNotifs)
       .subscribe();
     return () => supabase.removeChannel(channel);
-  }, []);
+  }, [rol]);
 
   function ir(href) {
     setOpen(false);
