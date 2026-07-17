@@ -6,7 +6,7 @@ import { Bell, AlertTriangle, Check, Truck, X, FileWarning, Target, Euro } from 
 import { supabase } from "../../lib/supabase";
 import {
   getDocumentosPorCaducar, getMetricasPuntualidad, alertaObjetivoPuntualidad,
-  getMetricasRentabilidad, alertaObjetivoMargen,
+  getAlertaMargen, alertaObjetivoMargen,
 } from "../../lib/data";
 import { TIPO_DOC_LABEL } from "../../lib/labels";
 import { useRol } from "./RolProvider";
@@ -30,7 +30,7 @@ export default function NotificationCenter() {
   async function loadNotifs() {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    const [incRes, evtRes, docsPorCaducar, metricasPuntualidad, metricasRentabilidad] = await Promise.all([
+    const [incRes, evtRes, docsPorCaducar, metricasPuntualidad, alertaMargenMetricas] = await Promise.all([
       supabase
         .from("incidencia")
         .select("id, tipo, descripcion, created_at, viaje_id, viaje(referencia)")
@@ -47,11 +47,11 @@ export default function NotificationCenter() {
       getMetricasPuntualidad(),
       // Margen es dato de coste -- admin-only en todo el proyecto (mismo
       // criterio que Analítica → Rentabilidad); no se pide si no hace falta.
-      rol === "admin" ? getMetricasRentabilidad() : Promise.resolve(null),
+      rol === "admin" ? getAlertaMargen() : Promise.resolve(null),
     ]);
 
     const alertaPuntualidad = alertaObjetivoPuntualidad(metricasPuntualidad);
-    const alertaMargen = rol === "admin" ? alertaObjetivoMargen(metricasRentabilidad) : null;
+    const alertaMargen = rol === "admin" ? alertaObjetivoMargen(alertaMargenMetricas) : null;
 
     const items = [
       ...(alertaPuntualidad

@@ -211,6 +211,7 @@ const {
   getMultasPorVehiculo,
   getPnlViaje,
   getMetricasRentabilidad,
+  getAlertaMargen,
   getComparativaMensual,
   getInformeEjecutivo,
   alertaObjetivoPuntualidad,
@@ -2561,6 +2562,29 @@ describe("P&L real del viaje (7A.8)", () => {
 
     const r = await getMetricasRentabilidad();
     expect(r.margenRealMedioPct).toBe(75); // media de (100+50)/2, NO ponderada por precio
+    expect(r.margenObjetivoPct).toBe(60);
+  });
+
+  it("getAlertaMargen (R8, auditoría 2026-07-15): mismo resultado que getMetricasRentabilidad sin N+1 -- 2 consultas en bloque, no una por viaje", async () => {
+    const haceUnaHora = new Date(Date.now() - 3600000).toISOString();
+    TABLES.viaje = [
+      { id: "v1", referencia: "R1", precio: 1000, vehiculo_id: null, created_at: haceUnaHora }, // margen 1000, 100%
+      { id: "v2", referencia: "R2", precio: 100, vehiculo_id: null, created_at: haceUnaHora },  // margen 50, 50%
+    ];
+    TABLES.empresa = [{ coste_km: 0, velocidad_planificacion_kmh: 75, margen_objetivo_pct: 60 }];
+    TABLES.gasto_viaje = [{ id: "g1", viaje_id: "v2", tipo: "peaje", importe: 50 }];
+
+    const r = await getAlertaMargen();
+    expect(r.margenRealMedioPct).toBe(75);
+    expect(r.margenObjetivoPct).toBe(60);
+  });
+
+  it("getAlertaMargen sin viajes con precio devuelve margenRealMedioPct null", async () => {
+    TABLES.viaje = [];
+    TABLES.empresa = [{ margen_objetivo_pct: 60 }];
+    TABLES.gasto_viaje = [];
+    const r = await getAlertaMargen();
+    expect(r.margenRealMedioPct).toBeNull();
     expect(r.margenObjetivoPct).toBe(60);
   });
 

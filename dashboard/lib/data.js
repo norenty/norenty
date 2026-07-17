@@ -2549,6 +2549,49 @@ export async function getMetricasRentabilidad(rango = {}) {
 }
 
 /**
+ * Versión ligera de `getMetricasRentabilidad` pensada solo para la campana de
+ * notificaciones (R6): esta necesita `margenRealMedioPct`/`margenObjetivoPct`
+ * para comparar contra el objetivo, nada más -- ni `top5`/`bottom5`/`porMes`
+ * ni la desviación estimado-vs-real (que exige `getViabilidadViaje`, con sus
+ * propias consultas de ruta/vehículo).
+ *
+ * Hallazgo 2026-07-15 (auditoría post-R6): `NotificationCenter` llamaba a
+ * `getMetricasRentabilidad` completa en cada montaje/cambio de rol Y en cada
+ * INSERT realtime de incidencia/evento para sesiones admin -- eso son
+ * ~2N+2 idas a BD (una `getViabilidadViaje` + una `getGastosViaje` POR viaje
+ * con precio) solo para una comparación de dos números. Esta versión hace 2
+ * consultas en bloque (viajes del rango, gastos de esos viajes con `.in()`)
+ * y suma en JS, sin N+1.
+ */
+export async function getAlertaMargen(rango = {}) {
+  const { desde, hasta } = resolveRango(rango);
+  const [{ data: viajes, error: errorViajes }, { data: empresas }] = await Promise.all([
+    supabase.from("viaje").select("id, precio, created_at").gte("created_at", desde).lt("created_at", hasta),
+    supabase.from("empresa").select("margen_objetivo_pct").limit(1),
+  ]);
+  if (errorViajes) throw errorViajes;
+  const margenObjetivoPct = empresas?.[0]?.margen_objetivo_pct != null ? Number(empresas[0].margen_objetivo_pct) : null;
+
+  const conPrecio = (viajes || []).filter((v) => v.precio != null && v.precio > 0);
+  if (!conPrecio.length) return { margenRealMedioPct: null, margenObjetivoPct };
+
+  const ids = conPrecio.map((v) => v.id);
+  const { data: gastos } = await supabase.from("gasto_viaje").select("viaje_id, importe").in("viaje_id", ids);
+  const gastosPorViaje = {};
+  (gastos || []).forEach((g) => {
+    gastosPorViaje[g.viaje_id] = (gastosPorViaje[g.viaje_id] || 0) + Number(g.importe);
+  });
+
+  const pcts = conPrecio.map((v) => {
+    const margenReal = v.precio - (gastosPorViaje[v.id] || 0);
+    return (margenReal / v.precio) * 100;
+  });
+  const margenRealMedioPct = Math.round(pcts.reduce((s, p) => s + p, 0) / pcts.length);
+
+  return { margenRealMedioPct, margenObjetivoPct };
+}
+
+/**
  * F13.1 — Export para facturación/integración (NO módulo contable): una fila
  * plana por viaje completado, lista para CSV/Excel hacia la gestoría o un
  * ERP (SAP/similar). Composición pura sobre `getViabilidadViaje`/
