@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { getViajes } from "../lib/data";
@@ -10,6 +10,37 @@ import KanbanColumn from "./components/KanbanColumn";
 import TripCard from "./components/TripCard";
 import ResumenHoy from "./components/ResumenHoy";
 import ChecklistOnboarding from "./components/ChecklistOnboarding";
+
+// Kanban drag-and-drop (2026-07-17): SOLO reordena dentro de la misma
+// columna, no mueve tarjetas entre columnas -- el estado de un viaje lo
+// marca la realidad observada (bot/GPS/POD), no arrastrarlo en el
+// dashboard. Arrastrar entre columnas para "adelantar" el estado
+// contradiría el principio central del producto (verdad observada, no lo
+// que alguien dice que pasó). El orden es preferencia visual pura, se
+// guarda en localStorage por columna, igual que el patrón ya usado en
+// Sidebar.jsx (colapso de grupos) -- sin librería nueva.
+const ORDEN_KEY_PREFIX = "norenty:kanban-orden:";
+
+function ordenarSegunPreferencia(items, key) {
+  if (typeof window === "undefined") return items;
+  let orden;
+  try {
+    orden = JSON.parse(window.localStorage.getItem(ORDEN_KEY_PREFIX + key) || "[]");
+  } catch {
+    orden = [];
+  }
+  if (!orden.length) return items;
+  const porId = new Map(items.map((it) => [it.id, it]));
+  const ordenados = orden.map((id) => porId.get(id)).filter(Boolean);
+  const idsOrdenados = new Set(ordenados.map((it) => it.id));
+  const nuevos = items.filter((it) => !idsOrdenados.has(it.id));
+  return [...ordenados, ...nuevos];
+}
+
+function guardarPreferenciaOrden(key, items) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(ORDEN_KEY_PREFIX + key, JSON.stringify(items.map((it) => it.id)));
+}
 
 function classify(trips) {
   const conIncidencia = trips.filter((t) => t.incidencia);
@@ -25,6 +56,8 @@ function classify(trips) {
 export default function OperacionPage() {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [ordenVersion, setOrdenVersion] = useState(0);
+  const arrastrando = useRef(null); // {columnaKey, id} de la tarjeta que se está soltando
 
   function refresh() {
     getViajes().then((data) => {
@@ -112,19 +145,39 @@ export default function OperacionPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {columnas.map((col) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" data-orden-version={ordenVersion}>
+          {columnas.map((col) => {
+            // ordenVersion no se lee aquí a propósito: solo fuerza el re-render
+            // tras un drop, ordenarSegunPreferencia relee localStorage cada vez.
+            const items = ordenarSegunPreferencia(col.items, col.key);
+            return (
             <KanbanColumn
               key={col.key}
               title={col.title}
               color={col.color}
-              count={col.items.length}
+              count={items.length}
             >
-              {col.items.map((t) => (
+              {items.map((t, i) => (
                 <Link
                   key={t.id}
                   href={`/viajes/${t.id}`}
                   className="block no-underline"
+                  draggable
+                  onDragStart={() => { arrastrando.current = { columna: col.key, id: t.id }; }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const origen = arrastrando.current;
+                    arrastrando.current = null;
+                    if (!origen || origen.columna !== col.key || origen.id === t.id) return;
+                    const reordenados = [...items];
+                    const desdeIdx = reordenados.findIndex((it) => it.id === origen.id);
+                    if (desdeIdx === -1) return;
+                    const [movido] = reordenados.splice(desdeIdx, 1);
+                    reordenados.splice(i, 0, movido);
+                    guardarPreferenciaOrden(col.key, reordenados);
+                    setOrdenVersion((v) => v + 1);
+                  }}
                 >
                   <TripCard
                     referencia={t.referencia}
@@ -140,7 +193,8 @@ export default function OperacionPage() {
                 </Link>
               ))}
             </KanbanColumn>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
