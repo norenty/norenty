@@ -21,20 +21,15 @@ import os
 import sys
 from pathlib import Path
 
-import psycopg2
 import psycopg2.extras
-from dotenv import load_dotenv
 from supabase import create_client
 
-load_dotenv(Path(__file__).parent.parent.parent / ".env")
-# Seguridad (2026-07-08): secretos reales en ~/.norenty-secrets/.env, fuera del
-# repo (ver RUNBOOK-SECRETS.md). override=True: gana sobre el .env del repo.
-load_dotenv(Path.home() / ".norenty-secrets" / ".env", override=True)
-
 sys.path.insert(0, str(Path(__file__).parent))
+from monitor_common import cargar_env, requerir_env, ejecutar_con_conexion, enviar_telegram, obtener_chats_gestores
 from verificar_cadena import verificar_cadena
 from verificar_pod import verificar_hash_pod
-from monitor_heartbeat import enviar_telegram, obtener_chats_gestores
+
+cargar_env()
 
 
 def registrar_alerta_si_es_nueva(cur, tipo: str, entidad_id: str, motivo: str) -> bool:
@@ -99,29 +94,16 @@ def revisar_integridad(cur_pg, sb, token, enviar_fn=enviar_telegram):
 
 
 def main():
-    database_url = os.environ.get("DATABASE_URL")
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    database_url, token = requerir_env("DATABASE_URL", "TELEGRAM_BOT_TOKEN")
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_ANON_KEY")
-    if not database_url:
-        print("ERROR: falta DATABASE_URL en el entorno.", file=sys.stderr)
-        sys.exit(1)
-    if not token:
-        print("ERROR: falta TELEGRAM_BOT_TOKEN en el entorno.", file=sys.stderr)
-        sys.exit(1)
 
     sb = create_client(url, key)
-    conn = psycopg2.connect(database_url)
-    conn.autocommit = False
-    try:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            r = revisar_integridad(cur, sb, token)
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    r = ejecutar_con_conexion(
+        database_url,
+        lambda cur: revisar_integridad(cur, sb, token),
+        cursor_factory=psycopg2.extras.RealDictCursor,
+    )
 
     print(
         f"Cadena: {'OK' if r['cadena_ok'] else 'ROTA'}. "

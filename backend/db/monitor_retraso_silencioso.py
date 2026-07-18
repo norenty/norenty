@@ -28,20 +28,13 @@ sin scheduler propio, se ejecuta vía cron de GitHub Actions
     python backend/db/monitor_retraso_silencioso.py
 """
 import argparse
-import os
 import sys
 from pathlib import Path
 
-import psycopg2
-from dotenv import load_dotenv
-
-load_dotenv(Path(__file__).parent.parent.parent / ".env")
-# Seguridad (2026-07-08): secretos reales en ~/.norenty-secrets/.env, fuera del
-# repo (ver RUNBOOK-SECRETS.md). override=True: gana sobre el .env del repo.
-load_dotenv(Path.home() / ".norenty-secrets" / ".env", override=True)
-
 sys.path.insert(0, str(Path(__file__).parent))
-from monitor_heartbeat import enviar_telegram  # reutiliza el POST directo a la Bot API
+from monitor_common import cargar_env, requerir_env, ejecutar_con_conexion, enviar_telegram
+
+cargar_env()
 
 UMBRAL_ESCALACION_MIN = 45  # valor inicial razonable, mismo estatus que otros umbrales del proyecto
 
@@ -184,26 +177,9 @@ def main():
     parser.add_argument("--umbral-escalacion", type=int, default=UMBRAL_ESCALACION_MIN)
     args = parser.parse_args()
 
-    database_url = os.environ.get("DATABASE_URL")
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    if not database_url:
-        print("ERROR: falta DATABASE_URL en el entorno.", file=sys.stderr)
-        sys.exit(1)
-    if not token:
-        print("ERROR: falta TELEGRAM_BOT_TOKEN en el entorno.", file=sys.stderr)
-        sys.exit(1)
+    database_url, token = requerir_env("DATABASE_URL", "TELEGRAM_BOT_TOKEN")
 
-    conn = psycopg2.connect(database_url)
-    conn.autocommit = False
-    try:
-        with conn.cursor() as cur:
-            r = revisar_y_escalar(cur, token, args.umbral_escalacion)
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    r = ejecutar_con_conexion(database_url, lambda cur: revisar_y_escalar(cur, token, args.umbral_escalacion))
 
     print(
         f"Nivel 1: {r['nivel1_creadas']} incidencia(s) nueva(s), {r['nivel1_notificados']} aviso(s). "

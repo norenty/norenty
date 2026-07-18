@@ -19,19 +19,14 @@ nadie -- no es una incidencia, es solo evidencia tardía.
 """
 import argparse
 import math
-import os
 import sys
 from pathlib import Path
 
-import psycopg2
-from dotenv import load_dotenv
-
-load_dotenv(Path(__file__).parent.parent.parent / ".env")
-load_dotenv(Path.home() / ".norenty-secrets" / ".env", override=True)
-
 sys.path.insert(0, str(Path(__file__).parent))
-from monitor_heartbeat import enviar_telegram  # reutiliza el POST directo a la Bot API
+from monitor_common import cargar_env, requerir_env, ejecutar_con_conexion, enviar_telegram
 from monitor_retraso_silencioso import _filtrar_por_asignacion  # mismo filtro de Fase 15
+
+cargar_env()
 
 UMBRAL_GEO_LLEGADA_M = 300  # mismo default que bot.py:punto_en_checkpoint, sin radio_m propio
 
@@ -162,26 +157,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_args()
 
-    database_url = os.environ.get("DATABASE_URL")
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    if not database_url:
-        print("ERROR: falta DATABASE_URL en el entorno.", file=sys.stderr)
-        sys.exit(1)
-    if not token:
-        print("ERROR: falta TELEGRAM_BOT_TOKEN en el entorno.", file=sys.stderr)
-        sys.exit(1)
+    database_url, token = requerir_env("DATABASE_URL", "TELEGRAM_BOT_TOKEN")
 
-    conn = psycopg2.connect(database_url)
-    conn.autocommit = False
-    try:
-        with conn.cursor() as cur:
-            r = revisar_checkpoints(cur, token)
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    r = ejecutar_con_conexion(database_url, lambda cur: revisar_checkpoints(cur, token))
 
     print(
         f"{r['autocorregidos']} checkpoint(s) autocorregido(s) (ping tardío encontrado). "

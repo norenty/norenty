@@ -24,3 +24,6 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Grafo de conocimiento generado por graphify (local, se regenera con /graphify .)
+graphify-out/

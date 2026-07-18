@@ -14,19 +14,13 @@ Programada de Windows/cron, cada 1-5 min) mientras tanto:
     python backend/db/monitor_heartbeat.py
 """
 import argparse
-import os
 import sys
-import urllib.request
-import urllib.parse
 from pathlib import Path
 
-import psycopg2
-from dotenv import load_dotenv
+sys.path.insert(0, str(Path(__file__).parent))
+from monitor_common import cargar_env, requerir_env, ejecutar_con_conexion, enviar_telegram, obtener_chats_gestores
 
-load_dotenv(Path(__file__).parent.parent.parent / ".env")
-# Seguridad (2026-07-08): secretos reales en ~/.norenty-secrets/.env, fuera del
-# repo (ver RUNBOOK-SECRETS.md). override=True: gana sobre el .env del repo.
-load_dotenv(Path.home() / ".norenty-secrets" / ".env", override=True)
+cargar_env()
 
 UMBRAL_HEARTBEAT_S = 300  # mismo umbral que dashboard/lib/data.js (8.3)
 
@@ -54,23 +48,6 @@ def abrir_alerta(cur):
 
 def resolver_alerta(cur, alerta_id):
     cur.execute("UPDATE alerta_bot_caido SET resuelta_en = now() WHERE id = %s", (alerta_id,))
-
-
-def obtener_chats_gestores(cur):
-    """chat_id de gestores activos con Telegram vinculado (todas las empresas:
-    bot_heartbeat es global, un único bot sirve a todas)."""
-    cur.execute("SELECT telegram_chat_id FROM gestor WHERE telegram_chat_id IS NOT NULL AND activo = true")
-    return [fila[0] for fila in cur.fetchall()]
-
-
-def enviar_telegram(token: str, chat_id: str, texto: str):
-    """POST directo a la Bot API de Telegram -- NO reutiliza el proceso del bot
-    (a propósito: si el bot está caído, solo un cliente HTTP independiente
-    puede avisar de que lo está)."""
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    data = urllib.parse.urlencode({"chat_id": chat_id, "text": texto}).encode("utf-8")
-    with urllib.request.urlopen(url, data=data, timeout=15) as resp:
-        return resp.status == 200
 
 
 def mensaje_caida(segundos):
@@ -113,26 +90,9 @@ def main():
     parser.add_argument("--umbral", type=int, default=UMBRAL_HEARTBEAT_S)
     args = parser.parse_args()
 
-    database_url = os.environ.get("DATABASE_URL")
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    if not database_url:
-        print("ERROR: falta DATABASE_URL en el entorno.", file=sys.stderr)
-        sys.exit(1)
-    if not token:
-        print("ERROR: falta TELEGRAM_BOT_TOKEN en el entorno.", file=sys.stderr)
-        sys.exit(1)
+    database_url, token = requerir_env("DATABASE_URL", "TELEGRAM_BOT_TOKEN")
 
-    conn = psycopg2.connect(database_url)
-    conn.autocommit = False
-    try:
-        with conn.cursor() as cur:
-            r = revisar_y_alertar(cur, token, args.umbral)
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    r = ejecutar_con_conexion(database_url, lambda cur: revisar_y_alertar(cur, token, args.umbral))
 
     if r["accion"] == "ninguna":
         estado = "caído (ya notificado)" if r["caido"] else "activo"
