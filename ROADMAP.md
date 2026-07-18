@@ -150,6 +150,30 @@ las señales?". Spec cerrada completa en `SPECS-FASE16.md` (leer OBLIGATORIO ant
   para POD). Construido: `verificar_incidencia_foto.py`, mismo patrón que `verificar_pod.py`
   (reutiliza `calcular_hash_sha256`), filtra a incidencias con foto (`--todos` omite las que no
   tienen). 3 tests nuevos. `ci.ps1` completo verde (236 backend, 417 vitest, build 22 páginas).
+- [x] `[LOOP]` **Badge de escalada en `/incidencias`** (hallazgo 2026-07-18, mismo grafo:
+  `incidencia.escalada_en` existe desde R1/0056 pero no se pintaba en ningún sitio del
+  dashboard — el gestor no podía ver desde la lista que una incidencia ya había escalado a
+  todo el equipo). Badge "🔺 Escalada" (icono `Megaphone`) junto al estado, con la hora en el
+  `title`, condicionado a `inc.escalada_en` (la query ya traía la columna vía `select("*")`,
+  cambio puramente de render). Sin test nuevo (página sin tests, mismo criterio que el resto de
+  `page.jsx` de solo UI) — verificado con build + sesión demo real en el navegador.
+- [x] `[LOOP]` **Tasa de incidencias en `getComparativaMensual`/informe ejecutivo** (de la misma
+  auditoría 2026-07-18: `getMetricasIncidencias` ya calculaba `tasa` por periodo, pero
+  `getComparativaMensual` (12.2) no la comparaba mes a mes como sí hace con margen/puntualidad).
+  `getComparativaMensual` ahora pide `getMetricasIncidencias` del periodo actual y el anterior
+  (mismo criterio de `variacionPct` protegido contra división por 0/null) y expone
+  `tasaIncidencias`. Nuevo bloque "Incidencias" en `/analitica/informe` (R3) con la tasa y su
+  variación (`invertir`, subir es malo). 1 test nuevo + assertion añadida al test existente de
+  `getInformeEjecutivo`. `ci.ps1` completo verde, verificado en navegador con sesión demo real
+  (tasa 0.2, sin errores de consola).
+- [x] `[LOOP]` **Bloque "Gestores" en el informe ejecutivo** (misma auditoría: `getRendimientoGestores`,
+  12.5, solo se veía en la pestaña "Gestores" de `/analitica`, nunca en el informe imprimible/
+  exportable de R3 que el jefe de tráfico genera para enviar). `getInformeEjecutivo` ahora compone
+  también `getRendimientoGestores` (sin query de negocio nueva) y `/analitica/informe` pinta una
+  tabla igual que la de `/analitica` (gestor, viajes, % siguió sugerencia, incidencias), oculta si
+  no hay gestores. Cubierto por la assertion `r.gestores` del test existente de `getInformeEjecutivo`.
+  `ci.ps1` completo verde (236 backend, 418 vitest, build 22 páginas), verificado en navegador con
+  sesión demo real (3 gestores listados, sin errores de consola).
 
 ---
 

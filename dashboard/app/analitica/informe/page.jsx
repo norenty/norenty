@@ -125,6 +125,45 @@ export default function InformeEjecutivo() {
               </div>
             </Bloque>
 
+            <Bloque titulo="Incidencias">
+              <div className="grid grid-cols-2 gap-4">
+                <Kpi
+                  label="Tasa (por viaje)"
+                  value={informe.comparativa.tasaIncidencias.actual ?? "—"}
+                  sub={<Variacion v={informe.comparativa.tasaIncidencias} invertir />}
+                />
+              </div>
+            </Bloque>
+
+            {informe.gestores.length > 0 && (
+              <Bloque titulo="Gestores">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-xs text-ink-secondary text-left">
+                        <th className="py-1.5 font-medium">Gestor</th>
+                        <th className="py-1.5 font-medium">Viajes</th>
+                        <th className="py-1.5 font-medium">% siguió sugerencia</th>
+                        <th className="py-1.5 font-medium">Incidencias</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {informe.gestores.map((g) => (
+                        <tr key={g.id} className="border-b border-border last:border-0">
+                          <td className="py-1.5 text-ink">{g.nombre}</td>
+                          <td className="py-1.5 text-ink-secondary">{g.viajesGestionados}</td>
+                          <td className="py-1.5 text-ink-secondary">
+                            {g.pctSiguioSugerencia != null ? `${g.pctSiguioSugerencia}%` : "—"}
+                          </td>
+                          <td className="py-1.5 text-ink-secondary">{g.incidencias}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Bloque>
+            )}
+
             <p className="text-xs text-ink-muted print:hidden">
               Generado el {fmtFechaCorta(new Date().toISOString())} — mismos datos que Analítica, en formato para analizar o enviar.
             </p>

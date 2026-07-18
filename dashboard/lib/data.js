@@ -2862,11 +2862,13 @@ export async function getComparativaMensual(rango = {}) {
     hasta: desde,
   };
 
-  const [rentActual, rentAnterior, puntActual, puntAnterior] = await Promise.all([
+  const [rentActual, rentAnterior, puntActual, puntAnterior, incActual, incAnterior] = await Promise.all([
     getMetricasRentabilidad({ desde, hasta }),
     getMetricasRentabilidad(rangoAnterior),
     getMetricasPuntualidad({ desde, hasta }),
     getMetricasPuntualidad(rangoAnterior),
+    getMetricasIncidencias({ desde, hasta }),
+    getMetricasIncidencias(rangoAnterior),
   ]);
 
   return {
@@ -2884,6 +2886,11 @@ export async function getComparativaMensual(rango = {}) {
       actual: puntActual.pctPuntualidad,
       anterior: puntAnterior.pctPuntualidad,
       variacionPct: variacionPct(puntActual.pctPuntualidad, puntAnterior.pctPuntualidad),
+    },
+    tasaIncidencias: {
+      actual: incActual.tasa,
+      anterior: incAnterior.tasa,
+      variacionPct: variacionPct(incActual.tasa, incAnterior.tasa),
     },
   };
 }
@@ -2929,14 +2936,15 @@ export function alertaObjetivoMargen(metricas) {
  */
 export async function getInformeEjecutivo(rango = {}) {
   const { desde, hasta } = resolveRango(rango);
-  const [puntualidad, rentabilidad, flota, comparativa] = await Promise.all([
+  const [puntualidad, rentabilidad, flota, comparativa, gestores] = await Promise.all([
     getMetricasPuntualidad({ desde, hasta }),
     getMetricasRentabilidad({ desde, hasta }),
     getMetricasFlota({ desde, hasta }),
     getComparativaMensual({ desde, hasta }),
+    getRendimientoGestores({ desde, hasta }),
   ]);
 
-  return { periodo: { desde, hasta }, puntualidad, rentabilidad, flota, comparativa };
+  return { periodo: { desde, hasta }, puntualidad, rentabilidad, flota, comparativa, gestores };
 }
 
 // ==========================================================================

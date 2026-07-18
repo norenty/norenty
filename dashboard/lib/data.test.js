@@ -2624,6 +2624,8 @@ describe("P&L real del viaje (7A.8)", () => {
     expect(r.rentabilidad).toHaveProperty("margenRealMedio");
     expect(r.flota).toHaveProperty("totalVehiculos");
     expect(r.comparativa).toHaveProperty("margenRealMedio");
+    expect(r.comparativa).toHaveProperty("tasaIncidencias");
+    expect(r.gestores).toEqual([]);
   });
 
   it("getComparativaMensual (12.2) compara el periodo actual contra el anterior de igual duración", async () => {
@@ -2647,6 +2649,26 @@ describe("P&L real del viaje (7A.8)", () => {
     expect(r.margenRealMedio.variacionPct).toBe(100); // dobló
     expect(r.viajesAPerdidasReales.actual).toBe(0);
     expect(r.pctPuntualidad.actual).toBeNull(); // sin hitos con ventana_fin en ninguna tabla
+  });
+
+  it("getComparativaMensual incluye la tasa de incidencias del periodo actual vs. el anterior", async () => {
+    TABLES.viaje = [
+      { id: "v1", referencia: "R1", precio: 1000, vehiculo_id: null, created_at: "2026-03-15T00:00:00Z" },
+      { id: "v2", referencia: "R2", precio: 1000, vehiculo_id: null, created_at: "2026-02-15T00:00:00Z" },
+    ];
+    TABLES.hito = [];
+    TABLES.empresa = [{ coste_km: 0, velocidad_planificacion_kmh: 75 }];
+    TABLES.gasto_viaje = [];
+    // 2 incidencias en el periodo actual (1 viaje), 0 en el anterior -> tasa sube de 0 a 2
+    TABLES.incidencia = [
+      { id: "i1", viaje_id: "v1", tipo: "otro", created_at: "2026-03-16T00:00:00Z" },
+      { id: "i2", viaje_id: "v1", tipo: "otro", created_at: "2026-03-17T00:00:00Z" },
+    ];
+
+    const r = await getComparativaMensual({ desde: "2026-03-01T00:00:00Z", hasta: "2026-04-01T00:00:00Z" });
+    expect(r.tasaIncidencias.actual).toBe(2);
+    expect(r.tasaIncidencias.anterior).toBe(0);
+    expect(r.tasaIncidencias.variacionPct).toBeNull(); // anterior es 0, evita dividir por 0
   });
 
   it("variación es null cuando el periodo anterior no tiene datos (evita dividir por 0/null)", async () => {

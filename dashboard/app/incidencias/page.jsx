@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { AlertTriangle, Clock, CheckCircle2, ExternalLink, ChevronDown } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle2, ExternalLink, ChevronDown, Megaphone } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { ESTADO_INCIDENCIA as ESTADO_LABELS, TIPO_INCIDENCIA_LABEL as TIPO_LABELS } from "../../lib/labels";
 import EmptyState from "../components/ui/EmptyState";
@@ -133,6 +133,14 @@ export default function IncidenciasPage() {
                         <span className={`text-xs px-2 py-0.5 rounded-full ${est.bg} ${est.color}`}>
                           {est.label}
                         </span>
+                        {inc.escalada_en && (
+                          <span
+                            className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-700"
+                            title={`Escalada a todo el equipo a las ${fmtFechaHora(inc.escalada_en)}`}
+                          >
+                            <Megaphone size={12} /> Escalada
+                          </span>
+                        )}
                       </div>
                       {inc.descripcion && (
                         <p className="text-xs text-ink-secondary mb-1">{inc.descripcion}</p>

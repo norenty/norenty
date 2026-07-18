@@ -1206,6 +1206,10 @@ script, no fingido. 97 pytest (93→97), 196 vitest, ci.ps1 verde.
 
 ---
 
+2026-07-18 | Badge de escalada + tasa de incidencias + gestores en el informe ejecutivo | (por commitear) | HECHO (3 ítems de la misma auditoría vía grafo de conocimiento). (1) `/incidencias`: badge "Escalada" (icono Megaphone) cuando `inc.escalada_en` no es null — la columna existía desde R1/0056 pero no se pintaba en ningún sitio del dashboard, así que un gestor no podía saber desde la lista que una incidencia ya había escalado a todo el equipo; cambio puro de render, la query ya traía la columna. (2) `getComparativaMensual` (12.2) gana `tasaIncidencias` (actual/anterior/variacionPct), reutilizando `getMetricasIncidencias` que ya calculaba la tasa por periodo pero nunca se comparaba mes a mes como margen/puntualidad; nuevo bloque "Incidencias" en `/analitica/informe` (R3). (3) `getInformeEjecutivo` compone también `getRendimientoGestores` (12.5) — antes solo visible en la pestaña "Gestores" de `/analitica`, nunca en el informe imprimible/exportable que el jefe de tráfico genera para enviar; nuevo bloque "Gestores" en el informe, misma tabla que `/analitica`. 2 tests nuevos en `data.test.js` (tasa de incidencias en comparativa + assertions de gestores/tasaIncidencias en el test existente de `getInformeEjecutivo`); `/incidencias` sin test nuevo (page.jsx sin tests, mismo criterio del resto del proyecto). `ci.ps1` completo verde (236 backend, 418 vitest, build 22 páginas). Verificado en navegador con sesión demo real (login con `DEMO_EMAIL`/`DEMO_PASSWORD` de `~/.norenty-secrets/.env`): informe ejecutivo carga con tasa 0.2 y 3 gestores listados, `/incidencias` sin errores de consola en ninguna vista.
+
+---
+
 2026-07-05 | Fase 9.7: Hash-chain de ejecucion_evento (implementación de SPECS-9.md) | c850d8d | HECHO.
 Migración `0031_hash_chain_ejecucion_evento.sql` aplicada vía MCP (checksum registrado en
 `schema_migrations`): columnas `hash_prev`/`hash` en `ejecucion_evento`, función
