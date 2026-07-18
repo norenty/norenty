@@ -1202,6 +1202,10 @@ script, no fingido. 97 pytest (93→97), 196 vitest, ci.ps1 verde.
 
 ---
 
+2026-07-18 | Verificador de integridad para foto de incidencia (`verificar_incidencia_foto.py`) | (por commitear) | HECHO. Auditoría del repo (vía el grafo de conocimiento de graphify) tras cerrar Fase 16: `incidencia.foto_hash_sha256` existe desde F14.6/0057 (2026-07-17, foto adjunta a incidencia reutilizando el bucket `pods` y el patrón hash-antes-de-subir de POD) pero, a diferencia de `pod`, nunca tuvo su propio script de verificación de integridad — mismo gap que 9.8 cerró para POD, sin cerrar aquí. `verificar_incidencia_foto.py`: mismo patrón exacto que `verificar_pod.py` (reutiliza `calcular_hash_sha256` de ese módulo en vez de duplicarla), descarga el fichero real del bucket `pods` y compara hash; `--todos` filtra a incidencias con `foto_url IS NOT NULL` (la foto es opcional, no todas la tienen, no se cuentan como rotas las que no tienen foto). 3 tests nuevos (`test_verificar_incidencia_foto.py`, mismo `FakeBucket`/`FakeStorageCliente` en memoria que `test_verificar_pod.py`, nunca toca Storage real): coincide/sustituido/ausente. `ci.ps1` completo verde (236 backend, 417 vitest, build 22 páginas). Verificación Grupo B (descarga real contra Storage) queda bloqueada por el mismo D1 de siempre (sin service role key en esta sesión), igual que 9.8 en su día — documentado en el docstring, no fingido.
+
+---
+
 2026-07-05 | Fase 9.7: Hash-chain de ejecucion_evento (implementación de SPECS-9.md) | c850d8d | HECHO.
 Migración `0031_hash_chain_ejecucion_evento.sql` aplicada vía MCP (checksum registrado en
 `schema_migrations`): columnas `hash_prev`/`hash` en `ejecucion_evento`, función
