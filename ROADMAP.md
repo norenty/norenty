@@ -134,6 +134,16 @@ las señales?". Spec cerrada completa en `SPECS-FASE16.md` (leer OBLIGATORIO ant
   `getGastosViaje` por viaje ni el desglose `top5`/`bottom5`/`porMes` que la notificación no usa.
   `NotificationCenter.jsx` usa la versión ligera; `/analitica` y `/analitica/informe` siguen con
   la completa. 2 tests nuevos. `ci.ps1` completo verde (214 backend, 417 vitest, build 22 páginas).
+- [x] `[LOOP]` **Extrae `monitor_common.py`** (hallazgo 2026-07-18, vía un grafo de conocimiento
+  del repo construido con graphify: los 4 monitores standalone de `backend/db/`
+  —heartbeat/retraso_silencioso/checkpoint_saltado/integridad— copiaban el mismo andamiaje por
+  separado: carga de `.env`, comprobación de `DATABASE_URL`/`TELEGRAM_BOT_TOKEN`,
+  conexión/commit/rollback/close de psycopg2, POST a Telegram). Construido: nuevo
+  `monitor_common.py` con `cargar_env()`/`requerir_env()`/`ejecutar_con_conexion()`/
+  `enviar_telegram()`/`obtener_chats_gestores()`; los 4 monitores lo usan en vez de tener su
+  propia copia o depender de `monitor_heartbeat.py` solo para una función. Sin cambio de
+  comportamiento. 9 tests nuevos. `ci.ps1` completo verde (233 backend, 416 vitest, build 22
+  páginas).
 
 ---
 

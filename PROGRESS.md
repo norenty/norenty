@@ -15,6 +15,15 @@ enteraba por Telegram de viajes que no puede ver en su dashboard. Corregido en a
 filtra al gestor asignado o a un admin, mismo criterio que la RLS de F15.2, replicado porque
 estos procesos corren con privilegios de servicio. 9 tests nuevos. `ci.ps1` completo verde.
 
+2026-07-18 | Extrae monitor_common.py (deduplica los 4 monitores) | 7e61540 | HECHO.
+Hallazgo vía un grafo de conocimiento del repo (graphify, instalado a petición del usuario):
+los 4 monitores standalone (heartbeat/retraso_silencioso/checkpoint_saltado/integridad)
+copiaban el mismo andamiaje (carga de .env, comprobación de env vars, conexión/commit/
+rollback/close de psycopg2, POST a Telegram) por separado. Nuevo monitor_common.py
+centraliza cargar_env/requerir_env/ejecutar_con_conexion/enviar_telegram/
+obtener_chats_gestores, sin cambiar comportamiento. 9 tests nuevos. ci.ps1 completo verde
+(233 backend, 416 vitest).
+
 2026-07-17 | Kanban drag-and-drop (reordenar dentro de columna) | 0969f6d | HECHO.
 Decisión de UX cerrada con el usuario: solo reordena DENTRO de una columna (localStorage),
 nunca mueve tarjetas entre columnas — el estado real de un viaje lo marca la verdad observada,
