@@ -10,6 +10,25 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
+## 🔴 GATE MAESTRO (mentoría estratégica, 2026-07-19 — LEER ANTES DE ABRIR CUALQUIER FASE)
+
+Análisis contra marcos de Thiel/Graham/Andreessen/Horowitz/Ries + Startup Genome Report +
+casos reales (Convoy, Samsara, fallos de adopción de TMS) en `MENTORIA-ESTRATEGICA.md`.
+Conclusión: el proyecto tiene el patrón #1 de fracaso según el Startup Genome Report
+("premature scaling") — 16 fases de producto construidas muy por delante de validación de
+cliente real (0 viajes reales por Telegram, 0 clientes de pago, discovery 12.3 sin
+ejecutar). El código en sí está bien construido; lo que falta es secuenciación.
+
+**Regla mecánica para el loop:** NO abrir ninguna fase `[LOOP]` de feature nueva (post-16)
+hasta que **10.1** (smoke test real punta a punta por Telegram) **Y 12.3** (discovery con
+gestor de tráfico real) estén ambos cerrados con evidencia fechada en `PROGRESS.md`.
+Mientras este gate esté rojo, el loop solo puede: (a) corregir bugs reales encontrados,
+(b) auditorías/hallazgos tipo el del grafo de conocimiento (graphify) ya en curso, (c)
+preparar lo que 10.1/12.3 necesiten para ejecutarse. Razonamiento completo, casos
+análogos y qué SÍ encaja bien (no todo es negativo) en `MENTORIA-ESTRATEGICA.md`.
+
+---
+
 ## Cola ACTIVA del loop autónomo — Fase 16: escalación proactiva + informe de jefe de tráfico (2026-07-15)
 
 **⚠️ El loop autónomo trabaja AHORA en esta cola — PRIORIDAD sobre fases anteriores.** Revisión
