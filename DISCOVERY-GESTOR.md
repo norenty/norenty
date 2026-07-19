@@ -97,6 +97,18 @@ imaginamos? (c) **¿qué datos concretos hacen falta para que funcione de verdad
   automático supiera quién es y en qué viaje va, ¿eso resolvería un caso real (chóferes mayores,
   sin smartphone, sin datos móviles en el extranjero) o para tu flota el problema no es ese?
 
+### 3.4b Móvil del chófer y privacidad de la ubicación (añadido 2026-07-19, antes de la charla)
+- ¿Los chóferes usan móvil de empresa o el suyo propio? (Sospecha del usuario: probablemente el
+  suyo — confirmar, porque cambia el criterio legal de privacidad: no es lo mismo trackear un
+  dispositivo de la empresa que el móvil personal del trabajador.)
+- Hoy el sistema captura la ubicación SOLO mientras el chófer comparte "ubicación en vivo" de
+  Telegram — es una acción que él controla (empieza y para cuando quiere), no un tracking
+  forzado en segundo plano. Preguntar: ¿le parecería razonable a un chófer compartirla solo
+  mientras hay un hito pendiente de confirmar (ventana de llegada), en vez de todo el trayecto?
+  ¿O el gestor necesita visibilidad de ruta completa para algo real (ETA al cliente, desvíos)?
+  Esto determina si conviene limitar la ventana de captura por diseño, no solo por confianza en
+  que el chófer pare de compartirla él mismo.
+
 ### 3.5 Asignación de rutas / dispatch
 - Cuando asignas, ¿qué pesa más: quién está libre, quién conoce la ruta, el descanso legal
   pendiente, preferencia del cliente por un chófer concreto, otra cosa?
