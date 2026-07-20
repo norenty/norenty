@@ -1,105 +1,119 @@
-# SPECS — Bot de llamadas (IVR de voz para el chófer, distinto del agente 7B.3/11.7)
+# SPECS — Captura de conocimiento por voz + bot de llamadas (escalera A→B→C)
 
-Diseño técnico, 2026-07-14. **NO es orden de trabajo para el loop** — cae en los "STOPS duros" del
-protocolo (features que gastan dinero por uso + infra nueva de telefonía). Se escribe ahora, gratis,
-para que el día que haya presupuesto/decisión sea picar código, no diseñar. Nadie debe ejecutar esto
-sin: (a) cuenta de proveedor de telefonía creada por el usuario, (b) presupuesto de coste-por-minuto
-aprobado, (c) 11.5 (consentimiento/RGPD de voz) resuelto.
+Diseño cerrado en la sesión estratégica del **2026-07-19** (reemplaza el diseño anterior, que
+apuntaba al caso equivocado: IVR para chófer sin smartphone). **NO es orden de trabajo para el loop
+todavía** — el build arranca tras el discovery del gestor (mañana lunes) + deploy + 11.5. Se escribe
+ahora para que construir sea turnkey y correcto, no para adivinar la taxonomía antes de validarla.
 
-## Qué es esto y qué NO es
+## El problema y el reencuadre (por qué esto es una clave del proyecto)
 
-Es una **interfaz de voz alternativa al bot de Telegram**, para el chófer que llama a un número de
-teléfono en vez de escribir. Mismo backend, mismos datos, mismas acciones (confirmar llegada,
-reportar incidencia, pedir parking/ETA) — el canal cambia, la lógica de negocio no se duplica.
+El valor máximo del producto está en las **excepciones**: camión roto a 400 km con entrega a las
+8:00, cliente cabreado, hora límite. Hoy se resuelven por teléfono, con la experiencia del jefe de
+tráfico, y **el sistema es ciego justo en el momento de máximo valor**.
 
-**NO es** el `7B.3`/`11.7` "agente telefónico" (ese ayuda al GESTOR en llamadas con CLIENTES,
-modo asistir/copiloto). Son dos proyectos distintos que comparten infraestructura de telefonía
-pero no lógica de conversación. Este documento cubre solo el canal chófer→sistema.
+**Reencuadre central:** el dato del moat NO es el problema del chófer ("me he averiado en la A-2" =
+situación, poco valiosa). Es la **DECISIÓN del jefe de tráfico** (a quién reasigna, a qué cliente
+llama, qué sacrifica y por qué). Ese triple `situación → decisión → resultado` no está escrito en
+ningún sitio — vive en su cabeza y muere en cada llamada. Capturarlo estructurado es:
+1. Memoria útil desde el día 1 (dossier, patrón "este chófer/ruta siempre falla aquí").
+2. El corpus propietario que nadie más tiene (ni Samsara ni un TMS) — el combustible del "100%
+   autónomo" a largo plazo (7B.7). No puedes automatizar el criterio del experto sin miles de sus
+   decisiones con su desenlace.
 
-**Caso de uso real que resuelve** (a validar en discovery, `DISCOVERY-GESTOR.md` §3.4): chóferes
-sin smartphone, sin datos móviles en el extranjero, o que simplemente prefieren llamar. Complementa
-Telegram, no lo sustituye — un chófer usa el canal que tenga a mano.
+**Dónde apuntar la captura:** al humano que DECIDE (jefe de tráfico), no solo al chófer que reporta.
 
-## Arquitectura
+## Principio de diseño: no forzar, ser el camino de menor resistencia
 
-```
-Chófer marca el número único de Norenty
-        │
-        ▼
-Proveedor de telefonía (Twilio Programmable Voice u homólogo)
-  — UN número, gestiona la concurrencia de llamadas simultáneas por su cuenta,
-    cada llamada es una sesión independiente (Call SID)
-        │  webhook HTTP por evento de la llamada
-        ▼
-FastAPI (backend/app/, ya existe — nuevo router `telefonia.py`)
-  — async por diseño: N llamadas concurrentes = N peticiones HTTP concurrentes,
-    nada nuevo que construir para la concurrencia en sí
-        │
-        ├─ identificar chófer: normalizar el Caller ID (E.164) y
-        │  SELECT * FROM chofer WHERE telefono = :caller_id
-        │  (columna `chofer.telefono` YA EXISTE, sin migración)
-        │
-        ├─ si no hay match: flujo de fallback (pedir código por voz/DTMF,
-        │  igual que /start CODIGO en Telegram)
-        │
-        ├─ resolver contexto: empresa_id, viaje en_curso, hito pendiente,
-        │  gestor asignado — MISMAS queries que ya usa el bot de Telegram,
-        │  cero lógica de negocio nueva
-        │
-        └─ STT (voz→texto) + intención + TTS (texto→voz) en tiempo real
-           — la única pieza realmente nueva y cara
-```
+No puedes forzar a un jefe en crisis a usar la herramienta — si añades fricción en el peor momento,
+te esquiva por teléfono y pierdes las dos cosas (dato Y usuario). Se gana por:
+1. **Ser EL canal, no un canal paralelo** (la captura ES el canal, no un "regístralo también").
+2. **Detección → pregunta** (el sistema cazó el anómalo y pregunta; nadie tuvo que acordarse).
+3. **Devolver valor** (dossier, patrón, sugerencia) para que usarlo gane a no usarlo.
+4. **Coste de captura ≤ que la llamada que reemplaza** (nota de voz de 15s, un toque).
 
-## Identificación del chófer (el mecanismo central)
+## La escalera de captura por severidad
 
-Mismo patrón que `get_chofer_by_chat(chat_id)` en `bot.py`, con el teléfono en vez del chat_id:
+| Nivel | Situación | Captura | Tecnología | Estado |
+|---|---|---|---|---|
+| 0 | Estado normal | Botones/texto estructurado | Ya existe | Hecho |
+| 1 | Incidencia menor | Nota de voz → transcribe → **clasifica** complejidad/tipo/urgencia → ancla a `contexto` (11.2) | Whisper self-host + 1 LLM. Sin telefonía | **Primero a construir** (11.3 + 7B.2) |
+| 2 | Significativa | El sistema **detecta** (R1 ya lo hace) y **contacta primero** con contexto + opciones | Lo ya construido + el clasificador | Reusa R1 |
+| 3 | Urgencia máxima | Voz — ver opciones A/B abajo | Ver abajo | Gated |
 
-```python
-def get_chofer_by_telefono(telefono_e164: str):
-    r = ejecutar_con_reintentos(
-        lambda: supabase.table("chofer").select("id, nombre, empresa_id, idioma")
-            .eq("telefono", telefono_e164).execute(),
-        contexto={"accion": "get_chofer_by_telefono"},
-    )
-    return r.data[0] if r.data else None
-```
+## Nivel 1 — el corazón, y lo primero (detalle de implementación)
 
-Requisito de datos previo: `chofer.telefono` tiene que estar poblado y en formato consistente
-(E.164, `+34...`) — hoy es `text` libre, sin normalizar. Antes de construir esto habría que:
-1. Añadir validación/normalización al guardar el teléfono (formulario de alta de chófer +
-   importador masivo, IMP.2).
-2. Backfill de los teléfonos ya existentes que no estén en formato E.164.
+Extiende `handle_photo` (bot.py) con un `handle_voice` gemelo: el chófer/gestor manda una nota de
+voz de Telegram (Bot API la entrega como `message.voice`, mismo patrón que la foto). Flujo:
+1. Descargar el audio (igual que la foto), hash SHA-256 antes de subir (misma tesis de evidencia).
+2. Transcribir con Whisper self-host (idioma del `chofer.idioma`/`gestor` ya en BD).
+3. Una llamada LLM que devuelve JSON acotado: `{tipo, urgencia (0-3), resumen, entidad_sugerida,
+   escalacion_sugerida}` — la clasificación, NO una mutación libre.
+4. Anclar como `contexto` (canal `llamada_transcrita`, ya reservado en el CHECK de 0042 sin
+   re-migrar) a la entidad correcta (viaje/chófer/cliente).
+5. Si `urgencia` alta → dispara el Nivel 2 (avisar al gestor con el resumen ya clasificado).
 
-## Multi-tenant: confirmado, mismo patrón que Telegram
+**Taxonomía de `tipo` y umbrales de `urgencia`: PENDIENTE del discovery** (§3.4c). No inventarla.
 
-Un único número de teléfono, un único servicio — el aislamiento por empresa lo da la BD (RLS +
-`empresa_id` resuelto vía el chófer identificado), exactamente igual que el bot de Telegram
-(`TOKEN` único, `get_chofer_by_chat` resuelve el resto). **No hace falta un número por gestor ni
-por empresa.**
+## Nivel 3 — las dos opciones honestas (recomendación: A primero)
 
-## Costes (cifras ya estimadas en `COSTES-IA.md`, sin repetir la investigación)
+**Opción A — capturar la RESOLUCIÓN justo después (no la llamada viva).** La llamada ocurre como
+sea (teléfono normal). En cuanto el sistema detecta que se resolvió, pregunta al jefe "¿cómo lo has
+hecho? [nota de voz 15s]". Pierde la conversación en bruto pero captura decisión + resultado (el
+dato del moat). Coste ≈0, legalmente limpio (auto-reportado, sin grabar terceros), esquiva el "se lo
+saltan" (no le cambias cómo llama, solo pides 15s después).
 
-$0,15-0,30/min todo incluido (telefonía + STT tiempo real + LLM + TTS). Con 60 chóferes llamando
-un par de veces/semana ≈ 180 min/mes ≈ **$27-54/mes**. No es la parte cara del proyecto — la parte
-cara es la complejidad de construirlo bien (latencia real-time, cortes de línea, silencios,
-fallback si algo falla a media llamada) — igual conclusión que ya estaba en `COSTES-IA.md`.
+**Opción B — ser dueño del puente telefónico.** Un número (Twilio/homólogo) que puentea
+chófer↔gestor; con consentimiento capturas la conversación. Captura más, pero: per-minuto,
+subprocesador externo (DPA + residencia UE), aviso de consentimiento en cada llamada, y la fricción
+grande de convencerles de usar TU número. Aquí muerde el riesgo de que se lo salten.
 
-## Fases de construcción (cuando se desbloquee)
+**Recomendación:** A primero. B solo si los datos de A demuestran que la conversación en bruto tiene
+más señal que el resumen tras la resolución (dudoso: dos personas negociando es ruido; "qué decidí y
+por qué" es señal). **La "escucha pasiva" de una llamada humano-a-humano NO existe técnicamente** —
+o eres parte de la llamada, o dueño del puente, o no la oyes.
 
-1. **Normalización de `chofer.telefono`** — loop-safe, sin coste, se podría hacer YA si se
-   decide que este proyecto se retoma (no depende del resto).
-2. **Identificación + fallback por código** (sin voz todavía) — webhook que reconoce el número y
-   contesta con DTMF/menú simple ("pulsa 1 para confirmar llegada"). Bajo coste, sin STT/TTS.
-3. **Voz completa** (STT+LLM+TTS en tiempo real) — la fase cara, con presupuesto aprobado.
+## Costura agnóstica de proveedor (cuando se llegue a 3-B)
 
-Esta fase 1 y parte de la 2 podrían ser loop-safe de verdad (sin coste por uso) si se decide
-retomarlo — el salto a STOP duro es específicamente la fase 3.
+Un adaptador fino de "captura de voz" (mismo patrón que la abstracción de canal 4.6), no casarse con
+Vapi/Retell/Twilio. Se elige por **residencia UE + coste + latencia** cuando toque. Nota: esto
+invierte la decisión de Whisper-self-host-€0 (real-time es per-minuto y externo), así que async
+(Nivel 1) se queda en Whisper self-host; solo el Nivel 3-B necesita proveedor externo.
 
-## Riesgos a decidir antes de construir (no técnicos, de producto)
+## La parte de ingeniería REAL (no es la voz)
 
-- **Consentimiento de voz** (11.5) — grabar/transcribir es dato personal, hace falta base legal.
-- **Qué pasa si el chófer llama y no hay cobertura de red del backend** — fallback a un mensaje
-  de voz grabado + notificación al gestor, no dejar la llamada muerta.
-- **Idioma**: el chófer identificado ya trae `idioma` en la BD — el saludo/menú debe salir en su
-  idioma desde el primer segundo, reutilizando `TEXTOS`/`t()` del bot de Telegram (ya tiene los 8
-  idiomas completos) en vez de traducir de nuevo.
+Retell/Vapi ya resuelven voz, latencia, turnos, multilenguaje, function-calling. Lo difícil es:
+1. **La API de acciones segura y ACOTADA** que el agente de voz puede tocar — un conjunto mínimo y
+   cerrado (buscar viaje por chófer, registrar incidencia, escalar) que NO pueda exceder. Nunca un
+   LLM con función de escritura libre. Misma disciplina "acción acotada, nunca mutación libre" de
+   todo el proyecto.
+2. **Identidad en una llamada** — caller-ID contra `chofer.telefono` (columna ya existe) basta para
+   REPORTAR (bajo riesgo); insuficiente para MUTAR estado sensible; se rompe con SIM extranjera /
+   roaming (justo el caso multilenguaje que el gestor marcó como clave).
+
+## Requisitos de datos previos (loop-safe, sin coste, se pueden hacer ya)
+
+- **Normalización de `chofer.telefono` a E.164** (`+34...`) — hoy es `text` libre. Validar al guardar
+  (alta de chófer + importador IMP.2) + backfill. Necesario para la identificación por caller-ID (3).
+- `get_chofer_by_telefono(telefono_e164)` — gemelo de `get_chofer_by_chat`, ya esbozado.
+
+## Riesgos de producto a decidir antes de construir
+
+- **11.5 consentimiento de voz** — transcribir/grabar es dato personal, hace falta base legal.
+- **Taxonomía de incidencia/urgencia** — sale del discovery, no se inventa.
+- **Fallback si el chófer llama y el backend no responde** — mensaje grabado + aviso al gestor, no
+  dejar la llamada muerta.
+- **Idioma desde el primer segundo** — reusar `TEXTOS`/`t()` (8 idiomas ya completos), no re-traducir.
+
+## Validado en discovery (2026-07-19)
+
+El gestor (amigo del usuario, experto del sector) confirmó: mensajes/postjes normales prefiere por
+texto, pero **tener llamadas, incluso multilingües, es muy clave**. Su empresa actual no trabaja
+tanto con chóferes de otros países, pero puede haberlos → el multilenguaje importa. Esto sube la
+prioridad del Nivel 3 y confirma que no es construir a ciegas.
+
+## Las 3 preguntas que cierran las incógnitas (para el discovery, §3.4c)
+
+1. ¿El jefe contestaría 15s de "¿cómo lo resolviste?" en caliente, o ni eso?
+2. ¿Cuántas de estas urgencias hay al día — 2 o 20? (dimensiona coste y prioridad)
+3. ¿Qué acciones querría que el bot pudiera hacer solo en una llamada, y cuáles jamás? (define la
+   API de acciones acotada del punto de ingeniería 1)

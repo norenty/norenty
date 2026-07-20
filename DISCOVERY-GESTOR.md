@@ -109,6 +109,19 @@ imaginamos? (c) **¿qué datos concretos hacen falta para que funcione de verdad
   Esto determina si conviene limitar la ventana de captura por diseño, no solo por confianza en
   que el chófer pare de compartirla él mismo.
 
+### 3.4c Captura de las urgencias / bot de llamadas (añadido 2026-07-19 — CLAVE, ya semi-validado)
+El amigo gestor ya confirmó que **tener llamadas, incluso multilingües, es muy clave** (mensajes
+normales los prefiere por texto). El valor está en las excepciones (camión roto, hora límite) que se
+resuelven por teléfono y hoy el sistema no ve. Diseño cerrado en `SPECS-BOT-LLAMADAS.md`. Las 3
+preguntas que cierran las incógnitas del build (sin ellas se picaría una taxonomía inventada):
+1. Cuando resuelves una urgencia por teléfono, ¿contestarías 15 segundos de nota de voz "¿cómo lo
+   has resuelto?" en caliente, o ni eso? (define si el Nivel 3-A es viable)
+2. ¿Cuántas de estas urgencias hay al día — 2, 20? (dimensiona coste por minuto y prioridad)
+3. ¿Qué acciones querrías que un bot pudiera hacer SOLO en una llamada (dar un ETA, registrar una
+   incidencia, avisar a otro gestor) y cuáles JAMÁS sin ti? (define la API de acciones acotada)
+4. Cuando algo se tuerce de verdad, ¿cómo se resuelve y con quién? ¿Queda algo escrito después, o se
+   pierde? ¿Qué consultas mentalmente para decidir que NO está en ningún sistema? (ahí está el oro)
+
 ### 3.5 Asignación de rutas / dispatch
 - Cuando asignas, ¿qué pesa más: quién está libre, quién conoce la ruta, el descanso legal
   pendiente, preferencia del cliente por un chófer concreto, otra cosa?

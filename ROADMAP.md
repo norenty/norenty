@@ -2456,6 +2456,40 @@ vez memoria útil desde el día 1 y el corpus que alimentará el bot de llamadas
 3. **Cada capa produce el activo que hace posible la siguiente:** captura → corpus → copiloto →
    (quizá) autónomo. Saltarse un paso rompe la solidez exigida.
 
+**DISEÑO DE LA ESCALERA DE CAPTURA (2026-07-19, sesión estratégica con el usuario — diseño
+cerrado, spec en `SPECS-BOT-LLAMADAS.md`).** El valor máximo del producto está en las EXCEPCIONES
+(camión roto, cliente cabreado, hora límite), que hoy se resuelven por teléfono y el sistema no ve.
+Reencuadre central: **el dato del moat no es el problema del chófer, es la DECISIÓN del jefe de
+tráfico** (a quién reasigna, qué sacrifica, por qué). El triple `situación → decisión → resultado`
+no existe escrito en ningún sitio y es el combustible de la autonomía futura (7B.7). Se captura con
+una escalera por severidad, no forzando (forzar = fricción = te esquivan por teléfono y pierdes dato
+Y usuario); se gana siendo el camino de menor resistencia + devolver valor (dossier, patrón,
+sugerencia):
+
+- **Nivel 1 (11.3 + 7B.2) — nota de voz → transcribe → clasifica** complejidad/tipo/urgencia. Async,
+  Whisper self-host + 1 llamada LLM, cero telefonía externa. Genera corpus desde el minuto uno y da
+  triaje útil ya. **Es lo primero a construir** en cuanto esté deploy + 11.5.
+- **Nivel 2 — detección → pregunta.** El `monitor_retraso_silencioso` (R1) YA detecta el anómalo;
+  falta que al detectarlo el sistema contacte PRIMERO con contexto y opciones. Reusa lo construido.
+- **Nivel 3 (urgencia máxima) — voz.** Dos opciones, **recomendación A**: (A) capturar la
+  RESOLUCIÓN justo después con una nota de voz de 15s (coste ≈0, legalmente limpio, captura el dato
+  del moat) vs (B) ser dueño del puente telefónico por el que pasa la llamada (per-minuto, DPA,
+  fricción de cambiar de número). Empezar por A; B solo si los datos de A demuestran que la
+  conversación en bruto tiene más señal que el resumen — cosa dudosa. La captura viva de la llamada
+  humano-a-humano NO es "escucha pasiva" (imposible técnicamente): o eres parte de la llamada, o
+  dueño del puente, o no la oyes.
+- **Costura agnóstica de proveedor:** cuando se llegue al 3-B, un adaptador fino (como la
+  abstracción de canal 4.6), no casarse con Vapi/Retell/Twilio — se elige por residencia UE + coste
+  + latencia. Nivel 1 y 2 NO necesitan proveedor de telefonía alguno.
+- **Corrección técnica anotada:** un bot de Telegram NO puede hacer/grabar llamadas de voz (Bot API
+  no lo soporta; son P2P E2E). Telegram sirve para notas de voz async (Nivel 1), no para el Nivel 3.
+
+**GATE de esta escalera:** el orden de construcción y la taxonomía de incidencias/urgencia se cierran
+CON el discovery del gestor (`DISCOVERY-GESTOR.md` §3.4c, validado 2026-07-19: el gestor confirmó que
+las llamadas, incluso multilingües, son clave) + deploy + 11.5 (consentimiento de voz). No picar el
+clasificador antes de tener la taxonomía real del gestor — hard-codear una inventada obliga a
+reescribirlo. El diseño está cerrado; el build arranca tras la charla.
+
 - [x] `[LOOP]` **11.1 Cliente como entidad de primera clase** (picar código: sonnet, esfuerzo
   medio) — hoy el cliente es solo texto libre (`viaje.referencia`, "código/albarán del cliente" en
   `0001`). Migración: tabla `cliente` con RLS por empresa + `viaje.cliente_id`; conservar
