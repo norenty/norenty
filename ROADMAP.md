@@ -163,6 +163,11 @@ las señales?". Spec cerrada completa en `SPECS-FASE16.md` (leer OBLIGATORIO ant
   propia copia o depender de `monitor_heartbeat.py` solo para una función. Sin cambio de
   comportamiento. 9 tests nuevos. `ci.ps1` completo verde (233 backend, 416 vitest, build 22
   páginas).
+- [x] `[LOOP]` **Verificador de integridad de foto de gasto** (hallazgo 2026-07-19, mismo patrón
+  que el de foto de incidencia el mismo día: `gasto_viaje.foto_hash_sha256` existe desde 12.1/0043
+  pero nunca tuvo su propio verificador). `verificar_gasto_foto.py`, mismo patrón que
+  `verificar_pod.py`/`verificar_incidencia_foto.py`, bucket `documentos` (no `pods`). 3 tests
+  nuevos. `ci.ps1` completo verde (239 backend, 418 vitest, build 22 páginas).
 - [x] `[LOOP]` **Verificador de integridad de foto de incidencia** (hallazgo 2026-07-18, vía el
   grafo de conocimiento del repo: `incidencia.foto_hash_sha256` existe desde F14.6/0057 pero,
   a diferencia de `pod`, nunca tuvo su propio script de verificación — mismo gap que 9.8 cerró
