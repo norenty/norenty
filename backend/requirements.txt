@@ -3,6 +3,6 @@ uvicorn[standard]
 supabase
 httpx
 python-dotenv
-python-telegram-bot[job-queue]
+python-telegram-bot[job-queue,webhooks]
 sentry-sdk
 psycopg2-binary
