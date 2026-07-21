@@ -1863,7 +1863,7 @@ export const LIMITE_CONTEXTO = 200;
 export async function getContexto(entidad, entidadId) {
   const { data } = await supabase
     .from("contexto")
-    .select("id, canal, texto, resumen, autor_externo, ocurrido_en, created_at, gestor:gestor_id(nombre)")
+    .select("id, canal, texto, resumen, autor_externo, ocurrido_en, created_at, audio_url, gestor:gestor_id(nombre)")
     .eq("entidad", entidad)
     .eq("entidad_id", entidadId)
     .order("ocurrido_en", { ascending: false })

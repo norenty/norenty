@@ -2552,6 +2552,17 @@ reescribirlo. El diseño está cerrado; el build arranca tras la charla.
   activarse.
   **Actualización 2026-07-13:** el gate de presupuesto desaparece (Whisper SELF-HOSTED, €0 — ver
   D3 y punto 2 de "Decisiones de producto vigentes"). Sigue gated solo por el deploy y por 11.5.
+  **CAPTURA CONSTRUIDA 2026-07-19 (sin transcripción todavía):** al confirmarse que el discovery
+  no tiene fecha (gestor de vacaciones), se separa el SUSTRATO de la POLÍTICA y se construye el
+  sustrato, que no depende de ninguna decisión pendiente. Migración `0058_contexto_audio.sql`
+  (`contexto.audio_url` + `audio_hash_sha256` + canal `nota_voz`); `handle_voice` en `bot.py`
+  (hash antes de subir, bucket `pods` ruta `{empresa_id}/voz/{viaje_id}/`, anclado al viaje en
+  curso como `contexto`; sin viaje en curso no sube nada). `texto` guarda un marcador hasta que
+  Whisper lo reemplace **retroactivamente** sobre las filas ya guardadas — el corpus empieza a
+  acumularse HOY. Hallazgo: `getContexto` (11.2) nunca se renderizaba en el dashboard (conocimiento
+  invisible) → nuevo `ContextoViajeSection.jsx` en la ficha del viaje, con botón "Escuchar" (URL
+  firmada 60s). 2 tests e2e. `ci.ps1` verde (241 backend, 418 vitest). **Pendiente de este ítem:**
+  transcripción Whisper (deploy + 11.5) y la clasificación/urgencia (gated por el discovery).
 - [x] `[LOOP]` **11.4 Extender la captura de decisiones más allá de la asignación** (picar código:
   sonnet, esfuerzo bajo) — llevar el patrón `decision_asignacion` (7A.2) a otras decisiones con su
   porqué: cambio de precio, aceptar un retraso, elegir vehículo. Cada decisión capturada es un

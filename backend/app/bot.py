@@ -210,6 +210,8 @@ TEXTOS = {
         "incidencia_ok": "Incidencia reportada para viaje {ref}. Tu gestor ha sido notificado.",
         "incidencia_foto_pregunta": "Si quieres, mándame una foto ahora (opcional).",
         "incidencia_foto_ok": "Foto adjuntada a la incidencia.",
+        "nota_voz_ok": "Nota de voz guardada en el viaje. Tu gestor la escuchará.",
+        "nota_voz_sin_viaje": "No tienes ningún viaje en curso al que adjuntar la nota de voz.",
         "btn_incidencia": "📍 Reportar incidencia",
         "btn_mi_viaje": "📋 Mi viaje",
         "btn_contactar": "📞 Contactar gestor",
@@ -266,6 +268,8 @@ TEXTOS = {
         "incidencia_ok": "Incident reported for trip {ref}. Your manager has been notified.",
         "incidencia_foto_pregunta": "If you want, send me a photo now (optional).",
         "incidencia_foto_ok": "Photo attached to the incident.",
+        "nota_voz_ok": "Voice note saved to the trip. Your manager will listen to it.",
+        "nota_voz_sin_viaje": "You have no trip in progress to attach the voice note to.",
         "btn_incidencia": "📍 Report incident",
         "btn_mi_viaje": "📋 My trip",
         "btn_contactar": "📞 Contact manager",
@@ -322,6 +326,8 @@ TEXTOS = {
         "incidencia_ok": "Incident raportat pentru cursa {ref}. Managerul tău a fost notificat.",
         "incidencia_foto_pregunta": "Dacă vrei, trimite-mi o poză acum (opțional).",
         "incidencia_foto_ok": "Poză atașată incidentului.",
+        "nota_voz_ok": "Nota vocală a fost salvată în cursă. Managerul tău o va asculta.",
+        "nota_voz_sin_viaje": "Nu ai nicio cursă în desfășurare la care să atașezi nota vocală.",
         "btn_incidencia": "📍 Raportează un incident",
         "btn_mi_viaje": "📋 Cursa mea",
         "btn_contactar": "📞 Contactează managerul",
@@ -378,6 +384,8 @@ TEXTOS = {
         "incidencia_ok": "Incident signalé pour le trajet {ref}. Votre responsable a été notifié.",
         "incidencia_foto_pregunta": "Si vous voulez, envoyez-moi une photo maintenant (facultatif).",
         "incidencia_foto_ok": "Photo jointe à l'incident.",
+        "nota_voz_ok": "Note vocale enregistrée dans le trajet. Votre gestionnaire l'écoutera.",
+        "nota_voz_sin_viaje": "Vous n'avez aucun trajet en cours auquel joindre la note vocale.",
         "btn_incidencia": "📍 Signaler un incident",
         "btn_mi_viaje": "📋 Mon trajet",
         "btn_contactar": "📞 Contacter le responsable",
@@ -434,6 +442,8 @@ TEXTOS = {
         "incidencia_ok": "Incidente segnalato per il viaggio {ref}. Il tuo responsabile è stato avvisato.",
         "incidencia_foto_pregunta": "Se vuoi, mandami una foto ora (facoltativo).",
         "incidencia_foto_ok": "Foto allegata all'incidente.",
+        "nota_voz_ok": "Nota vocale salvata nel viaggio. Il tuo gestore la ascolterà.",
+        "nota_voz_sin_viaje": "Non hai nessun viaggio in corso a cui allegare la nota vocale.",
         "btn_incidencia": "📍 Segnala un incidente",
         "btn_mi_viaje": "📋 Il mio viaggio",
         "btn_contactar": "📞 Contatta il responsabile",
@@ -490,6 +500,8 @@ TEXTOS = {
         "incidencia_ok": "Incidência reportada para a viagem {ref}. O teu gestor foi notificado.",
         "incidencia_foto_pregunta": "Se quiseres, manda-me uma foto agora (opcional).",
         "incidencia_foto_ok": "Foto anexada à incidência.",
+        "nota_voz_ok": "Nota de voz guardada na viagem. O teu gestor vai ouvi-la.",
+        "nota_voz_sin_viaje": "Não tens nenhuma viagem em curso à qual anexar a nota de voz.",
         "btn_incidencia": "📍 Reportar incidência",
         "btn_mi_viaje": "📋 A minha viagem",
         "btn_contactar": "📞 Contactar gestor",
@@ -546,6 +558,8 @@ TEXTOS = {
         "incidencia_ok": "Vorfall für Fahrt {ref} gemeldet. Dein Disponent wurde benachrichtigt.",
         "incidencia_foto_pregunta": "Wenn du magst, schick mir jetzt ein Foto (optional).",
         "incidencia_foto_ok": "Foto zum Vorfall hinzugefügt.",
+        "nota_voz_ok": "Sprachnachricht zur Fahrt gespeichert. Dein Disponent wird sie anhören.",
+        "nota_voz_sin_viaje": "Du hast keine laufende Fahrt, an die die Sprachnachricht angehängt werden kann.",
         "btn_incidencia": "📍 Vorfall melden",
         "btn_mi_viaje": "📋 Meine Fahrt",
         "btn_contactar": "📞 Disponent kontaktieren",
@@ -602,6 +616,8 @@ TEXTOS = {
         "incidencia_ok": "تم الإبلاغ عن حادثة للرحلة {ref}. تم إخطار المسؤول عنك.",
         "incidencia_foto_pregunta": "إذا أردت، أرسل لي صورة الآن (اختياري).",
         "incidencia_foto_ok": "تم إرفاق الصورة بالحادثة.",
+        "nota_voz_ok": "تم حفظ الرسالة الصوتية في الرحلة. سيستمع إليها مديرك.",
+        "nota_voz_sin_viaje": "ليس لديك رحلة جارية لإرفاق الرسالة الصوتية بها.",
         "btn_incidencia": "📍 الإبلاغ عن حادثة",
         "btn_mi_viaje": "📋 رحلتي",
         "btn_contactar": "📞 الاتصال بالمسؤول",
@@ -1380,6 +1396,12 @@ async def handle_location(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
 
 
+# 11.3 (Nivel 1 escalera de captura): `contexto.texto` es NOT NULL (0042), asi
+# que una nota de voz sin transcribir guarda este marcador hasta que Whisper
+# (gated por deploy + 11.5) lo reemplace retroactivamente con la transcripcion
+# real. Buscar por este valor = "audios pendientes de transcribir".
+MARCADOR_NOTA_VOZ_SIN_TRANSCRIBIR = "[nota de voz sin transcribir]"
+
 INCIDENCIA_FOTO_VENTANA_S = 300  # F14.6: margen para adjuntar foto tras /incidencia antes de
 # que la siguiente foto que mande el chófer se trate como un POD normal en vez de "la foto de
 # la incidencia que reportó hace un rato" (evita mezclar dos fotos de contextos distintos).
@@ -1415,6 +1437,74 @@ async def _subir_foto_incidencia(update, ctx, chofer, incidencia_id, viaje_id):
     logger.info(
         "Foto adjuntada a incidencia %s (viaje %s)", incidencia_id, viaje_id,
         extra={"incidencia_id": incidencia_id, "viaje_id": viaje_id, "chofer_id": chofer["id"]},
+    )
+
+
+async def handle_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Nivel 1 de la escalera de captura de conocimiento (ROADMAP Fase 11, 11.3).
+
+    El valor del producto esta en las EXCEPCIONES, que hoy se resuelven por
+    telefono y el sistema no ve. Este es el peldano mas barato: el chofer manda
+    una nota de voz y queda anclada al viaje en curso como `contexto` (11.2),
+    con su hash de integridad (misma tesis de evidencia que POD/incidencia/gasto).
+
+    DELIBERADAMENTE SIN TRANSCRIPCION NI CLASIFICACION: la taxonomia de urgencia
+    y tipo la cierra el discovery con el gestor; hard-codear una inventada
+    obligaria a reescribirla. Guardar el audio NO depende de esa decision, empieza
+    a acumular corpus hoy, y la transcripcion (Whisper self-host, gated por deploy
+    + 11.5) se le pasa RETROACTIVAMENTE despues haciendo UPDATE de `texto` sobre
+    las filas ya guardadas -- por eso `texto` guarda un marcador mientras tanto.
+    """
+    chat_id = str(update.effective_chat.id)
+
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
+        await update.message.reply_text(t("es", "no_vinculado"))
+        return
+
+    viajes_r = ejecutar_con_reintentos(
+        lambda: supabase.table("viaje")
+        .select("id")
+        .eq("chofer_id", chofer["id"])
+        .eq("estado", "en_curso")
+        .execute(),
+        contexto={"accion": "handle_voice_viaje"},
+    )
+    if not viajes_r.data:
+        await update.message.reply_text(t(chofer, "nota_voz_sin_viaje"))
+        return
+
+    viaje_id = viajes_r.data[0]["id"]
+
+    voice = update.message.voice
+    file = await ctx.bot.get_file(voice.file_id)
+    file_bytes = await file.download_as_bytearray()
+
+    # Hash ANTES de subir, igual que POD (9.8) e incidencia (F14.6): el hash es
+    # del audio real que llego del chofer, no de una copia ya en Storage.
+    hash_sha256 = hashlib.sha256(bytes(file_bytes)).hexdigest()
+    file_path = f"{chofer['empresa_id']}/voz/{viaje_id}/{uuid.uuid4()}.ogg"
+
+    supabase.storage.from_("pods").upload(
+        path=file_path,
+        file=bytes(file_bytes),
+        file_options={"content-type": "audio/ogg"},
+    )
+    supabase.table("contexto").insert({
+        "empresa_id": chofer["empresa_id"],
+        "entidad": "viaje",
+        "entidad_id": viaje_id,
+        "canal": "nota_voz",
+        "texto": MARCADOR_NOTA_VOZ_SIN_TRANSCRIBIR,
+        "autor_externo": chofer["nombre"],
+        "audio_url": file_path,
+        "audio_hash_sha256": hash_sha256,
+    }).execute()
+
+    await update.message.reply_text(t(chofer, "nota_voz_ok"))
+    logger.info(
+        "Nota de voz guardada en viaje %s", viaje_id,
+        extra={"viaje_id": viaje_id, "chofer_id": chofer["id"]},
     )
 
 
@@ -2129,6 +2219,7 @@ def create_bot_app():
     app.add_handler(CallbackQueryHandler(cb_llegada, pattern=r"^llegada:"))
     app.add_handler(CallbackQueryHandler(cb_cancelar, pattern=r"^cancelar$"))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
     app.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE & filters.LOCATION, handle_location))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_texto))

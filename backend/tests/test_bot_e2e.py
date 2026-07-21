@@ -26,6 +26,7 @@ from telegram import (
     PhotoSize,
     Update,
     User,
+    Voice,
 )
 
 from app import bot as bot_module
@@ -155,6 +156,18 @@ def photo_update(app, chat_id=CHAT_ID, user_id=TG_USER_ID):
     photo = PhotoSize(file_id="fake-file-id", file_unique_id="fake-unique-id", width=100, height=100)
     message = Message(
         message_id=_mid(), date=datetime.now(timezone.utc), chat=chat, from_user=user, photo=[photo],
+    )
+    message.set_bot(app.bot)
+    return Update(update_id=_uid(), message=message)
+
+
+def voice_update(app, chat_id=CHAT_ID, user_id=TG_USER_ID):
+    """Update de una nota de voz (11.3, Nivel 1 de la escalera de captura)."""
+    chat = Chat(id=chat_id, type="private")
+    user = User(id=user_id, is_bot=False, first_name="Test")
+    voice = Voice(file_id="fake-voice-id", file_unique_id="fake-voice-unique", duration=7)
+    message = Message(
+        message_id=_mid(), date=datetime.now(timezone.utc), chat=chat, from_user=user, voice=voice,
     )
     message.set_bot(app.bot)
     return Update(update_id=_uid(), message=message)
@@ -458,6 +471,64 @@ async def test_e2e_incidencia_foto_se_adjunta_a_la_incidencia_no_crea_pod(monkey
         # era de la incidencia, no del albarán.
         assert fake_db.tables.get("pod", []) == []
         assert fake_db.tables["hito"][0]["estado"] == "en_curso"
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_e2e_nota_voz_se_ancla_al_viaje_como_contexto(monkeypatch):
+    """11.3 (Nivel 1 de la escalera de captura): una nota de voz del chófer se
+    guarda en Storage con su hash de integridad y queda anclada al viaje en
+    curso como `contexto` (canal 'nota_voz'). SIN transcribir todavía: `texto`
+    guarda el marcador hasta que Whisper corra retroactivamente."""
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": str(CHAT_ID),
+    }]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": CHOFER_ID, "estado": "en_curso", "referencia": "VJ-1"}]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(voice_update(app))
+
+        assert len(fake_db.storage.uploads) == 1
+        assert fake_db.storage.uploads[0]["bucket"] == "pods"
+        assert "/voz/v1/" in fake_db.storage.uploads[0]["path"]
+
+        fila = fake_db.tables["contexto"][0]
+        assert fila["entidad"] == "viaje"
+        assert fila["entidad_id"] == "v1"
+        assert fila["canal"] == "nota_voz"
+        assert fila["texto"] == bot_module.MARCADOR_NOTA_VOZ_SIN_TRANSCRIBIR
+        assert fila["autor_externo"] == "Mario"
+        assert fila["audio_url"] is not None
+        # El hash es de los bytes reales que llegaron de Telegram (misma tesis
+        # de evidencia que POD 9.8 / incidencia F14.6).
+        assert fila["audio_hash_sha256"] == hashlib.sha256(b"\xff\xd8\xfffake-jpg-bytes").hexdigest()
+        assert any("guardada" in s.get("text", "").lower() for s in api.sent)
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_e2e_nota_voz_sin_viaje_en_curso_no_guarda_nada(monkeypatch):
+    """Sin viaje en curso no hay dónde anclar la nota: se avisa y NO se sube
+    nada a Storage (evita audios huérfanos sin entidad)."""
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": str(CHAT_ID),
+    }]
+    fake_db.tables["viaje"] = []
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(voice_update(app))
+
+        assert fake_db.storage.uploads == []
+        assert fake_db.tables.get("contexto", []) == []
+        assert any("viaje en curso" in s.get("text", "").lower() for s in api.sent)
     finally:
         await app.shutdown()
 
