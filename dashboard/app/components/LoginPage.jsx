@@ -141,19 +141,11 @@ export default function LoginPage() {
 
           <div className="flex flex-col gap-1 text-xs text-center text-ink-secondary">
             {modo === "login" && (
-              <>
-                <p>
-                  ¿No tienes cuenta?{" "}
-                  <button type="button" onClick={() => { setModo("registro"); setError(null); setMensaje(null); }} className="text-brand underline">
-                    Regístrate
-                  </button>
-                </p>
-                <p>
-                  <button type="button" onClick={() => { setModo("reset"); setError(null); setMensaje(null); }} className="text-brand underline">
-                    ¿Olvidaste tu contraseña?
-                  </button>
-                </p>
-              </>
+              <p>
+                <button type="button" onClick={() => { setModo("reset"); setError(null); setMensaje(null); }} className="text-brand underline">
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </p>
             )}
             {modo === "registro" && (
               <p>

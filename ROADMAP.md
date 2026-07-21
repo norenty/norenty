@@ -29,6 +29,24 @@ análogos y qué SÍ encaja bien (no todo es negativo) en `MENTORIA-ESTRATEGICA.
 
 ---
 
+## Cambio de modelo de onboarding: sin autoregistro público (2026-07-19)
+
+**Decisión explícita del usuario durante el despliegue real:** el modelo de negocio es venta directa
+B2B a empresas grandes, no SaaS de autoservicio viral — así que el registro público ("Regístrate",
+crea tu propia empresa sin invitación) es una vulnerabilidad de producto real, no solo de código:
+cualquiera sin pagar podía crear su empresa en producción. **Quitado el botón de autoregistro de
+`LoginPage.jsx`** — el modo "registro" solo es alcanzable ya vía enlace de invitación
+(`?invitacion=código`, mecanismo ya existente desde 6.9/`usar_invitacion`), nunca desde la pantalla
+de login pública. `ci.ps1` verde (418 vitest, sin tests rotos).
+
+**Proceso de alta de una empresa cliente nueva, de aquí en adelante:** el admin (nosotros) crea la
+empresa + primer gestor admin directamente (Supabase/script controlado), y desde ahí ese admin
+invita al resto de su equipo con el enlace de invitación — nunca autoregistro abierto. Pendiente de
+formalizar como script (`crear_empresa_cliente.py` o similar) si el volumen de altas lo justifica;
+por ahora, manual vía Supabase, documentado aquí para no perder el criterio.
+
+---
+
 ## Cola ACTIVA del loop autónomo — Fase 16: escalación proactiva + informe de jefe de tráfico (2026-07-15)
 
 **⚠️ El loop autónomo trabaja AHORA en esta cola — PRIORIDAD sobre fases anteriores.** Revisión
