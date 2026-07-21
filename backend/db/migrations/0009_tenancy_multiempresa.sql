@@ -5,6 +5,15 @@
 -- real por empresa: cada gestor solo ve/escribe datos de su empresa.
 -- ============================================================
 
+-- Vincula cada gestor con su usuario de Supabase Auth. Columna que faltaba en
+-- 0001_init.sql (se añadió a mano contra el proyecto de dev original, nunca
+-- quedó en una migración) -- hallazgo real al desplegar contra un proyecto de
+-- producción nuevo (2026-07-19): sin esto, `current_empresa_id()` de abajo
+-- falla con `UndefinedColumn` porque `gestor.auth_user_id` no existe todavía.
+ALTER TABLE public.gestor
+  ADD COLUMN IF NOT EXISTS auth_user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_gestor_auth_user_id ON public.gestor(auth_user_id);
+
 -- Función auxiliar: empresa del gestor logueado. SECURITY DEFINER para no
 -- disparar recursión de RLS al consultar 'gestor' desde dentro de otra policy.
 CREATE OR REPLACE FUNCTION public.current_empresa_id()

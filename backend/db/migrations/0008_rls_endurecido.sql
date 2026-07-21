@@ -37,8 +37,23 @@ CREATE POLICY "service_role_update_pods" ON storage.objects
 CREATE POLICY "service_role_delete_pods" ON storage.objects
   FOR DELETE USING (bucket_id = 'pods' AND auth.role() = 'service_role');
 
--- Función SECURITY DEFINER expuesta sin necesidad: revocar ejecución pública
-REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated;
+-- Función SECURITY DEFINER expuesta sin necesidad: revocar ejecución pública.
+-- `rls_auto_enable()` es una función que el PROPIO Supabase crea en la
+-- plantilla interna de algunos proyectos (no la definimos nosotros) -- su
+-- presencia depende de la versión/plantilla de Supabase con la que se
+-- aprovisionó el proyecto, así que el REVOKE se hace condicional (2026-07-19,
+-- hallazgo real al desplegar contra un proyecto de producción nuevo donde no
+-- existía: `REVOKE ... FUNCTION` sobre una función inexistente aborta toda la
+-- migración con `UndefinedFunction`, a diferencia de `DROP ... IF EXISTS`).
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public' AND p.proname = 'rls_auto_enable'
+  ) THEN
+    REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated;
+  END IF;
+END $$;
 
 -- Índices de claves foráneas que faltaban (rendimiento)
 CREATE INDEX IF NOT EXISTS idx_evento_chofer ON ejecucion_evento(chofer_id);
