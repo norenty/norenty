@@ -29,6 +29,145 @@ análogos y qué SÍ encaja bien (no todo es negativo) en `MENTORIA-ESTRATEGICA.
 
 ---
 
+## 🚀 FASE 17 — De "desplegado" a "usable por un cliente real" (ABIERTA 2026-07-21)
+
+**Evaluación honesta del estado tras el despliegue (CTO, 2026-07-21).** Lo que hay: los tres
+servicios vivos (Vercel + Railway + Supabase prod), 58 migraciones limpias, dominio apuntando,
+bot en modo webhook, ~666 tests verdes. Lo que NO hay, y hay que decirlo claro:
+
+- **Nadie puede entrar en producción, literalmente.** La BD de prod está vacía (0 cuentas) y hoy
+  quitamos el autoregistro público — no existe ningún script de alta de empresa real (`seed_demo.py`
+  es solo demo). Es un bloqueo total y es el primer ítem del plan.
+- **Cero usuarios reales, cero viajes reales, cero llamadas reales.** El despliegue no cambia eso:
+  sigue pendiente 10.1, el ítem de mayor retorno del roadmap entero.
+- **Credenciales comprometidas sin rotar** (expuestas en el chat de la sesión de despliegue).
+- **Sin observabilidad**: Sentry no está activado, el cron de monitores no tiene los GitHub Secrets.
+- **Railway en trial** ("30 days or $5.00"): cuando caduque, el bot se cae.
+
+Traducción: **desplegado ≠ operativo.** Esta fase cierra esa brecha. Ordenada por lo que
+desbloquea, no por lo que apetece.
+
+### Bloque A — Seguridad inmediata (antes de nada, mañana a primera hora)
+
+- [ ] `[DECISIÓN A.1]` **Rotar las 3 credenciales expuestas.** Contraseña de BD (Supabase →
+  Settings → Database → Reset password), `service_role key` (Settings → API → roll), token del bot
+  (@BotFather → `/revoke`). Tras rotar: actualizar el fichero de secretos local + las variables en
+  Railway (las 3) y Vercel (ninguna de estas va a Vercel, solo la anon). **Lo pospusiste hoy
+  conscientemente; es la primera tarea de mañana, no la última.**
+- [ ] `[DECISIÓN A.2]` **Separar los ficheros de secretos dev/prod.** Hoy `~/.norenty-secrets/.env`
+  tiene los dos bloques con claves duplicadas; `python-dotenv` resuelve al de abajo (prod), lo que
+  ya está rompiendo `isolation.test.js` (mezcla URL de dev con clave de prod → "Invalid API key").
+  Dos ficheros separados, y decidir cuál carga cada entorno.
+- [ ] `[DECISIÓN A.3]` **Segundo bot de Telegram para dev.** El actual queda como PROD. Telegram
+  solo admite una conexión activa por token: si el bot local de dev y el de Railway corren a la vez
+  con el mismo token, se pisan y uno deja de recibir mensajes. `@BotFather` → `/newbot` → 1 min.
+
+### Bloque B — Desbloquear el producto (sin esto no hay piloto)
+
+- [ ] `[LOOP B.1]` **Script `crear_empresa_cliente.py`** — alta controlada de una empresa cliente:
+  crea `empresa` + primer `gestor` con rol `admin` vinculado a un usuario de Supabase Auth, y
+  devuelve el enlace de invitación para que ese admin invite a su equipo. Es la pieza que sustituye
+  al autoregistro que quitamos, y la que hace posible el modelo de venta B2B. Solo lo ejecutamos
+  nosotros, nunca expuesto en la web.
+- [ ] `[DECISIÓN B.2]` **Crear tu propia cuenta admin en producción** con ese script — hoy no
+  puedes ni entrar a `norenty.com`. Desbloquea B.3 y cualquier prueba real.
+- [ ] `[DECISIÓN B.3]` **10.1 — Smoke test real punta a punta.** Ya sin excusas: entorno
+  desplegado. Vincular tu Telegram al bot REAL, crear viaje, confirmar recogida → llegada → foto de
+  POD → completado, viéndolo en el dashboard real. Es el ítem de mayor retorno del roadmap y
+  además valida de golpe el despliegue entero (webhook, Storage, RLS, hash-chain).
+
+### Bloque C — Rediseño del onboarding (petición explícita del usuario, 2026-07-21)
+
+Contexto: el modelo es **venta B2B directa a empresas grandes**, no SaaS de autoservicio. Hoy
+quitamos el botón de registro público (parche correcto pero insuficiente). Lo que falta es el
+modelo completo:
+
+- [ ] `[DECISIÓN C.1]` **🔴 TENSIÓN REAL DETECTADA: el scoping de Fase 15 choca con la cobertura de
+  vacaciones.** Dijiste: *"si alguien está de vacaciones, su trabajo debe hacerlo otra persona, no
+  pueden no hacerse"*. Pero F15.2 (RLS por gestor) hace que un `gestor_operativo` **solo vea sus
+  propios chóferes/viajes** — si María se va de vacaciones, sus viajes son invisibles para Juan, y
+  el trabajo se para. Justo lo contrario de lo que necesitas. **Hay que decidir el modelo**, y no
+  lo decido yo solo porque es criterio de negocio:
+  - **(a) Delegación temporal** — un gestor marca ausencia y designa sustituto; el sustituto ve su
+    ámbito durante ese periodo. Mantiene la frontera de seguridad, resuelve el caso real.
+    *Recomendación del CTO*: es el patrón enterprise estándar y el cambio más pequeño.
+  - **(b) Scoping por equipo** en vez de por persona — los compañeros del mismo equipo se cubren
+    entre sí por defecto.
+  - **(c) Scoping "blando"** — todos ven todo dentro de la empresa, y "lo mío" es solo un filtro de
+    UI. La frontera dura sigue siendo entre EMPRESAS (multi-tenant), no entre compañeros. Es como
+    funciona una oficina de tráfico real (están en la misma sala y se cubren).
+  - **(d) Solo admin cubre** — funciona hoy sin tocar nada, pero mete al jefe de tráfico de cuello
+    de botella en cada ausencia.
+- [ ] `[LOOP C.2]` **Implementar el modelo elegido en C.1** (migración + RLS + UI de Ajustes →
+  Equipo). No se toca antes de que C.1 esté decidido.
+- [ ] `[LOOP C.3]` **Verificar el flujo de invitación de punta a punta en producción** — el
+  mecanismo existe (6.9, `usar_invitacion`, UI en `AjustesEquipoSection`) pero nunca se ha probado
+  con un usuario real: admin genera enlace → invitado entra → queda en la empresa correcta con el
+  rol correcto.
+- [ ] `[DECISIÓN C.4]` **Gating comercial: ¿cómo se impide que entre quien no ha pagado?** Hoy la
+  respuesta es "solo creamos cuentas a mano para clientes firmados" (gate manual, cero código).
+  *Recomendación*: mantenerlo manual hasta que haya volumen; añadir `empresa.estado`
+  (trial/activa/suspendida) solo cuando dé problemas reales, no antes.
+- [ ] `[LOOP C.5]` **Revisar el primer arranque de una empresa nueva** — `ChecklistOnboarding` ya
+  existe; comprobar que guía bien a un admin real desde cero (sin datos demo) y no muestra pasos
+  que no aplican.
+
+### Bloque D — Operación real en producción
+
+- [ ] `[DECISIÓN D.1]` **Activar Sentry** (10.4b) — el código está 100% construido, solo falta
+  crear los 2 proyectos y pegar los DSN en Vercel y Railway. Sin esto operas a ciegas la primera
+  semana, que es justo cuando más se rompe.
+- [ ] `[DECISIÓN D.2]` **GitHub Secrets del cron de monitores** — `DATABASE_URL`,
+  `TELEGRAM_BOT_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` en Settings → Secrets →
+  Actions. Sin esto, `monitores.yml` no vigila nada (heartbeat, integridad, purga de ubicación).
+  **Ojo: hacerlo DESPUÉS de A.1 (rotación), para no meter credenciales que vas a invalidar.**
+- [ ] `[DECISIÓN D.3]` **Railway: pasar a plan de pago** antes de que caduque el trial (30 días /
+  $5) — si se agota, el bot se cae y con él todo el canal del chófer.
+- [ ] `[LOOP D.4]` **Documentar las regiones reales** en `PRIVACIDAD-SUBPROCESADORES.md`: Vercel
+  Frankfurt, Railway EU West, Supabase eu-central-1. Era un compromiso explícito del documento y
+  ahora ya se sabe el dato real.
+- [ ] `[DECISIÓN D.5]` **Rate-limit del endpoint público** (`viaje_publico`, 8.5) antes de mandar
+  ningún enlace de seguimiento a un cliente real — es anónimo por diseño.
+- [ ] `[LOOP D.6]` **CSP de Report-Only a enforcing** — tras una semana de producción real
+  revisando violaciones (no antes: hace falta tráfico real para saber qué rompe).
+- [ ] `[LOOP D.7]` **Arreglar `www` vs raíz del dominio** — Vercel recomienda un cambio de DNS y
+  hoy redirige `norenty.com` → `www.norenty.com` con un 308. Decidir cuál es el canónico y dejarlo
+  limpio.
+
+### Bloque E — Bloqueado por terceros (no depende de nosotros)
+
+- [ ] `[DECISIÓN E.1]` **12.3 Discovery con el gestor** — de vacaciones, sin fecha. Cuando vuelva:
+  cierra la taxonomía de urgencia, los umbrales y los playbooks de reacción.
+- [ ] `[DECISIÓN E.2]` **9.11 Consulta legal** — antes de meter datos reales de chóferes de una
+  empresa cliente (con datos de prueba tuyos no hace falta).
+- [ ] `[DECISIÓN E.3]` **11.5 consentimiento de voz + Whisper self-host** — las notas de voz ya se
+  capturan y almacenan (11.3 construido); la transcripción se les pasa **retroactivamente** cuando
+  esto se resuelva, así que el corpus ya está creciendo mientras tanto.
+- [ ] `[DECISIÓN E.4]` **Afinar `UMBRAL_VENTANA_EN_RIESGO_MIN` y los playbooks** ("cómo se
+  reacciona ante X") — la parte de criterio del triaje, que necesita al gestor real.
+
+### Bloque F — Deuda técnica conocida (no urgente, sí anotada)
+
+- [ ] `[LOOP F.1]` **`isolation.test.js` en rojo** — se arregla solo al completar A.2 (separar
+  ficheros de secretos). Verificar después.
+- [ ] `[DECISIÓN F.2]` **`npm audit`: 4 vulnerabilidades** (3 moderate en postcss vía Next.js, 1
+  high en xlsx). Ninguna tiene arreglo sin romper algo: postcss exige downgrade de Next.js entero;
+  xlsx no tiene fix upstream. Evaluadas y aceptadas conscientemente — revisar cuando haya fix.
+- [ ] `[LOOP F.3]` **Backfill de `PROGRESS.md` (Fases 10-16)** — lanzado como tarea en background,
+  pendiente de confirmar que terminó bien.
+- [ ] `[DECISIÓN F.4]` **OSRM en producción** — hoy todo el cálculo de km/ETA usa el fallback
+  Haversine×1.3, marcado como `estimado: true` en la UI. Degradación aceptable para el piloto
+  (documentado en 9.22), pero es deuda visible al cliente.
+- [ ] `[LOOP F.5]` **10.2 Prueba de restore real + RPO/RTO medido** — ahora que hay una BD de
+  producción de verdad, esto por fin se puede hacer en serio.
+
+**GATE 17:** no se invita a ningún cliente real (ni founding partner) hasta tener cerrados: A.1
+(rotación), B.3 (smoke test pasado), D.1 (Sentry) y D.2 (monitores). Son las cuatro cosas que
+separan "una demo que funciona en tu portátil" de "un sistema del que te puedes fiar delante de
+una empresa".
+
+---
+
 ## Cambio de modelo de onboarding: sin autoregistro público (2026-07-19)
 
 **Decisión explícita del usuario durante el despliegue real:** el modelo de negocio es venta directa
