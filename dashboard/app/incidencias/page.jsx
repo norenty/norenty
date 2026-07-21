@@ -4,12 +4,23 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { AlertTriangle, Clock, CheckCircle2, ExternalLink, ChevronDown, Megaphone } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { calcularUrgenciaIncidencia } from "../../lib/data";
 import { ESTADO_INCIDENCIA as ESTADO_LABELS, TIPO_INCIDENCIA_LABEL as TIPO_LABELS } from "../../lib/labels";
 import EmptyState from "../components/ui/EmptyState";
 import PodImage from "../components/PodImage";
 import { fmtFechaHora } from "../../lib/format";
 
 const PAGE_SIZE = 20;
+
+// Triaje de urgencia (7B.2): el nivel se CALCULA en vivo desde hechos objetivos
+// (ver `calcularUrgenciaIncidencia`), no se persiste — por eso el orden de la
+// lista sigue siendo por fecha: ordenar globalmente por urgencia exigiría
+// almacenarla, y un valor congelado quedaría obsoleto en minutos. El badge es lo
+// que hace que deje de estar todo al mismo nivel de un vistazo.
+const URGENCIA_ESTILO = {
+  alta: "bg-red-50 text-red-700",
+  media: "bg-yellow-50 text-yellow-700",
+};
 
 export default function IncidenciasPage() {
   const [incidencias, setIncidencias] = useState([]);
@@ -23,7 +34,9 @@ export default function IncidenciasPage() {
   const fetchPage = useCallback(async (filtroActual, offsetActual, append = false) => {
     let query = supabase
       .from("incidencia")
-      .select("*, viaje(id, referencia)")
+      // viaje.estado y hito.ventana_fin alimentan el triaje de urgencia (7B.2):
+      // sin ellos `calcularUrgenciaIncidencia` no puede usar los hechos objetivos.
+      .select("*, viaje(id, referencia, estado), hito:hito_id(ventana_fin, tipo)")
       .order("created_at", { ascending: false })
       .range(offsetActual, offsetActual + PAGE_SIZE);
 
@@ -115,6 +128,7 @@ export default function IncidenciasPage() {
           <div className="flex flex-col gap-2">
             {incidencias.map((inc) => {
               const est = ESTADO_LABELS[inc.estado] || ESTADO_LABELS.abierta;
+              const urgencia = calcularUrgenciaIncidencia(inc, { hito: inc.hito, viaje: inc.viaje });
               return (
                 <div key={inc.id} className="bg-surface border border-border rounded-xl p-4">
                   <div className="flex items-start gap-3">
@@ -133,6 +147,14 @@ export default function IncidenciasPage() {
                         <span className={`text-xs px-2 py-0.5 rounded-full ${est.bg} ${est.color}`}>
                           {est.label}
                         </span>
+                        {urgencia && URGENCIA_ESTILO[urgencia.nivel] && (
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full ${URGENCIA_ESTILO[urgencia.nivel]}`}
+                            title={urgencia.motivos.join(" · ")}
+                          >
+                            {urgencia.nivel === "alta" ? "Urgente" : "Atención"}
+                          </span>
+                        )}
                         {inc.escalada_en && (
                           <span
                             className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-700"

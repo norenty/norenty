@@ -2994,6 +2994,75 @@ export async function getPlanVsReal(viajeId) {
 // (mismo estatus que UMBRAL_MARGEN_AMBAR_PCT/UMBRAL_NOCHE_FUERA_KM).
 export const UMBRAL_POD_TARDIO_MIN = 120;
 
+// --- Triaje de urgencia de incidencias (7B.2, Nivel 2 de la escalera de captura) ---
+//
+// Decisión de diseño (2026-07-19): la investigación del sector da los TIPOS de
+// incidencia habituales (mecánicas, operativas, climáticas, administrativas) pero
+// NO existe una escala de urgencia estándar en transporte por carretera que se
+// pueda implementar tal cual. Así que NO se inventa una escala subjetiva: la
+// urgencia se DERIVA de hechos objetivos que el sistema ya tiene (ventana de
+// entrega vencida, viaje en curso, incidencia ya escalada, tipo de incidencia).
+//
+// Se CALCULA en vivo, no se persiste: la urgencia de un retraso crece según se
+// acerca la ventana, así que un valor congelado en el momento de crear la
+// incidencia quedaría obsoleto en minutos.
+//
+// Devuelve `motivos` además del nivel: el gestor tiene derecho a saber POR QUÉ
+// el sistema dice que algo es urgente (mismo principio de "sugerencia explicable,
+// nunca caja negra" que 10.9b/sugerirChofer).
+//
+// Umbral inicial razonable, NO pactado con cliente real (mismo estatus que
+// UMBRAL_POD_TARDIO_MIN / UMBRAL_MARGEN_AMBAR_PCT). El discovery con un gestor
+// real lo afinará; el objetivo aquí es que deje de estar TODO al mismo nivel.
+export const UMBRAL_VENTANA_EN_RIESGO_MIN = 120;
+
+export function calcularUrgenciaIncidencia(incidencia, { hito = null, viaje = null, ahora = null } = {}) {
+  if (!incidencia) return null;
+  if (incidencia.estado === "resuelta") return { nivel: "baja", motivos: ["Resuelta"] };
+
+  const ahoraMs = (ahora ? new Date(ahora) : new Date()).getTime();
+  const viajeEnCurso = viaje?.estado === "en_curso";
+  const motivos = [];
+  let nivel = "baja";
+
+  const subir = (n, motivo) => {
+    motivos.push(motivo);
+    const orden = { baja: 0, media: 1, alta: 2 };
+    if (orden[n] > orden[nivel]) nivel = n;
+  };
+
+  // Seguridad de personas: no admite matices ni depende del contexto.
+  if (incidencia.tipo === "accidente") subir("alta", "Accidente");
+
+  // El sistema ya escaló (R1 nivel 2): nadie respondió en la ventana de gracia.
+  if (incidencia.escalada_en) subir("alta", "Ya escalada al equipo");
+
+  // Ventana de entrega: el hecho más objetivo que existe (contractual).
+  const ventanaFin = hito?.ventana_fin ? new Date(hito.ventana_fin).getTime() : null;
+  if (ventanaFin != null) {
+    const minutosRestantes = Math.round((ventanaFin - ahoraMs) / 60000);
+    if (minutosRestantes < 0) {
+      subir("alta", `Ventana de entrega vencida hace ${Math.abs(minutosRestantes)} min`);
+    } else if (minutosRestantes <= UMBRAL_VENTANA_EN_RIESGO_MIN) {
+      subir("media", `Quedan ${minutosRestantes} min de ventana`);
+    }
+  }
+
+  // Avería: bloquea el viaje si ya está rodando; si está planificado hay margen
+  // para reasignar sin que nadie espere.
+  if (incidencia.tipo === "averia") {
+    subir(viajeEnCurso ? "alta" : "media", viajeEnCurso ? "Avería con viaje en curso" : "Avería (viaje aún planificado)");
+  }
+
+  // Bloqueos comerciales/administrativos: paran la entrega, pero no son seguridad.
+  if (["rechazo_entrega", "documento_invalido"].includes(incidencia.tipo) && viajeEnCurso) {
+    subir("media", incidencia.tipo === "rechazo_entrega" ? "Rechazo en entrega" : "Documento inválido en ruta");
+  }
+
+  if (motivos.length === 0) motivos.push("Sin señales de urgencia");
+  return { nivel, motivos };
+}
+
 export function calcularDesfasePod(pod, eventos) {
   const llegada = (eventos || []).find((e) => e.tipo === "llegada" && e.hito_id === pod.hito_id);
   if (!llegada) return { minutos: null, tardio: false };

@@ -2476,6 +2476,15 @@ sugerencia):
   triaje útil ya. **Es lo primero a construir** en cuanto esté deploy + 11.5.
 - **Nivel 2 — detección → pregunta.** El `monitor_retraso_silencioso` (R1) YA detecta el anómalo;
   falta que al detectarlo el sistema contacte PRIMERO con contexto y opciones. Reusa lo construido.
+  **TRIAJE CONSTRUIDO 2026-07-19:** `calcularUrgenciaIncidencia` (pura, `data.js`) + badge en
+  `/incidencias`. Investigado antes de picar: el sector documenta los TIPOS de incidencia (que ya
+  coinciden con el enum del código) pero **no existe escala de urgencia estándar** en transporte —
+  así que la urgencia se DERIVA de hechos objetivos (accidente, ya escalada, ventana de entrega
+  vencida/en riesgo, avería con viaje en curso) en vez de inventar una escala 1-5, y devuelve los
+  `motivos` para que sea explicable. Se calcula en vivo (no se persiste): un valor congelado al
+  crear la incidencia quedaría obsoleto según se acerca la ventana. 7 tests. **Lo que sigue
+  necesitando al gestor:** afinar `UMBRAL_VENTANA_EN_RIESGO_MIN` y decidir los playbooks de
+  reacción ("cómo se responde a X"), que es la parte de criterio, no de hechos.
 - **Nivel 3 (urgencia máxima) — voz.** Dos opciones, **recomendación A**: (A) capturar la
   RESOLUCIÓN justo después con una nota de voz de 15s (coste ≈0, legalmente limpio, captura el dato
   del moat) vs (B) ser dueño del puente telefónico por el que pasa la llamada (per-minuto, DPA,

@@ -221,6 +221,7 @@ const {
   getSugerenciaCalibracion,
   getPlanVsReal,
   calcularDesfasePod,
+  calcularUrgenciaIncidencia,
   UMBRAL_POD_TARDIO_MIN,
   calcularOcupacion,
   UMBRAL_FTL_PCT,
@@ -2864,6 +2865,73 @@ describe("plan-vs-real por hito (7A.9)", () => {
     const r = await getPlanVsReal("v1");
     expect(r.resumen.conVentana).toBe(2);
     expect(r.resumen.aTiempo).toBe(1);
+  });
+});
+
+describe("calcularUrgenciaIncidencia — triaje sobre hechos objetivos (7B.2, 2026-07-19)", () => {
+  const AHORA = "2026-07-19T12:00:00Z";
+
+  it("un accidente es siempre alta, sin depender del contexto", () => {
+    const r = calcularUrgenciaIncidencia({ tipo: "accidente", estado: "abierta" }, { ahora: AHORA });
+    expect(r.nivel).toBe("alta");
+    expect(r.motivos).toContain("Accidente");
+  });
+
+  it("una incidencia ya escalada es alta (nadie respondió en la ventana de gracia)", () => {
+    const r = calcularUrgenciaIncidencia(
+      { tipo: "otro", estado: "abierta", escalada_en: "2026-07-19T11:00:00Z" },
+      { ahora: AHORA },
+    );
+    expect(r.nivel).toBe("alta");
+    expect(r.motivos).toContain("Ya escalada al equipo");
+  });
+
+  it("ventana de entrega ya vencida sube a alta y dice cuánto hace", () => {
+    const r = calcularUrgenciaIncidencia(
+      { tipo: "retraso", estado: "abierta" },
+      { hito: { ventana_fin: "2026-07-19T11:30:00Z" }, ahora: AHORA },
+    );
+    expect(r.nivel).toBe("alta");
+    expect(r.motivos.some((m) => m.includes("vencida hace 30 min"))).toBe(true);
+  });
+
+  it("ventana próxima (dentro del umbral) es media, no alta", () => {
+    const r = calcularUrgenciaIncidencia(
+      { tipo: "retraso", estado: "abierta" },
+      { hito: { ventana_fin: "2026-07-19T13:00:00Z" }, ahora: AHORA },
+    );
+    expect(r.nivel).toBe("media");
+    expect(r.motivos.some((m) => m.includes("Quedan 60 min"))).toBe(true);
+  });
+
+  it("avería distingue viaje en curso (alta) de planificado (media)", () => {
+    const enCurso = calcularUrgenciaIncidencia(
+      { tipo: "averia", estado: "abierta" },
+      { viaje: { estado: "en_curso" }, ahora: AHORA },
+    );
+    const planificado = calcularUrgenciaIncidencia(
+      { tipo: "averia", estado: "abierta" },
+      { viaje: { estado: "planificado" }, ahora: AHORA },
+    );
+    expect(enCurso.nivel).toBe("alta");
+    expect(planificado.nivel).toBe("media");
+  });
+
+  it("una incidencia sin señales objetivas se queda en baja y lo dice", () => {
+    const r = calcularUrgenciaIncidencia(
+      { tipo: "otro", estado: "abierta" },
+      { viaje: { estado: "planificado" }, ahora: AHORA },
+    );
+    expect(r.nivel).toBe("baja");
+    expect(r.motivos).toContain("Sin señales de urgencia");
+  });
+
+  it("una incidencia resuelta nunca es urgente", () => {
+    const r = calcularUrgenciaIncidencia(
+      { tipo: "accidente", estado: "resuelta", escalada_en: "2026-07-19T10:00:00Z" },
+      { ahora: AHORA },
+    );
+    expect(r.nivel).toBe("baja");
   });
 });
 
