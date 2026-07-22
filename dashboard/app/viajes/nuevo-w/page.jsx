@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2, AlertTriangle, Check, ChevronRight, ChevronUp, ChevronDown, Package, Route } from "lucide-react";
-import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561, UMBRAL_MARGEN_AMBAR_PCT, getClientes, calcularOcupacion, sugerirOrdenParadas, getDireccionesGuardadas, getReferenciaSugerida } from "../../../lib/data";
+import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561, UMBRAL_MARGEN_AMBAR_PCT, getClientes, calcularOcupacion, sugerirOrdenParadas, getDireccionesGuardadas, getReferenciaSugerida, calcularAvisosViabilidad } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import SugerenciaChofer from "../../components/SugerenciaChofer";
 import Buscador from "../../components/ui/Buscador";
@@ -86,6 +86,12 @@ export default function NuevoViajeWizard() {
     getDireccionesGuardadas().then(setDireccionesGuardadas);
     getReferenciaSugerida().then(setReferencia);
   }, []);
+
+  // Hallazgo real 2026-07-22: "Madrid a Burdeos en 1h" se podía guardar tal
+  // cual, sin ningún aviso. Recalcula en cada cambio de hitos (barato, es
+  // sync/puro, no hace falta debounce como el panel de km/coste que sí llama
+  // a red más abajo).
+  const avisosViabilidad = useMemo(() => calcularAvisosViabilidad(hitos), [hitos]);
 
   const tractoras = vehiculos.filter((v) => ["tractora", "rigido", "furgoneta"].includes(v.tipo));
   const remolques = vehiculos.filter((v) => v.tipo === "remolque");
@@ -407,6 +413,15 @@ export default function NuevoViajeWizard() {
               </div>
             </div>
 
+            {avisosViabilidad.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                {avisosViabilidad.map((a) => (
+                  <p key={a.indice} className="text-xs text-estado-incidencia flex items-start gap-1.5 bg-red-50 rounded-md px-2.5 py-2">
+                    <AlertTriangle size={13} className="shrink-0 mt-0.5" /> {a.mensaje}
+                  </p>
+                ))}
+              </div>
+            )}
             <button onClick={irAPaso2} className="self-start text-sm px-4 py-2 rounded-md bg-brand text-white font-medium">
               Siguiente: Asignación
             </button>

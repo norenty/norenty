@@ -193,6 +193,7 @@ const {
   getRendimientoGestores,
   getMetricasPorCliente,
   kmAproxViaje,
+  calcularAvisosViabilidad,
   sugerirOrdenParadas,
   getEstado561,
   getEstado561ParaChoferes,
@@ -2045,6 +2046,42 @@ describe("estado 561 (7A.1)", () => {
       { orden: 2, lat: null, lon: null },
     ]);
     expect(km).toBe(0);
+  });
+
+  describe("calcularAvisosViabilidad (hallazgo real 2026-07-22: Madrid a Burdeos en 1h se guardaba sin avisar)", () => {
+    it("avisa cuando la ventana entre paradas no alcanza ni sin descansos", () => {
+      const avisos = calcularAvisosViabilidad([
+        { ...MADRID, ventana_inicio: "2026-01-01T08:00:00Z", ventana_fin: "2026-01-01T09:00:00Z" },
+        { lat: 44.8378, lon: -0.5792, ventana_inicio: "2026-01-01T10:00:00Z", ventana_fin: "2026-01-01T10:00:00Z" }, // Burdeos, ~800km reales
+      ]);
+      expect(avisos).toHaveLength(1);
+      expect(avisos[0].mensaje).toMatch(/no parece viable/);
+      expect(avisos[0].horasDisponibles).toBe(1);
+    });
+
+    it("NO avisa cuando la ventana sí alcanza de sobra", () => {
+      const avisos = calcularAvisosViabilidad([
+        { ...MADRID, ventana_inicio: "2026-01-01T08:00:00Z", ventana_fin: "2026-01-01T08:00:00Z" },
+        { ...BARCELONA, ventana_inicio: "2026-01-01T18:00:00Z", ventana_fin: "2026-01-01T18:00:00Z" }, // 10h para ~655km estimados
+      ]);
+      expect(avisos).toHaveLength(0);
+    });
+
+    it("NO avisa si falta alguna ventana (no hay nada objetivo que comprobar)", () => {
+      const avisos = calcularAvisosViabilidad([
+        { ...MADRID, ventana_inicio: "", ventana_fin: "" },
+        { ...BARCELONA, ventana_inicio: "2026-01-01T09:00:00Z", ventana_fin: "" },
+      ]);
+      expect(avisos).toHaveLength(0);
+    });
+
+    it("NO avisa si falta alguna coordenada", () => {
+      const avisos = calcularAvisosViabilidad([
+        { lat: null, lon: null, ventana_inicio: "2026-01-01T08:00:00Z", ventana_fin: "2026-01-01T08:00:00Z" },
+        { ...BARCELONA, ventana_inicio: "2026-01-01T09:00:00Z", ventana_fin: "2026-01-01T09:00:00Z" },
+      ]);
+      expect(avisos).toHaveLength(0);
+    });
   });
 
   describe("sugerirOrdenParadas (F13.6 — sugerencia de orden, nunca dispatch automático)", () => {

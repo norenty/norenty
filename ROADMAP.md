@@ -117,9 +117,17 @@ desbloquea, no por lo que apetece.
   en `data.test.js`. `ci.ps1` verde (428 vitest). Verificado en navegador con sesión real de dev:
   referencia autogenerada, primera/última fijas, sugerencia de dirección histórica, buscador de
   chófer manual, todo sin errores de consola.
-  **Pendiente, más diseño necesario:** comprobación de viabilidad tiempo/distancia entre paradas
-  (ej. "Madrid→Burdeos en 1h no es viable") — requiere definir el umbral con los datos ya
-  calculados (velocidad de planificación + Haversine), próxima iteración.
+- [x] `[LOOP]` **Comprobación de viabilidad tiempo/distancia entre paradas** (lo que quedaba
+  pendiente del ítem anterior). `calcularAvisosViabilidad(hitos, velocidadKmh)`: pura, reutiliza
+  Haversine×`FACTOR_SINUOSIDAD_FALLBACK` (mismo criterio que `kmAproxViaje`) y
+  `calcularEtaConParadas` (el modelo 561/2006 YA existente, con descansos obligatorios) en vez de
+  inventar un umbral nuevo — solo evalúa pares de paradas consecutivas con AMBAS coordenadas Y
+  AMBAS ventanas (sin ventana no hay nada objetivo que comprobar). Es un AVISO visible, no bloquea
+  el guardado — mismo principio "sugerencia, nunca mutación silenciosa" del resto del proyecto (a
+  veces el dato de la ventana está mal y el gestor necesita poder corregirlo, no que el sistema se
+  lo impida). 4 tests nuevos. `ci.ps1` verde (432 vitest). Verificado en navegador con sesión real:
+  "Madrid → Burdeos en 1h" muestra "~720 km, se necesitan ~21.4 h (con descansos obligatorios) pero
+  la ventana solo deja 1 h — no parece viable", sin errores de consola.
 - [ ] `[DECISIÓN B.3]` **10.1 — Smoke test real punta a punta.** Ya sin excusas: entorno
   desplegado. Vincular tu Telegram al bot REAL, crear viaje, confirmar recogida → llegada → foto de
   POD → completado, viéndolo en el dashboard real. Es el ítem de mayor retorno del roadmap y

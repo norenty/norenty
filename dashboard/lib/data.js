@@ -1365,6 +1365,44 @@ export function kmAproxViaje(hitos) {
 }
 
 /**
+ * Avisa si el tiempo entre dos paradas consecutivas (según sus ventanas) no
+ * alcanza para recorrer la distancia entre ellas, ni siquiera sin pausas
+ * obligatorias (2026-07-22, hallazgo real: "Madrid a Burdeos en 1h" se podía
+ * guardar tal cual, sin ningún aviso). Pura: Haversine × FACTOR_SINUOSIDAD_FALLBACK
+ * para la distancia (mismo criterio que `kmAproxViaje`) y `calcularEtaConParadas`
+ * para las horas necesarias (reutiliza el modelo 561/2006 ya existente, no
+ * inventa un umbral nuevo). Solo evalúa pares con AMBAS coordenadas y AMBAS
+ * ventanas — sin ventana no hay nada objetivo que comprobar, no se inventa.
+ * `hitos` debe venir ya en el orden real del viaje (mismo criterio que
+ * `kmAproxViaje` recibe hitos con `orden`, aquí se asume el orden del array).
+ */
+export function calcularAvisosViabilidad(hitos, velocidadKmh = VELOCIDAD_PLANIFICACION_KMH) {
+  const avisos = [];
+  const lista = hitos || [];
+  for (let i = 0; i < lista.length - 1; i++) {
+    const a = lista[i], b = lista[i + 1];
+    if (a.lat == null || a.lon == null || b.lat == null || b.lon == null) continue;
+    const salida = a.ventana_fin || a.ventana_inicio;
+    const llegada = b.ventana_inicio || b.ventana_fin;
+    if (!salida || !llegada) continue;
+    const horasDisponibles = (new Date(llegada).getTime() - new Date(salida).getTime()) / 3600000;
+    if (!(horasDisponibles > 0)) continue; // fechas invertidas: lo marca otra validación, no se duplica aquí
+    const km = haversineKm({ lat: Number(a.lat), lon: Number(a.lon) }, { lat: Number(b.lat), lon: Number(b.lon) }) * FACTOR_SINUOSIDAD_FALLBACK;
+    const { horasTotales } = calcularEtaConParadas(km / velocidadKmh);
+    if (horasTotales > horasDisponibles) {
+      avisos.push({
+        indice: i,
+        km: Math.round(km),
+        horasNecesarias: Math.round(horasTotales * 10) / 10,
+        horasDisponibles: Math.round(horasDisponibles * 10) / 10,
+        mensaje: `Entre la parada ${i + 1} y la ${i + 2}: ~${Math.round(km)} km, se necesitan ~${Math.round(horasTotales * 10) / 10} h (con descansos obligatorios) pero la ventana solo deja ${Math.round(horasDisponibles * 10) / 10} h — no parece viable.`,
+      });
+    }
+  }
+  return avisos;
+}
+
+/**
  * Horas de conducción ESTIMADAS de un chófer en los últimos 7 y 14 días, contra
  * los límites del Reglamento 561/2006 (56 h semanal, 90 h bisemanal).
  *
