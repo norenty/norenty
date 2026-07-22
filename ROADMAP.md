@@ -137,9 +137,16 @@ modelo completo:
   **Ojo: hacerlo DESPUÉS de A.1 (rotación), para no meter credenciales que vas a invalidar.**
 - [ ] `[DECISIÓN D.3]` **Railway: pasar a plan de pago** antes de que caduque el trial (30 días /
   $5) — si se agota, el bot se cae y con él todo el canal del chófer.
-- [ ] `[LOOP D.4]` **Documentar las regiones reales** en `PRIVACIDAD-SUBPROCESADORES.md`: Vercel
+- [x] `[LOOP D.4]` **Documentar las regiones reales** en `PRIVACIDAD-SUBPROCESADORES.md`: Vercel
   Frankfurt, Railway EU West, Supabase eu-central-1. Era un compromiso explícito del documento y
   ahora ya se sabe el dato real.
+  Hecho (2026-07-22): corregido también un dato desactualizado que llevaba tiempo mal (Supabase
+  decía "eu-west-1 Irlanda", el proyecto de producción real está en "eu-central-1 Frankfurt").
+  Reflejado en los dos sitios que el propio documento exige mantener sincronizados:
+  `PRIVACIDAD-SUBPROCESADORES.md` y la página pública `/subprocesadores`. Añadida también una nota
+  sobre Cloudflare: gestiona el correo (MX/DKIM/SPF) y el DNS del dashboard, pero el registro hacia
+  Vercel está en "DNS only" (sin proxy) a petición de Vercel — por tanto no trata tráfico del
+  dashboard en tránsito hoy. Verificado en navegador (build + sin errores de consola).
 - [ ] `[DECISIÓN D.5]` **Rate-limit del endpoint público** (`viaje_publico`, 8.5) antes de mandar
   ningún enlace de seguimiento a un cliente real — es anónimo por diseño.
 - [ ] `[LOOP D.6]` **CSP de Report-Only a enforcing** — tras una semana de producción real
