@@ -85,6 +85,12 @@ desbloquea, no por lo que apetece.
   fichero de turno), 425 vitest, build 22 páginas.
 - [ ] `[DECISIÓN B.2]` **Crear tu propia cuenta admin en producción** con ese script — hoy no
   puedes ni entrar a `norenty.com`. Desbloquea B.3 y cualquier prueba real.
+- [x] `[LOOP]` **Fix real encontrado durante el smoke test en dev (2026-07-22):** `chofer.chat_id`
+  es `UNIQUE` en BD (un mismo Telegram no puede representar a dos chóferes a la vez). Vincular un
+  Telegram ya usado por otro chófer reventaba el `UPDATE` con un `IntegrityError` sin capturar, que
+  caía en el manejador de errores genérico y respondía "problema técnico" sin explicar nada.
+  `cmd_start` ahora comprueba ANTES del `UPDATE` si el chat ya está vinculado a otro chófer y, si es
+  así, lo dice explícito con el nombre. 1 test e2e nuevo. `ci.ps1` verde (242 backend).
 - [ ] `[DECISIÓN B.3]` **10.1 — Smoke test real punta a punta.** Ya sin excusas: entorno
   desplegado. Vincular tu Telegram al bot REAL, crear viaje, confirmar recogida → llegada → foto de
   POD → completado, viéndolo en el dashboard real. Es el ítem de mayor retorno del roadmap y

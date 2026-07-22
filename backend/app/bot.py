@@ -1076,6 +1076,22 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Hallazgo real (2026-07-22, smoke test en vivo): `chofer.chat_id` tiene
+    # UNIQUE en BD (un mismo Telegram no puede representar a dos chóferes a la
+    # vez -- si no, get_chofer_by_chat no sabría a cuál responder). Sin este
+    # chequeo previo, intentar vincular un Telegram ya usado por OTRO chófer
+    # revienta el UPDATE con un IntegrityError sin capturar, que cae en el
+    # manejador de errores genérico y responde el "problema técnico" opaco en
+    # vez de explicar qué pasó de verdad.
+    ya_vinculado = supabase.table("chofer").select("id, nombre").eq("chat_id", chat_id).execute()
+    otro_chofer = next((c for c in (ya_vinculado.data or []) if c["id"] != codigo), None)
+    if otro_chofer:
+        await update.message.reply_text(
+            f"Tu Telegram ya está vinculado a otro chófer ({otro_chofer['nombre']}).\n"
+            "Contacta con tu gestor si quieres cambiarlo."
+        )
+        return
+
     supabase.table("chofer").update({"chat_id": chat_id}).eq("id", codigo).execute()
 
     nombre = chofer.get("nombre", "chófer")

@@ -476,6 +476,32 @@ async def test_e2e_incidencia_foto_se_adjunta_a_la_incidencia_no_crea_pod(monkey
 
 
 @pytest.mark.asyncio
+async def test_e2e_start_con_telegram_ya_vinculado_a_otro_chofer_da_mensaje_claro(monkeypatch):
+    """Hallazgo real en un smoke test en vivo (2026-07-22): chofer.chat_id es
+    UNIQUE en BD -- vincular un Telegram ya usado por OTRO chófer revienta el
+    UPDATE con un IntegrityError que antes caía en el manejador de errores
+    genérico ("problema técnico"). Ahora se detecta ANTES del UPDATE y se
+    explica con qué chófer está vinculado de verdad."""
+    OTRO_CHOFER_ID = "22222222-2222-2222-2222-222222222222"
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [
+        {"id": OTRO_CHOFER_ID, "nombre": "Paco", "empresa_id": "e1", "idioma": "es", "chat_id": str(CHAT_ID)},
+        {"id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": None},
+    ]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(command_update(app, f"/start {CHOFER_ID}"))
+
+        assert any("ya está vinculado a otro chófer (Paco)" in s.get("text", "") for s in api.sent)
+        # No se tocó el chat_id de Mario: sigue sin vincular, el UPDATE nunca llegó a ejecutarse.
+        assert next(c for c in fake_db.tables["chofer"] if c["id"] == CHOFER_ID)["chat_id"] is None
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_e2e_nota_voz_se_ancla_al_viaje_como_contexto(monkeypatch):
     """11.3 (Nivel 1 de la escalera de captura): una nota de voz del chófer se
     guarda en Storage con su hash de integridad y queda anclada al viaje en
