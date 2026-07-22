@@ -160,6 +160,28 @@ modelo completo:
 - [ ] `[DECISIÓN E.4]` **Afinar `UMBRAL_VENTANA_EN_RIESGO_MIN` y los playbooks** ("cómo se
   reacciona ante X") — la parte de criterio del triaje, que necesita al gestor real.
 
+### Herramientas de terceros evaluadas (2026-07-22)
+
+El usuario pidió evaluar 5 repos/skills externos. Veredicto:
+
+- ✅ **Ponytail** (`github.com/DietrichGebert/ponytail`) — instalado como skill de este proyecto
+  (`.claude/skills/ponytail/SKILL.md`). Disciplina "YAGNI/reutiliza antes de escribir/diff mínimo",
+  coherente con el criterio que ya seguíamos. Solo texto, sin ejecutables, sin riesgo.
+- ✅ **Graphify** — ya en uso desde el principio de la sesión, sin acción pendiente.
+- ⏸️ `[DECISIÓN]` **UI/UX Pro Max Skill** (`github.com/nextlevelbuilder/ui-ux-pro-max-skill`) —
+  generador de sistemas de diseño. Técnicamente limpio (Python local, sin red), pero contradice el
+  criterio de HOY de no pulir estética antes de validar (`GATE MAESTRO`). Revisar cuando llegue el
+  pase de diseño real (`DISEÑO-UX.md`), tras el discovery — no antes.
+- ❌ **claude-mem** (`github.com/thedotmack/claude-mem`) — descartado. Memoria persistente
+  redundante con la que ya existe en este entorno; instala un servicio en segundo plano (Bun +
+  SQLite + Chroma) que puede sincronizar a un servidor cloud (`cmem.ai`). Más superficie de riesgo
+  justo tras el incidente de credenciales de esta sesión, sin aportar nada que no tengamos ya.
+- ❌ **everything-claude-code** (`github.com/worldflowai/everything-claude-code`) — descartado en
+  bloque (colección genérica de agents/skills/hooks de otra persona, no específica de Norenty).
+  Si algo concreto de ahí hiciera falta más adelante, se evalúa suelto, no se instala entero.
+
+---
+
 ### Bloque F — Deuda técnica conocida (no urgente, sí anotada)
 
 - [ ] `[LOOP F.1]` **`isolation.test.js` en rojo** — se arregla solo al completar A.2 (separar
