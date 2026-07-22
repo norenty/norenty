@@ -3,10 +3,12 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2, AlertTriangle, Check, ChevronRight, Package, Route } from "lucide-react";
-import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561, UMBRAL_MARGEN_AMBAR_PCT, getClientes, calcularOcupacion, sugerirOrdenParadas } from "../../../lib/data";
+import { ArrowLeft, Plus, Trash2, AlertTriangle, Check, ChevronRight, ChevronUp, ChevronDown, Package, Route } from "lucide-react";
+import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561, UMBRAL_MARGEN_AMBAR_PCT, getClientes, calcularOcupacion, sugerirOrdenParadas, getDireccionesGuardadas, getReferenciaSugerida } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import SugerenciaChofer from "../../components/SugerenciaChofer";
+import Buscador from "../../components/ui/Buscador";
+import DireccionAutocomplete from "../../components/ui/DireccionAutocomplete";
 import { badgeMargen, fmtEur, fmtKm } from "../../../lib/format";
 import RequireRol from "../../components/RequireRol";
 
@@ -16,8 +18,8 @@ import RequireRol from "../../components/RequireRol";
 // solo. Los hitos aquí SÍ capturan lat/lon (a diferencia de /viajes/nuevo,
 // que solo pide dirección de texto) porque el panel de cálculo en vivo
 // necesita coordenadas para estimar km/coste/precio sugerido.
-function nuevoHito() {
-  return { tipo: "entrega", direccion: "", lat: "", lon: "", ventana_inicio: "", ventana_fin: "", es_checkpoint: false, radio_m: "" };
+function nuevoHito(tipo = "entrega") {
+  return { tipo, direccion: "", lat: "", lon: "", ventana_inicio: "", ventana_fin: "", es_checkpoint: false, radio_m: "" };
 }
 
 const PASOS = [
@@ -58,13 +60,14 @@ export default function NuevoViajeWizard() {
   const [clienteId, setClienteId] = useState("");
   const [clientes, setClientes] = useState([]);
   const [precio, setPrecio] = useState(() => searchParams.get("precio") || "");
-  const [hitos, setHitos] = useState(() => prefillHitosDesdeUrl(searchParams) || [nuevoHito(), nuevoHito()]);
+  const [hitos, setHitos] = useState(() => prefillHitosDesdeUrl(searchParams) || [nuevoHito("recogida"), nuevoHito("entrega")]);
   const [choferId, setChoferId] = useState("");
   const [choferNombre, setChoferNombre] = useState("");
   const [vehiculoId, setVehiculoId] = useState(() => searchParams.get("vehiculoId") || "");
   const [remolqueId, setRemolqueId] = useState("");
   const [vehiculos, setVehiculos] = useState([]);
   const [choferes, setChoferes] = useState([]);
+  const [direccionesGuardadas, setDireccionesGuardadas] = useState([]);
   const [panel, setPanel] = useState(null);
   const [calculandoPanel, setCalculandoPanel] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -80,6 +83,8 @@ export default function NuevoViajeWizard() {
     supabase.from("vehiculo").select("id, matricula, tipo, marca, modelo, capacidad_ldm, capacidad_kg, capacidad_m3").eq("activo", true).order("matricula")
       .then(({ data }) => setVehiculos(data || []));
     getClientes().then(setClientes);
+    getDireccionesGuardadas().then(setDireccionesGuardadas);
+    getReferenciaSugerida().then(setReferencia);
   }, []);
 
   const tractoras = vehiculos.filter((v) => ["tractora", "rigido", "furgoneta"].includes(v.tipo));
@@ -237,15 +242,13 @@ export default function NuevoViajeWizard() {
               </div>
               <div>
                 <label htmlFor="w-cliente" className="block text-xs text-ink-secondary mb-1">Cliente</label>
-                <select
-                  id="w-cliente" value={clienteId} onChange={(e) => setClienteId(e.target.value)}
-                  className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-                >
-                  <option value="">Sin cliente asociado</option>
-                  {clientes.map((c) => (
-                    <option key={c.id} value={c.id}>{c.nombre}</option>
-                  ))}
-                </select>
+                <Buscador
+                  opciones={clientes.map((c) => ({ value: c.id, label: c.nombre }))}
+                  value={clienteId}
+                  onChange={setClienteId}
+                  placeholder="Buscar cliente..."
+                  vacioLabel="Sin cliente asociado"
+                />
               </div>
               <RequireRol roles={["admin"]}>
                 <div>
@@ -272,10 +275,11 @@ export default function NuevoViajeWizard() {
                     </button>
                   )}
                   <button
-                    type="button" onClick={() => setHitos((hs) => [...hs, nuevoHito()])}
+                    type="button"
+                    onClick={() => setHitos((hs) => [...hs.slice(0, -1), nuevoHito("entrega"), hs[hs.length - 1]])}
                     className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-border text-ink-secondary hover:bg-surface-alt"
                   >
-                    <Plus size={14} /> Añadir parada
+                    <Plus size={14} /> Añadir parada intermedia
                   </button>
                 </div>
               </div>
@@ -305,26 +309,61 @@ export default function NuevoViajeWizard() {
                 </div>
               )}
               <div className="flex flex-col gap-3">
-                {hitos.map((h, i) => (
+                {hitos.map((h, i) => {
+                  const esPrimera = i === 0;
+                  const esUltima = i === hitos.length - 1;
+                  const esIntermedia = !esPrimera && !esUltima;
+                  return (
                   <div key={i} className="bg-surface border border-border rounded-xl p-3">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="font-mono text-xs text-ink-muted w-5">{i + 1}.</span>
-                      <select
-                        value={h.tipo} onChange={(e) => actualizarHito(i, "tipo", e.target.value)}
-                        className="text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand"
-                      >
-                        <option value="recogida">Recogida</option>
-                        <option value="entrega">Entrega</option>
-                      </select>
-                      <input
-                        value={h.direccion} onChange={(e) => actualizarHito(i, "direccion", e.target.value)}
-                        placeholder="Dirección" maxLength={500}
-                        className="flex-1 text-sm border border-border rounded-md px-3 py-1.5 focus:outline-none focus:border-brand"
+                      {esIntermedia ? (
+                        <select
+                          value={h.tipo} onChange={(e) => actualizarHito(i, "tipo", e.target.value)}
+                          className="text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand"
+                        >
+                          <option value="recogida">Recogida</option>
+                          <option value="entrega">Entrega</option>
+                        </select>
+                      ) : (
+                        // Primera y última parada: tipo fijo, no editable (2026-07-22,
+                        // decisión de producto: toda ruta empieza en recogida y acaba
+                        // en entrega; las intermedias sí se eligen libremente).
+                        <span className="text-sm text-ink-secondary px-2 py-1.5 w-24 shrink-0">
+                          {esPrimera ? "Recogida" : "Entrega"}
+                        </span>
+                      )}
+                      <DireccionAutocomplete
+                        value={h.direccion}
+                        onChangeDireccion={(v) => actualizarHito(i, "direccion", v)}
+                        onElegirSugerida={(d) => {
+                          actualizarHito(i, "direccion", d.direccion);
+                          actualizarHito(i, "lat", String(d.lat));
+                          actualizarHito(i, "lon", String(d.lon));
+                        }}
+                        direcciones={direccionesGuardadas}
+                        placeholder="Dirección"
                       />
-                      {hitos.length > 2 && (
-                        <button type="button" onClick={() => setHitos((hs) => hs.filter((_, idx) => idx !== i))} aria-label="Quitar parada" className="text-ink-muted hover:text-estado-incidencia p-1">
-                          <Trash2 size={16} />
-                        </button>
+                      {esIntermedia && (
+                        <>
+                          <button
+                            type="button" disabled={i <= 1} aria-label="Mover antes"
+                            onClick={() => setHitos((hs) => { const c = [...hs]; [c[i - 1], c[i]] = [c[i], c[i - 1]]; return c; })}
+                            className="text-ink-muted hover:text-brand p-1 disabled:opacity-30"
+                          >
+                            <ChevronUp size={16} />
+                          </button>
+                          <button
+                            type="button" disabled={i >= hitos.length - 2} aria-label="Mover después"
+                            onClick={() => setHitos((hs) => { const c = [...hs]; [c[i], c[i + 1]] = [c[i + 1], c[i]]; return c; })}
+                            className="text-ink-muted hover:text-brand p-1 disabled:opacity-30"
+                          >
+                            <ChevronDown size={16} />
+                          </button>
+                          <button type="button" onClick={() => setHitos((hs) => hs.filter((_, idx) => idx !== i))} aria-label="Quitar parada" className="text-ink-muted hover:text-estado-incidencia p-1">
+                            <Trash2 size={16} />
+                          </button>
+                        </>
                       )}
                     </div>
                     <div className="flex items-center gap-2 pl-7 mb-2">
@@ -363,7 +402,8 @@ export default function NuevoViajeWizard() {
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -431,6 +471,17 @@ export default function NuevoViajeWizard() {
               .map((h, i) => ({ orden: i + 1, lat: Number(h.lat), lon: Number(h.lon) }))}
             onAsignado={onAsignarChofer}
           />
+          <div>
+            <label className="block text-xs text-ink-secondary mb-1">
+              O busca directamente entre todos los chóferes (la sugerencia de arriba solo muestra los 5 mejores)
+            </label>
+            <Buscador
+              opciones={choferes.map((c) => ({ value: c.id, label: c.nombre, sublabel: c.idioma?.toUpperCase() }))}
+              value={choferId}
+              onChange={(id) => id && onAsignarChofer(id)}
+              placeholder="Buscar chófer por nombre..."
+            />
+          </div>
           {choferId && (
             <div className="text-sm text-ink bg-surface border border-border rounded-xl p-3">
               Asignado: <strong>{choferNombre}</strong>
@@ -440,17 +491,22 @@ export default function NuevoViajeWizard() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="w-vehiculo" className="block text-xs text-ink-secondary mb-1">Vehículo</label>
-              <select id="w-vehiculo" value={vehiculoId} onChange={(e) => setVehiculoId(e.target.value)} className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand">
-                <option value="">Sin asignar</option>
-                {tractoras.map((v) => <option key={v.id} value={v.id}>{v.matricula} {v.marca && `· ${v.marca}`}</option>)}
-              </select>
+              <Buscador
+                opciones={tractoras.map((v) => ({ value: v.id, label: v.matricula, sublabel: [v.marca, v.modelo].filter(Boolean).join(" ") }))}
+                value={vehiculoId}
+                onChange={setVehiculoId}
+                placeholder="Matrícula, marca o modelo..."
+              />
             </div>
             <div>
               <label htmlFor="w-remolque" className="block text-xs text-ink-secondary mb-1">Remolque</label>
-              <select id="w-remolque" value={remolqueId} onChange={(e) => setRemolqueId(e.target.value)} className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand">
-                <option value="">Sin remolque</option>
-                {remolques.map((v) => <option key={v.id} value={v.id}>{v.matricula} {v.marca && `· ${v.marca}`}</option>)}
-              </select>
+              <Buscador
+                opciones={remolques.map((v) => ({ value: v.id, label: v.matricula, sublabel: [v.marca, v.modelo].filter(Boolean).join(" ") }))}
+                value={remolqueId}
+                onChange={setRemolqueId}
+                placeholder="Matrícula, marca o modelo..."
+                vacioLabel="Sin remolque"
+              />
             </div>
           </div>
 

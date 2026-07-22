@@ -403,6 +403,38 @@ export async function getClientes({ incluirInactivos = false } = {}) {
   return (data || []).slice().sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
 }
 
+/**
+ * Direcciones ya usadas antes por esta empresa, con sus coordenadas (2026-07-22,
+ * hallazgo real en el primer smoke test: sin esto, el gestor tiene que escribir
+ * la dirección Y teclear lat/lon a mano cada vez, aunque sea el mismo cliente de
+ * siempre). Reutiliza `hito` (que YA guarda direccion+lat+lon de cada viaje
+ * pasado) en vez de montar un geocodificador externo o una tabla de "lugares"
+ * nueva — no hace falta: la dirección de "Adidas Madrid, polígono X" ya está
+ * en la BD desde el primer viaje que se hizo allí.
+ * Deduplicado por dirección (case-insensitive), la más reciente gana si hay
+ * coordenadas ligeramente distintas para el mismo texto.
+ */
+export async function getDireccionesGuardadas() {
+  const { data } = await supabase
+    .from("hito")
+    .select("direccion, lat, lon, created_at")
+    .not("direccion", "is", null)
+    .not("lat", "is", null)
+    .not("lon", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1000);
+
+  const vistas = new Set();
+  const resultado = [];
+  for (const h of data || []) {
+    const clave = h.direccion.trim().toLowerCase();
+    if (!clave || vistas.has(clave)) continue;
+    vistas.add(clave);
+    resultado.push({ direccion: h.direccion, lat: h.lat, lon: h.lon });
+  }
+  return resultado;
+}
+
 export async function createCliente({ nombre, cif = null, email = null, telefono = null, notas = null }) {
   if (!nombre || !nombre.trim()) throw new Error("El nombre del cliente es obligatorio");
   const empresaId = await getCurrentEmpresaId();
@@ -3383,49 +3415,47 @@ export async function createVehiculo({ matricula, tipo = "tractora", marca = nul
 
 // --- Validaciones de conflicto ---
 
-async function checkConflictoChofer(choferId, excluirViajeId) {
-  if (!choferId) return null;
+/**
+ * Conflicto de un recurso físico (chófer/vehículo/remolque) ya asignado a
+ * OTRO viaje activo. Hallazgo real (2026-07-22): antes esto SIEMPRE era un
+ * aviso, ni siquiera cuando el otro viaje estaba "en_curso" ahora mismo —
+ * físicamente imposible (un camión no puede estar en dos sitios a la vez).
+ * Distingue el caso real: si el conflicto es con un viaje "en_curso",
+ * `bloqueante=true` (se convierte en error, no deja crear el viaje); si es
+ * con uno solo "planificado" (a futuro, aún sin arrancar), se queda en aviso
+ * — es la forma normal de planificar con antelación el siguiente viaje de un
+ * camión antes de que el actual arranque.
+ */
+async function checkConflictoRecurso(campo, valorId, excluirViajeId, etiqueta) {
+  if (!valorId) return null;
   let query = supabase
     .from("viaje")
-    .select("id, referencia")
-    .eq("chofer_id", choferId)
+    .select("id, referencia, estado")
+    .eq(campo, valorId)
     .in("estado", ESTADOS_ACTIVOS);
   if (excluirViajeId) query = query.neq("id", excluirViajeId);
-  const { data } = await query.limit(1).single();
-  if (data) {
-    return `Este chófer ya está asignado al viaje ${data.referencia || data.id.slice(0, 8)} (activo)`;
-  }
-  return null;
+  const { data } = await query.order("estado").limit(1).single();
+  if (!data) return null;
+  const ref = data.referencia || data.id.slice(0, 8);
+  const bloqueante = data.estado === "en_curso";
+  return {
+    mensaje: bloqueante
+      ? `${etiqueta} ya está EN CURSO en el viaje ${ref} ahora mismo — no puede estar en dos viajes a la vez`
+      : `${etiqueta} ya está planificado en el viaje ${ref} (todavía no ha arrancado)`,
+    bloqueante,
+  };
+}
+
+async function checkConflictoChofer(choferId, excluirViajeId) {
+  return checkConflictoRecurso("chofer_id", choferId, excluirViajeId, "Este chófer");
 }
 
 async function checkConflictoVehiculo(vehiculoId, excluirViajeId) {
-  if (!vehiculoId) return null;
-  let query = supabase
-    .from("viaje")
-    .select("id, referencia")
-    .eq("vehiculo_id", vehiculoId)
-    .in("estado", ESTADOS_ACTIVOS);
-  if (excluirViajeId) query = query.neq("id", excluirViajeId);
-  const { data } = await query.limit(1).single();
-  if (data) {
-    return `Este vehículo ya está asignado al viaje ${data.referencia || data.id.slice(0, 8)} (activo)`;
-  }
-  return null;
+  return checkConflictoRecurso("vehiculo_id", vehiculoId, excluirViajeId, "Este vehículo");
 }
 
 async function checkConflictoRemolque(remolqueId, excluirViajeId) {
-  if (!remolqueId) return null;
-  let query = supabase
-    .from("viaje")
-    .select("id, referencia")
-    .eq("remolque_id", remolqueId)
-    .in("estado", ESTADOS_ACTIVOS);
-  if (excluirViajeId) query = query.neq("id", excluirViajeId);
-  const { data } = await query.limit(1).single();
-  if (data) {
-    return `Este remolque ya está asignado al viaje ${data.referencia || data.id.slice(0, 8)} (activo)`;
-  }
-  return null;
+  return checkConflictoRecurso("remolque_id", remolqueId, excluirViajeId, "Este remolque");
 }
 
 async function checkReferenciaDuplicada(referencia, excluirViajeId) {
@@ -3440,6 +3470,19 @@ async function checkReferenciaDuplicada(referencia, excluirViajeId) {
   return null;
 }
 
+/**
+ * Referencia sugerida para un viaje nuevo (2026-07-22, hallazgo real: no tiene
+ * sentido pedirle al gestor que se invente una referencia a mano cada vez).
+ * Correlativo simple `VJ-0001`, `VJ-0002`... por empresa, basado en cuántos
+ * viajes existen ya. Es una SUGERENCIA prellenada, no un campo bloqueado: el
+ * gestor puede seguir editándola (algunas empresas ya tienen su propia
+ * numeración de un TMS anterior y quieren mantenerla).
+ */
+export async function getReferenciaSugerida() {
+  const { data } = await supabase.from("viaje").select("id");
+  return `VJ-${String((data || []).length + 1).padStart(4, "0")}`;
+}
+
 export async function validarAsignacion({ choferId, vehiculoId, remolqueId, referencia, excluirViajeId }) {
   const avisos = [];
   const errores = [];
@@ -3451,9 +3494,10 @@ export async function validarAsignacion({ choferId, vehiculoId, remolqueId, refe
     checkReferenciaDuplicada(referencia, excluirViajeId),
   ]);
 
-  if (confChofer) avisos.push(confChofer);
-  if (confVeh) avisos.push(confVeh);
-  if (confRem) avisos.push(confRem);
+  for (const conf of [confChofer, confVeh, confRem]) {
+    if (!conf) continue;
+    (conf.bloqueante ? errores : avisos).push(conf.mensaje);
+  }
   if (confRef) errores.push(confRef);
 
   if (vehiculoId) {

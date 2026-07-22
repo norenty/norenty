@@ -91,6 +91,35 @@ desbloquea, no por lo que apetece.
   caía en el manejador de errores genérico y respondía "problema técnico" sin explicar nada.
   `cmd_start` ahora comprueba ANTES del `UPDATE` si el chat ya está vinculado a otro chófer y, si es
   así, lo dice explícito con el nombre. 1 test e2e nuevo. `ci.ps1` verde (242 backend).
+- [x] `[LOOP]` **Rediseño real del asistente de nuevo viaje (2026-07-22, hallazgos en vivo durante
+  el smoke test):**
+  1. **Buscadores con texto** (chófer/vehículo/remolque/cliente) — antes eran `<select>` planos o
+     solo el top-5 de la sugerencia; con cientos de vehículos era inservible. Nuevo componente
+     `Buscador.jsx` reutilizable, filtra por matrícula+marca+modelo (no solo matrícula). Foco con
+     select-all (no vaciar a "" en el propio onFocus — dejaba un parpadeo con el cursor cayendo en
+     medio del texto viejo antes de repintar).
+  2. **Buscador manual de chófer** entre TODOS, no solo el top-5 sugerido.
+  3. **Referencia autogenerada** (`getReferenciaSugerida`, correlativo `VJ-0001...`), prellenada
+     pero editable.
+  4. **Primera parada fija = Recogida, última fija = Entrega**, no editables; las intermedias sí
+     eligen tipo libremente, se insertan siempre ANTES de la última (nunca al final), y tienen
+     botones de mover arriba/abajo entre ellas. Corregido de paso un bug real: `nuevoHito()`
+     ponía "entrega" en LAS DOS paradas iniciales por defecto.
+  5. **Autocompletado de direcciones** ya usadas antes por la empresa (`getDireccionesGuardadas`,
+     reutiliza `hito.direccion/lat/lon` histórico — sin geocodificador externo, sin tabla nueva).
+  6. **Conflicto de vehículo/remolque/chófer ahora BLOQUEA (error) si el otro viaje está
+     `en_curso` ahora mismo** (físicamente imposible) — antes era aviso siempre, sin distinguir de
+     un conflicto con un viaje solo `planificado` a futuro (que sigue siendo aviso, no bloqueo: es
+     la forma normal de planificar con antelación).
+  Ya existían y NO hacía falta construir (verificado antes de tocar código): rutas recurrentes
+  tipo "vuelo" → `Plantillas` (`/plantillas`); separar cola de viajes sin asignar de la asignación
+  → ya funciona así (crear sin chófer, asignar después desde la ficha). 10 tests nuevos/actualizados
+  en `data.test.js`. `ci.ps1` verde (428 vitest). Verificado en navegador con sesión real de dev:
+  referencia autogenerada, primera/última fijas, sugerencia de dirección histórica, buscador de
+  chófer manual, todo sin errores de consola.
+  **Pendiente, más diseño necesario:** comprobación de viabilidad tiempo/distancia entre paradas
+  (ej. "Madrid→Burdeos en 1h no es viable") — requiere definir el umbral con los datos ya
+  calculados (velocidad de planificación + Haversine), próxima iteración.
 - [ ] `[DECISIÓN B.3]` **10.1 — Smoke test real punta a punta.** Ya sin excusas: entorno
   desplegado. Vincular tu Telegram al bot REAL, crear viaje, confirmar recogida → llegada → foto de
   POD → completado, viéndolo en el dashboard real. Es el ítem de mayor retorno del roadmap y

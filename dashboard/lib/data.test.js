@@ -228,6 +228,7 @@ const {
   getOnboardingEstado,
   calcularPanelViaje,
   createViaje,
+  getReferenciaSugerida,
   generarTokenPublico,
   revocarTokenPublico,
   getViajePublico,
@@ -236,6 +237,7 @@ const {
   registrarAuditoria,
   getAuditLog,
   getClientes,
+  getDireccionesGuardadas,
   createCliente,
   actualizarCliente,
   desactivarCliente,
@@ -257,6 +259,18 @@ beforeEach(() => {
   _limpiarCacheKmCarreteraParaTests();
 });
 
+describe("getReferenciaSugerida", () => {
+  it("sugiere VJ-0001 cuando no hay viajes todavía", async () => {
+    TABLES.viaje = [];
+    expect(await getReferenciaSugerida()).toBe("VJ-0001");
+  });
+
+  it("sugiere el siguiente correlativo, con ceros a la izquierda", async () => {
+    TABLES.viaje = Array.from({ length: 41 }, (_, i) => ({ id: `v${i}` }));
+    expect(await getReferenciaSugerida()).toBe("VJ-0042");
+  });
+});
+
 describe("validarAsignacion", () => {
   it("no devuelve avisos ni errores cuando no hay conflictos", async () => {
     const r = await validarAsignacion({ choferId: "c1", vehiculoId: "v1", remolqueId: "r1", referencia: "VJ-1" });
@@ -269,7 +283,7 @@ describe("validarAsignacion", () => {
     TABLES.viaje = [{ id: "v-existente", referencia: "VJ-0", chofer_id: "c1", estado: "planificado" }];
     const r = await validarAsignacion({ choferId: "c1" });
     expect(r.ok).toBe(true); // es aviso, no bloquea
-    expect(r.avisos[0]).toMatch(/chófer ya está asignado/);
+    expect(r.avisos[0]).toMatch(/chófer ya está planificado/);
   });
 
   it("NO avisa si el viaje activo del chófer es el mismo que se está editando (excluirViajeId)", async () => {
@@ -284,16 +298,27 @@ describe("validarAsignacion", () => {
     expect(r.avisos).toEqual([]);
   });
 
-  it("avisa si el vehículo ya está en un viaje en_curso", async () => {
+  it("BLOQUEA (error, no aviso) si el vehículo ya está en un viaje en_curso ahora mismo", async () => {
+    // Hallazgo real (2026-07-22): un camión no puede estar en dos viajes a la
+    // vez si el otro ya está en_curso -- eso sí es un error, no un aviso.
     TABLES.viaje = [{ id: "v-existente", referencia: "VJ-2", vehiculo_id: "veh1", estado: "en_curso" }];
     const r = await validarAsignacion({ vehiculoId: "veh1" });
-    expect(r.avisos[0]).toMatch(/vehículo ya está asignado/);
+    expect(r.ok).toBe(false);
+    expect(r.errores[0]).toMatch(/EN CURSO/);
+    expect(r.avisos).toEqual([]);
+  });
+
+  it("solo avisa (no bloquea) si el vehículo está en otro viaje aún planificado (no arrancado)", async () => {
+    TABLES.viaje = [{ id: "v-existente", referencia: "VJ-2b", vehiculo_id: "veh1", estado: "planificado" }];
+    const r = await validarAsignacion({ vehiculoId: "veh1" });
+    expect(r.ok).toBe(true);
+    expect(r.avisos[0]).toMatch(/planificado/);
   });
 
   it("avisa si el remolque ya está en un viaje activo", async () => {
     TABLES.viaje = [{ id: "v-existente", referencia: "VJ-3", remolque_id: "rem1", estado: "planificado" }];
     const r = await validarAsignacion({ remolqueId: "rem1" });
-    expect(r.avisos[0]).toMatch(/remolque ya está asignado/);
+    expect(r.avisos[0]).toMatch(/remolque ya está planificado/);
   });
 
   it("ERROR (bloqueante) si la referencia ya existe", async () => {
@@ -1531,6 +1556,21 @@ describe("clientes (11.1 — cliente como entidad de primera clase)", () => {
     ];
     const r = await getClientes({ incluirInactivos: true });
     expect(r).toHaveLength(2);
+  });
+
+  it("getDireccionesGuardadas dedup por dirección, la más reciente gana, ignora hitos sin coords", async () => {
+    TABLES.hito = [
+      { direccion: "Adidas Madrid, Polígono Norte", lat: 40.4, lon: -3.7, created_at: "2026-06-01T00:00:00Z" },
+      // Misma dirección repetida en un viaje más reciente -- debe ganar esta, no la de arriba.
+      { direccion: "Adidas Madrid, Polígono Norte", lat: 40.41, lon: -3.71, created_at: "2026-07-01T00:00:00Z" },
+      { direccion: "Nike Barcelona", lat: 41.4, lon: 2.2, created_at: "2026-06-15T00:00:00Z" },
+      { direccion: null, lat: 1, lon: 1, created_at: "2026-06-15T00:00:00Z" },
+      { direccion: "Sin coordenadas", lat: null, lon: null, created_at: "2026-06-15T00:00:00Z" },
+    ];
+    const r = await getDireccionesGuardadas();
+    expect(r).toHaveLength(2);
+    const adidas = r.find((d) => d.direccion === "Adidas Madrid, Polígono Norte");
+    expect(adidas.lat).toBe(40.41); // la version mas reciente (por created_at desc), no la primera
   });
 
   it("createCliente inserta con la empresa del gestor y recorta espacios", async () => {
