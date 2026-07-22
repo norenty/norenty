@@ -64,11 +64,25 @@ desbloquea, no por lo que apetece.
 
 ### Bloque B — Desbloquear el producto (sin esto no hay piloto)
 
-- [ ] `[LOOP B.1]` **Script `crear_empresa_cliente.py`** — alta controlada de una empresa cliente:
+- [x] `[LOOP B.1]` **Script `crear_empresa_cliente.py`** — alta controlada de una empresa cliente:
   crea `empresa` + primer `gestor` con rol `admin` vinculado a un usuario de Supabase Auth, y
   devuelve el enlace de invitación para que ese admin invite a su equipo. Es la pieza que sustituye
   al autoregistro que quitamos, y la que hace posible el modelo de venta B2B. Solo lo ejecutamos
   nosotros, nunca expuesto en la web.
+  Construido (2026-07-22): usa `auth.admin.invite_user_by_email` (Supabase crea la cuenta y le
+  manda AL PROPIO admin el correo para poner su contraseña — ni el script ni nosotros la vemos),
+  luego crea `empresa` y `gestor` (`rol='admin'`, `activo=true`). Rechaza email duplicado ANTES de
+  invitar (no gasta invitaciones en vano). Si falla a mitad tras invitar, el error lo dice explícito
+  (usuario de Auth huérfano, limpiar a mano) en vez de fallar en silencio. 3 tests nuevos.
+  **Hallazgo y fix de higiene de tests en el camino:** al reorganizar los ficheros de secretos
+  dev/prod, `TELEGRAM_BOT_TOKEN` quedó vacío en el de dev — reventó 13 tests de `test_bot_e2e.py`
+  con `InvalidToken`, porque `bot.py` carga `~/.norenty-secrets/.env` con `override=True` al
+  importarse y la suite dependía sin darse cuenta del contenido real de ese fichero. Nuevo
+  `tests/conftest.py`: fija dummies válidos para `TELEGRAM_BOT_TOKEN`/`SUPABASE_URL`/`SUPABASE_ANON_KEY`
+  y redirige `Path.home()` a un directorio temporal vacío para que ese `load_dotenv` no encuentre
+  nada que sobreescribir — la suite queda hermética, no depende del fichero personal de quien la
+  corra. 240 pytest + 4 skip (antes dependían de si `DATABASE_URL` estaba rellena o no en el
+  fichero de turno), 425 vitest, build 22 páginas.
 - [ ] `[DECISIÓN B.2]` **Crear tu propia cuenta admin en producción** con ese script — hoy no
   puedes ni entrar a `norenty.com`. Desbloquea B.3 y cualquier prueba real.
 - [ ] `[DECISIÓN B.3]` **10.1 — Smoke test real punta a punta.** Ya sin excusas: entorno
