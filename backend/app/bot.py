@@ -199,6 +199,8 @@ TEXTOS = {
         "btn_cancelar": "No, cancelar",
         "cancelado": "Cancelado. Pulsa cuando llegues de verdad.",
         "pedir_foto": "Llegada registrada en {dir}.\n\nAhora necesito la FOTO DEL ALBARÁN.\nMándame la foto por aquí.",
+        "btn_sin_foto": "No la tengo ahora",
+        "sin_pod_ok": "Entrega registrada en {dir} sin foto de albarán.\nAvisado tu gestor para que lo revise cuando pueda.",
         "recogida_ok": "Recogida completada en {dir}.",
         "entrega_ok": "Entrega completada en {dir}.",
         "aviso_pausa_561": "🕐 Llevas cerca de 4,5 h de conducción — te toca una pausa de 45 min.",
@@ -206,7 +208,16 @@ TEXTOS = {
         "sin_entrega_esperando": "No hay ninguna entrega esperando albarán.\nUsa /estado para ver tu siguiente hito.",
         "pod_ok": "Albarán recibido para {dir}.\nEntrega completada.",
         "foto_invalida": "Esa foto no parece válida. Mándame una foto normal del albarán (no un fichero ni un vídeo).",
-        "incidencia_ayuda": "Escribe qué ha pasado: /incidencia avería en la rueda trasera",
+        "incidencia_ayuda": "Cuéntame qué ha pasado: mándame una nota de voz 🎤 o escríbelo aquí.",
+        "inc_elige": "¿Qué ha pasado?",
+        "btn_inc_averia": "🔧 Avería",
+        "btn_inc_retraso": "⏱️ Voy con retraso",
+        "btn_inc_carga": "📦 Problema carga/descarga",
+        "btn_inc_otra": "🎤 Otra cosa",
+        "inc_desc_averia": "Avería del vehículo",
+        "inc_desc_retraso": "Retraso en la ruta",
+        "inc_desc_carga": "Problema en carga o descarga",
+        "inc_otra_prompt": "Cuéntame qué ha pasado: mándame una nota de voz 🎤 o escríbelo en un mensaje.",
         "incidencia_ok": "Incidencia reportada para viaje {ref}. Tu gestor ha sido notificado.",
         "incidencia_foto_pregunta": "Si quieres, mándame una foto ahora (opcional).",
         "incidencia_foto_ok": "Foto adjuntada a la incidencia.",
@@ -215,9 +226,13 @@ TEXTOS = {
         "btn_incidencia": "📍 Reportar incidencia",
         "btn_mi_viaje": "📋 Mi viaje",
         "btn_contactar": "📞 Contactar gestor",
+        "menu_recordatorio": "Usa los botones de abajo cuando lo necesites 👇",
         "contactar_info": "Tu gestor es {nombre}.\n📧 {contacto}",
         "contactar_sin_contacto": "Tu gestor es {nombre}.\nTodavía no ha configurado un contacto directo.",
         "contactar_sin_gestor": "Tu gestor aún no ha configurado contacto. Prueba con /incidencia si es urgente.",
+        "contactar_prompt": "Escríbeme el mensaje o mándame una nota de voz 🎤 — le llega a tu gestor al momento.",
+        "btn_llamar": "📞 Llamada urgente",
+        "mensaje_gestor_ok": "Mensaje enviado a tu gestor.",
         "parking_titulo": "📍 Parkings cercanos:",
         "parking_sin_ubicacion": "No tengo tu ubicación todavía. Confirma la llegada a un hito o comparte tu ubicación por Telegram.",
         "parking_sin_resultados": "No encontré parkings cercanos.",
@@ -257,6 +272,8 @@ TEXTOS = {
         "btn_cancelar": "No, cancel",
         "cancelado": "Cancelled. Tap when you actually arrive.",
         "pedir_foto": "Arrival recorded at {dir}.\n\nNow I need the PROOF OF DELIVERY PHOTO.\nSend me the photo here.",
+        "btn_sin_foto": "I don't have it now",
+        "sin_pod_ok": "Delivery recorded at {dir} without a proof-of-delivery photo.\nYour manager has been notified to follow up.",
         "recogida_ok": "Pickup completed at {dir}.",
         "entrega_ok": "Delivery completed at {dir}.",
         "aviso_pausa_561": "🕐 You've been driving for about 4.5 h — time for a 45-min break.",
@@ -264,7 +281,16 @@ TEXTOS = {
         "sin_entrega_esperando": "No delivery is waiting for a proof of delivery.\nUse /estado to see your next stop.",
         "pod_ok": "Proof of delivery received for {dir}.\nDelivery completed.",
         "foto_invalida": "That photo doesn't look valid. Send me a normal photo of the proof of delivery (not a file or a video).",
-        "incidencia_ayuda": "Describe what happened: /incidencia flat tyre on rear wheel",
+        "incidencia_ayuda": "Tell me what happened: send me a voice note 🎤 or type it here.",
+        "inc_elige": "What happened?",
+        "btn_inc_averia": "🔧 Breakdown",
+        "btn_inc_retraso": "⏱️ Running late",
+        "btn_inc_carga": "📦 Loading/unloading issue",
+        "btn_inc_otra": "🎤 Something else",
+        "inc_desc_averia": "Vehicle breakdown",
+        "inc_desc_retraso": "Delay on the route",
+        "inc_desc_carga": "Problem loading or unloading",
+        "inc_otra_prompt": "Tell me what happened: send me a voice note 🎤 or type it in a message.",
         "incidencia_ok": "Incident reported for trip {ref}. Your manager has been notified.",
         "incidencia_foto_pregunta": "If you want, send me a photo now (optional).",
         "incidencia_foto_ok": "Photo attached to the incident.",
@@ -273,9 +299,13 @@ TEXTOS = {
         "btn_incidencia": "📍 Report incident",
         "btn_mi_viaje": "📋 My trip",
         "btn_contactar": "📞 Contact manager",
+        "menu_recordatorio": "Use the buttons below whenever you need them 👇",
         "contactar_info": "Your manager is {nombre}.\n📧 {contacto}",
         "contactar_sin_contacto": "Your manager is {nombre}.\nNo direct contact configured yet.",
         "contactar_sin_gestor": "Your manager hasn't configured contact info yet. Try /incidencia if it's urgent.",
+        "contactar_prompt": "Type your message or send me a voice note 🎤 — it reaches your manager right away.",
+        "btn_llamar": "📞 Urgent call",
+        "mensaje_gestor_ok": "Message sent to your manager.",
         "parking_titulo": "📍 Nearby parkings:",
         "parking_sin_ubicacion": "I don't have your location yet. Confirm arrival at a stop or share your location on Telegram.",
         "parking_sin_resultados": "No nearby parkings found.",
@@ -315,6 +345,8 @@ TEXTOS = {
         "btn_cancelar": "Nu, anulează",
         "cancelado": "Anulat. Apasă când ajungi cu adevărat.",
         "pedir_foto": "Sosire înregistrată la {dir}.\n\nAcum am nevoie de FOTOGRAFIA DOCUMENTULUI.\nTrimite-mi fotografia aici.",
+        "btn_sin_foto": "Nu o am acum",
+        "sin_pod_ok": "Livrare înregistrată la {dir} fără fotografia documentului.\nManagerul tău a fost anunțat să verifice.",
         "recogida_ok": "Ridicare finalizată la {dir}.",
         "entrega_ok": "Livrare finalizată la {dir}.",
         "aviso_pausa_561": "🕐 Conduci de aproape 4,5 h — e timpul pentru o pauză de 45 min.",
@@ -322,7 +354,16 @@ TEXTOS = {
         "sin_entrega_esperando": "Nicio livrare nu așteaptă document.\nFolosește /estado pentru a vedea următoarea oprire.",
         "pod_ok": "Document primit pentru {dir}.\nLivrare finalizată.",
         "foto_invalida": "Fotografia nu pare validă. Trimite-mi o fotografie normală a documentului (nu un fișier sau un videoclip).",
-        "incidencia_ayuda": "Descrie ce s-a întâmplat: /incidencia pană la roata din spate",
+        "incidencia_ayuda": "Spune-mi ce s-a întâmplat: trimite-mi o notă vocală 🎤 sau scrie aici.",
+        "inc_elige": "Ce s-a întâmplat?",
+        "btn_inc_averia": "🔧 Defecțiune",
+        "btn_inc_retraso": "⏱️ Am întârziere",
+        "btn_inc_carga": "📦 Problemă la încărcare/descărcare",
+        "btn_inc_otra": "🎤 Altceva",
+        "inc_desc_averia": "Defecțiune a vehiculului",
+        "inc_desc_retraso": "Întârziere pe traseu",
+        "inc_desc_carga": "Problemă la încărcare sau descărcare",
+        "inc_otra_prompt": "Spune-mi ce s-a întâmplat: trimite-mi o notă vocală 🎤 sau scrie într-un mesaj.",
         "incidencia_ok": "Incident raportat pentru cursa {ref}. Managerul tău a fost notificat.",
         "incidencia_foto_pregunta": "Dacă vrei, trimite-mi o poză acum (opțional).",
         "incidencia_foto_ok": "Poză atașată incidentului.",
@@ -331,9 +372,13 @@ TEXTOS = {
         "btn_incidencia": "📍 Raportează un incident",
         "btn_mi_viaje": "📋 Cursa mea",
         "btn_contactar": "📞 Contactează managerul",
+        "menu_recordatorio": "Folosește butoanele de mai jos când ai nevoie 👇",
         "contactar_info": "Managerul tău este {nombre}.\n📧 {contacto}",
         "contactar_sin_contacto": "Managerul tău este {nombre}.\nNu a configurat încă un contact direct.",
         "contactar_sin_gestor": "Managerul tău nu a configurat încă datele de contact. Încearcă /incidencia dacă este urgent.",
+        "contactar_prompt": "Scrie-mi mesajul sau trimite-mi o notă vocală 🎤 — ajunge imediat la managerul tău.",
+        "btn_llamar": "📞 Apel urgent",
+        "mensaje_gestor_ok": "Mesaj trimis managerului tău.",
         "parking_titulo": "📍 Parcări din apropiere:",
         "parking_sin_ubicacion": "Nu am încă locația ta. Confirmă sosirea la o oprire sau distribuie locația pe Telegram.",
         "parking_sin_resultados": "Nu am găsit parcări în apropiere.",
@@ -373,6 +418,8 @@ TEXTOS = {
         "btn_cancelar": "Non, annuler",
         "cancelado": "Annulé. Appuyez quand vous arrivez vraiment.",
         "pedir_foto": "Arrivée enregistrée à {dir}.\n\nJ'ai besoin de la PHOTO DU BON DE LIVRAISON.\nEnvoyez-moi la photo ici.",
+        "btn_sin_foto": "Je ne l'ai pas maintenant",
+        "sin_pod_ok": "Livraison enregistrée à {dir} sans photo du bon de livraison.\nVotre responsable a été averti pour vérifier.",
         "recogida_ok": "Enlèvement terminé à {dir}.",
         "entrega_ok": "Livraison terminée à {dir}.",
         "aviso_pausa_561": "🕐 Vous conduisez depuis environ 4,5 h — c'est l'heure d'une pause de 45 min.",
@@ -380,7 +427,16 @@ TEXTOS = {
         "sin_entrega_esperando": "Aucune livraison n'attend de bon.\nUtilisez /estado pour voir votre prochain arrêt.",
         "pod_ok": "Bon de livraison reçu pour {dir}.\nLivraison terminée.",
         "foto_invalida": "Cette photo ne semble pas valide. Envoyez-moi une photo normale du bon de livraison (pas un fichier ni une vidéo).",
-        "incidencia_ayuda": "Décrivez ce qui s'est passé : /incidencia crevaison roue arrière",
+        "incidencia_ayuda": "Dites-moi ce qui s'est passé : envoyez une note vocale 🎤 ou écrivez ici.",
+        "inc_elige": "Que s'est-il passé ?",
+        "btn_inc_averia": "🔧 Panne",
+        "btn_inc_retraso": "⏱️ En retard",
+        "btn_inc_carga": "📦 Problème chargement/déchargement",
+        "btn_inc_otra": "🎤 Autre chose",
+        "inc_desc_averia": "Panne du véhicule",
+        "inc_desc_retraso": "Retard sur l'itinéraire",
+        "inc_desc_carga": "Problème de chargement ou déchargement",
+        "inc_otra_prompt": "Dites-moi ce qui s'est passé : envoyez une note vocale 🎤 ou écrivez un message.",
         "incidencia_ok": "Incident signalé pour le trajet {ref}. Votre responsable a été notifié.",
         "incidencia_foto_pregunta": "Si vous voulez, envoyez-moi une photo maintenant (facultatif).",
         "incidencia_foto_ok": "Photo jointe à l'incident.",
@@ -389,9 +445,13 @@ TEXTOS = {
         "btn_incidencia": "📍 Signaler un incident",
         "btn_mi_viaje": "📋 Mon trajet",
         "btn_contactar": "📞 Contacter le responsable",
+        "menu_recordatorio": "Utilisez les boutons ci-dessous quand vous en avez besoin 👇",
         "contactar_info": "Votre responsable est {nombre}.\n📧 {contacto}",
         "contactar_sin_contacto": "Votre responsable est {nombre}.\nAucun contact direct configuré pour le moment.",
         "contactar_sin_gestor": "Votre responsable n'a pas encore configuré de contact. Essayez /incidencia si c'est urgent.",
+        "contactar_prompt": "Écrivez votre message ou envoyez une note vocale 🎤 — il arrive tout de suite à votre responsable.",
+        "btn_llamar": "📞 Appel urgent",
+        "mensaje_gestor_ok": "Message envoyé à votre responsable.",
         "parking_titulo": "📍 Parkings à proximité :",
         "parking_sin_ubicacion": "Je n'ai pas encore votre position. Confirmez l'arrivée à un arrêt ou partagez votre position sur Telegram.",
         "parking_sin_resultados": "Aucun parking trouvé à proximité.",
@@ -431,6 +491,8 @@ TEXTOS = {
         "btn_cancelar": "No, annulla",
         "cancelado": "Annullato. Premi quando arrivi davvero.",
         "pedir_foto": "Arrivo registrato a {dir}.\n\nOra ho bisogno della FOTO DELLA BOLLA DI CONSEGNA.\nInviami la foto qui.",
+        "btn_sin_foto": "Non ce l'ho ora",
+        "sin_pod_ok": "Consegna registrata a {dir} senza foto della bolla di consegna.\nIl tuo responsabile è stato avvisato di verificare.",
         "recogida_ok": "Ritiro completato a {dir}.",
         "entrega_ok": "Consegna completata a {dir}.",
         "aviso_pausa_561": "🕐 Stai guidando da circa 4,5 h — è ora di una pausa di 45 min.",
@@ -438,7 +500,16 @@ TEXTOS = {
         "sin_entrega_esperando": "Nessuna consegna in attesa di bolla.\nUsa /estado per vedere la tua prossima tappa.",
         "pod_ok": "Bolla di consegna ricevuta per {dir}.\nConsegna completata.",
         "foto_invalida": "Questa foto non sembra valida. Inviami una foto normale della bolla di consegna (non un file né un video).",
-        "incidencia_ayuda": "Scrivi cosa è successo: /incidencia foratura ruota posteriore",
+        "incidencia_ayuda": "Dimmi cosa è successo: inviami una nota vocale 🎤 o scrivi qui.",
+        "inc_elige": "Cosa è successo?",
+        "btn_inc_averia": "🔧 Guasto",
+        "btn_inc_retraso": "⏱️ Sono in ritardo",
+        "btn_inc_carga": "📦 Problema carico/scarico",
+        "btn_inc_otra": "🎤 Altro",
+        "inc_desc_averia": "Guasto del veicolo",
+        "inc_desc_retraso": "Ritardo sul percorso",
+        "inc_desc_carga": "Problema di carico o scarico",
+        "inc_otra_prompt": "Dimmi cosa è successo: inviami una nota vocale 🎤 o scrivilo in un messaggio.",
         "incidencia_ok": "Incidente segnalato per il viaggio {ref}. Il tuo responsabile è stato avvisato.",
         "incidencia_foto_pregunta": "Se vuoi, mandami una foto ora (facoltativo).",
         "incidencia_foto_ok": "Foto allegata all'incidente.",
@@ -447,9 +518,13 @@ TEXTOS = {
         "btn_incidencia": "📍 Segnala un incidente",
         "btn_mi_viaje": "📋 Il mio viaggio",
         "btn_contactar": "📞 Contatta il responsabile",
+        "menu_recordatorio": "Usa i pulsanti qui sotto quando ti servono 👇",
         "contactar_info": "Il tuo responsabile è {nombre}.\n📧 {contacto}",
         "contactar_sin_contacto": "Il tuo responsabile è {nombre}.\nNon ha ancora configurato un contatto diretto.",
         "contactar_sin_gestor": "Il tuo responsabile non ha ancora configurato un contatto. Prova con /incidencia se è urgente.",
+        "contactar_prompt": "Scrivimi il messaggio o mandami una nota vocale 🎤 — arriva subito al tuo responsabile.",
+        "btn_llamar": "📞 Chiamata urgente",
+        "mensaje_gestor_ok": "Messaggio inviato al tuo responsabile.",
         "parking_titulo": "📍 Parcheggi vicini:",
         "parking_sin_ubicacion": "Non ho ancora la tua posizione. Conferma l'arrivo a una tappa o condividi la tua posizione su Telegram.",
         "parking_sin_resultados": "Non ho trovato parcheggi vicini.",
@@ -489,6 +564,8 @@ TEXTOS = {
         "btn_cancelar": "Não, cancelar",
         "cancelado": "Cancelado. Toca quando chegares mesmo.",
         "pedir_foto": "Chegada registada em {dir}.\n\nAgora preciso da FOTO DA GUIA DE TRANSPORTE.\nEnvia-me a foto por aqui.",
+        "btn_sin_foto": "Não a tenho agora",
+        "sin_pod_ok": "Entrega registada em {dir} sem foto da guia de transporte.\nO teu gestor foi avisado para verificar.",
         "recogida_ok": "Recolha concluída em {dir}.",
         "entrega_ok": "Entrega concluída em {dir}.",
         "aviso_pausa_561": "🕐 Estás a conduzir há cerca de 4,5 h — é hora de uma pausa de 45 min.",
@@ -496,7 +573,16 @@ TEXTOS = {
         "sin_entrega_esperando": "Não há nenhuma entrega à espera de guia.\nUsa /estado para veres a tua próxima paragem.",
         "pod_ok": "Guia de transporte recebida para {dir}.\nEntrega concluída.",
         "foto_invalida": "Essa foto não parece válida. Envia-me uma foto normal da guia de transporte (não um ficheiro nem um vídeo).",
-        "incidencia_ayuda": "Escreve o que aconteceu: /incidencia furo no pneu traseiro",
+        "incidencia_ayuda": "Diz-me o que aconteceu: envia-me uma nota de voz 🎤 ou escreve aqui.",
+        "inc_elige": "O que aconteceu?",
+        "btn_inc_averia": "🔧 Avaria",
+        "btn_inc_retraso": "⏱️ Estou atrasado",
+        "btn_inc_carga": "📦 Problema na carga/descarga",
+        "btn_inc_otra": "🎤 Outra coisa",
+        "inc_desc_averia": "Avaria do veículo",
+        "inc_desc_retraso": "Atraso na rota",
+        "inc_desc_carga": "Problema na carga ou descarga",
+        "inc_otra_prompt": "Diz-me o que aconteceu: envia-me uma nota de voz 🎤 ou escreve numa mensagem.",
         "incidencia_ok": "Incidência reportada para a viagem {ref}. O teu gestor foi notificado.",
         "incidencia_foto_pregunta": "Se quiseres, manda-me uma foto agora (opcional).",
         "incidencia_foto_ok": "Foto anexada à incidência.",
@@ -505,9 +591,13 @@ TEXTOS = {
         "btn_incidencia": "📍 Reportar incidência",
         "btn_mi_viaje": "📋 A minha viagem",
         "btn_contactar": "📞 Contactar gestor",
+        "menu_recordatorio": "Usa os botões abaixo quando precisares 👇",
         "contactar_info": "O teu gestor é {nombre}.\n📧 {contacto}",
         "contactar_sin_contacto": "O teu gestor é {nombre}.\nAinda não configurou um contacto direto.",
         "contactar_sin_gestor": "O teu gestor ainda não configurou um contacto. Experimenta /incidencia se for urgente.",
+        "contactar_prompt": "Escreve-me a mensagem ou envia-me uma nota de voz 🎤 — chega já ao teu gestor.",
+        "btn_llamar": "📞 Chamada urgente",
+        "mensaje_gestor_ok": "Mensagem enviada ao teu gestor.",
         "parking_titulo": "📍 Parques de estacionamento próximos:",
         "parking_sin_ubicacion": "Ainda não tenho a tua localização. Confirma a chegada a uma paragem ou partilha a tua localização no Telegram.",
         "parking_sin_resultados": "Não encontrei parques de estacionamento próximos.",
@@ -547,6 +637,8 @@ TEXTOS = {
         "btn_cancelar": "Nein, abbrechen",
         "cancelado": "Abgebrochen. Tippe, wenn du wirklich ankommst.",
         "pedir_foto": "Ankunft in {dir} erfasst.\n\nJetzt brauche ich das FOTO DES LIEFERSCHEINS.\nSchick mir das Foto hier.",
+        "btn_sin_foto": "Habe ich gerade nicht",
+        "sin_pod_ok": "Lieferung in {dir} ohne Lieferscheinfoto erfasst.\nDein Disponent wurde benachrichtigt.",
         "recogida_ok": "Abholung in {dir} abgeschlossen.",
         "entrega_ok": "Lieferung in {dir} abgeschlossen.",
         "aviso_pausa_561": "🕐 Du fährst seit etwa 4,5 Std. — Zeit für eine 45-Min-Pause.",
@@ -554,7 +646,16 @@ TEXTOS = {
         "sin_entrega_esperando": "Es wartet keine Lieferung auf einen Lieferschein.\nNutze /estado, um deinen nächsten Stopp zu sehen.",
         "pod_ok": "Lieferschein für {dir} erhalten.\nLieferung abgeschlossen.",
         "foto_invalida": "Dieses Foto scheint ungültig zu sein. Schick mir ein normales Foto des Lieferscheins (keine Datei und kein Video).",
-        "incidencia_ayuda": "Schreib, was passiert ist: /incidencia Reifenpanne hinten",
+        "incidencia_ayuda": "Sag mir, was passiert ist: Schick mir eine Sprachnachricht 🎤 oder schreib hier.",
+        "inc_elige": "Was ist passiert?",
+        "btn_inc_averia": "🔧 Panne",
+        "btn_inc_retraso": "⏱️ Ich habe Verspätung",
+        "btn_inc_carga": "📦 Problem beim Be-/Entladen",
+        "btn_inc_otra": "🎤 Etwas anderes",
+        "inc_desc_averia": "Fahrzeugpanne",
+        "inc_desc_retraso": "Verspätung auf der Route",
+        "inc_desc_carga": "Problem beim Be- oder Entladen",
+        "inc_otra_prompt": "Sag mir, was passiert ist: Schick mir eine Sprachnachricht 🎤 oder schreib eine Nachricht.",
         "incidencia_ok": "Vorfall für Fahrt {ref} gemeldet. Dein Disponent wurde benachrichtigt.",
         "incidencia_foto_pregunta": "Wenn du magst, schick mir jetzt ein Foto (optional).",
         "incidencia_foto_ok": "Foto zum Vorfall hinzugefügt.",
@@ -563,9 +664,13 @@ TEXTOS = {
         "btn_incidencia": "📍 Vorfall melden",
         "btn_mi_viaje": "📋 Meine Fahrt",
         "btn_contactar": "📞 Disponent kontaktieren",
+        "menu_recordatorio": "Nutze die Schaltflächen unten, wann immer du sie brauchst 👇",
         "contactar_info": "Dein Disponent ist {nombre}.\n📧 {contacto}",
         "contactar_sin_contacto": "Dein Disponent ist {nombre}.\nHat noch keinen direkten Kontakt hinterlegt.",
         "contactar_sin_gestor": "Dein Disponent hat noch keinen Kontakt hinterlegt. Nutze /incidencia, wenn es dringend ist.",
+        "contactar_prompt": "Schreib mir deine Nachricht oder schick eine Sprachnachricht 🎤 — sie erreicht deinen Disponenten sofort.",
+        "btn_llamar": "📞 Dringender Anruf",
+        "mensaje_gestor_ok": "Nachricht an deinen Disponenten gesendet.",
         "parking_titulo": "📍 Parkplätze in der Nähe:",
         "parking_sin_ubicacion": "Ich habe deinen Standort noch nicht. Bestätige die Ankunft an einem Stopp oder teile deinen Standort über Telegram.",
         "parking_sin_resultados": "Keine Parkplätze in der Nähe gefunden.",
@@ -605,6 +710,8 @@ TEXTOS = {
         "btn_cancelar": "لا، إلغاء",
         "cancelado": "تم الإلغاء. اضغط عند وصولك فعليًا.",
         "pedir_foto": "تم تسجيل الوصول في {dir}.\n\nأحتاج الآن إلى صورة سند التسليم.\nأرسل لي الصورة هنا.",
+        "btn_sin_foto": "ليست معي الآن",
+        "sin_pod_ok": "تم تسجيل التسليم في {dir} بدون صورة سند التسليم.\nتم إخطار المسؤول للمتابعة.",
         "recogida_ok": "تم الاستلام في {dir}.",
         "entrega_ok": "تم إتمام التسليم في {dir}.",
         "aviso_pausa_561": "🕐 أنت تقود منذ حوالي 4.5 ساعة — حان وقت استراحة 45 دقيقة.",
@@ -612,7 +719,16 @@ TEXTOS = {
         "sin_entrega_esperando": "لا يوجد تسليم بانتظار سند.\nاستخدم /estado لمعرفة محطتك التالية.",
         "pod_ok": "تم استلام سند التسليم لـ {dir}.\nاكتمل التسليم.",
         "foto_invalida": "هذه الصورة لا تبدو صالحة. أرسل لي صورة عادية لسند التسليم (وليس ملفًا أو فيديو).",
-        "incidencia_ayuda": "اكتب ما حدث: /incidencia عطل في الإطار الخلفي",
+        "incidencia_ayuda": "أخبرني بما حدث: أرسل لي رسالة صوتية 🎤 أو اكتب هنا.",
+        "inc_elige": "ماذا حدث؟",
+        "btn_inc_averia": "🔧 عطل",
+        "btn_inc_retraso": "⏱️ متأخر",
+        "btn_inc_carga": "📦 مشكلة في التحميل/التفريغ",
+        "btn_inc_otra": "🎤 شيء آخر",
+        "inc_desc_averia": "عطل في المركبة",
+        "inc_desc_retraso": "تأخير في الطريق",
+        "inc_desc_carga": "مشكلة في التحميل أو التفريغ",
+        "inc_otra_prompt": "أخبرني بما حدث: أرسل لي رسالة صوتية 🎤 أو اكتبها في رسالة.",
         "incidencia_ok": "تم الإبلاغ عن حادثة للرحلة {ref}. تم إخطار المسؤول عنك.",
         "incidencia_foto_pregunta": "إذا أردت، أرسل لي صورة الآن (اختياري).",
         "incidencia_foto_ok": "تم إرفاق الصورة بالحادثة.",
@@ -621,9 +737,13 @@ TEXTOS = {
         "btn_incidencia": "📍 الإبلاغ عن حادثة",
         "btn_mi_viaje": "📋 رحلتي",
         "btn_contactar": "📞 الاتصال بالمسؤول",
+        "menu_recordatorio": "استخدم الأزرار في الأسفل عند الحاجة 👇",
         "contactar_info": "المسؤول عنك هو {nombre}.\n📧 {contacto}",
         "contactar_sin_contacto": "المسؤول عنك هو {nombre}.\nلم يقم بعد بإعداد وسيلة تواصل مباشرة.",
         "contactar_sin_gestor": "لم يقم المسؤول عنك بعد بإعداد وسيلة تواصل. جرّب /incidencia إذا كان الأمر عاجلاً.",
+        "contactar_prompt": "اكتب رسالتك أو أرسل لي رسالة صوتية 🎤 — ستصل إلى مسؤولك فورًا.",
+        "btn_llamar": "📞 اتصال عاجل",
+        "mensaje_gestor_ok": "تم إرسال الرسالة إلى مسؤولك.",
         "parking_titulo": "📍 مواقف قريبة:",
         "parking_sin_ubicacion": "لا أملك موقعك بعد. أكّد وصولك إلى إحدى المحطات أو شارك موقعك عبر تيليجرام.",
         "parking_sin_resultados": "لم أجد مواقف قريبة.",
@@ -878,7 +998,7 @@ def build_hito_message(hito, orden_actual, total_hitos, idioma="es"):
     return texto
 
 
-async def send_next_hito(chat_id, chofer, bot):
+async def send_next_hito(chat_id, chofer, bot, chat_data=None):
     chofer_id = chofer["id"]
     viajes_r = (
         supabase.table("viaje")
@@ -963,28 +1083,98 @@ async def send_next_hito(chat_id, chofer, bot):
         text=texto,
         reply_markup=InlineKeyboardMarkup(buttons),
     )
+    # 2026-07-23: Telegram cachea el ÚLTIMO ReplyKeyboardMarkup que recibió el
+    # chat; si solo se manda en /start, un cambio de diseño del menú (o un
+    # chófer que lo cerró) no se ve nunca. Se reenvía UNA vez por sesión del
+    # proceso (chat_data se vacía en cada reinicio del bot, justo cuando puede
+    # haber cambiado el diseño) para refrescarlo sin spamear en cada "Mi viaje".
+    if chat_data is not None and not chat_data.get("teclado_refrescado"):
+        chat_data["teclado_refrescado"] = True
+        await bot.send_message(
+            chat_id=chat_id,
+            text=t(chofer, "menu_recordatorio"),
+            reply_markup=menu_keyboard(chofer),
+        )
 
 
 def menu_keyboard(chofer):
-    """Teclado persistente con accesos rápidos para el chófer."""
+    """Teclado persistente con accesos rápidos para el chófer.
+
+    2026-07-23, feedback real probando en móvil: los 3 botones en una sola
+    fila se veían pequeños y "Contactar gestor" se cortaba ("Contactar G").
+    Una fila por botón -- cada uno ocupa el ancho completo, más fácil de
+    pulsar con el móvil en la mano/conduciendo, y ningún texto se corta."""
     return ReplyKeyboardMarkup(
-        [[t(chofer, "btn_incidencia"), t(chofer, "btn_mi_viaje"), t(chofer, "btn_contactar")]],
+        [[t(chofer, "btn_mi_viaje")], [t(chofer, "btn_incidencia")], [t(chofer, "btn_contactar")]],
         resize_keyboard=True,
     )
 
 
-def contactar_gestor_texto(chofer):
-    """Nombre + contacto (email) del primer gestor de la empresa del chófer.
-    No hay campo de teléfono en la tabla gestor; se usa el email disponible."""
-    r = supabase.table("gestor").select("nombre, email").eq("empresa_id", chofer["empresa_id"]).execute()
-    if not r.data:
-        return t(chofer, "contactar_sin_gestor")
-    gestor = r.data[0]
-    nombre = gestor.get("nombre") or "—"
-    email = gestor.get("email")
-    if email:
-        return t(chofer, "contactar_info", nombre=nombre, contacto=email)
-    return t(chofer, "contactar_sin_contacto", nombre=nombre)
+# Tipos de incidencia de UN TOQUE (2026-07-23, rediseño para que el chófer no
+# tenga que escribir nada -- seguridad al volante). Los 3 más comunes en ruta
+# se reportan con un solo botón; el 4º ("otra") abre captura por voz o texto.
+# (clave_button, clave_descripcion_estandar) por tipo -- el tipo es la propia
+# clave sin el prefijo, y se guarda en incidencia.tipo.
+TIPOS_INCIDENCIA_RAPIDA = [
+    ("averia", "btn_inc_averia", "inc_desc_averia"),
+    ("retraso", "btn_inc_retraso", "inc_desc_retraso"),
+    ("carga", "btn_inc_carga", "inc_desc_carga"),
+]
+
+
+def incidencia_keyboard(chofer):
+    """Selector de tipo de incidencia de un toque (inline). Última fila: 'otra',
+    que pide una nota de voz o un texto libre."""
+    filas = [
+        [InlineKeyboardButton(t(chofer, btn), callback_data=f"inc:{tipo}")]
+        for tipo, btn, _desc in TIPOS_INCIDENCIA_RAPIDA
+    ]
+    filas.append([InlineKeyboardButton(t(chofer, "btn_inc_otra"), callback_data="inc:otra")])
+    return InlineKeyboardMarkup(filas)
+
+
+def contactar_keyboard(chofer):
+    """2026-07-23: el usuario pidió explícitamente conservar la vía de
+    llamada real para emergencias ("en caso de emergencia hablar por
+    teléfono es clave"), aunque la vía principal ahora sea texto/voz
+    capturado por el bot. Si el gestor tiene `telefono` (0060), se ofrece un
+    botón de llamada directa (tel:) además del mensaje por bot."""
+    r = supabase.table("gestor").select("telefono").eq("empresa_id", chofer["empresa_id"]).not_.is_("telefono", "null").limit(1).execute()
+    if not r.data or not r.data[0].get("telefono"):
+        return None
+    telefono = r.data[0]["telefono"]
+    return InlineKeyboardMarkup([[InlineKeyboardButton(t(chofer, "btn_llamar"), url=f"tel:{telefono}")]])
+
+
+async def _enviar_mensaje_a_gestor(chofer, viaje_id, texto):
+    """Núcleo de 'chófer -> gestor' (17.G.10, 2026-07-23): registra en
+    `mensaje_chofer` (buzón, entrega inmediata -- se marca `entregado_en` ya
+    mismo porque `notificar_gestor_evento` empuja el Telegram en el momento,
+    no hace falta esperar al job de 30s como en la dirección contraria) Y en
+    `contexto` (corpus buscable del viaje/chófer). Antes 'Contactar' solo
+    enseñaba un email -- nada de lo hablado quedaba capturado en ningún sitio."""
+    from datetime import datetime, timezone
+    supabase.table("mensaje_chofer").insert({
+        "empresa_id": chofer["empresa_id"],
+        "viaje_id": viaje_id,
+        "chofer_id": chofer["id"],
+        "direccion": "chofer_a_gestor",
+        "texto": texto,
+        "entregado_en": datetime.now(timezone.utc).isoformat(),
+    }).execute()
+
+    if viaje_id:
+        supabase.table("contexto").insert({
+            "empresa_id": chofer["empresa_id"], "entidad": "viaje", "entidad_id": viaje_id,
+            "canal": "mensaje_gestor", "texto": texto, "autor_externo": chofer["nombre"],
+        }).execute()
+
+    notificados = await notificar_gestor_evento(
+        chofer["empresa_id"], viaje_id,
+        f"💬 {chofer['nombre']}: {texto}",
+        tipo_notif="incidencias",  # mensajes del chófer son urgentes con más frecuencia que rutinarios
+    )
+    return notificados
 
 
 async def handle_menu_texto(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -995,13 +1185,38 @@ async def handle_menu_texto(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     texto = update.message.text
+    es_boton_menu = texto in BOTONES_INCIDENCIA or texto in BOTONES_MI_VIAJE or texto in BOTONES_CONTACTAR
+
+    # Si el chófer pulsó "otra" en el selector de incidencia, el SIGUIENTE texto
+    # (que no sea un botón del menú) es la descripción de esa incidencia. Se
+    # comprueba ANTES que los botones para que "avería en la M-30" no se pierda.
+    pend = ctx.chat_data.get("incidencia_libre")
+    if pend and pend.get("hasta", 0) >= time.time() and not es_boton_menu:
+        ctx.chat_data.pop("incidencia_libre", None)
+        await _reportar_incidencia(update, ctx, chofer, "otra", texto)
+        return
+    ctx.chat_data.pop("incidencia_libre", None)
+
+    # Igual para "Contactar gestor" (17.G.10): el texto que mande justo
+    # después de pulsar el botón es el mensaje para el gestor, no algo que
+    # tengamos que interpretar más.
+    pend_contacto = ctx.chat_data.get("contactar_pendiente")
+    if pend_contacto and pend_contacto.get("hasta", 0) >= time.time() and not es_boton_menu:
+        ctx.chat_data.pop("contactar_pendiente", None)
+        await _enviar_mensaje_a_gestor(chofer, pend_contacto.get("viaje_id"), texto)
+        await update.message.reply_text(t(chofer, "mensaje_gestor_ok"), reply_markup=menu_keyboard(chofer))
+        return
+    ctx.chat_data.pop("contactar_pendiente", None)
 
     if texto in BOTONES_INCIDENCIA:
-        await update.message.reply_text(t(chofer, "incidencia_ayuda"))
+        await update.message.reply_text(t(chofer, "inc_elige"), reply_markup=incidencia_keyboard(chofer))
     elif texto in BOTONES_MI_VIAJE:
-        await send_next_hito(chat_id, chofer, ctx.bot)
+        await send_next_hito(chat_id, chofer, ctx.bot, ctx.chat_data)
     elif texto in BOTONES_CONTACTAR:
-        await update.message.reply_text(contactar_gestor_texto(chofer))
+        viaje_r = supabase.table("viaje").select("id").eq("chofer_id", chofer["id"]).eq("estado", "en_curso").execute()
+        viaje_id = viaje_r.data[0]["id"] if viaje_r.data else None
+        ctx.chat_data["contactar_pendiente"] = {"hasta": time.time() + INCIDENCIA_FOTO_VENTANA_S, "viaje_id": viaje_id}
+        await update.message.reply_text(t(chofer, "contactar_prompt"), reply_markup=contactar_keyboard(chofer))
 
 
 async def vincular_gestor(update: Update, gestor_id: str, chat_id: str):
@@ -1043,8 +1258,9 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not args:
         await update.message.reply_text(
             "Hola, soy el bot de Norenty.\n\n"
-            "Para vincularte, necesitas el código que te dio tu gestor.\n"
-            "Escribe: /start TU_CODIGO"
+            "Para vincularte, abre el enlace que te dio tu gestor "
+            "(pulsa 'Abrir Telegram' en su pantalla) — se vincula solo, "
+            "no tienes que escribir nada."
         )
         return
 
@@ -1108,7 +1324,7 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "Chofer %s vinculado al chat %s", codigo, chat_id,
         extra={"chofer_id": codigo, "chat_id": chat_id, "empresa_id": chofer.get("empresa_id")},
     )
-    await send_next_hito(chat_id, chofer, ctx.bot)
+    await send_next_hito(chat_id, chofer, ctx.bot, ctx.chat_data)
 
 
 async def cmd_estado(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1119,7 +1335,7 @@ async def cmd_estado(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(t("es", "no_vinculado"))
         return
 
-    await send_next_hito(chat_id, chofer, ctx.bot)
+    await send_next_hito(chat_id, chofer, ctx.bot, ctx.chat_data)
 
 
 async def cb_pre_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1235,7 +1451,19 @@ async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     dir_hito = hito.get("direccion", "?")
     if hito["tipo"] == "entrega":
         if empresa_requiere_pod(chofer["empresa_id"]):
-            await query.edit_message_text(t(chofer, "pedir_foto", dir=dir_hito))
+            # 2026-07-23, feedback real: "requiere_pod" era todo o nada por
+            # empresa -- si el chófer llega sin foto a mano (le pasa a
+            # cualquiera: batería, cliente sin recibir aún el albarán físico,
+            # etc.) se quedaba bloqueado sin ninguna salida. Un botón para
+            # saltarlo POR ESE VIAJE, dejando aviso al gestor para revisar,
+            # en vez de tener que desactivar la exigencia para toda la
+            # empresa (lo que sí ocurrió por accidente durante el smoke test).
+            await query.edit_message_text(
+                t(chofer, "pedir_foto", dir=dir_hito),
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton(t(chofer, "btn_sin_foto"), callback_data=f"sin_pod:{hito_id}"),
+                ]]),
+            )
         else:
             # Toggle "requiere_pod" desactivado: la entrega se completa sola,
             # sin pedir foto de albarán (mismo patrón que la recogida de abajo).
@@ -1255,7 +1483,7 @@ async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 viaje["id"],
                 f"✅ Entrega completada (sin albarán) — Viaje {ref}, hito {hito['orden']} ({dir_hito}). Chófer: {chofer['nombre']}.",
             )
-            await send_next_hito(chat_id, chofer, ctx.bot)
+            await send_next_hito(chat_id, chofer, ctx.bot, ctx.chat_data)
     else:
         supabase.table("hito").update({"estado": "completado"}).eq("id", hito_id).execute()
         supabase.table("ejecucion_evento").insert({
@@ -1266,7 +1494,7 @@ async def cb_llegada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         }).execute()
 
         await query.edit_message_text(t(chofer, "recogida_ok", dir=dir_hito))
-        await send_next_hito(chat_id, chofer, ctx.bot)
+        await send_next_hito(chat_id, chofer, ctx.bot, ctx.chat_data)
 
 
 async def cb_cancelar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1280,7 +1508,7 @@ async def cb_cancelar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     await query.edit_message_text(t(chofer, "cancelado"))
-    await send_next_hito(chat_id, chofer, ctx.bot)
+    await send_next_hito(chat_id, chofer, ctx.bot, ctx.chat_data)
 
 
 async def handle_location(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1487,6 +1715,17 @@ async def handle_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         contexto={"accion": "handle_voice_viaje"},
     )
     if not viajes_r.data:
+        # 2026-07-23: si estaba esperando el mensaje de "Contactar gestor", una
+        # nota de voz vale igual aunque no haya viaje en curso (puede ser una
+        # duda general, o el chófer ni siquiera ha arrancado ruta todavía) --
+        # se transcribe/oye igual, no depende de tener un viaje activo como sí
+        # depende la nota de voz "normal" anclada al viaje.
+        pend_contacto = ctx.chat_data.get("contactar_pendiente")
+        if pend_contacto and pend_contacto.get("hasta", 0) >= time.time():
+            ctx.chat_data.pop("contactar_pendiente", None)
+            await _enviar_mensaje_a_gestor(chofer, None, "nota de voz (sin viaje activo)")
+            await update.message.reply_text(t(chofer, "mensaje_gestor_ok"), reply_markup=menu_keyboard(chofer))
+            return
         await update.message.reply_text(t(chofer, "nota_voz_sin_viaje"))
         return
 
@@ -1522,6 +1761,24 @@ async def handle_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "Nota de voz guardada en viaje %s", viaje_id,
         extra={"viaje_id": viaje_id, "chofer_id": chofer["id"]},
     )
+
+    # 2026-07-23: si el chófer pulsó "otra" en el selector de incidencia y la
+    # respondió con una nota de voz, además de guardarla como contexto (arriba)
+    # se abre una incidencia real para que el gestor reciba un AVISO -- si no,
+    # la nota de voz quedaría solo en el timeline del viaje y podría pasar
+    # desapercibida justo cuando es una urgencia. La transcripción llegará
+    # después (Whisper); de momento el gestor sabe que hay un audio que oír.
+    pend = ctx.chat_data.get("incidencia_libre")
+    if pend and pend.get("hasta", 0) >= time.time():
+        ctx.chat_data.pop("incidencia_libre", None)
+        await _reportar_incidencia(update, ctx, chofer, "otra", "nota de voz (escúchala en el viaje)")
+        return
+
+    pend_contacto = ctx.chat_data.get("contactar_pendiente")
+    if pend_contacto and pend_contacto.get("hasta", 0) >= time.time():
+        ctx.chat_data.pop("contactar_pendiente", None)
+        await _enviar_mensaje_a_gestor(chofer, viaje_id, "nota de voz (escúchala en el viaje)")
+        await update.message.reply_text(t(chofer, "mensaje_gestor_ok"), reply_markup=menu_keyboard(chofer))
 
 
 async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1643,22 +1900,66 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"📄 Albarán recibido — Viaje {ref}, hito {hito['orden']} ({dir_hito}). Chófer: {chofer['nombre']}.",
     )
 
-    await send_next_hito(chat_id, chofer, ctx.bot)
+    await send_next_hito(chat_id, chofer, ctx.bot, ctx.chat_data)
 
 
-async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """El chófer puede reportar una incidencia: /incidencia texto libre"""
-    chat_id = str(update.effective_chat.id)
+async def cb_sin_pod(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Chófer pulsa "No la tengo ahora" tras pedirle la foto de albarán
+    (2026-07-23, feedback real: el toggle `empresa.requiere_pod` era la única
+    salida y era todo-o-nada para la empresa entera). Completa la entrega SIN
+    POD y dispara una incidencia (tipo "sin_pod") para que el gestor lo sepa y
+    pueda pedir el albarán por otra vía (email, WhatsApp) -- no es "problema
+    resuelto en silencio", es "resuelto sin evidencia, marcado para revisar"."""
+    query = update.callback_query
+    await query.answer()
+
+    hito_id = query.data.split(":")[1]
+    chat_id = str(query.message.chat_id)
+
     chofer = get_chofer_by_chat(chat_id)
     if not chofer:
-        await update.message.reply_text(t("es", "no_vinculado"))
+        await query.edit_message_text(t("es", "no_vinculado"))
         return
 
-    texto = " ".join(ctx.args) if ctx.args else ""
-    if not texto:
-        await update.message.reply_text(t(chofer, "incidencia_ayuda"))
+    hito, error = verificar_hito_pertenece_a_chofer(hito_id, chofer["id"])
+    if error:
+        await query.edit_message_text(error)
         return
 
+    chofer_id = chofer["id"]
+    viaje = hito["viaje"]
+    dir_hito = hito.get("direccion", "?")
+    ref = viaje.get("referencia") or viaje["id"][:8]
+
+    supabase.table("hito").update({"estado": "completado"}).eq("id", hito_id).execute()
+    supabase.table("ejecucion_evento").insert({
+        "viaje_id": viaje["id"], "hito_id": hito_id, "chofer_id": chofer_id, "tipo": "salida",
+    }).execute()
+
+    await alertar_gestor(
+        chofer["empresa_id"],
+        viaje["id"],
+        "sin_pod",
+        f"Entrega sin foto de albarán — Viaje {ref}, hito {hito['orden']} ({dir_hito}). "
+        f"Chófer {chofer['nombre']} indicó que no la tenía en el momento. Pedir el albarán por otra vía.",
+    )
+
+    logger.info(
+        "Entrega sin POD (saltada por el chófer): hito %s", hito_id,
+        extra={"hito_id": hito_id, "viaje_id": viaje["id"], "chofer_id": chofer_id, "empresa_id": chofer["empresa_id"]},
+    )
+
+    await query.edit_message_text(t(chofer, "sin_pod_ok", dir=dir_hito))
+    await send_next_hito(chat_id, chofer, ctx.bot, ctx.chat_data)
+
+
+async def _reportar_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE, chofer, tipo, descripcion):
+    """Núcleo compartido de reporte de incidencia (2026-07-23): lo usan el
+    selector de un toque (`cb_incidencia`), la captura de texto libre de "otra"
+    y el comando `/incidencia` heredado. `tipo` va a `incidencia.tipo`,
+    `descripcion` es lo que ve el gestor. Devuelve el id o None. Responde al
+    chófer (confirmación + ventana de foto opcional) y avisa al gestor."""
+    msg = update.message or (update.callback_query and update.callback_query.message)
     viajes_r = (
         supabase.table("viaje")
         .select("id, referencia")
@@ -1667,8 +1968,8 @@ async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         .execute()
     )
     if not viajes_r.data:
-        await update.message.reply_text(t(chofer, "sin_viaje_activo"))
-        return
+        await msg.reply_text(t(chofer, "sin_viaje_activo"))
+        return None
 
     viaje = viajes_r.data[0]
     ref = viaje.get("referencia") or viaje["id"][:8]
@@ -1676,26 +1977,70 @@ async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     incidencia_id = await alertar_gestor(
         chofer["empresa_id"],
         viaje["id"],
-        "otro",
-        f"Reportado por chófer {chofer['nombre']}: {texto}",
+        tipo,
+        f"Reportado por chófer {chofer['nombre']}: {descripcion}",
     )
 
-    await update.message.reply_text(t(chofer, "incidencia_ok", ref=ref))
-    # F14.6: el texto ya se mandó; si además quiere adjuntar una foto
-    # (avería, carga mal estibada...), la siguiente foto que mande dentro de
-    # INCIDENCIA_FOTO_VENTANA_S se atribuye a esta incidencia. Puramente
-    # opcional -- no bloquea nada si no manda ninguna.
+    await msg.reply_text(t(chofer, "incidencia_ok", ref=ref), reply_markup=menu_keyboard(chofer))
+    # F14.6: la siguiente foto dentro de INCIDENCIA_FOTO_VENTANA_S se adjunta a
+    # esta incidencia. Opcional -- no bloquea nada si no manda ninguna.
     if incidencia_id:
         ctx.chat_data["incidencia_pendiente_foto"] = {
             "id": incidencia_id,
             "viaje_id": viaje["id"],
             "hasta": time.time() + INCIDENCIA_FOTO_VENTANA_S,
         }
-        await update.message.reply_text(t(chofer, "incidencia_foto_pregunta"))
+        await msg.reply_text(t(chofer, "incidencia_foto_pregunta"))
     logger.info(
-        "Incidencia manual: chofer %s, viaje %s", chofer["id"], viaje["id"],
-        extra={"chofer_id": chofer["id"], "viaje_id": viaje["id"], "empresa_id": chofer["empresa_id"]},
+        "Incidencia (%s): chofer %s, viaje %s", tipo, chofer["id"], viaje["id"],
+        extra={"chofer_id": chofer["id"], "viaje_id": viaje["id"], "empresa_id": chofer["empresa_id"], "tipo_incidencia": tipo},
     )
+    return incidencia_id
+
+
+async def cb_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Selector de tipo de incidencia de un toque (2026-07-23). Los 3 tipos
+    rápidos reportan al instante con una descripción estándar; "otra" abre la
+    captura por voz/texto (flag `incidencia_libre`)."""
+    query = update.callback_query
+    await query.answer()
+    tipo = query.data.split(":")[1]
+    chat_id = str(query.message.chat_id)
+
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
+        await query.edit_message_text(t("es", "no_vinculado"))
+        return
+
+    if tipo == "otra":
+        ctx.chat_data["incidencia_libre"] = {"hasta": time.time() + INCIDENCIA_FOTO_VENTANA_S}
+        await query.edit_message_text(t(chofer, "inc_otra_prompt"))
+        return
+
+    desc_key = next((d for tp, _b, d in TIPOS_INCIDENCIA_RAPIDA if tp == tipo), None)
+    if not desc_key:
+        return
+    # Quita los botones del mensaje anterior para que no se pueda pulsar dos veces.
+    await query.edit_message_text(t(chofer, "inc_elige") + " ✓")
+    await _reportar_incidencia(update, ctx, chofer, tipo, t(chofer, desc_key))
+
+
+async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Comando heredado `/incidencia texto`. La vía principal ahora es el botón
+    ⚠️ del menú (selector de un toque), pero se mantiene por si alguien escribe."""
+    chat_id = str(update.effective_chat.id)
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
+        await update.message.reply_text(t("es", "no_vinculado"))
+        return
+
+    texto = " ".join(ctx.args) if ctx.args else ""
+    if not texto:
+        # Sin texto: mostrar el selector de un toque, no pedir que escriban.
+        await update.message.reply_text(t(chofer, "inc_elige"), reply_markup=incidencia_keyboard(chofer))
+        return
+
+    await _reportar_incidencia(update, ctx, chofer, "otro", texto)
 
 
 # Mismo factor que dashboard/lib/data.js (FACTOR_SINUOSIDAD_FALLBACK): el bot
@@ -2144,6 +2489,53 @@ async def procesar_notificaciones_asignacion(ctx: ContextTypes.DEFAULT_TYPE):
         supabase.table("viaje").update({"notificado_asignacion_en": ahora}).eq("id", viaje["id"]).execute()
 
 
+async def procesar_mensajes_gestor(ctx: ContextTypes.DEFAULT_TYPE):
+    """Job repetitivo (17.G.10, 2026-07-23): entrega al chófer los mensajes que
+    el gestor escribió desde el dashboard (`mensaje_chofer`, dirección
+    'gestor_a_chofer'). MISMO patrón que `procesar_notificaciones_asignacion`
+    (7A.3): el dashboard solo INSERTA la fila, este tick de 30s hace la
+    entrega real y marca `entregado_en` -- así el dashboard no necesita saber
+    nada de Telegram, ni bloquear al gestor esperando una respuesta HTTP del
+    bot."""
+    from datetime import datetime, timezone
+
+    pendientes_r = (
+        supabase.table("mensaje_chofer")
+        .select("id, chofer_id, viaje_id, texto, empresa_id")
+        .eq("direccion", "gestor_a_chofer")
+        .is_("entregado_en", "null")
+        .execute()
+    )
+    pendientes = pendientes_r.data or []
+
+    for msg in pendientes:
+        chofer_r = supabase.table("chofer").select("id, nombre, idioma, chat_id").eq("id", msg["chofer_id"]).execute()
+        chofer = chofer_r.data[0] if chofer_r.data else None
+        if not chofer or not chofer.get("chat_id"):
+            continue  # sin Telegram vinculado: se reintenta en el siguiente tick, no se pierde
+
+        try:
+            await ctx.bot.send_message(
+                chat_id=chofer["chat_id"],
+                text=f"💬 Mensaje de tu gestor:\n\n{msg['texto']}",
+            )
+        except Exception as e:
+            logger.error(
+                "Error entregando mensaje de gestor a %s: %s", chofer["chat_id"], e,
+                extra={"chofer_id": chofer["id"], "mensaje_id": msg["id"], "empresa_id": msg["empresa_id"]},
+            )
+            continue
+
+        ahora = datetime.now(timezone.utc).isoformat()
+        supabase.table("mensaje_chofer").update({"entregado_en": ahora}).eq("id", msg["id"]).execute()
+
+        if msg.get("viaje_id"):
+            supabase.table("contexto").insert({
+                "empresa_id": msg["empresa_id"], "entidad": "viaje", "entidad_id": msg["viaje_id"],
+                "canal": "mensaje_gestor", "texto": msg["texto"],
+            }).execute()
+
+
 async def manejar_error(update, ctx):
     """Manejador de errores global de PTB (ítem 8.2) — la última red de
     seguridad: cualquier excepción no capturada en CUALQUIER handler pasa por
@@ -2233,6 +2625,8 @@ def create_bot_app():
     app.add_handler(CommandHandler("eta", cmd_eta))
     app.add_handler(CallbackQueryHandler(cb_pre_llegada, pattern=r"^pre_llegada:"))
     app.add_handler(CallbackQueryHandler(cb_llegada, pattern=r"^llegada:"))
+    app.add_handler(CallbackQueryHandler(cb_sin_pod, pattern=r"^sin_pod:"))
+    app.add_handler(CallbackQueryHandler(cb_incidencia, pattern=r"^inc:"))
     app.add_handler(CallbackQueryHandler(cb_cancelar, pattern=r"^cancelar$"))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
@@ -2241,6 +2635,7 @@ def create_bot_app():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_texto))
     if app.job_queue:
         app.job_queue.run_repeating(procesar_notificaciones_asignacion, interval=30, first=15)
+        app.job_queue.run_repeating(procesar_mensajes_gestor, interval=30, first=20)
         app.job_queue.run_repeating(heartbeat, interval=HEARTBEAT_INTERVAL_S, first=1)
         # ítem 9.18: el tick de la cola necesita DATABASE_URL (psycopg2, no
         # PostgREST — ver SPECS-9.md "Bloque colas" §9.2). Sin ella, registrar
