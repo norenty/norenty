@@ -640,6 +640,9 @@ export default function NuevoViajeWizard() {
             <div><span className="text-ink-secondary">Paradas:</span> {hitos.filter((h) => h.direccion.trim()).length}</div>
             <div><span className="text-ink-secondary">Chófer:</span> {choferNombre || "Sin asignar"}</div>
             <div><span className="text-ink-secondary">Vehículo:</span> {tractoras.find((v) => v.id === vehiculoId)?.matricula || "Sin asignar"}</div>
+            {remolqueId && (
+              <div><span className="text-ink-secondary">Remolque:</span> {remolques.find((v) => v.id === remolqueId)?.matricula || "Sin asignar"}</div>
+            )}
             {panel && (
               <div className="pt-2 border-t border-border">
                 <div className="text-ink-secondary text-xs mb-1">Viabilidad estimada</div>
