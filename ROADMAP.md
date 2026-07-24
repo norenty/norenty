@@ -60,17 +60,19 @@ empresa más seria, no un software de pacotilla"*.
 
 ### 18.C — El flujo real de la empresa (comercial → jefe de tráfico → gestor → chófer)
 
-- [ ] `[DECISIÓN 18.C.1]` **🔴 "Pool de viajes" y cadena de adjudicación.** Descripción textual del
-  usuario, que es el modelo mental correcto y HOY NO ESTÁ IMPLEMENTADO ASÍ: *"el departamento
+- [x] `[DECISIÓN 18.C.1]` **🔴 "Pool de viajes" y cadena de adjudicación.** Descripción textual del
+  usuario, confirmada con un gestor de tráfico real (no una hipótesis): *"el departamento
   comercial crea el viaje y lo pasa a un pool de viajes. Luego el jefe de tráfico dice: este viaje
-  o esta ruta con x periodicidad se adjudica al gestor de tráfico Mario. A Mario le saldrán esos
-  viajes y tendrá adjudicados x chóferes, y él dirá: este viaje lo hace este chófer"*. Encaja con
-  el scoping de Fase 15 (chóferes por gestor) pero le falta la capa de arriba: viajes sin dueño,
-  asignados a un gestor, y solo entonces a un chófer.
-- [ ] `[DECISIÓN 18.C.2]` **Quitar la asignación de vehículo del momento de crear/cotizar.** *"yo
-  no puedo decir que este viaje, cuando lo creo, tiene que hacerlo el vehículo 8711LJP"*. Al
-  cotizar se usan **promedios** (velocidad, consumo); el vehículo concreto lo pone el gestor
-  después. Afecta a `/presupuesto` y al wizard.
+  se adjudica al gestor de tráfico Mario... y él dirá: este viaje lo hace este chófer"*.
+  **HECHO 2026-07-24**: el backend ya existía completo desde Fase 15 (`viaje.gestor_id`, RLS que
+  trata `gestor_id IS NULL` como visible-para-todos, trigger admin-only) — solo faltaba la
+  interfaz. Nueva sección "Adjudicación de viajes" en Ajustes → Equipo (`getViajesConGestor`/
+  `guardarGestorViaje` en `lib/data.js`). Verificado en vivo de punta a punta.
+- [x] `[DECISIÓN 18.C.2]` **Quitar la asignación de vehículo del momento de crear/cotizar.** *"yo
+  no puedo decir que este viaje, cuando lo creo, tiene que hacerlo el vehículo 8711LJP"*.
+  **HECHO 2026-07-24**: el paso "Asignación" del wizard ahora se presenta explícitamente como
+  opcional, con un atajo directo a "Confirmar" sin elegir nada — el viaje se crea en el pool
+  (sin chófer/vehículo/gestor). El backend ya lo permitía, no hacía falta tocarlo.
 - [ ] `[DECISIÓN 18.C.3]` **Múltiples bases.** *"podemos tener múltiples bases, es algo que debe
   estar contemplado"*. Hoy `empresa` tiene UNA lat/lon base, usada para calcular noches fuera.
   Cambia el modelo de datos y el cálculo de nómina.
@@ -86,6 +88,10 @@ empresa más seria, no un software de pacotilla"*.
   Mayor 3, Madrid" y "Port de Barcelona" resuelven a coordenadas correctas. Queda repasar en
   producción real si Nominatim público aguanta el volumen o hace falta auto-hospedarlo (nota
   ya en el código).
+- [ ] `[LOOP 18.D.2b]` **Priorizar resultados del geocoder cerca de España/la base de la
+  empresa.** *"si pongo Calle Mayor 3, es más fácil que sea en Madrid que en Puertollano... esa
+  priorización estaría bien, pero no lo veo tan relevante"*. Nominatim soporta sesgar por
+  `viewbox`/`countrycodes=es`. Baja prioridad, explícitamente confirmado por el usuario.
 - [x] `[DECISIÓN 18.D.3]` **Direcciones guardadas reutilizables.** *"si tengo una serie de
   ubicaciones guardadas, yo pueda acceder aquí directamente"* — ej. el almacén de Adidas en Madrid.
   **Ya existía** `getDireccionesGuardadas` (hitos pasados) pero solo estaba enganchado en el
