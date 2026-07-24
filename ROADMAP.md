@@ -129,9 +129,11 @@ empresa más seria, no un software de pacotilla"*.
   con flecha de dirección. Ordenado por **apellido** por defecto — *"prefiero que me ponga Raquel
   Álvarez la primera en lugar de Alejandro"* — verificado en vivo (Alonso, Álvarez, Díaz,
   Fernández, García... en orden correcto).
-- [ ] `[DECISIÓN 18.E.4]` **Recuperar contraseña.** *"habría que tener algo de recuperar contraseña,
-  ese tipo de cosas de un software ya serio"*. Supabase Auth lo soporta de fábrica; falta la
-  pantalla y decidir el remitente de correo.
+- [x] `[DECISIÓN 18.E.4]` **Recuperar contraseña.** *"habría que tener algo de recuperar contraseña,
+  ese tipo de cosas de un software ya serio"*. **Ya estaba construido** (hallazgo 2026-07-24, no
+  trabajo nuevo): `resetPassword()` en `lib/auth.js` + enlace "¿Olvidaste tu contraseña?" en
+  `LoginPage.jsx`, manda el email vía Supabase Auth y redirige a `/ajustes` → "Cambiar contraseña".
+  Pendiente solo decidir el remitente de correo si se quiere personalizar (hoy usa el de Supabase).
 
 ### 18.F — Lo que el usuario dio por bueno (no tocar, está validado)
 
