@@ -17,6 +17,7 @@ import {
 } from "../../lib/data";
 import { fmtEur } from "../../lib/format";
 import ErrorCargaReintentar from "../components/ui/ErrorCargaReintentar";
+import SectionCard from "../components/ui/SectionCard";
 import { useRol } from "../components/RolProvider";
 
 const VISTAS = [
@@ -102,8 +103,7 @@ function VistaPuntualidad({ datos, comparativa }) {
         <Card label="Fuera de ventana" value={datos.totalTarde} />
       </div>
 
-      <div className="bg-surface border border-border rounded-xl p-4">
-        <h3 className="text-sm font-medium text-ink mb-3">Tendencia (incidencias fuera de ventana, por semana)</h3>
+      <SectionCard variant="plain" title="Tendencia (incidencias fuera de ventana, por semana)">
         {datos.tendencia.length === 0 ? (
           <p className="text-xs text-ink-secondary">Sin datos suficientes.</p>
         ) : (
@@ -113,10 +113,9 @@ function VistaPuntualidad({ datos, comparativa }) {
             ))}
           </div>
         )}
-      </div>
+      </SectionCard>
 
-      <div className="bg-surface border border-border rounded-xl p-4">
-        <h3 className="text-sm font-medium text-ink mb-3">Peores rutas (más llegadas fuera de ventana)</h3>
+      <SectionCard variant="plain" title="Peores rutas (más llegadas fuera de ventana)">
         {datos.peoresRutas.length === 0 ? (
           <p className="text-xs text-ink-secondary">Sin incidencias de puntualidad.</p>
         ) : (
@@ -126,7 +125,7 @@ function VistaPuntualidad({ datos, comparativa }) {
             ))}
           </div>
         )}
-      </div>
+      </SectionCard>
     </div>
   );
 }
@@ -143,33 +142,30 @@ function VistaIncidencias({ datos }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="bg-surface border border-border rounded-xl p-4">
-          <h3 className="text-sm font-medium text-ink mb-3">Por tipo</h3>
+        <SectionCard variant="plain" title="Por tipo">
           <div className="flex flex-col gap-1.5">
             {datos.porTipo.length === 0 && <p className="text-xs text-ink-secondary">Sin incidencias.</p>}
             {datos.porTipo.map((t) => (
               <Barra key={t.tipo} label={t.tipo} count={t.count} max={maxTipo} />
             ))}
           </div>
-        </div>
-        <div className="bg-surface border border-border rounded-xl p-4">
-          <h3 className="text-sm font-medium text-ink mb-3">Por chófer</h3>
+        </SectionCard>
+        <SectionCard variant="plain" title="Por chófer">
           <div className="flex flex-col gap-1.5">
             {datos.porChofer.length === 0 && <p className="text-xs text-ink-secondary">Sin datos.</p>}
             {datos.porChofer.map((c) => (
               <Barra key={c.nombre} label={c.nombre} count={c.count} max={maxChofer} />
             ))}
           </div>
-        </div>
-        <div className="bg-surface border border-border rounded-xl p-4">
-          <h3 className="text-sm font-medium text-ink mb-3">Por vehículo</h3>
+        </SectionCard>
+        <SectionCard variant="plain" title="Por vehículo">
           <div className="flex flex-col gap-1.5">
             {datos.porVehiculo.length === 0 && <p className="text-xs text-ink-secondary">Sin datos.</p>}
             {datos.porVehiculo.map((v) => (
               <Barra key={v.matricula} label={v.matricula} count={v.count} max={maxVehiculo} />
             ))}
           </div>
-        </div>
+        </SectionCard>
       </div>
     </div>
   );
@@ -221,10 +217,7 @@ function VistaFlota({ datos }) {
         <Card label="% Utilización" value={datos.pctUtilizacion != null ? `${datos.pctUtilizacion}%` : null} />
       </div>
 
-      <div className="bg-surface border border-border rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-border">
-          <h3 className="text-sm font-medium text-ink">ITV pendientes</h3>
-        </div>
+      <SectionCard title="ITV pendientes" noPadding>
         {datos.itvPendientes.length === 0 ? (
           <p className="text-sm text-ink-secondary p-4 text-center">Sin ITV pendientes.</p>
         ) : (
@@ -235,12 +228,9 @@ function VistaFlota({ datos }) {
             </div>
           ))
         )}
-      </div>
+      </SectionCard>
 
-      <div className="bg-surface border border-border rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-border">
-          <h3 className="text-sm font-medium text-ink">Averías recientes</h3>
-        </div>
+      <SectionCard title="Averías recientes" noPadding>
         {datos.averiasRecientes.length === 0 ? (
           <p className="text-sm text-ink-secondary p-4 text-center">Sin averías registradas.</p>
         ) : (
@@ -251,17 +241,14 @@ function VistaFlota({ datos }) {
             </div>
           ))
         )}
-      </div>
+      </SectionCard>
     </div>
   );
 }
 
 function TablaRentabilidad({ titulo, filas }) {
   return (
-    <div className="bg-surface border border-border rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-border">
-        <h3 className="text-sm font-medium text-ink">{titulo}</h3>
-      </div>
+    <SectionCard title={titulo} noPadding>
       {filas.length === 0 ? (
         <p className="text-sm text-ink-secondary p-4 text-center">Sin datos suficientes.</p>
       ) : (
@@ -274,7 +261,7 @@ function TablaRentabilidad({ titulo, filas }) {
           </div>
         ))
       )}
-    </div>
+    </SectionCard>
   );
 }
 
@@ -332,8 +319,7 @@ function VistaRentabilidad({ datos, comparativa }) {
         />
       </div>
 
-      <div className="bg-surface border border-border rounded-xl p-4">
-        <h3 className="text-sm font-medium text-ink mb-3">Margen estimado vs. real, por mes</h3>
+      <SectionCard variant="plain" title="Margen estimado vs. real, por mes">
         {!datos.porMes || datos.porMes.length === 0 ? (
           <p className="text-xs text-ink-secondary">Sin viajes con margen estimado y real en el mismo periodo todavía.</p>
         ) : (
@@ -343,7 +329,7 @@ function VistaRentabilidad({ datos, comparativa }) {
             ))}
           </div>
         )}
-      </div>
+      </SectionCard>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <TablaRentabilidad titulo="Mejor margen real" filas={datos.top5} />
@@ -489,8 +475,7 @@ function VistaEvolucion({ datos }) {
         </div>
       ) : (
         <>
-          <div className="bg-surface border border-border rounded-xl p-4">
-            <h3 className="text-sm font-medium text-ink mb-3">% de hitos a tiempo, por periodo</h3>
+          <SectionCard variant="plain" title="% de hitos a tiempo, por periodo">
             <div className="flex flex-col gap-1.5">
               {cronologico.map((s) => (
                 <Barra
@@ -501,9 +486,8 @@ function VistaEvolucion({ datos }) {
                 />
               ))}
             </div>
-          </div>
-          <div className="bg-surface border border-border rounded-xl p-4">
-            <h3 className="text-sm font-medium text-ink mb-3">Desviación de coste real vs. estimado (%), por periodo</h3>
+          </SectionCard>
+          <SectionCard variant="plain" title="Desviación de coste real vs. estimado (%), por periodo">
             <div className="flex flex-col gap-1.5">
               {cronologico.map((s) => (
                 <Barra
@@ -514,7 +498,7 @@ function VistaEvolucion({ datos }) {
                 />
               ))}
             </div>
-          </div>
+          </SectionCard>
         </>
       )}
     </div>
@@ -594,7 +578,16 @@ export default function Analitica() {
             key={id}
             role="tab"
             aria-selected={vista === id}
-            onClick={() => setVista(id)}
+            onClick={() => {
+              // Hallazgo real 2026-07-24: sin este `setLoading(true)` aquí, el
+              // cambio de pestaña deja un instante en el que `vista` ya es la
+              // nueva pero `datos` todavía tiene la forma de la ANTERIOR
+              // (`loading` seguía en `false` desde la carga previa) -- ese
+              // instante intermedio pintaba p.ej. VistaFlota con datos de
+              // VistaPuntualidad y reventaba en `datos.itvPendientes.length`.
+              setLoading(true);
+              setVista(id);
+            }}
             className={`flex items-center gap-1.5 text-sm px-3 py-2 border-b-2 -mb-px transition-colors ${
               vista === id
                 ? "border-brand text-ink font-medium"

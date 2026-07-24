@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { getResumenHoy, getNotasRecientes, createNotaGestor } from "../../lib/data";
+import SectionCard from "./ui/SectionCard";
 
 function fmtHace(iso) {
   const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -108,8 +109,7 @@ export default function ResumenHoy() {
         </div>
       )}
 
-      <div className="bg-surface border border-border rounded-xl p-4">
-        <h2 className="text-sm font-medium text-ink mb-3">Notas rápidas</h2>
+      <SectionCard variant="plain" title="Notas rápidas">
         <div className="flex gap-2 mb-3">
           <input
             value={texto}
@@ -139,7 +139,7 @@ export default function ResumenHoy() {
             ))}
           </div>
         )}
-      </div>
+      </SectionCard>
     </div>
   );
 }

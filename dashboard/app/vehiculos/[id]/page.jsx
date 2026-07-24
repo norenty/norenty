@@ -12,6 +12,7 @@ import { getCurrentEmpresaId, getMultasPorVehiculo, guardarCapacidadVehiculo } f
 import DocumentosSection from "../../components/DocumentosSection";
 import { TIPOS_DOC_VEHICULO, TIPO_MANTENIMIENTO_LABEL, ESTADO_MANTENIMIENTO_CHIP } from "../../../lib/labels";
 import RequireRol from "../../components/RequireRol";
+import SectionCard from "../../components/ui/SectionCard";
 import { fmtEur, fmtKm, fmtFecha, fmtFechaLarga } from "../../../lib/format";
 
 // Iconos por tipo (lucide-react no puede vivir en labels.js, que es texto/color puro
@@ -300,26 +301,26 @@ export default function VehiculoDetalle() {
 
       {/* Multas (7A.7) */}
       {multas && multas.total > 0 && (
-        <div className="bg-surface border border-border rounded-xl p-4 mb-4">
-          <h2 className="text-sm font-medium text-ink mb-3 flex items-center gap-2">
-            <Siren size={15} className="text-estado-incidencia" /> Multas
-          </h2>
-          <div className="text-lg font-semibold text-ink mb-2">{fmtEur(multas.total)}</div>
-          <div className="flex flex-col gap-1">
-            {multas.ultimas.map((m) => (
-              <div key={m.id} className="flex justify-between text-xs text-ink-secondary">
-                <span>{m.fecha ? new Date(m.fecha + "T12:00:00").toLocaleDateString("es-ES") : "sin fecha"}{m.descripcion ? ` — ${m.descripcion}` : ""}</span>
-                <span className="font-medium text-ink">{fmtEur(Number(m.importe))}</span>
-              </div>
-            ))}
-          </div>
+        <div className="mb-4">
+          <SectionCard title="Multas" icon={Siren}>
+            <div className="text-lg font-semibold text-ink mb-2">{fmtEur(multas.total)}</div>
+            <div className="flex flex-col gap-1">
+              {multas.ultimas.map((m) => (
+                <div key={m.id} className="flex justify-between text-xs text-ink-secondary">
+                  <span>{m.fecha ? new Date(m.fecha + "T12:00:00").toLocaleDateString("es-ES") : "sin fecha"}{m.descripcion ? ` — ${m.descripcion}` : ""}</span>
+                  <span className="font-medium text-ink">{fmtEur(Number(m.importe))}</span>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
         </div>
       )}
 
       {/* Mantenimiento */}
-      <div className="bg-surface border border-border rounded-xl overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <h2 className="text-sm font-medium text-ink">Mantenimiento / Averías</h2>
+      <SectionCard
+        title="Mantenimiento / Averías"
+        noPadding
+        actions={
           <RequireRol roles={["admin", "gestor_operativo"]}>
             <button
               onClick={() => setMostrarForm((v) => !v)}
@@ -328,8 +329,8 @@ export default function VehiculoDetalle() {
               <Plus size={13} /> Añadir registro
             </button>
           </RequireRol>
-        </div>
-
+        }
+      >
         {mostrarForm && (
           <form onSubmit={guardar} className="p-4 border-b border-border bg-surface-alt">
             {error && (
@@ -473,7 +474,7 @@ export default function VehiculoDetalle() {
             })}
           </div>
         )}
-      </div>
+      </SectionCard>
 
       <div className="mt-4">
         <DocumentosSection ambito="vehiculo" entidadId={id} tipos={TIPOS_DOC_VEHICULO} />

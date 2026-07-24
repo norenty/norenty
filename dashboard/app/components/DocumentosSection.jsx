@@ -6,6 +6,7 @@ import { supabase } from "../../lib/supabase";
 import { getCurrentEmpresaId, registrarAuditoria } from "../../lib/data";
 import { badgeCaducidad, fmtFecha } from "../../lib/format";
 import RequireRol from "./RequireRol";
+import SectionCard from "./ui/SectionCard";
 
 const SIGNED_URL_TTL = 3600;
 
@@ -120,9 +121,10 @@ export default function DocumentosSection({ ambito, entidadId, tipos, titulo = "
   }
 
   return (
-    <div className="bg-surface border border-border rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h2 className="text-sm font-medium text-ink">{titulo}</h2>
+    <SectionCard
+      title={titulo}
+      noPadding
+      actions={
         <RequireRol roles={["admin", "gestor_operativo"]}>
           <button
             onClick={() => setMostrarForm((v) => !v)}
@@ -131,8 +133,8 @@ export default function DocumentosSection({ ambito, entidadId, tipos, titulo = "
             <Plus size={13} /> Añadir documento
           </button>
         </RequireRol>
-      </div>
-
+      }
+    >
       {mostrarForm && (
         <form onSubmit={guardar} className="p-4 border-b border-border bg-surface-alt">
           {error && (
@@ -264,6 +266,6 @@ export default function DocumentosSection({ ambito, entidadId, tipos, titulo = "
           })}
         </div>
       )}
-    </div>
+    </SectionCard>
   );
 }

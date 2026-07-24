@@ -6,6 +6,7 @@ import { getGastosViaje, createGastoViaje, deleteGastoViaje, getCurrentEmpresaId
 import { supabase } from "../../lib/supabase";
 import { TIPO_GASTO_LABEL as TIPO_LABEL } from "../../lib/labels";
 import RequireRol from "./RequireRol";
+import SectionCard from "./ui/SectionCard";
 import { fmtEur } from "../../lib/format";
 
 const TIPOS = ["repostaje", "peaje", "multa", "dieta", "otro"];
@@ -121,9 +122,10 @@ export default function GastosViajeSection({ viajeId, choferId = null, vehiculoI
   const porTipo = TIPOS.map((t) => ({ tipo: t, total: gastos.filter((g) => g.tipo === t).reduce((s, g) => s + Number(g.importe), 0) })).filter((x) => x.total > 0);
 
   return (
-    <div className="bg-surface border border-border rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h2 className="text-sm font-medium text-ink">Gastos</h2>
+    <SectionCard
+      title="Gastos"
+      noPadding
+      actions={
         <RequireRol roles={["admin", "gestor_operativo"]}>
           <button
             onClick={() => setMostrarForm((v) => !v)}
@@ -132,8 +134,8 @@ export default function GastosViajeSection({ viajeId, choferId = null, vehiculoI
             <Plus size={13} /> Añadir gasto
           </button>
         </RequireRol>
-      </div>
-
+      }
+    >
       {mostrarForm && (
         <form onSubmit={guardar} className="p-4 border-b border-border bg-surface-alt">
           {error && (
@@ -275,6 +277,6 @@ export default function GastosViajeSection({ viajeId, choferId = null, vehiculoI
           <div className="font-medium text-ink">Total gastos: {fmtEur(total)}</div>
         </div>
       )}
-    </div>
+    </SectionCard>
   );
 }

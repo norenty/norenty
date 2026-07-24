@@ -5,6 +5,7 @@ import { MessageSquareText, Mic, Play } from "lucide-react";
 import { getContexto } from "../../lib/data";
 import { supabase } from "../../lib/supabase";
 import { fmtFechaHora } from "../../lib/format";
+import SectionCard from "./ui/SectionCard";
 
 /**
  * Feed de contexto del viaje (11.2) — la capa de datos existía desde la Fase 11
@@ -63,10 +64,7 @@ export default function ContextoViajeSection({ viajeId }) {
   if (filas.length === 0) return null;
 
   return (
-    <div className="bg-surface border border-border rounded-xl p-4">
-      <h3 className="text-sm font-medium text-ink mb-3 flex items-center gap-1.5">
-        <MessageSquareText size={15} /> Contexto del viaje
-      </h3>
+    <SectionCard title="Contexto del viaje" icon={MessageSquareText}>
       <div className="flex flex-col gap-3">
         {filas.map((f) => (
           <div key={f.id} className="border-b border-border last:border-0 pb-3 last:pb-0">
@@ -95,6 +93,6 @@ export default function ContextoViajeSection({ viajeId }) {
           </div>
         ))}
       </div>
-    </div>
+    </SectionCard>
   );
 }

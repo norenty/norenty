@@ -11,6 +11,7 @@ import ErrorCargaReintentar from "../../components/ui/ErrorCargaReintentar";
 import DocumentosSection from "../../components/DocumentosSection";
 import SugerenciaChofer from "../../components/SugerenciaChofer";
 import Buscador from "../../components/ui/Buscador";
+import SectionCard from "../../components/ui/SectionCard";
 import GastosViajeSection from "../../components/GastosViajeSection";
 import ContextoViajeSection from "../../components/ContextoViajeSection";
 import {
@@ -561,12 +562,10 @@ export default function ViajeDetalle() {
               resto de tarjetas se quedan como estaban pero con menos aire
               entre ellas (gap-4 en vez de gap-6). Deuda pendiente anotada en
               el ROADMAP (17.G.4) para una pasada más completa. */}
-          <section className="bg-surface border border-border rounded-xl p-4 flex flex-col gap-4">
-          <div>
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium text-ink flex items-center gap-1.5">
-                <Euro size={15} /> Viabilidad
-              </h2>
+          <SectionCard
+            title="Viabilidad"
+            icon={Euro}
+            actions={
               <RequireRol roles={["admin"]}>
                 {!editandoPrecio && (
                   <button
@@ -577,8 +576,10 @@ export default function ViajeDetalle() {
                   </button>
                 )}
               </RequireRol>
-            </div>
-
+            }
+          >
+          <div className="flex flex-col gap-4">
+          <div>
             <RequireRol roles={["admin"]} fallback={<p className="text-xs text-ink-muted">Coste, precio y margen visibles solo para administradores.</p>}>
             {editandoPrecio ? (
               <div className="flex flex-col gap-2 mb-3">
@@ -691,7 +692,8 @@ export default function ViajeDetalle() {
               </div>
             )}
           </div>
-          </section>
+          </div>
+          </SectionCard>
 
           {(viaje.carga_ldm != null || viaje.carga_kg != null || viaje.carga_m3 != null) && (
             <section className="bg-surface border border-border rounded-xl p-4">

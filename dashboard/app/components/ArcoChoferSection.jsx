@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Download, ShieldOff } from "lucide-react";
 import { getExportacionChofer, anonimizarChofer } from "../../lib/data";
 import RequireRol from "./RequireRol";
+import SectionCard from "./ui/SectionCard";
 
 /** Pantalla de derechos ARCO (ítem 9.41b) — exportar/anonimizar datos de un
  * chófer sin pasar por la consola del navegador. Reutiliza
@@ -63,8 +64,7 @@ export default function ArcoChoferSection({ choferId, choferNombre, onAnonimizad
 
   return (
     <RequireRol roles={["admin"]}>
-      <section className="bg-surface border border-border rounded-xl p-4">
-        <h2 className="text-sm font-medium text-ink mb-1">Derechos ARCO</h2>
+      <SectionCard variant="plain" title="Derechos ARCO">
         <p className="text-xs text-ink-secondary mb-3">
           Acceso, rectificación, cancelación y oposición sobre los datos de este chófer. Ver{" "}
           <span className="font-mono">PRIVACIDAD-ARCO.md</span> para el detalle de qué se
@@ -93,7 +93,7 @@ export default function ArcoChoferSection({ choferId, choferNombre, onAnonimizad
             <ShieldOff size={13} /> {anonimizando ? "Anonimizando…" : "Anonimizar (cancelación/oposición)"}
           </button>
         </div>
-      </section>
+      </SectionCard>
     </RequireRol>
   );
 }

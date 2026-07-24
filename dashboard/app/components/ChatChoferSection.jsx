@@ -5,6 +5,7 @@ import { MessageCircle, Send } from "lucide-react";
 import { getMensajesPorChofer, enviarMensajeChofer } from "../../lib/data";
 import { fmtFechaHora } from "../../lib/format";
 import { useRealtimeRefresh } from "../../lib/realtime";
+import SectionCard from "./ui/SectionCard";
 
 /**
  * 17.G.10 (2026-07-23/24) — feedback real tras probar el primer diseño (los
@@ -52,10 +53,7 @@ export default function ChatChoferSection({ choferId }) {
   if (!choferId) return null;
 
   return (
-    <div className="bg-surface border border-border rounded-xl p-4">
-      <h3 className="text-sm font-medium text-ink mb-3 flex items-center gap-1.5">
-        <MessageCircle size={15} /> Chat con el chófer
-      </h3>
+    <SectionCard title="Chat con el chófer" icon={MessageCircle}>
       {mensajes.length === 0 ? (
         <p className="text-xs text-ink-muted mb-3">Sin mensajes todavía.</p>
       ) : (
@@ -96,6 +94,6 @@ export default function ChatChoferSection({ choferId }) {
         </button>
       </div>
       {error && <p className="text-xs text-estado-incidencia mt-2">{error}</p>}
-    </div>
+    </SectionCard>
   );
 }

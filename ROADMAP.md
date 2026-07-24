@@ -477,6 +477,71 @@ haya usado de verdad.
   pertenece, y en la campana como "Mensaje de Laura Díaz". 242 tests backend + 432 dashboard
   en verde.
 
+- [x] `[LOOP G.4 pasada 2]` **2026-07-24** — arranque real de "un componente `<Card>`
+  compartido" (pedido por el usuario antes de seguir tocando más pantallas). Hallazgo: **ya
+  existía** `components/ui/SectionCard.jsx` (título+icono+acciones+contenido) desde antes,
+  pero NINGUNA de las 43 pantallas que repiten `bg-surface border border-border rounded-xl
+  p-4` a mano lo usaba — construido y nunca adoptado. En vez de crear otro componente nuevo,
+  se empezó la adopción real: `ChatChoferSection.jsx`, `ContextoViajeSection.jsx` y la
+  tarjeta "Viabilidad + Resultado (P&L)" de `/viajes/[id]` ahora usan `SectionCard`.
+  Verificado en el navegador (no solo tests — `SectionCard` no tenía cobertura de test y un
+  JSX roto no se habría detectado): ambas páginas renderizan con datos reales, sin errores.
+  432 tests en verde.
+
+  **Pasada 3 (mismo día)**: migradas también `GastosViajeSection` y `DocumentosSection` —
+  ambas tienen un panel de formulario a ancho completo entre cabecera y lista que no cabía en
+  el `<div className="p-4">` fijo de `SectionCard`, así que se le añadió `noPadding` (children
+  sin wrapper, cada bloque interno gestiona su propio espaciado) en vez de forzar un layout
+  que no encajaba. Verificado en el navegador: formulario de "Añadir gasto" se abre a ancho
+  completo, sin doble padding. 432 tests en verde.
+  **Pasada 4 (mismo día)**: migradas "Multas" y "Mantenimiento / Averías" en
+  `/vehiculos/[id]`. Verificado en el navegador. 432 tests en verde.
+  **Descartado a propósito:** las secciones de Ajustes (`AjustesEmpresaSection`/
+  `AjustesBotSection`/`AjustesMfaSection`/`AjustesPerfilSection`) NO se migran — usan un
+  estilo deliberadamente distinto (padding `p-5`, sin separador `border-b`, con anclas `id`
+  para scroll desde el menú de Ajustes) que no es "el mismo patrón escrito a mano", es un
+  nivel de tarjeta distinto a propósito para esa pantalla. Forzarlas a `SectionCard` cambiaría
+  el diseño actual sin que nadie lo haya pedido.
+  **Pasada 5 (mismo día)** — `/analitica`: migradas 9 tarjetas (Tendencia, Peores rutas, Por
+  tipo/chófer/vehículo, ITV pendientes, Averías recientes, `TablaRentabilidad`, Margen
+  estimado vs. real, % hitos a tiempo, Desviación de coste). `SectionCard` ganó
+  `variant="plain"` (título `h3` sin separador — el estilo que YA usaban estas tarjetas entre
+  sí, distinto del estilo con separador/acciones; no forzar un único look).
+  **Bug real encontrado y arreglado de paso** (no relacionado con la migración, ya existía):
+  al cambiar de pestaña en Analítica, la vista nueva se pintaba un instante con los DATOS de
+  la pestaña anterior (forma distinta) antes de que terminara de cargar — condición de
+  carrera porque `loading` no se ponía a `true` de forma síncrona al cambiar `vista`. Crasheaba
+  de verdad al entrar en "Flota" (`Cannot read properties of undefined (reading 'length')` en
+  `datos.itvPendientes`). Arreglado con `setLoading(true)` en el mismo `onClick` que
+  `setVista(id)`. Verificado en el navegador: las 8 pestañas (incl. Flota) cargan sin crash.
+  432 tests en verde.
+  **Pasada 6 (mismo día)**: migrados `ArcoChoferSection`, `ChecklistOnboarding` y "Notas
+  rápidas" de `ResumenHoy.jsx` — los tres eran variante "plain" genuina. `SectionCard` ganó
+  soporte de `actions` también en modo `plain` (antes solo el modo con separador podía llevar
+  un botón en la cabecera; `ChecklistOnboarding` necesitaba el botón de cerrar "×").
+  Revisados y **descartados a propósito** por no encajar en el patrón: `/facturacion`,
+  `/nomina`, `/mapa` (son tablas/formularios sin cabecera de título dentro del contenedor, no
+  "sección con título"); `analitica/informe/page.jsx` (ya tiene su propio wrapper `Bloque`
+  local, DRY dentro del archivo, con clases de impresión que `SectionCard` no soporta); el
+  tile de stat clicable de `ResumenHoy` (es un `<Link>`, no una sección, cambiar su tag
+  rompería la semántica). Verificado en el navegador (inicio + ficha de chófer). 432 tests en
+  verde.
+  **Pasada 7 (mismo día, barrido final)**: migrado "Paradas (en orden)" + "Simulación" de
+  `/presupuesto` (una sola tarjeta con divisor interno, mismo criterio que Viabilidad+P&L).
+  Revisados y **descartados a propósito**, uno por uno, todos los restantes: `/importar`
+  (cabeceras dinámicas con contador, no un título genérico), `/subprocesadores` y
+  `/facturacion`/`/nomina` (tablas sin cabecera de título dentro del contenedor),
+  `/documentos` (barras de alerta de color — amarillo/rojo — no un título neutro, quitarles
+  el color rompería la urgencia visual), `dossier/page.jsx` (es el contenedor RAÍZ de toda la
+  página, no una sección dentro de ella), `/clientes` y `/vehiculos` (formulario de alta +
+  lista de filas, mismo patrón ya descartado en `/choferes`).
+  **Con esto se da por completa esta ronda de adopción de `SectionCard`**: 13 componentes
+  migrados, verificados uno a uno en el navegador con datos reales; el resto de ocurrencias
+  del patrón antiguo son, con criterio explícito, otra cosa (filas de lista, tablas sin
+  título, banners de alerta, tarjetas de métrica ya con su propio componente, o el
+  contenedor raíz de una página) — no es deuda pendiente de "lo mismo sin terminar", es
+  código correctamente distinto. 432 tests en verde en todo momento.
+
 ---
 
 ## Cambio de modelo de onboarding: sin autoregistro público (2026-07-19)

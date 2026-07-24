@@ -7,6 +7,7 @@ import { calcularPresupuesto, calcularOcupacion } from "../../lib/data";
 import { supabase } from "../../lib/supabase";
 import { LABEL_CAPA } from "../../lib/labels";
 import { fmtEur, fmtKm } from "../../lib/format";
+import SectionCard from "../components/ui/SectionCard";
 
 function nuevoPunto() {
   return { label: "", lat: "", lon: "" };
@@ -122,9 +123,11 @@ export default function PresupuestoPage() {
         precio que deberías cobrar para tu margen objetivo — sin crear el viaje.
       </p>
 
-      <div className="bg-surface border border-border rounded-xl p-4 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-medium text-ink">Paradas (en orden)</h2>
+      <div className="mb-4">
+      <SectionCard
+        variant="plain"
+        title="Paradas (en orden)"
+        actions={
           <button
             type="button"
             onClick={() => setPuntos((ps) => [...ps, nuevoPunto()])}
@@ -132,7 +135,8 @@ export default function PresupuestoPage() {
           >
             <Plus size={14} /> Añadir parada
           </button>
-        </div>
+        }
+      >
         <div className="flex flex-col gap-2">
           {puntos.map((p, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -319,6 +323,7 @@ export default function PresupuestoPage() {
         >
           {calculando ? "Calculando…" : "Calcular"}
         </button>
+      </SectionCard>
       </div>
 
       {resultado && (
