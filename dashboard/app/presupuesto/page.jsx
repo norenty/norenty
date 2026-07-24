@@ -3,11 +3,12 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Calculator, Plus, Trash2, AlertTriangle, SlidersHorizontal, RotateCcw, Package } from "lucide-react";
-import { calcularPresupuesto, calcularOcupacion } from "../../lib/data";
+import { calcularPresupuesto, calcularOcupacion, getDireccionesGuardadas } from "../../lib/data";
 import { supabase } from "../../lib/supabase";
 import { LABEL_CAPA } from "../../lib/labels";
 import { fmtEur, fmtKm } from "../../lib/format";
 import SectionCard from "../components/ui/SectionCard";
+import DireccionAutocomplete from "../components/ui/DireccionAutocomplete";
 
 function nuevoPunto() {
   return { label: "", lat: "", lon: "" };
@@ -26,6 +27,11 @@ export default function PresupuestoPage() {
   const [whatIf, setWhatIf] = useState(WHAT_IF_VACIO);
   const timerWhatIf = useRef(null);
   const [carga, setCarga] = useState({ ldm: "", kg: "", m3: "" });
+  const [direccionesGuardadas, setDireccionesGuardadas] = useState([]);
+
+  useEffect(() => {
+    getDireccionesGuardadas().then(setDireccionesGuardadas);
+  }, []);
 
   useEffect(() => {
     supabase
@@ -114,7 +120,10 @@ export default function PresupuestoPage() {
   }
 
   return (
-    <div className="max-w-3xl">
+    // 18.D.1: era max-w-3xl y las filas de parada (dirección + coordenadas +
+    // borrar) se apretaban hasta no verse enteras. Es la pantalla con las filas
+    // más anchas de la app, por eso va más ancha que el resto.
+    <div className="max-w-5xl">
       <h1 className="text-xl font-medium text-ink mb-1 flex items-center gap-2">
         <Calculator size={20} /> Presupuesto instantáneo
       </h1>
@@ -141,26 +150,24 @@ export default function PresupuestoPage() {
           {puntos.map((p, i) => (
             <div key={i} className="flex items-center gap-2">
               <span className="font-mono text-xs text-ink-muted w-5">{i + 1}.</span>
-              <input
+              <DireccionAutocomplete
                 value={p.label}
-                onChange={(e) => actualizarPunto(i, "label", e.target.value)}
-                placeholder="Etiqueta (opcional)"
-                className="flex-1 text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+                onChangeDireccion={(v) => actualizarPunto(i, "label", v)}
+                onElegirSugerida={(d) => {
+                  setPuntos((ps) => ps.map((punto, idx) =>
+                    idx === i ? { ...punto, label: d.direccion, lat: String(d.lat), lon: String(d.lon) } : punto
+                  ));
+                }}
+                direcciones={direccionesGuardadas}
+                placeholder="Dirección (ej. Calle Mayor 3, Madrid)"
               />
-              <input
-                type="number" step="any"
-                value={p.lat}
-                onChange={(e) => actualizarPunto(i, "lat", e.target.value)}
-                placeholder="Latitud"
-                className="w-28 text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-              />
-              <input
-                type="number" step="any"
-                value={p.lon}
-                onChange={(e) => actualizarPunto(i, "lon", e.target.value)}
-                placeholder="Longitud"
-                className="w-28 text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-              />
+              {/* 18.D.2: las coordenadas se muestran como confirmación de que el
+                  punto está ubicado, no como dos campos que haya que teclear. */}
+              <span className={`text-xs w-28 shrink-0 ${p.lat && p.lon ? "text-estado-ok" : "text-ink-muted"}`}>
+                {p.lat && p.lon
+                  ? `✓ ${Number(p.lat).toFixed(3)}, ${Number(p.lon).toFixed(3)}`
+                  : "sin ubicar"}
+              </span>
               <button
                 type="button"
                 onClick={() => quitarPunto(i)}

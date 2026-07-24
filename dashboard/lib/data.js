@@ -436,6 +436,55 @@ export async function getDireccionesGuardadas() {
 }
 
 /**
+ * Geocodificación de direcciones nuevas (18.D.2, 2026-07-24). Hallazgo del
+ * usuario recorriendo el producto: *"la latitud y la longitud me parece que es
+ * imposible, eso no lo utiliza nadie"*. Tenía razón — hasta ahora, una dirección
+ * que la empresa NO hubiera usado antes obligaba a ir a Google Maps, sacar las
+ * coordenadas y teclearlas. Inusable de verdad.
+ *
+ * Usa Nominatim (el geocodificador de OpenStreetMap, mismo proyecto que los
+ * tiles del mapa) en vez de Google Maps: es gratis y no obliga a meter una
+ * tarjeta ni una API key en el cliente. A cambio hay que respetar su política
+ * de uso — de ahí el debounce en el componente, el mínimo de caracteres y la
+ * caché de abajo. OJO PARA PRODUCCIÓN: la instancia pública de Nominatim pide
+ * "uso no intensivo"; con volumen real hay que auto-hospedarla o pasar a un
+ * proveedor de pago (ver ROADMAP 18.D.2).
+ */
+const cacheGeocoding = new Map();
+
+export async function buscarDireccion(texto) {
+  const q = (texto || "").trim();
+  if (q.length < 4) return [];
+  const clave = q.toLowerCase();
+  if (cacheGeocoding.has(clave)) return cacheGeocoding.get(clave);
+
+  const url =
+    "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=0&q=" +
+    encodeURIComponent(q);
+
+  let resultados = [];
+  try {
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!res.ok) return [];
+    const json = await res.json();
+    resultados = (json || [])
+      .filter((r) => r.lat && r.lon)
+      .map((r) => ({
+        direccion: r.display_name,
+        lat: Number(r.lat),
+        lon: Number(r.lon),
+      }));
+  } catch {
+    // Sin conexión o Nominatim caído: se degrada a escribir la dirección a mano,
+    // que es exactamente el comportamiento que había antes. No rompe el alta.
+    return [];
+  }
+
+  cacheGeocoding.set(clave, resultados);
+  return resultados;
+}
+
+/**
  * Rutas guardadas (`plantilla_ruta`) de un cliente, para ofrecerlas en el
  * asistente de nuevo viaje (17.G.1 — antes las plantillas existían pero no
  * estaban conectadas al alta de viaje, había que rellenar todo a mano igual).

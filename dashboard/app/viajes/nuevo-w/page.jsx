@@ -418,15 +418,28 @@ export default function NuevoViajeWizard() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 pl-7 mb-2">
-                      <input
-                        type="number" step="any" value={h.lat} onChange={(e) => actualizarHito(i, "lat", e.target.value)}
-                        placeholder="Latitud" className="w-28 text-xs border border-border rounded-md px-2 py-1 focus:outline-none focus:border-brand"
-                      />
-                      <input
-                        type="number" step="any" value={h.lon} onChange={(e) => actualizarHito(i, "lon", e.target.value)}
-                        placeholder="Longitud" className="w-28 text-xs border border-border rounded-md px-2 py-1 focus:outline-none focus:border-brand"
-                      />
-                      <span className="text-xs text-ink-muted">para calcular km/coste en vivo</span>
+                      {/* 18.D.2: elegir una sugerencia del buscador ya rellena esto — el
+                          usuario ya no debería necesitar teclear coordenadas nunca. Se deja
+                          un ajuste manual, plegado, solo para el caso raro en que el
+                          geocodificador no encuentre el punto exacto. */}
+                      <span className={`text-xs ${h.lat && h.lon ? "text-estado-ok" : "text-ink-muted"}`}>
+                        {h.lat && h.lon
+                          ? `✓ ubicado (${Number(h.lat).toFixed(3)}, ${Number(h.lon).toFixed(3)})`
+                          : "elige una sugerencia para ubicar el punto"}
+                      </span>
+                      <details className="text-xs text-ink-muted">
+                        <summary className="cursor-pointer hover:text-ink-secondary">ajustar a mano</summary>
+                        <div className="flex items-center gap-2 mt-1">
+                          <input
+                            type="number" step="any" value={h.lat} onChange={(e) => actualizarHito(i, "lat", e.target.value)}
+                            placeholder="Latitud" className="w-28 text-xs border border-border rounded-md px-2 py-1 focus:outline-none focus:border-brand"
+                          />
+                          <input
+                            type="number" step="any" value={h.lon} onChange={(e) => actualizarHito(i, "lon", e.target.value)}
+                            placeholder="Longitud" className="w-28 text-xs border border-border rounded-md px-2 py-1 focus:outline-none focus:border-brand"
+                          />
+                        </div>
+                      </details>
                     </div>
                     <div className="flex items-center gap-2 pl-7 mb-2">
                       <span className="text-xs text-ink-muted">Ventana:</span>

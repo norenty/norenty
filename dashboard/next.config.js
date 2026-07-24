@@ -14,7 +14,9 @@ const CSP_REPORT_ONLY = [
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.supabase.co",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
+  // nominatim.openstreetmap.org: geocodificación de direcciones nuevas (18.D.2),
+  // para no pedir latitud/longitud a mano en el alta de viajes y presupuestos.
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://nominatim.openstreetmap.org https://*.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
   "font-src 'self' data:",
   "frame-ancestors 'none'",
   "base-uri 'self'",
