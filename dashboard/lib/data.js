@@ -3290,9 +3290,16 @@ export async function getViajePublico(token) {
 export const UMBRAL_HEARTBEAT_S = 300; // 2.5x el intervalo del bot (120s) — valor inicial razonable
 
 export async function getBotHeartbeat() {
-  const { data } = await supabase.from("bot_heartbeat").select("created_at");
-  const filas = (data || []).slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-  const ultimoLatido = filas[0]?.created_at || null;
+  // Orden + limit(1) en el servidor: la tabla crece sin fin (una fila cada 2
+  // min) y un select() sin acotar se trunca en el límite por defecto de
+  // PostgREST (1000 filas) sin garantía de que sean las más recientes —
+  // con más de ~33h de histórico esto hacía ver "SIN SEÑAL" con el bot vivo.
+  const { data } = await supabase
+    .from("bot_heartbeat")
+    .select("created_at")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const ultimoLatido = data?.[0]?.created_at || null;
   const segundosDesdeUltimo = ultimoLatido
     ? Math.floor((Date.now() - new Date(ultimoLatido).getTime()) / 1000)
     : null;
