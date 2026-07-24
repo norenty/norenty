@@ -461,9 +461,19 @@ export async function buscarDireccion(texto) {
   const clave = q.toLowerCase();
   if (cacheGeocoding.has(clave)) return cacheGeocoding.get(clave);
 
+  // 18.D.2b: sesga (sin excluir) hacia España -- "si pongo Calle Mayor 3, es
+  // más fácil que sea en Madrid que en Puertollano". `viewbox` SIN `bounded=1`
+  // es una preferencia, no un filtro duro: sin `bounded`, Nominatim solo
+  // reordena a favor de la zona, no descarta nada -- una empresa de transporte
+  // hace rutas a Ámsterdam/Milán/Fráncfort/Lisboa (ver seed de Pepito) y esos
+  // resultados tienen que poder seguir apareciendo. NO se usa `countrycodes`
+  // a propósito: eso sí es un filtro duro y excluiría de raíz cualquier país
+  // nuevo al que la empresa empiece a viajar.
+  const VIEWBOX_ESPANA = "-9.8,44.0,4.6,35.8"; // lon_min,lat_max,lon_max,lat_min
   const url =
-    "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=0&q=" +
-    encodeURIComponent(q);
+    "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=0" +
+    `&viewbox=${VIEWBOX_ESPANA}` +
+    "&q=" + encodeURIComponent(q);
 
   let resultados = [];
   try {
