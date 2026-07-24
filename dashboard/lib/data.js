@@ -2305,7 +2305,17 @@ export function resolveCosteKm({ vehiculo, empresa }) {
  *   conductor: number|null, peajes: number|null, dietas: number|null,
  *   total: number|null, capasFaltantes: string[] }}
  */
-export function calcularCosteRuta({ km, noches = 0, vehiculo, empresa }) {
+/**
+ * `excluirConceptos` (18.D.5, 2026-07-24) — checkboxes de "Simulación" en
+ * /presupuesto para excluir un concepto de ESTE cálculo puntual sin tocar la
+ * configuración real de Ajustes. Pedido explícito del usuario: *"lo haría en
+ * simulación con unos ticks que tú quieras incluir"*. El concepto se sigue
+ * calculando y mostrando (para que se vea cuánto pesaba), solo se resta del
+ * total -- no se confunde con "no configurado" (`capasFaltantes`), que es un
+ * caso distinto (dato que falta, no dato que se decide ignorar).
+ */
+export function calcularCosteRuta({ km, noches = 0, vehiculo, empresa, excluirConceptos = [] }) {
+  const excluir = new Set(excluirConceptos);
   const tieneCombustible = vehiculo?.consumo_l_100km != null && empresa?.precio_gasoil_litro != null;
 
   if (!tieneCombustible) {
@@ -2319,6 +2329,7 @@ export function calcularCosteRuta({ km, noches = 0, vehiculo, empresa }) {
       dietas: null,
       total,
       capasFaltantes: [],
+      excluidos: [],
     };
   }
 
@@ -2332,9 +2343,13 @@ export function calcularCosteRuta({ km, noches = 0, vehiculo, empresa }) {
   if (peajes == null) capasFaltantes.push("peajes");
   if (dietas == null) capasFaltantes.push("dietas");
 
-  const total = +[combustible, conductor, peajes, dietas].filter((v) => v != null).reduce((s, v) => s + v, 0).toFixed(2);
+  const sumables = { combustible, conductor, peajes, dietas };
+  const total = +Object.entries(sumables)
+    .filter(([nombre, v]) => v != null && !excluir.has(nombre))
+    .reduce((s, [, v]) => s + v, 0)
+    .toFixed(2);
 
-  return { modo: "desglosado", combustible, conductor, peajes, dietas, total, capasFaltantes };
+  return { modo: "desglosado", combustible, conductor, peajes, dietas, total, capasFaltantes, excluidos: [...excluir] };
 }
 
 // COT.4 — Camión completo (FTL) vs. grupaje: el estándar del sector mide la
@@ -2573,7 +2588,7 @@ export async function calcularPresupuesto({ puntos, vehiculoId = null, overrides
   const eta = calcularEtaConParadas(horasConduccion);
   const noches = eta.descansos11h;
 
-  const coste = calcularCosteRuta({ km, noches, vehiculo, empresa });
+  const coste = calcularCosteRuta({ km, noches, vehiculo, empresa, excluirConceptos: overrides?.excluirConceptos || [] });
 
   const margenObjetivo = empresa?.margen_objetivo_pct ?? MARGEN_OBJETIVO_PCT_DEFAULT;
   const precioSugerido = coste.total != null

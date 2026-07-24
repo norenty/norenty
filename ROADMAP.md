@@ -97,10 +97,10 @@ empresa más seria, no un software de pacotilla"*.
   **Ya existía** `getDireccionesGuardadas` (hitos pasados) pero solo estaba enganchado en el
   wizard/plantillas; **HECHO 2026-07-24**: ahora también en `/presupuesto`, con las mismas
   sugerencias "ya usadas antes" antes que las del mapa.
-- [ ] `[DECISIÓN 18.D.4]` **Fechas y ventanas en la cotización.** *"hace falta si es viaje único,
-  las fechas, si es de día o de noche, a qué hora carga y descarga, porque eso te va a decir si es
-  viable. Si me dicen cargar en Madrid y descargar en Barcelona con una hora, viable no es"*.
-  Enlaza con la comprobación de viabilidad tiempo-distancia ya construida (commit 911579f).
+- [x] `[DECISIÓN 18.D.4]` **Fechas y ventanas en la cotización.** *"hace falta si es viaje único,
+  las fechas... porque eso te va a decir si es viable"*. **HECHO 2026-07-24**: cada parada admite
+  fecha/hora opcional de carga o descarga, reutilizando `calcularAvisosViabilidad` (ya construida
+  para el wizard). Verificado en vivo con Madrid→Barcelona y 1h de ventana → aviso correcto.
 - [ ] `[DECISIÓN 18.D.5]` **Simulación por conceptos con checkboxes.** *"lo haría en simulación con
   unos ticks que tú quieras incluir: quiero tener en cuenta el desgaste de las ruedas, todos los
   parámetros que tengan impacto"*. Incluir noches fuera y su coste, coste del camionero, seguros.

@@ -33,6 +33,17 @@ export default function PresupuestoPage() {
   const timerWhatIf = useRef(null);
   const [carga, setCarga] = useState({ ldm: "", kg: "", m3: "" });
   const [direccionesGuardadas, setDireccionesGuardadas] = useState([]);
+  // 18.D.5: qué conceptos de coste excluir de ESTE cálculo (checkboxes de
+  // "Simulación"), sin tocar la configuración real de Ajustes.
+  const [conceptosExcluidos, setConceptosExcluidos] = useState(new Set());
+
+  function alternarConcepto(capa) {
+    setConceptosExcluidos((prev) => {
+      const next = new Set(prev);
+      if (next.has(capa)) next.delete(capa); else next.add(capa);
+      return next;
+    });
+  }
 
   useEffect(() => {
     getDireccionesGuardadas().then(setDireccionesGuardadas);
@@ -84,6 +95,7 @@ export default function PresupuestoPage() {
     if (whatIf.velocidadKmh !== "") overrides.velocidadKmh = Number(whatIf.velocidadKmh);
     if (whatIf.precioGasoilLitro !== "") overrides.precioGasoilLitro = Number(whatIf.precioGasoilLitro);
     if (whatIf.margenObjetivoPct !== "") overrides.margenObjetivoPct = Number(whatIf.margenObjetivoPct);
+    if (conceptosExcluidos.size > 0) overrides.excluirConceptos = [...conceptosExcluidos];
     return Object.keys(overrides).length > 0 ? overrides : null;
   }
 
@@ -115,17 +127,18 @@ export default function PresupuestoPage() {
       setCalculando(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [puntos, vehiculoId, whatIf]);
+  }, [puntos, vehiculoId, whatIf, conceptosExcluidos]);
 
-  // Recalcula en vivo (debounced) al mover un control what-if, pero solo si
-  // ya hay un resultado en pantalla — no dispara el primer cálculo solo.
+  // Recalcula en vivo (debounced) al mover un control what-if o marcar/desmarcar
+  // un concepto de coste, pero solo si ya hay un resultado en pantalla — no
+  // dispara el primer cálculo solo.
   useEffect(() => {
     if (!resultado) return;
     clearTimeout(timerWhatIf.current);
     timerWhatIf.current = setTimeout(() => { calcular(); }, 250);
     return () => clearTimeout(timerWhatIf.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [whatIf.velocidadKmh, whatIf.precioGasoilLitro, whatIf.margenObjetivoPct]);
+  }, [whatIf.velocidadKmh, whatIf.precioGasoilLitro, whatIf.margenObjetivoPct, conceptosExcluidos]);
 
   function restablecerWhatIf() {
     setWhatIf(WHAT_IF_VACIO);
@@ -436,18 +449,33 @@ export default function PresupuestoPage() {
           )}
 
           {resultado.coste.total != null && (
-            <div className="text-xs text-ink-muted space-y-0.5 border-t border-border pt-3">
+            <div className="text-xs text-ink-muted space-y-1 border-t border-border pt-3">
               {resultado.coste.modo === "desglosado" ? (
-                ["combustible", "conductor", "peajes", "dietas"].map((capa) => (
-                  <div key={capa} className="flex justify-between">
-                    <span>{LABEL_CAPA[capa]}</span>
-                    <span>
-                      {resultado.coste[capa] != null
-                        ? fmtEur(resultado.coste[capa])
-                        : <span>— configura {LABEL_CAPA[capa].toLowerCase()} en Ajustes</span>}
-                    </span>
-                  </div>
-                ))
+                ["combustible", "conductor", "peajes", "dietas"].map((capa) => {
+                  const excluido = conceptosExcluidos.has(capa);
+                  return (
+                    <div key={capa} className="flex items-center justify-between gap-2">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        {/* 18.D.5: "lo haría en simulación con unos ticks que tú
+                            quieras incluir" -- desmarcar excluye el concepto SOLO
+                            de este cálculo, sin tocar la config real de Ajustes. */}
+                        <input
+                          type="checkbox"
+                          checked={resultado.coste[capa] != null && !excluido}
+                          disabled={resultado.coste[capa] == null}
+                          onChange={() => alternarConcepto(capa)}
+                          className="rounded border-border disabled:opacity-30"
+                        />
+                        <span className={excluido ? "line-through" : ""}>{LABEL_CAPA[capa]}</span>
+                      </label>
+                      <span className={excluido ? "line-through" : ""}>
+                        {resultado.coste[capa] != null
+                          ? fmtEur(resultado.coste[capa])
+                          : <span>— configura {LABEL_CAPA[capa].toLowerCase()} en Ajustes</span>}
+                      </span>
+                    </div>
+                  );
+                })
               ) : (
                 <div>Coste estimado (€/km): {fmtEur(resultado.coste.total)}</div>
               )}
