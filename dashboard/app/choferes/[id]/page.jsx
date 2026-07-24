@@ -10,6 +10,7 @@ import { supabase } from "../../../lib/supabase";
 import DocumentosSection from "../../components/DocumentosSection";
 import ErrorCargaReintentar from "../../components/ui/ErrorCargaReintentar";
 import ArcoChoferSection from "../../components/ArcoChoferSection";
+import ChatChoferSection from "../../components/ChatChoferSection";
 import Ayuda from "../../components/ui/Ayuda";
 import { getEstado561, LIMITE_561_SEMANAL_H, LIMITE_561_BISEMANAL_H, getMultasPorChofer, guardarTelefonoChofer } from "../../../lib/data";
 import { Siren, Edit3, X, Phone } from "lucide-react";
@@ -118,11 +119,31 @@ export default function ChoferDetalle() {
     }
   }
 
+  function enlaceVinculacion() {
+    return `https://t.me/${BOT}?start=${chofer.id}`;
+  }
+
   function copiarEnlace() {
     if (!chofer || !BOT) return;
-    navigator.clipboard.writeText(`https://t.me/${BOT}?start=${chofer.id}`);
+    navigator.clipboard.writeText(enlaceVinculacion());
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2000);
+  }
+
+  // 2026-07-23, feedback real del usuario: "copiar enlace" obligaba a pegarlo
+  // en algún sitio y el gestor acababa teniendo que extraer el UUID a mano en
+  // vez de simplemente abrir el enlace -- el enlace YA es un deep link válido
+  // de Telegram (t.me/bot?start=id abre Telegram y dispara /start <id> solo),
+  // el problema era de proceso, no del enlace en sí. Solución: quitar el paso
+  // de "copiar y pegar en algún sitio" -- un botón que lo abre directamente, y
+  // otro que lo manda por WhatsApp al propio teléfono del chófer si ya está
+  // guardado (`chofer.telefono`), para que el gestor pueda mandárselo con un
+  // clic sin tener que copiar/pegar/explicar nada.
+  function enlaceWhatsapp() {
+    const digitos = (chofer.telefono || "").replace(/\D/g, "");
+    if (!digitos) return null;
+    const mensaje = `Hola ${chofer.nombre}, pulsa este enlace para vincular tu Telegram con Norenty: ${enlaceVinculacion()}`;
+    return `https://wa.me/${digitos}?text=${encodeURIComponent(mensaje)}`;
   }
 
   const mediaValoracion = valoraciones.length
@@ -175,15 +196,33 @@ export default function ChoferDetalle() {
                 <MessageSquare size={13} /> Vinculado a Telegram
               </div>
             ) : (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs text-ink-muted">○ Sin vincular a Telegram</span>
                 {BOT && (
-                  <button
-                    onClick={copiarEnlace}
-                    className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-border text-ink-secondary hover:bg-surface-alt"
-                  >
-                    {copiado ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar enlace</>}
-                  </button>
+                  <>
+                    <a
+                      href={enlaceVinculacion()}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md bg-brand text-white font-medium no-underline hover:opacity-90"
+                    >
+                      <MessageSquare size={13} /> Abrir Telegram
+                    </a>
+                    {enlaceWhatsapp() && (
+                      <a
+                        href={enlaceWhatsapp()}
+                        target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-border text-ink-secondary no-underline hover:bg-surface-alt"
+                      >
+                        Enviar por WhatsApp
+                      </a>
+                    )}
+                    <button
+                      onClick={copiarEnlace}
+                      className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-border text-ink-secondary hover:bg-surface-alt"
+                    >
+                      {copiado ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar enlace</>}
+                    </button>
+                  </>
                 )}
               </div>
             )}
@@ -366,6 +405,10 @@ export default function ChoferDetalle() {
             )}
           </>
         )}
+      </div>
+
+      <div className="mt-4">
+        <ChatChoferSection choferId={id} />
       </div>
 
       <div className="mt-4">

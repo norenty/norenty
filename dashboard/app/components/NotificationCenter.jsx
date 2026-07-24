@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, AlertTriangle, Check, Truck, X, FileWarning, Target, Euro } from "lucide-react";
+import { Bell, AlertTriangle, Check, Truck, X, FileWarning, Target, Euro, MessageCircle } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import {
   getDocumentosPorCaducar, getMetricasPuntualidad, alertaObjetivoPuntualidad,
@@ -30,7 +30,7 @@ export default function NotificationCenter() {
   async function loadNotifs() {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    const [incRes, evtRes, docsPorCaducar, metricasPuntualidad, alertaMargenMetricas] = await Promise.all([
+    const [incRes, evtRes, msgRes, docsPorCaducar, metricasPuntualidad, alertaMargenMetricas] = await Promise.all([
       supabase
         .from("incidencia")
         .select("id, tipo, descripcion, created_at, viaje_id, viaje(referencia)")
@@ -42,6 +42,17 @@ export default function NotificationCenter() {
         .select("id, tipo, detalle, ocurrido_en, viaje_id, viaje(referencia)")
         .gte("ocurrido_en", since)
         .order("ocurrido_en", { ascending: false })
+        .limit(10),
+      // 17.G.10 (2026-07-24): mensajes del chófer ("Contactar gestor") en la
+      // misma campana que incidencias/documentos -- reutiliza el patrón ya
+      // existente ("actividad de las últimas 24h" = "sin leer") en vez de
+      // añadir una columna `leido_en` y un sistema de lectura aparte.
+      supabase
+        .from("mensaje_chofer")
+        .select("id, texto, created_at, chofer_id, chofer:chofer_id(nombre)")
+        .eq("direccion", "chofer_a_gestor")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
         .limit(10),
       getDocumentosPorCaducar(),
       getMetricasPuntualidad(),
@@ -102,6 +113,17 @@ export default function NotificationCenter() {
         href: `/viajes/${e.viaje_id}`,
         time: e.ocurrido_en,
       })),
+      ...(msgRes.data || []).map((m) => ({
+        id: `msg-${m.id}`,
+        type: "mensaje",
+        icon: MessageCircle,
+        iconColor: "text-brand",
+        title: `Mensaje de ${m.chofer?.nombre || "un chófer"}`,
+        sub: m.texto,
+        ref: "Chat",
+        href: `/choferes/${m.chofer_id}`,
+        time: m.created_at,
+      })),
       ...docsPorCaducar.map((d) => ({
         id: `doc-${d.id}`,
         type: "documento",
@@ -116,7 +138,7 @@ export default function NotificationCenter() {
     ].sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 15);
 
     setNotifs(items);
-    setUnread(items.filter((n) => n.type === "incidencia" || n.type === "documento" || n.type === "objetivo").length);
+    setUnread(items.filter((n) => n.type === "incidencia" || n.type === "documento" || n.type === "objetivo" || n.type === "mensaje").length);
   }
 
   useEffect(() => {
@@ -128,6 +150,7 @@ export default function NotificationCenter() {
       .channel("notifs")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "incidencia" }, loadNotifs)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "ejecucion_evento" }, loadNotifs)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensaje_chofer" }, loadNotifs)
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, [rol]);

@@ -17,6 +17,10 @@ export default function AjustesPerfilSection({
   cerrandoSesiones,
   onCerrarTodasLasSesiones,
   onSignOut,
+  telefonoGestor,
+  setTelefonoGestor,
+  guardandoTelefonoGestor,
+  onGuardarTelefonoGestor,
 }) {
   return (
     <>
@@ -41,6 +45,26 @@ export default function AjustesPerfilSection({
               readOnly
               className="w-full text-sm border border-border rounded-md px-3 py-2 bg-surface-alt text-ink-muted font-mono"
             />
+          </div>
+          <div>
+            <label className="block text-xs text-ink-secondary mb-1">
+              Teléfono (para "llamada urgente" del chófer)
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                value={telefonoGestor}
+                onChange={(e) => setTelefonoGestor(e.target.value)}
+                placeholder="+34 600 111 222"
+                className="flex-1 text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+              />
+              <button
+                onClick={onGuardarTelefonoGestor}
+                disabled={guardandoTelefonoGestor}
+                className="text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
+              >
+                {guardandoTelefonoGestor ? "…" : "Guardar"}
+              </button>
+            </div>
           </div>
         </div>
       </section>

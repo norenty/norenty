@@ -10,6 +10,7 @@ import PodImage from "../../components/PodImage";
 import ErrorCargaReintentar from "../../components/ui/ErrorCargaReintentar";
 import DocumentosSection from "../../components/DocumentosSection";
 import SugerenciaChofer from "../../components/SugerenciaChofer";
+import Buscador from "../../components/ui/Buscador";
 import GastosViajeSection from "../../components/GastosViajeSection";
 import ContextoViajeSection from "../../components/ContextoViajeSection";
 import {
@@ -57,6 +58,9 @@ export default function ViajeDetalle() {
   const [remolque, setRemolque] = useState(null);
   const [editandoEstado, setEditandoEstado] = useState(false);
   const [editandoChofer, setEditandoChofer] = useState(false);
+  const [editandoVehiculo, setEditandoVehiculo] = useState(false);
+  const [guardandoVehiculo, setGuardandoVehiculo] = useState(false);
+  const [vehiculos, setVehiculos] = useState([]);
   const [choferes, setChoferes] = useState([]);
   const [aviso561, setAviso561] = useState(null);
   const [incidencias, setIncidencias] = useState([]);
@@ -132,9 +136,26 @@ export default function ViajeDetalle() {
     }
   }
 
-  async function cambiarChofer(newChoferId) {
+  async function cambiarChofer(newChoferId, { yaConfirmado = false } = {}) {
     if (guardandoChofer) return;
     setError(null);
+    // 2026-07-23, feedback real del usuario: reasignar (no la asignación
+    // inicial, sino CAMBIAR un chófer que ya estaba puesto) se aplicaba solo
+    // con un clic, sin nada que confirmar -- demasiado fácil hacerlo sin
+    // querer con un viaje que ya tenía a alguien. La asignación inicial
+    // (viaje.chofer vacío) sigue sin pedir confirmación, no hay nada que
+    // perder ahí; el confirm() extra solo aparece cuando SUSTITUYE a alguien.
+    // `yaConfirmado`: SugerenciaChofer YA pregunta "¿por qué X y no el
+    // sugerido?" antes de llamar aquí -- sin este flag se apilaban dos
+    // confirmaciones seguidas para lo mismo (hallazgo real, el usuario lo
+    // notó: "confirmar sin motivo... un poco raro" y luego otra más).
+    const choferActual = viaje.chofer;
+    if (!yaConfirmado && choferActual && choferActual.id !== newChoferId) {
+      const nombreNuevo = newChoferId ? (choferes.find((c) => c.id === newChoferId)?.nombre || "otro chófer") : "nadie (quitar asignación)";
+      if (!confirm(`Este viaje ya está asignado a ${choferActual.nombre}.\n\n¿Reasignarlo a ${nombreNuevo}?`)) {
+        return;
+      }
+    }
     if (newChoferId) {
       const v = await validarAsignacion({ choferId: newChoferId, excluirViajeId: id });
       if (v.avisos.length > 0) {
@@ -175,6 +196,53 @@ export default function ViajeDetalle() {
     const c = await getChoferes();
     setChoferes(c);
     setEditandoChofer(true);
+  }
+
+  // 17.G.3 (auditoría de procesos de asignación, 2026-07-23): antes de esto
+  // no existía NINGUNA forma de cambiar el vehículo/remolque de un viaje ya
+  // creado desde esta pantalla -- solo se veían como texto fijo. Mismo patrón
+  // que el chófer: Buscador + validarAsignacion (avisos no bloqueantes con
+  // confirm(), igual que cambiarChofer).
+  async function abrirEditVehiculo() {
+    const { data } = await supabase.from("vehiculo").select("id, matricula, tipo, marca, modelo").eq("activo", true).order("matricula");
+    setVehiculos(data || []);
+    setEditandoVehiculo(true);
+  }
+
+  async function cambiarVehiculo(tipo, newId) {
+    // tipo: "vehiculo" o "remolque" -- mapea a los nombres de columna/parámetro reales.
+    const columna = tipo === "vehiculo" ? "vehiculo_id" : "remolque_id";
+    const paramValidacion = tipo === "vehiculo" ? "vehiculoId" : "remolqueId";
+    if (guardandoVehiculo) return;
+    setError(null);
+    // Mismo criterio que cambiarChofer: reasignar (sustituir algo que ya
+    // estaba puesto) pide confirmación explícita; la asignación inicial no.
+    const actual = tipo === "vehiculo" ? vehiculo : remolque;
+    const actualId = viaje[columna];
+    if (actualId && actualId !== newId) {
+      const nombreNuevo = newId ? (vehiculos.find((v) => v.id === newId)?.matricula || "otro") : "nada (quitar asignación)";
+      const etiqueta = tipo === "vehiculo" ? "vehículo" : "remolque";
+      if (!confirm(`Este viaje ya tiene ${etiqueta} asignado: ${actual?.matricula || "—"}.\n\n¿Reasignarlo a ${nombreNuevo}?`)) {
+        return;
+      }
+    }
+    if (newId) {
+      const v = await validarAsignacion({ [paramValidacion]: newId, excluirViajeId: id });
+      if (v.avisos.length > 0) {
+        if (!confirm(`Atención:\n\n${v.avisos.join("\n")}\n\n¿Asignar de todos modos?`)) return;
+      }
+      if (!v.ok) {
+        setError(v.errores.join(". "));
+        return;
+      }
+    }
+    setGuardandoVehiculo(true);
+    try {
+      await supabase.from("viaje").update({ [columna]: newId || null }).eq("id", id);
+      await load();
+    } finally {
+      setGuardandoVehiculo(false);
+    }
   }
 
   async function guardarPrecio() {
@@ -278,11 +346,11 @@ export default function ViajeDetalle() {
 
       <div className="flex items-center gap-4 mb-2 text-sm text-ink-secondary">
         {editandoChofer ? (
-          <div className="flex items-center gap-2">
-            <select
-              defaultValue={viaje.chofer?.id || ""}
-              onChange={(e) => {
-                const cid = e.target.value;
+          <div className="flex items-center gap-2 w-64">
+            <Buscador
+              opciones={choferes.map((c) => ({ value: c.id, label: c.nombre, sublabel: c.idioma?.toUpperCase() }))}
+              value={viaje.chofer?.id || ""}
+              onChange={(cid) => {
                 setAviso561(null);
                 cambiarChofer(cid);
                 if (cid) {
@@ -299,14 +367,8 @@ export default function ViajeDetalle() {
                   });
                 }
               }}
-              disabled={guardandoChofer}
-              className="text-sm border border-border rounded-md px-2 py-1 disabled:opacity-40"
-            >
-              <option value="">Sin asignar</option>
-              {choferes.map((c) => (
-                <option key={c.id} value={c.id}>{c.nombre} ({c.idioma?.toUpperCase()})</option>
-              ))}
-            </select>
+              placeholder="Buscar chófer..."
+            />
             <button onClick={() => { setEditandoChofer(false); setAviso561(null); }} disabled={guardandoChofer} className="p-1 text-ink-muted disabled:opacity-40"><X size={14} /></button>
           </div>
         ) : (
@@ -321,16 +383,35 @@ export default function ViajeDetalle() {
           </button>
         )}
 
-        {vehiculo && (
-          <span className="flex items-center gap-1">
-            <Truck size={14} /> {vehiculo.matricula}
-            {vehiculo.marca && ` · ${vehiculo.marca} ${vehiculo.modelo || ""}`}
-          </span>
-        )}
-        {remolque && (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-border">
-            Remolque: {remolque.matricula}
-          </span>
+        {editandoVehiculo ? (
+          <div className="flex items-center gap-2">
+            <div className="w-48">
+              <Buscador
+                opciones={vehiculos.filter((v) => v.tipo !== "remolque").map((v) => ({ value: v.id, label: v.matricula, sublabel: [v.marca, v.modelo].filter(Boolean).join(" ") }))}
+                value={viaje.vehiculo_id || ""}
+                onChange={(vid) => cambiarVehiculo("vehiculo", vid)}
+                placeholder="Vehículo..."
+                vacioLabel="Sin vehículo"
+              />
+            </div>
+            <div className="w-48">
+              <Buscador
+                opciones={vehiculos.filter((v) => v.tipo === "remolque").map((v) => ({ value: v.id, label: v.matricula, sublabel: [v.marca, v.modelo].filter(Boolean).join(" ") }))}
+                value={viaje.remolque_id || ""}
+                onChange={(vid) => cambiarVehiculo("remolque", vid)}
+                placeholder="Remolque..."
+                vacioLabel="Sin remolque"
+              />
+            </div>
+            <button onClick={() => setEditandoVehiculo(false)} disabled={guardandoVehiculo} className="p-1 text-ink-muted disabled:opacity-40"><X size={14} /></button>
+          </div>
+        ) : (
+          <button onClick={abrirEditVehiculo} className="flex items-center gap-1 hover:text-ink">
+            <Truck size={14} />
+            {vehiculo ? `${vehiculo.matricula}${vehiculo.marca ? ` · ${vehiculo.marca} ${vehiculo.modelo || ""}` : ""}` : "Sin vehículo"}
+            {remolque && <span className="text-xs px-1.5 py-0.5 rounded-full bg-border ml-1">Remolque: {remolque.matricula}</span>}
+            <Edit3 size={12} />
+          </button>
         )}
       </div>
 
@@ -345,7 +426,7 @@ export default function ViajeDetalle() {
             hitosOverride={hitos
               .filter((h) => h.estado === "pendiente" && h.lat != null && h.lon != null)
               .map((h) => ({ orden: h.orden, lat: h.lat, lon: h.lon }))}
-            onAsignado={(choferId) => cambiarChofer(choferId)}
+            onAsignado={(choferId, opts) => cambiarChofer(choferId, opts)}
           />
         </div>
       )}
@@ -470,9 +551,19 @@ export default function ViajeDetalle() {
           )}
         </div>
 
-        <aside className="flex flex-col gap-6">
-          <section className="bg-surface border border-border rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
+        <aside className="flex flex-col gap-4">
+          {/* 2026-07-23, feedback real de diseño: la columna lateral era una
+              pared de tarjetas blancas idénticas con huecos grandes (gap-6)
+              entre ellas -- "esto estéticamente es terrible". Viabilidad y
+              Resultado (P&L) son las dos caras de la misma pregunta ("¿este
+              viaje sale a cuenta?"), así que ahora comparten una tarjeta con
+              un divisor interno en vez de dos bordes/paddings repetidos; el
+              resto de tarjetas se quedan como estaban pero con menos aire
+              entre ellas (gap-4 en vez de gap-6). Deuda pendiente anotada en
+              el ROADMAP (17.G.4) para una pasada más completa. */}
+          <section className="bg-surface border border-border rounded-xl p-4 flex flex-col gap-4">
+          <div>
+            <div className="flex items-center justify-between">
               <h2 className="text-sm font-medium text-ink flex items-center gap-1.5">
                 <Euro size={15} /> Viabilidad
               </h2>
@@ -568,9 +659,9 @@ export default function ViajeDetalle() {
               );
             })()}
             </RequireRol>
-          </section>
+          </div>
 
-          <section className="bg-surface border border-border rounded-xl p-4">
+          <div className="border-t border-border pt-4">
             <h2 className="text-sm font-medium text-ink mb-3 flex items-center gap-1.5">
               <Euro size={15} /> Resultado (P&amp;L)
             </h2>
@@ -599,6 +690,7 @@ export default function ViajeDetalle() {
                 )}
               </div>
             )}
+          </div>
           </section>
 
           {(viaje.carga_ldm != null || viaje.carga_kg != null || viaje.carga_m3 != null) && (
@@ -785,6 +877,15 @@ export default function ViajeDetalle() {
               </button>
             )}
           </section>
+
+          {viaje.chofer?.id && (
+            <Link
+              href={`/choferes/${viaje.chofer.id}`}
+              className="flex items-center gap-1.5 text-sm text-brand no-underline hover:underline"
+            >
+              💬 Ver chat con {viaje.chofer.nombre}
+            </Link>
+          )}
 
           <ContextoViajeSection viajeId={viaje.id} />
 

@@ -435,6 +435,30 @@ export async function getDireccionesGuardadas() {
   return resultado;
 }
 
+/**
+ * Rutas guardadas (`plantilla_ruta`) de un cliente, para ofrecerlas en el
+ * asistente de nuevo viaje (17.G.1 — antes las plantillas existían pero no
+ * estaban conectadas al alta de viaje, había que rellenar todo a mano igual).
+ * Si no hay `clienteId` devuelve las genéricas (sin cliente asociado), que
+ * también sirven para cualquier cliente.
+ */
+export async function getPlantillasRuta(clienteId) {
+  let query = supabase.from("plantilla_ruta").select("id, nombre, cliente_id").order("nombre");
+  query = clienteId ? query.eq("cliente_id", clienteId) : query.is("cliente_id", null);
+  const { data } = await query;
+  return data || [];
+}
+
+/** Hitos de una plantilla de ruta, en orden — con lat/lon si se guardaron. */
+export async function getPlantillaHitos(plantillaRutaId) {
+  const { data } = await supabase
+    .from("plantilla_hito")
+    .select("orden, tipo, direccion, lat, lon")
+    .eq("plantilla_ruta_id", plantillaRutaId)
+    .order("orden");
+  return data || [];
+}
+
 export async function createCliente({ nombre, cif = null, email = null, telefono = null, notas = null }) {
   if (!nombre || !nombre.trim()) throw new Error("El nombre del cliente es obligatorio");
   const empresaId = await getCurrentEmpresaId();
@@ -693,6 +717,54 @@ export async function getChoferesConGestor() {
 export async function guardarGestorChofer(choferId, gestorId) {
   const { error } = await supabase.from("chofer").update({ gestor_id: gestorId || null }).eq("id", choferId);
   if (error) throw error;
+}
+
+/**
+ * 17.G.10 (2026-07-23) — el dashboard SOLO inserta la fila (dirección
+ * "gestor_a_chofer"); la entrega real por Telegram la hace el job
+ * `procesar_mensajes_gestor` del bot (tick de 30s, mismo patrón ya probado
+ * que `notificado_asignacion_en` para avisos de asignación de viaje). Así el
+ * dashboard no depende de la disponibilidad del bot para guardar el mensaje.
+ */
+export async function enviarMensajeChofer({ viajeId = null, choferId, texto }) {
+  if (!texto || !texto.trim()) throw new Error("El mensaje no puede estar vacío");
+  const empresaId = await getCurrentEmpresaId();
+  const gestor = await getCurrentGestor();
+  const { error } = await supabase.from("mensaje_chofer").insert({
+    empresa_id: empresaId,
+    viaje_id: viajeId,
+    chofer_id: choferId,
+    gestor_id: gestor?.id || null,
+    direccion: "gestor_a_chofer",
+    texto: texto.trim(),
+  });
+  if (error) throw error;
+}
+
+/** Historial de mensajes (ambas direcciones) de un viaje, más reciente primero. */
+export async function getMensajesChofer(viajeId) {
+  const { data } = await supabase
+    .from("mensaje_chofer")
+    .select("id, direccion, texto, entregado_en, created_at")
+    .eq("viaje_id", viajeId)
+    .order("created_at", { ascending: false });
+  return data || [];
+}
+
+/**
+ * Historial COMPLETO de un chófer (todas sus conversaciones, tenga o no viaje
+ * activo en cada momento) — feedback real: colgar los mensajes solo del viaje
+ * significaba que un mensaje sin viaje (o de un viaje distinto al que estás
+ * mirando) se perdía de vista. Esta es la vista de referencia: la persona con
+ * la que hablas es el chófer, no un viaje concreto.
+ */
+export async function getMensajesPorChofer(choferId) {
+  const { data } = await supabase
+    .from("mensaje_chofer")
+    .select("id, viaje_id, direccion, texto, entregado_en, created_at, viaje:viaje_id(referencia)")
+    .eq("chofer_id", choferId)
+    .order("created_at", { ascending: true });
+  return data || [];
 }
 
 /**
@@ -3163,7 +3235,7 @@ export async function getOnboardingEstado() {
     { id: "vehiculo", done: (vehiculos || []).length > 0, label: "Añade tu primer vehículo", href: "/vehiculos" },
     { id: "chofer", done: (choferes || []).length > 0, label: "Añade tu primer chófer", href: "/choferes" },
     { id: "telegram", done: (choferes || []).some((c) => c.chat_id), label: "Vincula un chófer a Telegram", href: "/choferes" },
-    { id: "viaje", done: (viajes || []).length > 0, label: "Crea tu primer viaje", href: "/viajes/nuevo" },
+    { id: "viaje", done: (viajes || []).length > 0, label: "Crea tu primer viaje", href: "/viajes/nuevo-w" },
     { id: "costes", done: !!(empresa?.coste_km != null || empresa?.precio_gasoil_litro != null), label: "Configura tus costes de operación", href: "/ajustes" },
   ];
 
@@ -3429,6 +3501,19 @@ export async function guardarTelefonoChofer(choferId, telefonoStr) {
   if (t !== "" && !normalizado) throw new Error("el teléfono no parece válido");
   const { error } = await supabase.from("chofer").update({ telefono: normalizado }).eq("id", choferId);
   if (error) throw error;
+}
+
+/** 17.G.10 (2026-07-23): el gestor guarda su propio teléfono para que el bot
+ * pueda ofrecer al chófer un botón de "llamada urgente" además del mensaje de
+ * texto/voz normal -- pedido explícito del usuario ("en caso de emergencia
+ * hablar por teléfono es clave"). Mismo patrón de validación que el chófer. */
+export async function guardarTelefonoGestor(gestorId, telefonoStr) {
+  const t = (telefonoStr ?? "").toString().trim();
+  const normalizado = t === "" ? null : normalizarTelefonoE164(t);
+  if (t !== "" && !normalizado) throw new Error("el teléfono no parece válido");
+  const { error } = await supabase.from("gestor").update({ telefono: normalizado }).eq("id", gestorId);
+  if (error) throw error;
+  return normalizado;
 }
 
 /**

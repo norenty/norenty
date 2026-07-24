@@ -8,7 +8,7 @@ import {
   getGestoresEmpresa, actualizarRolGestor, desactivarGestor, reactivarGestor, INVITACION_VALIDEZ_DIAS,
   guardarNombreEmpresa, guardarBaseEmpresa, guardarCosteKmEmpresa, guardarVelocidadEmpresa,
   guardarDesgloseCosteEmpresa, guardarObjetivoPuntualidadEmpresa, guardarMargenObjetivoEmpresa,
-  guardarRequierePodEmpresa, getChoferesConGestor, guardarGestorChofer,
+  guardarRequierePodEmpresa, getChoferesConGestor, guardarGestorChofer, guardarTelefonoGestor,
 } from "../../lib/data";
 import RequireRol from "../components/RequireRol";
 import AjustesPerfilSection from "../components/AjustesPerfilSection";
@@ -37,6 +37,8 @@ export default function AjustesPage() {
   const [requierePod, setRequierePod] = useState(true);
   const [gestor, setGestor] = useState(null);
   const [prefs, setPrefs] = useState({ notif_incidencias: true, notif_entregas: true, notif_fuera_ventana: false });
+  const [telefonoGestor, setTelefonoGestor] = useState("");
+  const [guardandoTelefonoGestor, setGuardandoTelefonoGestor] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState(null);
   const [newPassword, setNewPassword] = useState("");
@@ -92,6 +94,7 @@ export default function AjustesPage() {
           .single();
         if (g) {
           setGestor(g);
+          setTelefonoGestor(g.telefono || "");
           setPrefs({
             notif_incidencias: g.notif_incidencias ?? true,
             notif_entregas: g.notif_entregas ?? true,
@@ -407,6 +410,21 @@ export default function AjustesPage() {
     await supabase.from("gestor").update({ [key]: newVal }).eq("id", gestor.id);
   }
 
+  async function onGuardarTelefonoGestor() {
+    if (!gestor) return;
+    setGuardandoTelefonoGestor(true);
+    setMensaje(null);
+    try {
+      const normalizado = await guardarTelefonoGestor(gestor.id, telefonoGestor);
+      setTelefonoGestor(normalizado || "");
+      setMensaje("Teléfono guardado.");
+    } catch (err) {
+      setMensaje("Error: " + err.message);
+    } finally {
+      setGuardandoTelefonoGestor(false);
+    }
+  }
+
   return (
     <div className="max-w-2xl">
       <h1 className="text-xl font-medium text-ink mb-6">Ajustes</h1>
@@ -429,6 +447,10 @@ export default function AjustesPage() {
         cerrandoSesiones={cerrandoSesiones}
         onCerrarTodasLasSesiones={onCerrarTodasLasSesiones}
         onSignOut={() => signOut()}
+        telefonoGestor={telefonoGestor}
+        setTelefonoGestor={setTelefonoGestor}
+        guardandoTelefonoGestor={guardandoTelefonoGestor}
+        onGuardarTelefonoGestor={onGuardarTelefonoGestor}
       />
 
       <AjustesMfaSection

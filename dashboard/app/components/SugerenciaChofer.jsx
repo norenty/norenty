@@ -67,7 +67,13 @@ export default function SugerenciaChofer({ viajeId, hitosOverride, onAsignado })
   async function confirmarAsignacion(fila, motivoTexto) {
     setAsignando(true);
     try {
-      await onAsignado(fila.chofer.id);
+      // 2026-07-23, bug real: al elegir la fila #1 (top) no se pedía motivo
+      // (a propósito, ver docstring), pero eso significaba pasar directo sin
+      // NINGÚN tipo de confirmación -- ni siquiera la que ahora existe en el
+      // llamador para reasignaciones (viajes/[id]). Se avisa aquí de si YA
+      // hubo un paso de confirmación (el prompt de motivo) para que el
+      // llamador no vuelva a preguntar lo mismo dos veces seguidas.
+      await onAsignado(fila.chofer.id, { yaConfirmado: fila.chofer.id !== top.chofer.id });
       // Sin viajeId (wizard, viaje aún no creado) no hay fila a la que
       // enganchar el registro — decision_asignacion.viaje_id es NOT NULL. Se
       // omite el registro en ese caso (no bloquea la asignación).
