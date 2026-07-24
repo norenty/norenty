@@ -15,6 +15,17 @@ import { Search } from "lucide-react";
  * sublabel, sin distinguir mayúsculas/acentos exactos (match simple, no
  * hace falta más para listas de cientos, no miles).
  */
+// 2026-07-23, hallazgo real: buscar "Pablo Pérez" a veces no encontraba nada
+// pese a que la opción existía tal cual -- el acento tecleado (vía dictado/
+// teclado) puede llegar en una forma Unicode distinta a la del texto guardado
+// (NFD "e + acento combinante" vs NFC "é" precompuesto), y `.includes()` es
+// comparación exacta de codepoints, no visual. Normalizar a NFC Y quitar
+// diacríticos antes de comparar arregla eso Y de paso permite buscar "Perez"
+// sin tilde y encontrar "Pérez" -- lo que además pidió el usuario.
+export function normalizar(s) {
+  return (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
 export default function Buscador({ opciones, value, onChange, placeholder = "Buscar...", vacioLabel = "Sin asignar" }) {
   const [texto, setTexto] = useState("");
   const [abierto, setAbierto] = useState(false);
@@ -32,11 +43,20 @@ export default function Buscador({ opciones, value, onChange, placeholder = "Bus
   }, []);
 
   const filtradas = useMemo(() => {
-    const q = texto.trim().toLowerCase();
+    const q = normalizar(texto.trim());
     if (!q) return opciones;
-    return opciones.filter((o) =>
-      o.label.toLowerCase().includes(q) || (o.sublabel || "").toLowerCase().includes(q)
-    );
+    // Ordenadas por relevancia (pedido explícito del usuario): el nombre que
+    // EMPIEZA por lo escrito va primero ("Pablo" -> todos los Pablo antes que
+    // un "Diego Pablo"), luego el resto de coincidencias, alfabético dentro
+    // de cada grupo -- no solo "aparece en la lista en cualquier orden".
+    return opciones
+      .filter((o) => normalizar(o.label).includes(q) || normalizar(o.sublabel).includes(q))
+      .sort((a, b) => {
+        const aEmpieza = normalizar(a.label).startsWith(q) ? 0 : 1;
+        const bEmpieza = normalizar(b.label).startsWith(q) ? 0 : 1;
+        if (aEmpieza !== bEmpieza) return aEmpieza - bEmpieza;
+        return a.label.localeCompare(b.label);
+      });
   }, [opciones, texto]);
 
   function elegir(opcion) {

@@ -221,7 +221,7 @@ export default function Sidebar() {
       </nav>
       <div className="mt-auto pt-3 border-t border-border">
         <Link
-          href="/viajes/nuevo"
+          href="/viajes/nuevo-w"
           onClick={() => setOpen(false)}
           className="flex items-center gap-2 px-2.5 py-2 rounded-md text-sm no-underline bg-brand text-white font-medium hover:opacity-90 transition-opacity"
         >

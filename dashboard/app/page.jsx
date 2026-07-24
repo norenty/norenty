@@ -106,7 +106,7 @@ export default function OperacionPage() {
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-medium text-ink">Operación</h1>
         <Link
-          href="/viajes/nuevo"
+          href="/viajes/nuevo-w"
           className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium no-underline"
         >
           <Plus size={16} /> Nuevo viaje

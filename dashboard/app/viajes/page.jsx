@@ -96,7 +96,7 @@ export default function ViajesPage() {
             <Upload size={16} /> Importar
           </Link>
           <Link
-            href="/viajes/nuevo"
+            href="/viajes/nuevo-w"
             className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium no-underline"
           >
             <Plus size={16} /> Nuevo viaje
@@ -197,7 +197,7 @@ export default function ViajesPage() {
                   titulo="Todavía no hay viajes"
                   texto="Crea tu primer viaje o impórtalos desde Excel/CSV."
                   ctaLabel="Nuevo viaje"
-                  ctaHref="/viajes/nuevo"
+                  ctaHref="/viajes/nuevo-w"
                 />
               )
             )}

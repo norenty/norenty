@@ -84,8 +84,26 @@ imaginamos? (c) **¿qué datos concretos hacen falta para que funcione de verdad
 - Tickets de gasolina/peajes/multas: ¿los guardáis en papel, foto suelta, Excel? ¿Quién los
   necesita después (gestoría, Hacienda, el propio chófer)?
 - ¿Hay un plazo legal de conservación que conozcas (multas, nóminas, tacógrafo)?
+- **Añadido 2026-07-23, del smoke test con Pepito (el bot pide SIEMPRE foto de albarán en la
+  entrega y no hay forma de saltarlo si el chófer no la tiene a mano en ese momento — hubo que
+  desactivar `empresa.requiere_pod` a mano para poder completar la prueba).** Preguntar en
+  detalle qué documentación lleva/genera realmente el chófer al hacer un viaje: ¿solo albarán
+  firmado, o también CMR, foto de la mercancía, notas de incidencia, otros? ¿Es siempre en papel
+  firmado a mano, o cada vez más digital (foto del móvil, firma en tablet, algo integrado en su
+  TMS)? Si un cliente no tiene albarán físico (todo por email/portal), ¿cómo lo cierra hoy sin
+  esa prueba? Esto decide si "pedir foto de albarán siempre" debe seguir siendo la única vía, o
+  si hace falta un "no tengo foto ahora, márcalo pendiente" real (no solo un toggle de admin
+  para desactivarlo entero por empresa).
 
 ### 3.4 Comunicación con chóferes (bot de Telegram, texto vs. voz)
+
+**Nota de diseño (2026-07-23):** el bot ya tiene un teclado persistente con botones ("📋 Mi
+viaje", "📍 Reportar incidencia", "📞 Contactar gestor") para no depender de que el chófer
+escriba comandos como `/estado` — importante recordarlo al gestor probándolo: quien está al
+otro lado es un chófer conduciendo o con las manos sucias, cuanto menos tenga que teclear mejor.
+Preguntar directamente: al enseñarle el bot, ¿le resultan obvios esos botones, o los pasa por
+alto y escribe igualmente? Si Telegram Desktop/móvil los esconde tras un icono poco visible,
+puede hacer falta un mensaje más explícito la primera vez ("usa los botones de abajo").
 - ¿Cómo te comunicas hoy con un chófer en ruta? ¿Llamada, WhatsApp, otra app?
 - **Directa, no dar por hecho la respuesta:** ¿el chófer usa WhatsApp, Telegram, u otra cosa
   ahora mismo? Si es WhatsApp — ¿instalaría Telegram si se lo pides tú (es gratis e instalar y

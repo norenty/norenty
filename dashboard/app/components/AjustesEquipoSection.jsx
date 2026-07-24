@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Users, Send, Copy, Check, X } from "lucide-react";
 
 const ROLES = [
@@ -32,6 +33,47 @@ export default function AjustesEquipoSection({
   cambiarGestorChofer,
   choferAccionandoId,
 }) {
+  // 17.G.3 (auditoría de asignación, 2026-07-23): con muchos chóferes (caso
+  // real: 80 en la empresa de prueba "Transportes Pepito") esta lista se
+  // volvía una pared de filas sin buscar ni forma de reasignar varios a la
+  // vez -- justo el escenario de cobertura por vacaciones/bajas que motivó
+  // F15.3 en primer lugar (un gestor se va, hay que mover TODOS sus chóferes
+  // a otro de golpe, no uno a uno). Filtro de texto + selección múltiple +
+  // reasignación en bloque, reutilizando `cambiarGestorChofer` fila a fila
+  // (misma llamada que ya existe, sin tocar `data.js`).
+  const [filtroChofer, setFiltroChofer] = useState("");
+  const [seleccionados, setSeleccionados] = useState(new Set());
+  const [gestorBulk, setGestorBulk] = useState("");
+  const [aplicandoBulk, setAplicandoBulk] = useState(false);
+
+  const choferesFiltrados = useMemo(() => {
+    const q = filtroChofer.trim().toLowerCase();
+    if (!q) return choferes || [];
+    return (choferes || []).filter((c) => c.nombre.toLowerCase().includes(q));
+  }, [choferes, filtroChofer]);
+
+  function alternarSeleccion(id) {
+    setSeleccionados((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  async function aplicarBulk() {
+    if (!seleccionados.size) return;
+    setAplicandoBulk(true);
+    try {
+      for (const choferId of seleccionados) {
+        await cambiarGestorChofer(choferId, gestorBulk || null);
+      }
+      setSeleccionados(new Set());
+      setGestorBulk("");
+    } finally {
+      setAplicandoBulk(false);
+    }
+  }
+
   return (
     <section id="ajustes-equipo" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
       <div className="flex items-center gap-2 mb-1">
@@ -171,24 +213,66 @@ export default function AjustesEquipoSection({
       {!choferes || choferes.length === 0 ? (
         <p className="text-xs text-ink-muted">Sin chóferes todavía.</p>
       ) : (
-        <div className="flex flex-col gap-2">
-          {choferes.map((c) => (
-            <div key={c.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-md bg-surface-alt">
-              <span className="flex-1 min-w-0 truncate text-ink">{c.nombre}</span>
-              <select
-                value={c.gestor_id || ""}
-                disabled={choferAccionandoId === c.id}
-                onChange={(e) => cambiarGestorChofer(c.id, e.target.value || null)}
-                className="text-xs border border-border rounded-md px-2 py-1 disabled:opacity-40"
-              >
-                <option value="">Sin asignar</option>
-                {gestores.filter((g) => g.activo).map((g) => (
-                  <option key={g.id} value={g.id}>{g.nombre}</option>
-                ))}
-              </select>
-            </div>
-          ))}
-        </div>
+        <>
+          <div className="flex items-center gap-2 mb-2">
+            <input
+              value={filtroChofer}
+              onChange={(e) => setFiltroChofer(e.target.value)}
+              placeholder="Buscar chófer por nombre..."
+              className="flex-1 text-xs border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand"
+            />
+            {seleccionados.size > 0 && (
+              <>
+                <span className="text-xs text-ink-muted whitespace-nowrap">{seleccionados.size} seleccionados</span>
+                <select
+                  value={gestorBulk}
+                  onChange={(e) => setGestorBulk(e.target.value)}
+                  disabled={aplicandoBulk}
+                  className="text-xs border border-border rounded-md px-2 py-1 disabled:opacity-40"
+                >
+                  <option value="">Sin asignar</option>
+                  {gestores.filter((g) => g.activo).map((g) => (
+                    <option key={g.id} value={g.id}>{g.nombre}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={aplicarBulk}
+                  disabled={aplicandoBulk}
+                  className="text-xs px-2 py-1 rounded-md bg-brand text-white font-medium disabled:opacity-40 whitespace-nowrap"
+                >
+                  {aplicandoBulk ? "Aplicando…" : "Reasignar seleccionados"}
+                </button>
+              </>
+            )}
+          </div>
+          <div className="flex flex-col gap-2 max-h-96 overflow-y-auto">
+            {choferesFiltrados.map((c) => (
+              <div key={c.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-md bg-surface-alt">
+                <input
+                  type="checkbox"
+                  checked={seleccionados.has(c.id)}
+                  onChange={() => alternarSeleccion(c.id)}
+                  className="rounded border-border"
+                />
+                <span className="flex-1 min-w-0 truncate text-ink">{c.nombre}</span>
+                <select
+                  value={c.gestor_id || ""}
+                  disabled={choferAccionandoId === c.id}
+                  onChange={(e) => cambiarGestorChofer(c.id, e.target.value || null)}
+                  className="text-xs border border-border rounded-md px-2 py-1 disabled:opacity-40"
+                >
+                  <option value="">Sin asignar</option>
+                  {gestores.filter((g) => g.activo).map((g) => (
+                    <option key={g.id} value={g.id}>{g.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+            {choferesFiltrados.length === 0 && (
+              <p className="text-xs text-ink-muted">Ningún chófer coincide con "{filtroChofer}".</p>
+            )}
+          </div>
+        </>
       )}
     </section>
   );

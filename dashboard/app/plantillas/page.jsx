@@ -3,16 +3,21 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Copy, Route } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { getCurrentEmpresaId } from "../../lib/data";
+import { getCurrentEmpresaId, getClientes, getDireccionesGuardadas } from "../../lib/data";
 import EmptyState from "../components/ui/EmptyState";
+import Buscador from "../components/ui/Buscador";
+import DireccionAutocomplete from "../components/ui/DireccionAutocomplete";
 
 function nuevoHito() {
-  return { tipo: "entrega", direccion: "" };
+  return { tipo: "entrega", direccion: "", lat: "", lon: "" };
 }
 
 export default function PlantillasPage() {
   const [plantillas, setPlantillas] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [direccionesGuardadas, setDireccionesGuardadas] = useState([]);
   const [nombre, setNombre] = useState("");
+  const [clienteId, setClienteId] = useState("");
   const [hitos, setHitos] = useState([nuevoHito()]);
   const [guardando, setGuardando] = useState(false);
   const [expandida, setExpandida] = useState(null);
@@ -21,7 +26,7 @@ export default function PlantillasPage() {
   async function load() {
     const { data } = await supabase
       .from("plantilla_ruta")
-      .select("*")
+      .select("*, cliente:cliente_id(nombre)")
       .order("created_at", { ascending: false });
     setPlantillas(data || []);
   }
@@ -36,7 +41,11 @@ export default function PlantillasPage() {
     setDetalles((d) => ({ ...d, [plantillaId]: data || [] }));
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    getClientes().then(setClientes);
+    getDireccionesGuardadas().then(setDireccionesGuardadas);
+  }, []);
 
   function actualizarHito(i, campo, valor) {
     setHitos((hs) => hs.map((h, idx) => (idx === i ? { ...h, [campo]: valor } : h)));
@@ -49,7 +58,7 @@ export default function PlantillasPage() {
     const empresa_id = await getCurrentEmpresaId();
     const { data: plantilla } = await supabase
       .from("plantilla_ruta")
-      .insert({ nombre: nombre.trim(), empresa_id })
+      .insert({ nombre: nombre.trim(), empresa_id, cliente_id: clienteId || null })
       .select()
       .single();
 
@@ -60,25 +69,35 @@ export default function PlantillasPage() {
         orden: i + 1,
         tipo: h.tipo,
         direccion: h.direccion.trim(),
+        lat: h.lat === "" ? null : Number(h.lat),
+        lon: h.lon === "" ? null : Number(h.lon),
       }));
     if (rows.length) await supabase.from("plantilla_hito").insert(rows);
 
     setNombre("");
+    setClienteId("");
     setHitos([nuevoHito()]);
     setGuardando(false);
     load();
   }
 
   async function usarPlantilla(plantillaId) {
-    await loadHitos(plantillaId);
-    const hitosPlantilla = detalles[plantillaId];
-    if (!hitosPlantilla) return;
+    // Se relee directo de la BD en vez de fiarse de `detalles` (fix real
+    // 2026-07-23: `detalles` viene de un setState anterior en la misma
+    // función y todavía puede estar obsoleto en este cierre — con una
+    // plantilla recién cargada por primera vez, `hitosPlantilla` salía vacío).
+    const { data: hitosPlantilla } = await supabase
+      .from("plantilla_hito")
+      .select("orden, tipo, direccion, lat, lon")
+      .eq("plantilla_ruta_id", plantillaId)
+      .order("orden");
+    if (!hitosPlantilla?.length) return;
 
     const empresa_id = await getCurrentEmpresaId();
     const p = plantillas.find((x) => x.id === plantillaId);
     const { data: viaje } = await supabase
       .from("viaje")
-      .insert({ referencia: `${p.nombre}-${Date.now().toString(36)}`, empresa_id, estado: "planificado" })
+      .insert({ referencia: `${p.nombre}-${Date.now().toString(36)}`, empresa_id, cliente_id: p.cliente_id || null, estado: "planificado" })
       .select("id")
       .single();
 
@@ -87,6 +106,8 @@ export default function PlantillasPage() {
       orden: h.orden,
       tipo: h.tipo,
       direccion: h.direccion,
+      lat: h.lat,
+      lon: h.lon,
       estado: "pendiente",
     }));
     if (rows.length) await supabase.from("hito").insert(rows);
@@ -117,6 +138,16 @@ export default function PlantillasPage() {
               className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
             />
           </div>
+          <div className="flex-1">
+            <label className="block text-xs text-ink-secondary mb-1">Cliente (opcional)</label>
+            <Buscador
+              opciones={clientes.map((c) => ({ value: c.id, label: c.nombre }))}
+              value={clienteId}
+              onChange={setClienteId}
+              placeholder="Buscar cliente..."
+              vacioLabel="Ruta genérica (sin cliente)"
+            />
+          </div>
           <button
             type="submit"
             disabled={guardando || !nombre.trim()}
@@ -138,11 +169,16 @@ export default function PlantillasPage() {
                 <option value="recogida">Recogida</option>
                 <option value="entrega">Entrega</option>
               </select>
-              <input
+              <DireccionAutocomplete
                 value={h.direccion}
-                onChange={(e) => actualizarHito(i, "direccion", e.target.value)}
+                onChangeDireccion={(v) => actualizarHito(i, "direccion", v)}
+                onElegirSugerida={(d) => {
+                  actualizarHito(i, "direccion", d.direccion);
+                  actualizarHito(i, "lat", String(d.lat));
+                  actualizarHito(i, "lon", String(d.lon));
+                }}
+                direcciones={direccionesGuardadas}
                 placeholder="Dirección"
-                className="flex-1 text-sm border border-border rounded-md px-3 py-1.5 focus:outline-none focus:border-brand"
               />
               {hitos.length > 1 && (
                 <button
@@ -174,6 +210,7 @@ export default function PlantillasPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-ink">{p.nombre}</div>
+                {p.cliente?.nombre && <div className="text-xs text-ink-muted">{p.cliente.nombre}</div>}
                 <button
                   onClick={() => {
                     setExpandida(expandida === p.id ? null : p.id);

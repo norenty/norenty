@@ -254,6 +254,231 @@ una empresa".
 
 ---
 
+### Bloque G — Simplificar y automatizar la creación de viajes (pedido por el usuario, 2026-07-22)
+
+Contexto: durante la prueba con "Transportes Pepito" se detectó que el catálogo de rutas
+guardadas (`plantilla_ruta`/`plantilla_hito`, `/plantillas`) NO está conectado al wizard de
+creación de viaje (`/viajes/nuevo-w`) — hay que rellenar todo a mano aunque la ruta ya exista
+guardada. El usuario pide, en este orden de ambición creciente:
+
+- [x] `[LOOP G.1]` **CERRADO 2026-07-23.** Selector de plantilla en el wizard — al elegir
+  cliente en `/viajes/nuevo-w`, se muestran sus rutas guardadas (`plantilla_ruta` filtradas
+  por `cliente_id`) y con un clic se rellenan direcciones + lat/lon + panel de cálculo en
+  vivo (km/coste/precio sugerido). Requirió migración `0059_plantilla_ruta_cliente.sql`
+  (columna `cliente_id` nullable en `plantilla_ruta`, no existía relación alguna). También
+  se arregló de paso en `/plantillas`: (a) un bug real preexistente en `usarPlantilla` que
+  leía `detalles[plantillaId]` de un `setState` todavía no aplicado en el mismo cierre (podía
+  dar hitos vacíos la primera vez que se usaba una plantilla nunca antes expandida); (b) los
+  hitos de plantilla ahora capturan lat/lon vía `DireccionAutocomplete` (antes solo texto,
+  el viaje creado desde ahí quedaba sin coordenadas). Verificado en vivo con los datos de
+  "Transportes Pepito" (empresa ficticia de prueba): 432 tests en verde + prueba manual en
+  el navegador (cliente Nestlé España → ruta Bilbao→Vitoria → hitos y panel rellenados solos).
+- [ ] `[DECISIÓN G.2]` **Crear viaje a partir de un audio o un email** — el usuario envía (por
+  Telegram o email) un audio explicando la ruta ("recoger en X mañana a las 9, entregar en Y
+  el jueves") o reenvía un email con esos datos, y el sistema transcribe/interpreta (Whisper +
+  LLM) y rellena el formulario de viaje automáticamente. Si falta un campo obligatorio
+  (dirección, fecha, cliente, chófer), se marca visualmente en el wizard para que el gestor
+  solo tenga que completar eso y confirmar — nunca crear el viaje sin revisión humana.
+  Requiere: pipeline de transcripción (ya existe `handle_voice` en el bot capturando notas de
+  voz sin transcribir, ver `MARCADOR_NOTA_VOZ_SIN_TRANSCRIBIR` en `bot.py` — esto sería el
+  consumidor natural de esa transcripción pendiente), extracción de campos vía LLM, y UI de
+  "borrador de viaje con campos marcados en rojo si faltan". Encaja con la fase 11 (capa de
+  conocimiento) y con la idea de agente telefónico ya anotada — no reinventar, extender.
+  **Por qué es `[DECISIÓN]` y no `[LOOP]`:** implica elegir proveedor/coste de transcripción
+  y diseñar el formato del "borrador editable", no es una spec inequívoca todavía.
+
+**Prioridad:** G.1 primero (barato, ya con los datos que existen), G.2 después de validarlo con
+uso real — no construir el pipeline de audio/email antes de que el selector de plantillas se
+haya usado de verdad.
+
+- [x] `[DECISIÓN G.3]` **Primera pasada 2026-07-23** de la auditoría de procesos de asignación
+  en `/viajes/[id]` (pantalla de detalle, la que más se usa día a día tras el alta). Dos
+  hallazgos reales, ambos arreglados:
+  1. **El chófer se reasignaba con un `<select>` HTML normal** — con 80 chóferes (caso
+     Pepito) es una lista larga sin buscar, inconsistente con el `Buscador` ya construido
+     para el wizard (G.1/7A.11). Sustituido por `Buscador` (mismo componente, búsqueda por
+     nombre + idioma como sublabel).
+  2. **No existía NINGUNA forma de reasignar vehículo o remolque una vez creado el viaje** —
+     se mostraban como texto fijo, sin botón de edición (a diferencia del chófer, que sí
+     tenía su `Edit3`). Añadido `abrirEditVehiculo`/`cambiarVehiculo` con el mismo patrón que
+     `cambiarChofer`: `Buscador` + `validarAsignacion` (aviso no bloqueante con `confirm()`
+     si hay conflicto en planificado, bloqueo si es en_curso — misma regla que en el wizard).
+  Verificado en vivo: creado un viaje de prueba con Pepito, reasignado remolque desde la
+  pantalla de detalle, persiste tras recargar. 432 tests siguen en verde.
+  **Segunda pasada 2026-07-23** — `AjustesEquipoSection.jsx` ("Asignación de chóferes",
+  F15.3, la pantalla donde un admin mueve chóferes entre gestores): con muchos chóferes (80
+  en Pepito) era una pared de filas sin buscar y sin forma de mover varios a la vez —
+  justo el escenario de cobertura por vacaciones/bajas que motivó F15.3 (C.1 del gap de
+  onboarding, ya anotado antes: "un gestor se va, hay que mover TODOS sus chóferes a otro").
+  Añadido: filtro de texto por nombre (lista con scroll interno, ya no una pared infinita),
+  checkboxes de selección múltiple + un selector de gestor destino + botón "Reasignar
+  seleccionados" que aplica el cambio a todos los marcados de una vez, reutilizando
+  `cambiarGestorChofer` fila a fila (sin tocar `data.js`/`guardarGestorChofer`). Verificado
+  en vivo: filtro "Pérez" reduce 80→3, selección múltiple + barra de acción aparecen
+  correctamente. 432 tests en verde.
+  **Tercera pasada 2026-07-23** — revisados `/incidencias`, `/importar` y el Kanban de inicio:
+  sin gaps (incidencias no asigna persona, importar es mapeo de columnas de CSV con lista
+  fija corta, el Kanban solo enlaza al detalle del viaje ya arreglado). Hallazgo real: el
+  asistente clásico `/viajes/nuevo` tenía el MISMO problema (chófer/vehículo/remolque/
+  cliente/plantilla en `<select>` sin buscar) que ya se había arreglado en `nuevo-w` — el
+  código lo dejaba explícitamente como "decisión del usuario, no el loop". Preguntado al
+  usuario: confirmó promover `nuevo-w` a flujo por defecto. Cambiado en `Sidebar.jsx`,
+  `app/page.jsx`, `app/viajes/page.jsx` (2 sitios) y el checklist de onboarding
+  (`getOnboardingEstado` en `data.js`) para que todos los enlaces "Nuevo viaje" apunten a
+  `/viajes/nuevo-w`; `/viajes/nuevo` se mantiene accesible como alternativa de una sola
+  pantalla (enlazado desde el propio `nuevo-w`) pero deja de recibir features nuevas en
+  paralelo. 432 tests en verde, verificado en el navegador que los 4 enlaces apuntan a la
+  ruta nueva.
+  **Pendiente de una futura pasada** (no bloqueante): si en algún momento se decide retirar
+  `/viajes/nuevo` del todo en vez de mantenerlo como alternativa, es un cambio de producto
+  aparte, no técnico.
+
+- [x] `[LOOP G.5]` **CERRADO 2026-07-23.** Dos bugs reales encontrados por el usuario probando
+  la vinculación de Telegram con los datos de Pepito:
+  1. **`Buscador` no encontraba "Pablo Pérez" al escribirlo** — causa real: `.includes()` es
+     comparación exacta de codepoints Unicode, y un acento tecleado (vía dictado/teclado) puede
+     llegar en forma NFD ("e" + acento combinante) distinta a la del texto guardado. Arreglado
+     normalizando (NFD + quitar diacríticos) ambos lados antes de comparar en
+     `components/ui/Buscador.jsx` — de paso, ahora "Perez" sin tilde encuentra "Pérez" (pedido
+     explícito del usuario), y los resultados se ordenan por relevancia (coincidencia al
+     principio del nombre primero, alfabético dentro de cada grupo).
+  2. **El enlace de vinculación de Telegram solo se podía copiar** — el gestor tenía que
+     pegarlo en algún sitio y acababa extrayendo el UUID a mano para escribir `/start <uuid>`
+     él mismo (el propio usuario: "esto es inadmisible, tiene que ser una conexión sencilla").
+     El enlace YA era un deep link válido de Telegram (abrirlo dispara `/start <id>` solo); el
+     problema era de proceso, no del enlace. Añadido en `choferes/[id]/page.jsx` y
+     `choferes/page.jsx`: botón primario "Abrir Telegram" (link directo, sin copiar/pegar) +
+     "Enviar por WhatsApp" cuando el chófer tiene teléfono guardado (abre WhatsApp con el
+     enlace ya redactado, listo para mandar). "Copiar enlace" se mantiene como opción
+     secundaria para quien lo prefiera.
+  Verificado en vivo con los 80 chóferes de Pepito (filtro "Perez" sin tilde encuentra a los
+  4 "Pérez"/"perez" existentes) + botones nuevos visibles en lista y ficha. 432 tests en verde.
+
+- [x] `[LOOP G.6]` **CERRADO 2026-07-23.** Bug real grave: `/choferes` no tenía NINGÚN buscador
+  — el único campo de texto de la pantalla era el de "añadir chófer nuevo", con lo que escribir
+  un nombre para ENCONTRAR a alguien y darle a Enter creaba un chófer nuevo con ese texto
+  literal ("escribo 'luc', le doy a enter, y me genera un chófer"). Esto llevaba generando
+  basura silenciosamente desde antes (chóferes sueltos de una palabra: `luc`, `dav`, `Pablo`,
+  `pablo perez`, `pablo pere`, `David`, `Paco` — limpiados de la BD de dev). Arreglado: añadida
+  una caja de búsqueda de verdad (`components/ui/Buscador.jsx` exporta ahora `normalizar` para
+  no duplicar la lógica de acentos), separada y claramente distinta del formulario de alta, que
+  filtra en vivo sin tocar Enter ni crear nada. Verificado: "Rocio" sin tilde encuentra "Rocío
+  García" y "Rocío Ruiz" al teclear, sin submits accidentales. 432 tests en verde.
+  **Nota de proceso:** al limpiar la basura de una palabra se borró también `Mario` (chófer real
+  de la empresa de pruebas anterior, con el Telegram del propio usuario vinculado,
+  `chat_id` ya no bloquea nada) — irreversible, el usuario fue informado. Lección aplicada: no
+  volver a preguntarle al usuario cuál de la basura que YO genero es "buena o mala" — es
+  responsabilidad de quien gestiona los datos de prueba, no del usuario.
+
+- [x] `[LOOP G.7]` **CERRADO 2026-07-23.** Reasignar chófer/vehículo/remolque en `/viajes/[id]`
+  se aplicaba con un solo clic, sin nada que confirmar — el usuario lo pidió explícitamente
+  ("que no sea darle a Pablo Pérez y automáticamente se asigne, que sea con confirmación") tras
+  reasignar por accidente varias veces durante el smoke test. Añadido `confirm()` nativo en
+  `cambiarChofer`/`cambiarVehiculo` (`viajes/[id]/page.jsx`), pero SOLO cuando sustituye a
+  alguien que ya estaba puesto — la asignación inicial (viaje sin chófer/vehículo) sigue sin
+  fricción, no hay nada que perder ahí. Segundo hallazgo real en el mismo hilo: la tarjeta de
+  "Sugerencia de asignación" (`SugerenciaChofer.jsx`) ya tenía su propio paso de confirmación
+  ("¿por qué X y no el sugerido?"), pero SOLO para filas que no son la #1 — asignar directamente
+  al #1 sugerido pasaba sin ninguna confirmación (ni la suya ni la nueva). Arreglado pasando un
+  flag `yaConfirmado` desde `SugerenciaChofer` según si la fila elegida es la top (no pide nada
+  más, ahora si es distinta a la actual pasa por el `confirm()` del llamador) o no (ya preguntó
+  el motivo, no se duplica). 432 tests en verde.
+
+- [x] `[LOOP G.4 parcial]` **2026-07-23**, primera pasada real (feedback con captura de
+  pantalla: "esto estéticamente es terrible... dale una vuelta"). La columna lateral de
+  `/viajes/[id]` era una pared de tarjetas blancas idénticas con huecos grandes (`gap-6`) entre
+  ellas. Arreglado: Viabilidad + Resultado (P&L) fusionados en una sola tarjeta con divisor
+  interno (son la misma pregunta — "¿este viaje sale a cuenta?" — no dos datos distintos);
+  espaciado general de la columna de `gap-6` (24px) a `gap-4` (18px). Verificado en el DOM:
+  antes 8 tarjetas separadas, ahora 7, con menos aire entre todas. **Pendiente (anotado
+  explícitamente por el usuario como tarea, no solo esta pasada):** revisar con el mismo
+  criterio el resto de pantallas densas (lista de viajes, dashboard `/`, `/vehiculos`,
+  `/choferes`) — densidad de información y jerarquía visual, no solo la columna lateral de un
+  viaje. Candidatos para la próxima pasada: unificar el estilo de tarjeta en toda la app (hoy
+  cada pantalla repite `bg-surface border border-border rounded-xl p-4` a mano en vez de un
+  componente `<Card>` compartido), revisar si tantas secciones necesitan su propio borde o si
+  algunas deberían ser solo texto sin caja.
+
+- [x] `[LOOP G.8]` **CERRADO 2026-07-23.** `empresa.requiere_pod` era todo-o-nada por empresa
+  (bloqueó el smoke test cuando el chófer llegó sin foto a mano, y desactivarlo para toda
+  Pepito fue un parche, no la solución — el usuario lo pidió explícito: "no lo desactives en
+  dev, pero que podamos saltarlo"). Añadido botón **"No la tengo ahora"** junto al mensaje que
+  pide la foto de albarán (`cb_sin_pod` en `backend/app/bot.py`): completa la entrega SIN POD
+  y crea una incidencia (`tipo: "sin_pod"`) para que el gestor sepa que falta y lo pida por
+  otra vía — no es "resuelto en silencio", es "resuelto sin evidencia, marcado para revisar".
+  Traducido a los 8 idiomas del bot (test `test_todos_los_idiomas_tienen_las_mismas_claves` lo
+  exige). `requiere_pod` de Pepito restaurado a `True` (comportamiento por defecto real).
+  241 tests de backend en verde.
+
+- [x] `[LOOP G.9]` **CERRADO 2026-07-23.** Rediseño del bot de Telegram para el chófer — más
+  intuitivo, todo botones, sin escribir "/" para nada (pedido explícito: "prioriza lo más común
+  durante conducción, que sea seguro; si puede ser todo botones mejor"). Cambios en
+  `backend/app/bot.py`:
+  1. **Reportar incidencia = un toque, sin escribir**: el botón ⚠️ ahora abre un selector inline
+     con los 3 tipos más comunes (🔧 Avería, ⏱️ Retraso, 📦 Problema carga/descarga) que reportan
+     al instante con descripción estándar + aviso al gestor, más 🎤 "Otra cosa" que pide nota de
+     voz o texto libre. Antes había que escribir `/incidencia texto` a mano.
+  2. **Voz como incidencia**: si elige "otra" y responde con nota de voz, además de guardarla como
+     contexto (ya existía) se abre una incidencia real para que el gestor reciba un AVISO, no
+     solo una nota en el timeline que podría pasar desapercibida.
+  3. **Sin "/" en la copia**: bienvenida sin código dice "abre el enlace que te dio tu gestor, se
+     vincula solo"; `/incidencia` sin texto muestra el selector. Los comandos siguen registrados
+     como fallback pero la UX primaria es 100% botones.
+  4. **Teclado del menú se refresca** una vez por sesión del proceso (Telegram cachea el último
+     ReplyKeyboardMarkup; sin esto un cambio de diseño no se veía sin re-vincular — justo el bug
+     que reportó el usuario con el tamaño de los botones).
+  Refactor: `_reportar_incidencia` compartido por selector, captura de voz/texto y comando
+  heredado. Traducido a los 8 idiomas. 241 tests de backend en verde. **Pendiente (fuera de
+  "gratis"):** asistente por voz completo (Whisper + LLM) sigue deferido — G.2 / Fase 11,
+  requiere decisión de proveedor/coste. Esto es el peldaño barato: captura por voz + botones.
+  **Incidente de proceso:** casi corrompo `bot.py` con un reemplazo masivo de PowerShell
+  (`Set-Content -Encoding UTF8` inyecta un BOM que rompe Python) — memoria
+  `feedback-no-bulk-powershell-rewrite` actualizada con este 2º caso.
+
+- [x] `[LOOP G.10]` **CERRADO 2026-07-24.** El bot como intermediario real gestor<->chófer —
+  hasta ahora la captura de datos era de UNA sola dirección (chófer->gestor: llegadas, POD,
+  incidencias, notas de voz, todo con hash-chain); gestor->chófer NO pasaba por el sistema en
+  absoluto, "Contactar gestor" solo enseñaba un email. Cerrado con el mismo patrón de "buzón +
+  job de 30s" ya probado en `notificado_asignacion_en` (7A.3):
+  1. **Migración `0060_mensaje_chofer.sql`**: tabla `mensaje_chofer` (dirección
+     `gestor_a_chofer`/`chofer_a_gestor`, `entregado_en`), RLS con el mismo scoping por gestor
+     que `gasto_viaje`/`decision_asignacion` (0054); `gestor.telefono` (nullable); nuevo canal
+     `mensaje_gestor` en `contexto` para que todo mensaje entregado quede también en el corpus.
+  2. **Dashboard → chófer**: `MensajeChoferSection.jsx` en `/viajes/[id]` — el gestor escribe,
+     se inserta en `mensaje_chofer`, el job `procesar_mensajes_gestor` del bot lo entrega en su
+     siguiente tick (≤30s) y marca `entregado_en` (visible en vivo vía Realtime). El dashboard
+     nunca depende de la disponibilidad del bot para guardar el mensaje.
+  3. **Chófer → gestor**: "Contactar gestor" ya no enseña un email suelto — abre captura de
+     texto o nota de voz que llega al gestor AL INSTANTE (`_enviar_mensaje_a_gestor`, reutiliza
+     `notificar_gestor_evento`), registrado en `mensaje_chofer` y `contexto`.
+  4. **Llamada de emergencia conservada** (pedido explícito: "en caso de emergencia hablar por
+     teléfono es clave") — si el gestor configuró `telefono` (nuevo campo en Ajustes → Tu
+     cuenta), aparece un botón `tel:` de llamada directa junto al mensaje por bot.
+  Verificado en vivo end-to-end: mensaje insertado desde el dashboard → recogido por el job del
+  bot en su tick real → marcado "entregado" → reflejado en el dashboard sin recargar. 242 tests
+  de backend + 432 del dashboard en verde.
+
+- [x] `[LOOP G.11]` **CERRADO 2026-07-24.** Rediseño de la vista de mensajes tras el primer uso
+  real: un mensaje del chófer (VJ-0002) no aparecía al mirar OTRO viaje (VJ-0001) porque
+  `MensajeChoferSection` colgaba del viaje concreto — el usuario lo pilló probándolo él mismo
+  ("deberíamos tener un chat de chófer... para poder hacer seguimiento"). Cambios:
+  1. **Chat por CHÓFER, no por viaje**: nuevo `ChatChoferSection.jsx` en `/choferes/[id]` con
+     el historial COMPLETO de ese chófer (todas sus conversaciones, tenga o no viaje activo en
+     cada momento) — `getMensajesPorChofer` en `data.js`. `MensajeChoferSection.jsx` (el
+     composer viejo colgado del viaje) se eliminó del todo, sin dejar dos sitios distintos
+     para escribir al mismo chófer; `/viajes/[id]` ahora solo enlaza a "💬 Ver chat con
+     {chófer}".
+  2. **Notificación real**: los mensajes chófer→gestor entran en la campana existente
+     (`NotificationCenter.jsx`), mismo criterio que incidencias/documentos ("actividad de las
+     últimas 24h" = pendiente de atención) — sin añadir una columna `leido_en` ni un sistema
+     de lectura aparte, reutilizando el patrón ya construido.
+  Verificado en vivo con un mensaje real mandado desde Telegram ("Contactar gestor" → "Hola,
+  tengo un problema"): aparece en `/choferes/[id]` con la referencia del viaje al que
+  pertenece, y en la campana como "Mensaje de Laura Díaz". 242 tests backend + 432 dashboard
+  en verde.
+
+---
+
 ## Cambio de modelo de onboarding: sin autoregistro público (2026-07-19)
 
 **Decisión explícita del usuario durante el despliegue real:** el modelo de negocio es venta directa

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2, AlertTriangle, Check, ChevronRight, ChevronUp, ChevronDown, Package, Route } from "lucide-react";
-import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561, UMBRAL_MARGEN_AMBAR_PCT, getClientes, calcularOcupacion, sugerirOrdenParadas, getDireccionesGuardadas, getReferenciaSugerida, calcularAvisosViabilidad } from "../../../lib/data";
+import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561, UMBRAL_MARGEN_AMBAR_PCT, getClientes, calcularOcupacion, sugerirOrdenParadas, getDireccionesGuardadas, getReferenciaSugerida, calcularAvisosViabilidad, getPlantillasRuta, getPlantillaHitos } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import SugerenciaChofer from "../../components/SugerenciaChofer";
 import Buscador from "../../components/ui/Buscador";
@@ -12,12 +12,14 @@ import DireccionAutocomplete from "../../components/ui/DireccionAutocomplete";
 import { badgeMargen, fmtEur, fmtKm } from "../../../lib/format";
 import RequireRol from "../../components/RequireRol";
 
-// Wizard "Nuevo viaje" (7A.11) — construido en ruta nueva a propósito, SIN
-// sustituir /viajes/nuevo todavía: el swap (decidir si este pasa a ser el
-// flujo por defecto) es una decisión del usuario, no algo que el loop haga
-// solo. Los hitos aquí SÍ capturan lat/lon (a diferencia de /viajes/nuevo,
-// que solo pide dirección de texto) porque el panel de cálculo en vivo
-// necesita coordenadas para estimar km/coste/precio sugerido.
+// Wizard "Nuevo viaje" (7A.11) — promovido a flujo POR DEFECTO 2026-07-23
+// (decisión explícita del usuario, 17.G.3): todos los enlaces "Nuevo viaje"
+// (sidebar, /, /viajes) apuntan aquí. /viajes/nuevo se mantiene como
+// alternativa de una sola pantalla, ya no se elimina ni se deja de mantener,
+// pero deja de recibir features nuevas en paralelo (evitar duplicar trabajo
+// en dos wizards). Los hitos aquí SÍ capturan lat/lon (a diferencia de
+// /viajes/nuevo, que solo pide dirección de texto) porque el panel de
+// cálculo en vivo necesita coordenadas para estimar km/coste/precio sugerido.
 function nuevoHito(tipo = "entrega") {
   return { tipo, direccion: "", lat: "", lon: "", ventana_inicio: "", ventana_fin: "", es_checkpoint: false, radio_m: "" };
 }
@@ -76,6 +78,8 @@ export default function NuevoViajeWizard() {
   const [aviso561, setAviso561] = useState(null);
   const [carga, setCarga] = useState({ ldm: "", kg: "", m3: "" });
   const [sugerenciaOrden, setSugerenciaOrden] = useState(null);
+  const [plantillas, setPlantillas] = useState([]);
+  const [plantillaId, setPlantillaId] = useState("");
   const debounceRef = useRef(null);
 
   useEffect(() => {
@@ -92,6 +96,32 @@ export default function NuevoViajeWizard() {
   // sync/puro, no hace falta debounce como el panel de km/coste que sí llama
   // a red más abajo).
   const avisosViabilidad = useMemo(() => calcularAvisosViabilidad(hitos), [hitos]);
+
+  // 17.G.1: al elegir cliente, ofrecer sus rutas guardadas (plantilla_ruta)
+  // para no rellenar direcciones/coordenadas a mano si ya se hizo antes.
+  useEffect(() => {
+    setPlantillaId("");
+    getPlantillasRuta(clienteId || null).then(setPlantillas);
+  }, [clienteId]);
+
+  async function cargarPlantilla(id) {
+    setPlantillaId(id);
+    if (!id) return;
+    const hitosPlantilla = await getPlantillaHitos(id);
+    if (!hitosPlantilla.length) return;
+    setHitos(
+      hitosPlantilla.map((h) => ({
+        tipo: h.tipo,
+        direccion: h.direccion || "",
+        lat: h.lat != null ? String(h.lat) : "",
+        lon: h.lon != null ? String(h.lon) : "",
+        ventana_inicio: "",
+        ventana_fin: "",
+        es_checkpoint: false,
+        radio_m: "",
+      }))
+    );
+  }
 
   const tractoras = vehiculos.filter((v) => ["tractora", "rigido", "furgoneta"].includes(v.tipo));
   const remolques = vehiculos.filter((v) => v.tipo === "remolque");
@@ -208,7 +238,7 @@ export default function NuevoViajeWizard() {
       </Link>
       <h1 className="text-xl font-medium text-ink mb-1">Nuevo viaje</h1>
       <p className="text-xs text-ink-muted mb-6">
-        Versión de prueba del asistente guiado — el formulario clásico sigue disponible en{" "}
+        ¿Prefieres el formulario de una sola pantalla?{" "}
         <Link href="/viajes/nuevo" className="text-brand no-underline hover:underline">Nuevo viaje (clásico)</Link>.
       </p>
 
@@ -267,6 +297,21 @@ export default function NuevoViajeWizard() {
                 </div>
               </RequireRol>
             </div>
+
+            {plantillas.length > 0 && (
+              <div>
+                <label className="block text-xs text-ink-secondary mb-1">
+                  Cargar desde ruta guardada {clienteId ? "de este cliente" : "genérica"} (rellena las paradas por ti)
+                </label>
+                <Buscador
+                  opciones={plantillas.map((p) => ({ value: p.id, label: p.nombre }))}
+                  value={plantillaId}
+                  onChange={cargarPlantilla}
+                  placeholder="Buscar ruta guardada..."
+                  vacioLabel="No usar plantilla"
+                />
+              </div>
+            )}
 
             <div>
               <div className="flex items-center justify-between mb-2">
