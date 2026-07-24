@@ -101,11 +101,11 @@ empresa más seria, no un software de pacotilla"*.
   las fechas... porque eso te va a decir si es viable"*. **HECHO 2026-07-24**: cada parada admite
   fecha/hora opcional de carga o descarga, reutilizando `calcularAvisosViabilidad` (ya construida
   para el wizard). Verificado en vivo con Madrid→Barcelona y 1h de ventana → aviso correcto.
-- [ ] `[DECISIÓN 18.D.5]` **Simulación por conceptos con checkboxes.** *"lo haría en simulación con
-  unos ticks que tú quieras incluir: quiero tener en cuenta el desgaste de las ruedas, todos los
-  parámetros que tengan impacto"*. Incluir noches fuera y su coste, coste del camionero, seguros.
-  Matiz del propio usuario: el desgaste de ruedas es *"hilar muy fino... un gasto ínfimo"* y nadie
-  registra cuándo se cambian — o sea, priorizar los conceptos que sí son medibles.
+- [x] `[DECISIÓN 18.D.5]` **Simulación por conceptos con checkboxes.** *"lo haría en simulación con
+  unos ticks que tú quieras incluir"*. **HECHO 2026-07-24**: checkbox junto a cada concepto de coste
+  desglosado (combustible/conductor/peajes/dietas) para excluirlo solo de ese cálculo, sin tocar
+  Ajustes. El desgaste de ruedas y similares quedan fuera a propósito — el propio usuario los
+  calificó de *"hilar muy fino... un gasto ínfimo"* que nadie registra.
 - [ ] `[DECISIÓN 18.D.6]` **Tipo de vehículo/carga en la cotización** (tráiler doble, vehículo
   especial) + *"una calculadora de cargas, pero eso te lo explico después"* — **pendiente de que
   el usuario lo explique.**
