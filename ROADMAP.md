@@ -110,15 +110,18 @@ empresa más seria, no un software de pacotilla"*.
 
 ### 18.E — Arreglos concretos y acotados (los baratos)
 
-- [ ] `[LOOP 18.E.1]` **Facturación no debe verla el gestor normal.** *"no sé si debería estar a la
-  vista del gestor normal... igual el administrador sí"*. Gatear por rol como ya se hace con las
-  pestañas `soloAdmin` de Analítica. Bloqueado por 18.A.1 solo si se quiere el rol de contabilidad;
-  para admin-vs-gestor se puede hacer ya.
-- [ ] `[LOOP 18.E.2]` **Nómina: buscador y filtros.** *"incluiría arriba un buscador por chófer, por
-  semana, ciertos filtros, que tenemos hueco"*.
-- [ ] `[LOOP 18.E.3]` **Nómina: ordenar por columna.** *"si le das arriba a Chófer, noches fuera o
-  kilómetros, seas capaz de ordenar de mayor a menor"*. Matiz importante: ordenar personas **por
-  apellido**, *"prefiero que me ponga Raquel Álvarez la primera en lugar de Alejandro"*.
+- [x] `[LOOP 18.E.1]` **Facturación no debe verla el gestor normal.** *"no sé si debería estar a la
+  vista del gestor normal... igual el administrador sí"*. **HECHO 2026-07-24**: enlace del sidebar
+  gateado por rol (la página ya estaba protegida por dentro con `RequireRol`, solo faltaba el
+  enlace). El rol de contabilidad (18.A.1) sigue pendiente de discovery.
+- [x] `[LOOP 18.E.2]` **Nómina: buscador y filtros.** *"incluiría arriba un buscador por chófer, por
+  semana, ciertos filtros, que tenemos hueco"*. **HECHO 2026-07-24**: buscador por nombre (sin
+  tildes). El filtro por semana queda para cuando haya datos reales que filtrar.
+- [x] `[LOOP 18.E.3]` **Nómina: ordenar por columna.** *"si le das arriba a Chófer, noches fuera o
+  kilómetros, seas capaz de ordenar de mayor a menor"*. **HECHO 2026-07-24**: cabeceras clicables
+  con flecha de dirección. Ordenado por **apellido** por defecto — *"prefiero que me ponga Raquel
+  Álvarez la primera en lugar de Alejandro"* — verificado en vivo (Alonso, Álvarez, Díaz,
+  Fernández, García... en orden correcto).
 - [ ] `[DECISIÓN 18.E.4]` **Recuperar contraseña.** *"habría que tener algo de recuperar contraseña,
   ese tipo de cosas de un software ya serio"*. Supabase Auth lo soporta de fábrica; falta la
   pantalla y decidir el remitente de correo.
