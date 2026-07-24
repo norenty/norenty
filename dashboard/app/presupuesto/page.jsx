@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { Calculator, Plus, Trash2, AlertTriangle, SlidersHorizontal, RotateCcw, Package } from "lucide-react";
-import { calcularPresupuesto, calcularOcupacion, getDireccionesGuardadas } from "../../lib/data";
+import { calcularPresupuesto, calcularOcupacion, getDireccionesGuardadas, calcularAvisosViabilidad, VELOCIDAD_PLANIFICACION_KMH } from "../../lib/data";
 import { supabase } from "../../lib/supabase";
 import { LABEL_CAPA } from "../../lib/labels";
 import { fmtEur, fmtKm } from "../../lib/format";
@@ -11,7 +11,12 @@ import SectionCard from "../components/ui/SectionCard";
 import DireccionAutocomplete from "../components/ui/DireccionAutocomplete";
 
 function nuevoPunto() {
-  return { label: "", lat: "", lon: "" };
+  // ventana_inicio/fin (18.D.4): fecha y hora de carga/descarga, para poder
+  // avisar si el hueco entre dos paradas no da tiempo material a hacer el
+  // trayecto -- feedback del usuario: "si me dicen cargar en Madrid y
+  // descargar en Barcelona con una hora, viable no es". Opcional a propósito:
+  // sin fechas, el presupuesto sigue funcionando igual que hasta ahora.
+  return { label: "", lat: "", lon: "", ventana_inicio: "", ventana_fin: "" };
 }
 
 const WHAT_IF_VACIO = { velocidadKmh: "", precioGasoilLitro: "", margenObjetivoPct: "" };
@@ -45,6 +50,13 @@ export default function PresupuestoPage() {
       .select("velocidad_planificacion_kmh, precio_gasoil_litro, margen_objetivo_pct")
       .then(({ data }) => setConfig((data || [])[0] || null));
   }, []);
+
+  // 18.D.4: misma función pura que ya usa el wizard de viajes (calcularAvisosViabilidad),
+  // solo con puntos en vez de hitos -- reutiliza el modelo 561/2006 existente, no inventa nada.
+  const avisosViabilidad = useMemo(
+    () => calcularAvisosViabilidad(puntos, whatIf.velocidadKmh !== "" ? Number(whatIf.velocidadKmh) : (config?.velocidad_planificacion_kmh || VELOCIDAD_PLANIFICACION_KMH)),
+    [puntos, whatIf.velocidadKmh, config]
+  );
 
   const vehiculoSeleccionado = vehiculos.find((v) => v.id === vehiculoId) || null;
   const tieneCapacidad = !!(vehiculoSeleccionado && (
@@ -146,40 +158,70 @@ export default function PresupuestoPage() {
           </button>
         }
       >
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {puntos.map((p, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <span className="font-mono text-xs text-ink-muted w-5">{i + 1}.</span>
-              <DireccionAutocomplete
-                value={p.label}
-                onChangeDireccion={(v) => actualizarPunto(i, "label", v)}
-                onElegirSugerida={(d) => {
-                  setPuntos((ps) => ps.map((punto, idx) =>
-                    idx === i ? { ...punto, label: d.direccion, lat: String(d.lat), lon: String(d.lon) } : punto
-                  ));
-                }}
-                direcciones={direccionesGuardadas}
-                placeholder="Dirección (ej. Calle Mayor 3, Madrid)"
-              />
-              {/* 18.D.2: las coordenadas se muestran como confirmación de que el
-                  punto está ubicado, no como dos campos que haya que teclear. */}
-              <span className={`text-xs w-28 shrink-0 ${p.lat && p.lon ? "text-estado-ok" : "text-ink-muted"}`}>
-                {p.lat && p.lon
-                  ? `✓ ${Number(p.lat).toFixed(3)}, ${Number(p.lon).toFixed(3)}`
-                  : "sin ubicar"}
-              </span>
-              <button
-                type="button"
-                onClick={() => quitarPunto(i)}
-                disabled={puntos.length <= 2}
-                aria-label="Quitar parada"
-                className="p-2 text-ink-muted hover:text-estado-incidencia disabled:opacity-30"
-              >
-                <Trash2 size={15} />
-              </button>
+            <div key={i} className="flex flex-col gap-1.5 pb-2 border-b border-border last:border-0">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs text-ink-muted w-5">{i + 1}.</span>
+                <DireccionAutocomplete
+                  value={p.label}
+                  onChangeDireccion={(v) => actualizarPunto(i, "label", v)}
+                  onElegirSugerida={(d) => {
+                    setPuntos((ps) => ps.map((punto, idx) =>
+                      idx === i ? { ...punto, label: d.direccion, lat: String(d.lat), lon: String(d.lon) } : punto
+                    ));
+                  }}
+                  direcciones={direccionesGuardadas}
+                  placeholder="Dirección (ej. Calle Mayor 3, Madrid)"
+                />
+                {/* 18.D.2: las coordenadas se muestran como confirmación de que el
+                    punto está ubicado, no como dos campos que haya que teclear. */}
+                <span className={`text-xs w-28 shrink-0 ${p.lat && p.lon ? "text-estado-ok" : "text-ink-muted"}`}>
+                  {p.lat && p.lon
+                    ? `✓ ${Number(p.lat).toFixed(3)}, ${Number(p.lon).toFixed(3)}`
+                    : "sin ubicar"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => quitarPunto(i)}
+                  disabled={puntos.length <= 2}
+                  aria-label="Quitar parada"
+                  className="p-2 text-ink-muted hover:text-estado-incidencia disabled:opacity-30"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+              <div className="flex items-center gap-2 pl-7">
+                <span className="text-xs text-ink-muted">
+                  {i === 0 ? "Carga (opcional):" : i === puntos.length - 1 ? "Descarga (opcional):" : "Ventana (opcional):"}
+                </span>
+                <input
+                  type="datetime-local"
+                  value={p.ventana_inicio}
+                  onChange={(e) => actualizarPunto(i, "ventana_inicio", e.target.value)}
+                  className="text-xs border border-border rounded-md px-2 py-1 focus:outline-none focus:border-brand"
+                />
+                <span className="text-xs text-ink-muted">–</span>
+                <input
+                  type="datetime-local"
+                  value={p.ventana_fin}
+                  onChange={(e) => actualizarPunto(i, "ventana_fin", e.target.value)}
+                  className="text-xs border border-border rounded-md px-2 py-1 focus:outline-none focus:border-brand"
+                />
+              </div>
             </div>
           ))}
         </div>
+
+        {avisosViabilidad.length > 0 && (
+          <div className="flex flex-col gap-1.5 mt-3">
+            {avisosViabilidad.map((a) => (
+              <p key={a.indice} className="text-xs text-estado-incidencia flex items-start gap-1.5 bg-red-50 rounded-md px-2.5 py-2">
+                <AlertTriangle size={13} className="shrink-0 mt-0.5" /> {a.mensaje}
+              </p>
+            ))}
+          </div>
+        )}
 
         <div className="mt-3 max-w-xs">
           <label htmlFor="presupuesto-vehiculo" className="block text-xs text-ink-secondary mb-1">Vehículo (opcional)</label>

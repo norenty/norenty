@@ -44,8 +44,10 @@ function prefillHitosDesdeUrl(searchParams) {
       direccion: p.label || "",
       lat: p.lat != null ? String(p.lat) : "",
       lon: p.lon != null ? String(p.lon) : "",
-      ventana_inicio: "",
-      ventana_fin: "",
+      // 18.D.4: si venían fechas de carga/descarga desde /presupuesto, se
+      // conservan -- ya se molestó en ponerlas una vez, no hay que repetirlo.
+      ventana_inicio: p.ventana_inicio || "",
+      ventana_fin: p.ventana_fin || "",
       es_checkpoint: false,
       radio_m: "",
     }));
