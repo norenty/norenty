@@ -88,10 +88,11 @@ empresa más seria, no un software de pacotilla"*.
   Mayor 3, Madrid" y "Port de Barcelona" resuelven a coordenadas correctas. Queda repasar en
   producción real si Nominatim público aguanta el volumen o hace falta auto-hospedarlo (nota
   ya en el código).
-- [ ] `[LOOP 18.D.2b]` **Priorizar resultados del geocoder cerca de España/la base de la
-  empresa.** *"si pongo Calle Mayor 3, es más fácil que sea en Madrid que en Puertollano... esa
-  priorización estaría bien, pero no lo veo tan relevante"*. Nominatim soporta sesgar por
-  `viewbox`/`countrycodes=es`. Baja prioridad, explícitamente confirmado por el usuario.
+- [x] `[LOOP 18.D.2b]` **Priorizar resultados del geocoder cerca de España.** *"si pongo Calle Mayor
+  3, es más fácil que sea en Madrid que en Puertollano"*. **HECHO 2026-07-24** (gratis e inmediato,
+  se adelantó aunque no era urgente): `viewbox` de España en la consulta a Nominatim, sin
+  `countrycodes` (eso sí sería un filtro duro y rompería rutas internacionales reales de la
+  flota). Verificado: "Calle Mayor" prioriza Madrid; "Milano" sigue devolviendo Milán, Italia.
 - [x] `[DECISIÓN 18.D.3]` **Direcciones guardadas reutilizables.** *"si tengo una serie de
   ubicaciones guardadas, yo pueda acceder aquí directamente"* — ej. el almacén de Adidas en Madrid.
   **Ya existía** `getDireccionesGuardadas` (hitos pasados) pero solo estaba enganchado en el
