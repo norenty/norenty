@@ -77,17 +77,20 @@ empresa más seria, no un software de pacotilla"*.
 
 ### 18.D — Presupuesto instantáneo: necesita una vuelta grande
 
-- [ ] `[LOOP 18.D.1]` **Ancho de la pantalla.** *"podemos ajustar la pantalla al tamaño completo,
-  no se ve entero"*. Arreglo mecánico de layout.
-- [ ] `[DECISIÓN 18.D.2]` **🔴 Fuera latitud/longitud a mano.** *"la latitud y la longitud me
-  parece que es imposible, eso no lo utiliza nadie... tiene que hacer una llamada a Google Maps o
-  lo que sea y tú puedas escribir Calle Mayor 3, Madrid, y te lo coja"*. **Este es el fallo de
-  usabilidad más grave que ha señalado** y afecta también al wizard de viajes y a plantillas.
-  Requiere elegir proveedor de geocoding (Google / Mapbox / Nominatim de OSM, que es gratis) —
-  decisión con coste asociado.
-- [ ] `[DECISIÓN 18.D.3]` **Direcciones guardadas reutilizables.** *"si tengo una serie de
+- [x] `[LOOP 18.D.1]` **Ancho de la pantalla.** *"podemos ajustar la pantalla al tamaño completo,
+  no se ve entero"*. Arreglo mecánico de layout. **HECHO 2026-07-24**: max-w-3xl → max-w-5xl.
+- [x] `[DECISIÓN 18.D.2]` **🔴 Fuera latitud/longitud a mano.** **HECHO 2026-07-24** — resuelto con
+  Nominatim/OpenStreetMap (gratis, sin API key): `buscarDireccion()` en `lib/data.js` +
+  `DireccionAutocomplete.jsx` ampliado (combina direcciones ya usadas + búsqueda en el mapa,
+  debounced). Ya cubre wizard de viajes, plantillas y presupuesto. Verificado en vivo: "Calle
+  Mayor 3, Madrid" y "Port de Barcelona" resuelven a coordenadas correctas. Queda repasar en
+  producción real si Nominatim público aguanta el volumen o hace falta auto-hospedarlo (nota
+  ya en el código).
+- [x] `[DECISIÓN 18.D.3]` **Direcciones guardadas reutilizables.** *"si tengo una serie de
   ubicaciones guardadas, yo pueda acceder aquí directamente"* — ej. el almacén de Adidas en Madrid.
-  Ya existe `getDireccionesGuardadas` en el código: falta engancharlo aquí.
+  **Ya existía** `getDireccionesGuardadas` (hitos pasados) pero solo estaba enganchado en el
+  wizard/plantillas; **HECHO 2026-07-24**: ahora también en `/presupuesto`, con las mismas
+  sugerencias "ya usadas antes" antes que las del mapa.
 - [ ] `[DECISIÓN 18.D.4]` **Fechas y ventanas en la cotización.** *"hace falta si es viaje único,
   las fechas, si es de día o de noche, a qué hora carga y descarga, porque eso te va a decir si es
   viable. Si me dicen cargar en Madrid y descargar en Barcelona con una hora, viable no es"*.

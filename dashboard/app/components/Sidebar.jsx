@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { useRol } from "./RolProvider";
 import {
   LayoutDashboard,
   Map,
@@ -76,7 +77,11 @@ const groups = [
     links: [
       { href: "/analitica", label: "Analítica", icon: BarChart3 },
       { href: "/nomina", label: "Nómina", icon: Wallet },
-      { href: "/facturacion", label: "Facturación", icon: Receipt },
+      // 18.E.1: el gestor de tráfico normal no necesita ver facturación —
+      // feedback del usuario recorriendo Ajustes ("no sé si debería estar a
+      // la vista del gestor normal... igual el administrador sí"). Gateado
+      // por rol, no eliminado: admin sigue viéndolo.
+      { href: "/facturacion", label: "Facturación", icon: Receipt, soloAdmin: true },
       { href: "/presupuesto", label: "Presupuesto", icon: Calculator },
     ],
   },
@@ -106,6 +111,7 @@ function NavLink({ href, label, icon: Icon, active, onClick }) {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { rol } = useRol();
   const [open, setOpen] = useState(false);
   // Ítem de diseño (2026-07-13): solo "Operación" va expandido por defecto —
   // 12 destinos visibles de entrada era mucho para un usuario nuevo/no
@@ -195,7 +201,9 @@ export default function Sidebar() {
               </button>
               {isExpanded && (
                 <div className="flex flex-col gap-0.5 mt-0.5">
-                  {group.links.map(({ href, label, icon: Icon }) => (
+                  {group.links
+                    .filter((l) => !l.soloAdmin || rol === "admin")
+                    .map(({ href, label, icon: Icon }) => (
                     <NavLink
                       key={href}
                       href={href}

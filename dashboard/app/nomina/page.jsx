@@ -1,20 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Moon, Route as RouteIcon, Download, Printer } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { Moon, Route as RouteIcon, Download, Printer, ArrowUp, ArrowDown, Search } from "lucide-react";
 import { getInformeNomina } from "../../lib/data";
 import RequireRol from "../components/RequireRol";
 import { fmtKm } from "../../lib/format";
 import ErrorCargaReintentar from "../components/ui/ErrorCargaReintentar";
+import { normalizar } from "../components/ui/Buscador";
+
+// 18.E.3: "prefiero que me ponga Raquel Álvarez la primera en lugar de
+// Alejandro" -- ordenar personas por apellido, no por nombre de pila. El
+// nombre se guarda como "Nombre Apellido[s]"; el apellido es todo lo que
+// queda tras la primera palabra.
+function apellido(nombreCompleto) {
+  const i = (nombreCompleto || "").indexOf(" ");
+  return i === -1 ? nombreCompleto || "" : nombreCompleto.slice(i + 1);
+}
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 
-function exportarCSV(informe, mes, anio) {
+function exportarCSV(filas, mes, anio) {
   const header = "Chófer,Noches fuera,Km (carretera),Estimado,Viajes\n";
-  const rows = informe.filas.map((f) =>
+  const rows = filas.map((f) =>
     [
       f.nombre,
       f.nochesFuera ?? "n/d",
@@ -32,6 +42,22 @@ function exportarCSV(informe, mes, anio) {
   URL.revokeObjectURL(url);
 }
 
+function ThOrdenable({ columna, orden, onClick, children }) {
+  const activa = orden.columna === columna;
+  return (
+    <th className="px-4 py-2 font-medium">
+      <button
+        type="button"
+        onClick={() => onClick(columna)}
+        className={`inline-flex items-center gap-1 hover:text-ink transition-colors ${activa ? "text-ink font-semibold" : ""}`}
+      >
+        {children}
+        {activa ? (orden.asc ? <ArrowUp size={12} /> : <ArrowDown size={12} />) : null}
+      </button>
+    </th>
+  );
+}
+
 export default function Nomina() {
   const ahora = new Date();
   const [mes, setMes] = useState(ahora.getMonth() + 1);
@@ -39,6 +65,32 @@ export default function Nomina() {
   const [informe, setInforme] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [busqueda, setBusqueda] = useState("");
+  // 18.E.2/18.E.3: buscador por chófer + orden por columna. Por defecto,
+  // apellido ascendente (más natural para una lista de personas que id/orden
+  // de llegada de la consulta).
+  const [orden, setOrden] = useState({ columna: "apellido", asc: true });
+
+  function alternarOrden(columna) {
+    setOrden((o) => (o.columna === columna ? { columna, asc: !o.asc } : { columna, asc: true }));
+  }
+
+  const filas = useMemo(() => {
+    if (!informe) return [];
+    const q = normalizar(busqueda.trim());
+    let filas = q ? informe.filas.filter((f) => normalizar(f.nombre).includes(q)) : informe.filas.slice();
+    const dir = orden.asc ? 1 : -1;
+    filas.sort((a, b) => {
+      let va, vb;
+      if (orden.columna === "apellido") { va = apellido(a.nombre); vb = apellido(b.nombre); }
+      else if (orden.columna === "nochesFuera") { va = a.nochesFuera ?? -1; vb = b.nochesFuera ?? -1; }
+      else if (orden.columna === "km") { va = a.km ?? 0; vb = b.km ?? 0; }
+      else { va = a.nombre; vb = b.nombre; }
+      if (typeof va === "string") return va.localeCompare(vb, "es") * dir;
+      return (va - vb) * dir;
+    });
+    return filas;
+  }, [informe, busqueda, orden]);
 
   function cargar() {
     setLoading(true);
@@ -62,7 +114,7 @@ export default function Nomina() {
           <div className="flex gap-2 print:hidden">
             <RequireRol roles={["admin"]}>
               <button
-                onClick={() => exportarCSV(informe, mes, anio)}
+                onClick={() => exportarCSV(filas, mes, anio)}
                 className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border text-ink-secondary hover:bg-surface-alt"
               >
                 <Download size={13} /> Exportar CSV
@@ -105,6 +157,15 @@ export default function Nomina() {
             <option key={a} value={a}>{a}</option>
           ))}
         </select>
+        <div className="relative ml-2">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-muted" />
+          <input
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar chófer..."
+            className="text-sm border border-border rounded-md pl-8 pr-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+          />
+        </div>
       </div>
 
       {error ? (
@@ -132,21 +193,23 @@ export default function Nomina() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-xs text-ink-secondary text-left">
-                  <th className="px-4 py-2 font-medium">Chófer</th>
-                  <th className="px-4 py-2 font-medium">
-                    <span className="inline-flex items-center gap-1"><Moon size={13} /> Noches fuera</span>
-                  </th>
-                  <th className="px-4 py-2 font-medium">
-                    <span className="inline-flex items-center gap-1"><RouteIcon size={13} /> Km (carretera)</span>
-                  </th>
+                  <ThOrdenable columna="apellido" orden={orden} onClick={alternarOrden}>Chófer</ThOrdenable>
+                  <ThOrdenable columna="nochesFuera" orden={orden} onClick={alternarOrden}>
+                    <Moon size={13} /> Noches fuera
+                  </ThOrdenable>
+                  <ThOrdenable columna="km" orden={orden} onClick={alternarOrden}>
+                    <RouteIcon size={13} /> Km (carretera)
+                  </ThOrdenable>
                   <th className="px-4 py-2 font-medium">Viajes</th>
                 </tr>
               </thead>
               <tbody>
-                {informe.filas.length === 0 ? (
-                  <tr><td colSpan={4} className="px-4 py-6 text-center text-ink-secondary">Sin chóferes.</td></tr>
+                {filas.length === 0 ? (
+                  <tr><td colSpan={4} className="px-4 py-6 text-center text-ink-secondary">
+                    {busqueda ? "Ningún chófer coincide con la búsqueda." : "Sin chóferes."}
+                  </td></tr>
                 ) : (
-                  informe.filas.map((f) => (
+                  filas.map((f) => (
                     <tr key={f.id} className="border-b border-border last:border-0">
                       <td className="px-4 py-2.5 text-ink">{f.nombre}</td>
                       <td className="px-4 py-2.5 text-ink-secondary">{f.nochesFuera ?? "n/d"}</td>
