@@ -156,6 +156,48 @@ preguntas que cierran las incógnitas del build (sin ellas se picaría una taxon
   mercancía, que llegó tarde)? ¿Cómo se resolvió? ¿Tenías alguna prueba (foto, hora, firma) que te
   ayudara, o fue "su palabra contra la tuya"?
 
+### 3.8 Roles, permisos y aprobaciones (añadido 2026-07-24, a petición explícita del usuario)
+
+Contexto: al recorrer Ajustes, el usuario detectó que hoy cualquier gestor puede cambiar el nombre
+de la empresa, el coste/km, los objetivos de puntualidad y margen. Su reacción: *"es como SAP, yo
+no puedo cambiar x cosas si no hay un flujo de aprobaciones"*. Estas preguntas deciden el modelo
+de roles (ítem 18.A.1) y el flujo de aprobaciones (18.A.2), que son cambios de modelo de datos —
+conviene acertar antes de construirlos.
+
+- ¿Cuánta gente distinta toca el sistema de transporte en tu empresa, y quién hace qué? ¿Hay
+  alguien de contabilidad o de comercial que entre, o es solo tráfico?
+- ¿Quién decide (y quién PUEDE cambiar) cosas como el coste por kilómetro o el objetivo de margen?
+  ¿Es algo que se fija una vez y no se toca, o cambia a menudo?
+- ¿Hay algo que hoy requiera el visto bueno de un superior antes de hacerse? (dar de alta una ruta
+  nueva, aceptar un viaje que sale muy justo de precio o de tiempo, contratar un porte a otro)
+- Si el sistema te dijera "este viaje NO es viable en el tiempo que te piden", ¿querrías que te
+  bloqueara y tuviera que aprobarlo tu jefe, o que solo te avisara y tú decides?
+- ¿La facturación la ve el jefe de tráfico, o solo administración/contabilidad?
+- ¿Tenéis una sola base/nave o varias? (afecta al cálculo de "noches fuera" de la nómina)
+
+### 3.9 Cómo se crea y se reparte un viaje (cadena comercial → tráfico → chófer)
+
+Contexto: el usuario describió este flujo como el real, y HOY no está implementado así (ítem
+18.C.1). Hay que confirmarlo con alguien de fuera antes de reescribir el modelo.
+
+- ¿Quién crea un viaje nuevo cuando entra un encargo: el comercial, tú, el cliente directamente?
+- ¿Existe algo parecido a una "bandeja" de viajes pendientes de repartir entre gestores, o cada
+  gestor tiene sus clientes fijos de siempre?
+- Cuando hay varios gestores de tráfico, ¿cómo se decide qué viajes lleva cada uno? ¿Y qué
+  chóferes lleva cada uno?
+- ¿En qué momento exacto se decide QUÉ CAMIÓN concreto hace el viaje: al cotizar, al planificar, o
+  el mismo día? (esto decide si el presupuesto debe pedir matrícula o solo promedios)
+
+### 3.10 Direcciones y cómo se dicen los sitios
+
+Contexto: hoy el sistema pide latitud/longitud a mano. El usuario: *"eso no lo utiliza nadie, es
+imposible"* (ítem 18.D.2).
+
+- Cuando te entra un encargo, ¿cómo te dan la dirección: dirección postal, nombre del almacén, un
+  código de cliente, coordenadas, un enlace de Google Maps?
+- ¿Repetís mucho los mismos puntos de carga/descarga? ¿Los tenéis apuntados en algún sitio?
+- ¿Cuántas paradas suele tener un viaje típico?
+
 ### 3.6 La pregunta de oro
 > "¿Qué es lo que más tiempo te quita al día sin aportarte nada?"
 

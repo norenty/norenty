@@ -10,6 +10,127 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
+## 🔥 FASE 18 — Revisión de producto del usuario (2026-07-24, recorriendo el dashboard en vivo)
+
+**Origen:** el usuario recorrió Ajustes / Analítica / Nómina / Facturación / Presupuesto y dio
+feedback denso. **Es el feedback de producto más valioso que hay en este roadmap** porque viene
+de alguien que conoce el negocio real, no de una auditoría teórica. Tesis transversal que lo
+resume todo, en sus palabras: *"hay cosas que no tienen que ser tan fáciles de cambiar, es como
+SAP. Yo no puedo cambiar x cosas si no hay un flujo de aprobaciones"* y *"una lógica detrás ya de
+empresa más seria, no un software de pacotilla"*.
+
+### 18.A — Gobernanza: no todo el mundo puede tocar todo (el hilo conductor)
+
+- [ ] `[DECISIÓN 18.A.1]` **🔴 Modelo de roles ampliado.** Hoy hay `admin` / `gestor` / `solo
+  lectura`. El usuario pide plantear al menos: **gestor de tráfico** (el principal, operativo),
+  **administrador** (parámetros de empresa), **contabilidad/control financiero** (ve Facturación),
+  **comercial** (crea viajes, ver 18.C.1). Decisión de modelo de datos + RLS, no es cosmética.
+  **Apuntado explícitamente para preguntarlo en el discovery (12.3).**
+- [ ] `[DECISIÓN 18.A.2]` **🔴 Flujo de aprobaciones.** *"que haya un flujo de aprobaciones algo
+  lógico"*. Casos que dio: (a) dar de alta una ruta nueva → la aprueba el jefe de tráfico; (b) si
+  la viabilidad no da 100% según nuestro propio sistema → aprobación manual explícita en vez de
+  dejar pasar. Esto convierte la comprobación de viabilidad (ya construida) en un **gate real**,
+  que es justo el argumento de "software serio". Requiere tabla de solicitudes + estados + quién
+  aprueba.
+- [ ] `[DECISIÓN 18.A.3]` **Parámetros de empresa: bloquear lo que no debe tocarse a diario.** En
+  Ajustes hoy CUALQUIER gestor puede editar: nombre de la empresa, ubicación base, coste/km,
+  velocidad de planificación, objetivos de puntualidad y margen, coste desglosado. El usuario:
+  *"el nombre de la empresa es el que es, no puedes estar cambiándolo"*, *"nuestro objetivo de
+  puntualidad y margen, no entiendo cómo puede ser que puedas cambiarlo tú, una persona normal"*,
+  *"coge cualquiera sabiendo o sin saber y lo toca y te puede alterar parámetros"*. Propuesta:
+  se fijan **en el alta de la empresa**; después solo admin, y los sensibles con registro de
+  auditoría (ya existe `audit_log`) o aprobación.
+
+### 18.B — Que los números salgan del histórico, no de un campo editable
+
+- [ ] `[DECISIÓN 18.B.1]` **Velocidad de planificación desde datos reales.** *"debería ser un
+  parámetro estándar de 75 km/h, y que tú a la hora de planificar puedas ver el histórico de
+  velocidad promedio y ver si es más viable hacerlo a 78"*. O sea: 75 fijo por defecto + mostrar
+  la media real observada como sugerencia, en vez de un input libre. Encaja con la calibración
+  automática que ya existe (necesita 20 viajes completos).
+- [ ] `[DECISIÓN 18.B.2]` **Coste desglosado desde histórico.** Mismo criterio: *"tienes que tirar
+  de histórico y no puedo coger yo aquí en Ajustes y cambiarlo"*. El gasoil real ya llegará por
+  las fotos de facturas de repostaje de los chóferes — usarlo.
+- [ ] `[DECISIÓN 18.B.3]` **Precio del gasoil automático.** *"me gustaría que pudiera cogerse
+  automáticamente"*, aceptando que se pueda sobreescribir a mano. Candidato: índice público de
+  carburantes (en España el Ministerio publica un dataset abierto). A investigar.
+- [ ] `[DECISIÓN 18.B.4]` **POD obligatorio: ¿puede desactivarse?** *"entiendo que es algo que
+  tiene un cumplimiento legal detrás"*. Revisar con la consulta legal (9.11) si el albarán es
+  legalmente exigible; si lo es, el toggle no debería ser libre.
+
+### 18.C — El flujo real de la empresa (comercial → jefe de tráfico → gestor → chófer)
+
+- [ ] `[DECISIÓN 18.C.1]` **🔴 "Pool de viajes" y cadena de adjudicación.** Descripción textual del
+  usuario, que es el modelo mental correcto y HOY NO ESTÁ IMPLEMENTADO ASÍ: *"el departamento
+  comercial crea el viaje y lo pasa a un pool de viajes. Luego el jefe de tráfico dice: este viaje
+  o esta ruta con x periodicidad se adjudica al gestor de tráfico Mario. A Mario le saldrán esos
+  viajes y tendrá adjudicados x chóferes, y él dirá: este viaje lo hace este chófer"*. Encaja con
+  el scoping de Fase 15 (chóferes por gestor) pero le falta la capa de arriba: viajes sin dueño,
+  asignados a un gestor, y solo entonces a un chófer.
+- [ ] `[DECISIÓN 18.C.2]` **Quitar la asignación de vehículo del momento de crear/cotizar.** *"yo
+  no puedo decir que este viaje, cuando lo creo, tiene que hacerlo el vehículo 8711LJP"*. Al
+  cotizar se usan **promedios** (velocidad, consumo); el vehículo concreto lo pone el gestor
+  después. Afecta a `/presupuesto` y al wizard.
+- [ ] `[DECISIÓN 18.C.3]` **Múltiples bases.** *"podemos tener múltiples bases, es algo que debe
+  estar contemplado"*. Hoy `empresa` tiene UNA lat/lon base, usada para calcular noches fuera.
+  Cambia el modelo de datos y el cálculo de nómina.
+
+### 18.D — Presupuesto instantáneo: necesita una vuelta grande
+
+- [ ] `[LOOP 18.D.1]` **Ancho de la pantalla.** *"podemos ajustar la pantalla al tamaño completo,
+  no se ve entero"*. Arreglo mecánico de layout.
+- [ ] `[DECISIÓN 18.D.2]` **🔴 Fuera latitud/longitud a mano.** *"la latitud y la longitud me
+  parece que es imposible, eso no lo utiliza nadie... tiene que hacer una llamada a Google Maps o
+  lo que sea y tú puedas escribir Calle Mayor 3, Madrid, y te lo coja"*. **Este es el fallo de
+  usabilidad más grave que ha señalado** y afecta también al wizard de viajes y a plantillas.
+  Requiere elegir proveedor de geocoding (Google / Mapbox / Nominatim de OSM, que es gratis) —
+  decisión con coste asociado.
+- [ ] `[DECISIÓN 18.D.3]` **Direcciones guardadas reutilizables.** *"si tengo una serie de
+  ubicaciones guardadas, yo pueda acceder aquí directamente"* — ej. el almacén de Adidas en Madrid.
+  Ya existe `getDireccionesGuardadas` en el código: falta engancharlo aquí.
+- [ ] `[DECISIÓN 18.D.4]` **Fechas y ventanas en la cotización.** *"hace falta si es viaje único,
+  las fechas, si es de día o de noche, a qué hora carga y descarga, porque eso te va a decir si es
+  viable. Si me dicen cargar en Madrid y descargar en Barcelona con una hora, viable no es"*.
+  Enlaza con la comprobación de viabilidad tiempo-distancia ya construida (commit 911579f).
+- [ ] `[DECISIÓN 18.D.5]` **Simulación por conceptos con checkboxes.** *"lo haría en simulación con
+  unos ticks que tú quieras incluir: quiero tener en cuenta el desgaste de las ruedas, todos los
+  parámetros que tengan impacto"*. Incluir noches fuera y su coste, coste del camionero, seguros.
+  Matiz del propio usuario: el desgaste de ruedas es *"hilar muy fino... un gasto ínfimo"* y nadie
+  registra cuándo se cambian — o sea, priorizar los conceptos que sí son medibles.
+- [ ] `[DECISIÓN 18.D.6]` **Tipo de vehículo/carga en la cotización** (tráiler doble, vehículo
+  especial) + *"una calculadora de cargas, pero eso te lo explico después"* — **pendiente de que
+  el usuario lo explique.**
+- [ ] `[DECISIÓN 18.D.7]` **Presupuesto por audio o por email.** *"que yo pueda mandar un audio y
+  me lo diga, o mandar un correo a presupuestos@loquesea y me conteste con el presupuesto. Sé que
+  no es para esta fase, pero definitivamente tiene que estar en el roadmap"*. Encaja con Whisper
+  self-host (ya decidido) y con la capa de conocimiento de Fase 11.
+
+### 18.E — Arreglos concretos y acotados (los baratos)
+
+- [ ] `[LOOP 18.E.1]` **Facturación no debe verla el gestor normal.** *"no sé si debería estar a la
+  vista del gestor normal... igual el administrador sí"*. Gatear por rol como ya se hace con las
+  pestañas `soloAdmin` de Analítica. Bloqueado por 18.A.1 solo si se quiere el rol de contabilidad;
+  para admin-vs-gestor se puede hacer ya.
+- [ ] `[LOOP 18.E.2]` **Nómina: buscador y filtros.** *"incluiría arriba un buscador por chófer, por
+  semana, ciertos filtros, que tenemos hueco"*.
+- [ ] `[LOOP 18.E.3]` **Nómina: ordenar por columna.** *"si le das arriba a Chófer, noches fuera o
+  kilómetros, seas capaz de ordenar de mayor a menor"*. Matiz importante: ordenar personas **por
+  apellido**, *"prefiero que me ponga Raquel Álvarez la primera en lugar de Alejandro"*.
+- [ ] `[DECISIÓN 18.E.4]` **Recuperar contraseña.** *"habría que tener algo de recuperar contraseña,
+  ese tipo de cosas de un software ya serio"*. Supabase Auth lo soporta de fábrica; falta la
+  pantalla y decidir el remitente de correo.
+
+### 18.F — Lo que el usuario dio por bueno (no tocar, está validado)
+
+- **Analítica**: *"me gusta bastante cómo está distribuido lo de puntualidad, chóferes, etcétera,
+  me parece muy visual, muy intuitivo, muy bonito"*. Pendiente solo de verlo con datos reales.
+- **Nómina**: la información que muestra *"es suficiente"*; exportar CSV e imprimir, *"de puta
+  madre"*.
+- **Tu cuenta**: cambiar email/contraseña estando ya dado de alta *"tiene mucho sentido"*.
+- **Presupuesto**: que el margen objetivo se pueda calcular, y poner el gasoil a mano como opción.
+
+---
+
 ## 🔴 GATE MAESTRO (mentoría estratégica, 2026-07-19 — LEER ANTES DE ABRIR CUALQUIER FASE)
 
 Análisis contra marcos de Thiel/Graham/Andreessen/Horowitz/Ries + Startup Genome Report +
