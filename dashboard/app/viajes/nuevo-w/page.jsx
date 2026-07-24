@@ -534,6 +534,20 @@ export default function NuevoViajeWizard() {
 
       {paso === 2 && (
         <div className="flex flex-col gap-5 max-w-2xl">
+          {/* 18.C.2 (Fase 18, "pool de viajes", 2026-07-24): esto es opcional a
+              propósito. Feedback real del usuario, confirmado con un gestor de
+              tráfico de verdad: quien CREA el viaje no tiene por qué saber (ni
+              decidir) qué camión concreto lo hace -- eso lo decide después el
+              jefe de tráfico/gestor al que se le adjudique. Sin elegir nada
+              aquí, el viaje se crea "en el pool" (sin gestor, sin chófer, sin
+              vehículo) y se reparte luego desde Ajustes → Equipo. */}
+          <div className="text-xs text-ink-secondary bg-surface-alt border border-border rounded-md px-3 py-2">
+            Todo esto es opcional. Si no sabes todavía quién lo va a hacer, salta directamente a{" "}
+            <button type="button" onClick={() => setPaso(3)} className="underline text-brand font-medium">
+              Confirmar
+            </button>{" "}
+            y el viaje se crea sin asignar, en el pool — se reparte después desde Ajustes → Equipo.
+          </div>
           {avisoAsignacion && (
             <p className="text-xs text-yellow-700 flex items-start gap-1.5"><AlertTriangle size={13} className="shrink-0 mt-0.5" /> {avisoAsignacion}</p>
           )}
@@ -651,8 +665,8 @@ export default function NuevoViajeWizard() {
             <div><span className="text-ink-secondary">Cliente:</span> {clientes.find((c) => c.id === clienteId)?.nombre || "Sin cliente asociado"}</div>
             <div><span className="text-ink-secondary">Precio:</span> {precio ? fmtEur(Number(precio)) : "—"}</div>
             <div><span className="text-ink-secondary">Paradas:</span> {hitos.filter((h) => h.direccion.trim()).length}</div>
-            <div><span className="text-ink-secondary">Chófer:</span> {choferNombre || "Sin asignar"}</div>
-            <div><span className="text-ink-secondary">Vehículo:</span> {tractoras.find((v) => v.id === vehiculoId)?.matricula || "Sin asignar"}</div>
+            <div><span className="text-ink-secondary">Chófer:</span> {choferNombre || "Sin asignar (va al pool)"}</div>
+            <div><span className="text-ink-secondary">Vehículo:</span> {tractoras.find((v) => v.id === vehiculoId)?.matricula || "Sin asignar (va al pool)"}</div>
             {remolqueId && (
               <div><span className="text-ink-secondary">Remolque:</span> {remolques.find((v) => v.id === remolqueId)?.matricula || "Sin asignar"}</div>
             )}

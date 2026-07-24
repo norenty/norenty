@@ -163,7 +163,16 @@ export default function ViajesPage() {
                 >
                   <span className="font-mono text-sm text-ink">{v.referencia}</span>
                   <div className="min-w-0">
-                    <div className="text-sm text-ink truncate">{v.chofer?.nombre || "Sin asignar"}</div>
+                    <div className="text-sm text-ink truncate flex items-center gap-1.5">
+                      {v.chofer?.nombre || "Sin asignar"}
+                      {/* 18.C.1: sin gestor_id, el viaje es del pool -- visible a
+                          todo el equipo, pendiente de adjudicar. */}
+                      {!v.gestor_id && (v.estado === "planificado" || v.estado === "en_curso") && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-800 shrink-0">
+                          En el pool
+                        </span>
+                      )}
+                    </div>
                     {v.hitoActual && (
                       <div className="text-xs text-ink-secondary truncate">{v.hitoActual}</div>
                     )}

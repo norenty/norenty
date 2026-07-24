@@ -262,6 +262,9 @@ export async function getViajesLista({ offset = 0, estado = null } = {}) {
       estado: v.estado,
       created_at: v.created_at,
       chofer: v.chofer || { nombre: "Sin asignar", idioma: "" },
+      // 18.C.1: sin gestor_id el viaje está "en el pool" (visible a todo el
+      // equipo, pendiente de que el jefe de tráfico lo adjudique).
+      gestor_id: v.gestor_id,
       hitosCompletados: completados,
       hitosTotal: total,
       hitoActual: pendiente
@@ -765,6 +768,34 @@ export async function getChoferesConGestor() {
  */
 export async function guardarGestorChofer(choferId, gestorId) {
   const { error } = await supabase.from("chofer").update({ gestor_id: gestorId || null }).eq("id", choferId);
+  if (error) throw error;
+}
+
+/**
+ * 18.C.1 (Fase 18, "pool de viajes", 2026-07-24) — el flujo real que describió
+ * el usuario tras hablarlo con un gestor de tráfico de verdad: comercial/admin
+ * crea el viaje SIN adjudicarlo a nadie (queda en el "pool", gestor_id NULL,
+ * visible para todo el equipo por la RLS de F15.2); el jefe de tráfico decide
+ * qué gestor lleva cada viaje; ese gestor decide después qué chófer concreto
+ * lo hace. El backend de esto (columna, RLS, trigger admin-only) ya existía
+ * desde F15.1/F15.2/F15.2b para atribución — solo faltaba la pantalla.
+ *
+ * Solo viajes no completados/cancelados: una vez cerrado un viaje, quién lo
+ * llevó es historia, no algo que reasignar desde esta pantalla de reparto.
+ */
+export async function getViajesConGestor() {
+  const { data } = await supabase
+    .from("viaje")
+    .select("id, referencia, estado, gestor_id, cliente:cliente_id(nombre)")
+    .in("estado", ["planificado", "en_curso"])
+    .order("created_at", { ascending: false });
+  return data || [];
+}
+
+/** Asigna (o desasigna con `gestorId = null`) un viaje a un gestor — mismo
+ * criterio y mismas protecciones (solo admin) que `guardarGestorChofer`. */
+export async function guardarGestorViaje(viajeId, gestorId) {
+  const { error } = await supabase.from("viaje").update({ gestor_id: gestorId || null }).eq("id", viajeId);
   if (error) throw error;
 }
 

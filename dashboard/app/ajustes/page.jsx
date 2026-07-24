@@ -9,6 +9,7 @@ import {
   guardarNombreEmpresa, guardarBaseEmpresa, guardarCosteKmEmpresa, guardarVelocidadEmpresa,
   guardarDesgloseCosteEmpresa, guardarObjetivoPuntualidadEmpresa, guardarMargenObjetivoEmpresa,
   guardarRequierePodEmpresa, getChoferesConGestor, guardarGestorChofer, guardarTelefonoGestor,
+  getViajesConGestor, guardarGestorViaje,
 } from "../../lib/data";
 import RequireRol from "../components/RequireRol";
 import AjustesPerfilSection from "../components/AjustesPerfilSection";
@@ -52,6 +53,8 @@ export default function AjustesPage() {
   const [gestorAccionandoId, setGestorAccionandoId] = useState(null);
   const [choferesEquipo, setChoferesEquipo] = useState([]);
   const [choferAccionandoId, setChoferAccionandoId] = useState(null);
+  const [viajesPool, setViajesPool] = useState([]);
+  const [viajeAccionandoId, setViajeAccionandoId] = useState(null);
   const [mfaFactores, setMfaFactores] = useState([]);
   const [mfaEnrolando, setMfaEnrolando] = useState(false);
   const [mfaQr, setMfaQr] = useState(null);
@@ -122,6 +125,7 @@ export default function AjustesPage() {
           setInvitaciones(await getInvitaciones());
           setGestores(await getGestoresEmpresa());
           setChoferesEquipo(await getChoferesConGestor());
+          setViajesPool(await getViajesConGestor());
         }
       }
     }
@@ -141,6 +145,17 @@ export default function AjustesPage() {
       flash("Error: " + err.message);
     }
     setChoferAccionandoId(null);
+  }
+
+  async function cambiarGestorViaje(viajeId, gestorId) {
+    setViajeAccionandoId(viajeId);
+    try {
+      await guardarGestorViaje(viajeId, gestorId);
+      setViajesPool(await getViajesConGestor());
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
+    setViajeAccionandoId(null);
   }
 
   async function cambiarRolGestor(gestorId, nuevoRol) {
@@ -496,6 +511,9 @@ export default function AjustesPage() {
           choferes={choferesEquipo}
           cambiarGestorChofer={cambiarGestorChofer}
           choferAccionandoId={choferAccionandoId}
+          viajesPool={viajesPool}
+          cambiarGestorViaje={cambiarGestorViaje}
+          viajeAccionandoId={viajeAccionandoId}
         />
       </RequireRol>
 

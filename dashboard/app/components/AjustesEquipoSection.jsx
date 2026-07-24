@@ -32,6 +32,9 @@ export default function AjustesEquipoSection({
   choferes,
   cambiarGestorChofer,
   choferAccionandoId,
+  viajesPool,
+  cambiarGestorViaje,
+  viajeAccionandoId,
 }) {
   // 17.G.3 (auditoría de asignación, 2026-07-23): con muchos chóferes (caso
   // real: 80 en la empresa de prueba "Transportes Pepito") esta lista se
@@ -45,6 +48,21 @@ export default function AjustesEquipoSection({
   const [seleccionados, setSeleccionados] = useState(new Set());
   const [gestorBulk, setGestorBulk] = useState("");
   const [aplicandoBulk, setAplicandoBulk] = useState(false);
+
+  // 18.C.1: mismo patrón, pero para adjudicar viajes del "pool" (sin gestor)
+  // a un gestor concreto — es el jefe de tráfico decidiendo "esta ruta la
+  // llevas tú" que describió el usuario.
+  const [filtroViaje, setFiltroViaje] = useState("");
+  const viajesFiltrados = useMemo(() => {
+    const q = filtroViaje.trim().toLowerCase();
+    const lista = viajesPool || [];
+    if (!q) return lista;
+    return lista.filter((v) =>
+      (v.referencia || "").toLowerCase().includes(q) || (v.cliente?.nombre || "").toLowerCase().includes(q)
+    );
+  }, [viajesPool, filtroViaje]);
+  const viajesSinAsignar = viajesFiltrados.filter((v) => !v.gestor_id);
+  const viajesYaAsignados = viajesFiltrados.filter((v) => v.gestor_id);
 
   const choferesFiltrados = useMemo(() => {
     const q = filtroChofer.trim().toLowerCase();
@@ -270,6 +288,70 @@ export default function AjustesEquipoSection({
             ))}
             {choferesFiltrados.length === 0 && (
               <p className="text-xs text-ink-muted">Ningún chófer coincide con "{filtroChofer}".</p>
+            )}
+          </div>
+        </>
+      )}
+
+      <h3 className="text-xs font-medium text-ink-secondary mb-2 mt-4">
+        Adjudicación de viajes (18.C.1)
+      </h3>
+      <p className="text-xs text-ink-secondary mb-3">
+        Un viaje "En el pool" lo puede ver y tomar cualquier gestor. Adjudícalo a uno para que
+        sea suyo — a partir de ahí, ese gestor es quien decide qué chófer concreto lo hace.
+      </p>
+      {!viajesPool || viajesPool.length === 0 ? (
+        <p className="text-xs text-ink-muted">Sin viajes abiertos todavía.</p>
+      ) : (
+        <>
+          <input
+            value={filtroViaje}
+            onChange={(e) => setFiltroViaje(e.target.value)}
+            placeholder="Buscar por referencia o cliente..."
+            className="w-full text-xs border border-border rounded-md px-2 py-1.5 mb-2 focus:outline-none focus:border-brand"
+          />
+          <div className="flex flex-col gap-2 max-h-96 overflow-y-auto">
+            {viajesSinAsignar.map((v) => (
+              <div key={v.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-md bg-yellow-50 border border-yellow-200">
+                <span className="flex-1 min-w-0 truncate text-ink">
+                  {v.referencia || "(sin referencia)"}
+                  {v.cliente?.nombre && <span className="text-ink-muted"> · {v.cliente.nombre}</span>}
+                </span>
+                <span className="text-xs px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-800 whitespace-nowrap">En el pool</span>
+                <select
+                  value=""
+                  disabled={viajeAccionandoId === v.id}
+                  onChange={(e) => e.target.value && cambiarGestorViaje(v.id, e.target.value)}
+                  className="text-xs border border-border rounded-md px-2 py-1 disabled:opacity-40"
+                >
+                  <option value="">Adjudicar a…</option>
+                  {gestores.filter((g) => g.activo).map((g) => (
+                    <option key={g.id} value={g.id}>{g.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+            {viajesYaAsignados.map((v) => (
+              <div key={v.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-md bg-surface-alt">
+                <span className="flex-1 min-w-0 truncate text-ink">
+                  {v.referencia || "(sin referencia)"}
+                  {v.cliente?.nombre && <span className="text-ink-muted"> · {v.cliente.nombre}</span>}
+                </span>
+                <select
+                  value={v.gestor_id || ""}
+                  disabled={viajeAccionandoId === v.id}
+                  onChange={(e) => cambiarGestorViaje(v.id, e.target.value || null)}
+                  className="text-xs border border-border rounded-md px-2 py-1 disabled:opacity-40"
+                >
+                  <option value="">Devolver al pool</option>
+                  {gestores.filter((g) => g.activo).map((g) => (
+                    <option key={g.id} value={g.id}>{g.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+            {viajesFiltrados.length === 0 && (
+              <p className="text-xs text-ink-muted">Ningún viaje coincide con "{filtroViaje}".</p>
             )}
           </div>
         </>
