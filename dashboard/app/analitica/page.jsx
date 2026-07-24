@@ -18,6 +18,7 @@ import {
 import { fmtEur } from "../../lib/format";
 import ErrorCargaReintentar from "../components/ui/ErrorCargaReintentar";
 import SectionCard from "../components/ui/SectionCard";
+import MetricCard from "../components/MetricCard";
 import { useRol } from "../components/RolProvider";
 
 const VISTAS = [
@@ -42,28 +43,8 @@ const VISTAS = [
 // de igual duración. `invertir`: para métricas donde SUBIR es malo (p.ej.
 // "viajes a pérdidas"), invierte el color sin invertir la flecha (la flecha
 // siempre indica la dirección real del cambio; el color indica si es bueno).
-function Variacion({ comp, invertir = false, sufijo = "%" }) {
-  if (!comp || comp.variacionPct == null) return null;
-  const sube = comp.variacionPct > 0;
-  const esBueno = invertir ? !sube : sube;
-  const color = comp.variacionPct === 0 ? "text-ink-muted" : esBueno ? "text-estado-ok" : "text-estado-incidencia";
-  const flecha = comp.variacionPct === 0 ? "→" : sube ? "▲" : "▼";
-  return (
-    <div className={`text-xs mt-1 ${color}`}>
-      {flecha} {Math.abs(comp.variacionPct)}{sufijo} vs. periodo anterior
-    </div>
-  );
-}
-
-function Card({ label, value, sub, comp, invertirComp = false, sufijoComp }) {
-  return (
-    <div className="bg-surface border border-border rounded-xl p-4">
-      <div className="text-xs text-ink-secondary mb-1">{label}</div>
-      <div className="text-2xl font-semibold text-ink">{value ?? "—"}</div>
-      {sub && <div className="text-xs text-ink-muted mt-1">{sub}</div>}
-      <Variacion comp={comp} invertir={invertirComp} sufijo={sufijoComp} />
-    </div>
-  );
+function Card(props) {
+  return <MetricCard size="lg" {...props} />;
 }
 
 function Barra({ label, count, max }) {
