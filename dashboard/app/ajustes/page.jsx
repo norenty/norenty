@@ -6,7 +6,7 @@ import { getSession, signOut, signOutTodasLasSesiones } from "../../lib/auth";
 import {
   VELOCIDAD_PLANIFICACION_KMH, getInvitaciones, createInvitacion, deleteInvitacion, getBotHeartbeat,
   getGestoresEmpresa, actualizarRolGestor, desactivarGestor, reactivarGestor, INVITACION_VALIDEZ_DIAS,
-  guardarNombreEmpresa, guardarBaseEmpresa, guardarCosteKmEmpresa, guardarVelocidadEmpresa,
+  guardarNombreEmpresa, getBasesEmpresa, crearBaseEmpresa, eliminarBaseEmpresa, guardarCosteKmEmpresa, guardarVelocidadEmpresa,
   guardarDesgloseCosteEmpresa, guardarObjetivoPuntualidadEmpresa, guardarMargenObjetivoEmpresa,
   guardarRequierePodEmpresa, getChoferesConGestor, guardarGestorChofer, guardarTelefonoGestor,
   getViajesConGestor, guardarGestorViaje,
@@ -25,8 +25,8 @@ export default function AjustesPage() {
   const [user, setUser] = useState(null);
   const [empresa, setEmpresa] = useState(null);
   const [empresaNombre, setEmpresaNombre] = useState("");
-  const [baseLat, setBaseLat] = useState("");
-  const [baseLon, setBaseLon] = useState("");
+  const [bases, setBases] = useState([]);
+  const [baseAccionando, setBaseAccionando] = useState(null);
   const [costeKm, setCosteKm] = useState("");
   const [objetivoPuntualidad, setObjetivoPuntualidad] = useState("");
   const [margenObjetivo, setMargenObjetivo] = useState("");
@@ -111,8 +111,7 @@ export default function AjustesPage() {
             .single();
           setEmpresa(emp);
           setEmpresaNombre(emp?.nombre || "");
-          setBaseLat(emp?.base_lat != null ? String(emp.base_lat) : "");
-          setBaseLon(emp?.base_lon != null ? String(emp.base_lon) : "");
+          setBases(await getBasesEmpresa());
           setCosteKm(emp?.coste_km != null ? String(emp.coste_km) : "");
           setObjetivoPuntualidad(emp?.objetivo_puntualidad_pct != null ? String(emp.objetivo_puntualidad_pct) : "");
           setMargenObjetivo(emp?.margen_objetivo_pct != null ? String(emp.margen_objetivo_pct) : "");
@@ -209,16 +208,27 @@ export default function AjustesPage() {
     setGuardando(false);
   }
 
-  async function guardarBase() {
-    if (!empresa) return;
-    setGuardando(true);
+  // 18.C.3: sustituye a guardarBase (una única lat/lon) por gestión de varias
+  // bases -- crearBase/eliminarBase en base_empresa (migración 0061).
+  async function crearBase(nombre, lat, lon) {
     try {
-      await guardarBaseEmpresa(empresa.id, baseLat, baseLon);
-      flash("Ubicación base guardada");
+      await crearBaseEmpresa({ nombre, lat, lon });
+      setBases(await getBasesEmpresa());
+      flash("Base añadida");
     } catch (err) {
       flash("Error: " + err.message);
     }
-    setGuardando(false);
+  }
+
+  async function eliminarBase(baseId) {
+    setBaseAccionando(baseId);
+    try {
+      await eliminarBaseEmpresa(baseId);
+      setBases(await getBasesEmpresa());
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
+    setBaseAccionando(null);
   }
 
   async function guardarCoste() {
@@ -533,11 +543,10 @@ export default function AjustesPage() {
         empresaNombre={empresaNombre}
         setEmpresaNombre={setEmpresaNombre}
         guardarEmpresa={guardarEmpresa}
-        baseLat={baseLat}
-        setBaseLat={setBaseLat}
-        baseLon={baseLon}
-        setBaseLon={setBaseLon}
-        guardarBase={guardarBase}
+        bases={bases}
+        crearBase={crearBase}
+        eliminarBase={eliminarBase}
+        baseAccionando={baseAccionando}
         costeKm={costeKm}
         setCosteKm={setCosteKm}
         guardarCoste={guardarCoste}

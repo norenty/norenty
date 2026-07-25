@@ -5,6 +5,11 @@ vi.mock("./RequireRol", () => ({
   default: ({ children }) => children,
 }));
 
+// AjustesEmpresaSection ahora usa DireccionAutocomplete (18.C.3, gestión de
+// bases), que importa lib/data.js -> lib/supabase.js -- sin mock, crea un
+// cliente real y revienta por falta de env vars en el entorno de test.
+vi.mock("../../lib/supabase", () => ({ supabase: { from: () => ({}) } }));
+
 // Ítem 9.40: smoke tests de renderizado de los subcomponentes extraídos de
 // ajustes/page.jsx (908 líneas -> 5 secciones). Grupo A: solo verifica que
 // cada componente renderiza sin lanzar con props mínimas válidas y que
@@ -122,11 +127,10 @@ describe("AjustesEmpresaSection", () => {
         empresaNombre="Norenty"
         setEmpresaNombre={() => {}}
         guardarEmpresa={() => {}}
-        baseLat=""
-        setBaseLat={() => {}}
-        baseLon=""
-        setBaseLon={() => {}}
-        guardarBase={() => {}}
+        bases={[]}
+        crearBase={() => {}}
+        eliminarBase={() => {}}
+        baseAccionando={null}
         costeKm=""
         setCosteKm={() => {}}
         guardarCoste={() => {}}
@@ -149,7 +153,7 @@ describe("AjustesEmpresaSection", () => {
       />
     );
     expect(html).toContain("Empresa");
-    expect(html).toContain("Ubicación base");
+    expect(html).toContain("Bases / naves");
     expect(html).toContain("Coste de operación");
     expect(html).toContain("Velocidad de planificación");
     expect(html).toContain("Prueba de entrega");

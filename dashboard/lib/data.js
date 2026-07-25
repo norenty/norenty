@@ -634,6 +634,39 @@ export async function guardarBaseEmpresa(empresaId, baseLatStr, baseLonStr) {
   if (error) throw error;
 }
 
+// ==========================================================================
+// Múltiples bases/naves (18.C.3, Fase 18, 2026-07-25) — feedback del usuario:
+// "podemos tener múltiples bases, es algo que debe estar contemplado", y un
+// chófer no tiene por qué estar fijado a una base concreta (puede
+// desplazarse entre ellas). `empresa.base_lat/base_lon` (0013) queda
+// deprecado como fuente de verdad -- se migró a `base_empresa` (0061); las
+// columnas viejas se dejan sin usar en vez de borrarlas (no destructivo).
+// Gestión restringida a admin a nivel de UI (misma sección ya envuelta en
+// RequireRol, 18.A.3b) -- no hace falta trigger nuevo en BD.
+// ==========================================================================
+
+export async function getBasesEmpresa() {
+  const { data } = await supabase.from("base_empresa").select("id, nombre, lat, lon").order("nombre");
+  return data || [];
+}
+
+export async function crearBaseEmpresa({ nombre, lat, lon }) {
+  if (!nombre || !nombre.trim()) throw new Error("ponle un nombre a la base (ej. \"Nave Madrid\")");
+  const latNum = Number(lat);
+  const lonNum = Number(lon);
+  if (Number.isNaN(latNum) || latNum < -90 || latNum > 90 || Number.isNaN(lonNum) || lonNum < -180 || lonNum > 180) {
+    throw new Error("coordenadas inválidas");
+  }
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("base_empresa").insert({ empresa_id: empresaId, nombre: nombre.trim(), lat: latNum, lon: lonNum });
+  if (error) throw error;
+}
+
+export async function eliminarBaseEmpresa(baseId) {
+  const { error } = await supabase.from("base_empresa").delete().eq("id", baseId);
+  if (error) throw error;
+}
+
 export async function guardarCosteKmEmpresa(empresaId, costeKmStr) {
   const coste = costeKmStr.trim() === "" ? null : Number(costeKmStr);
   if (coste != null && (Number.isNaN(coste) || coste < 0)) {
@@ -2222,7 +2255,7 @@ export async function getInformeNomina(mes, anio) {
   const [
     { data: choferes, error: errorChoferes },
     { data: llegadasMesRaw, error: errorLlegadas },
-    { data: empresas, error: errorEmpresas },
+    { data: bases, error: errorBases },
   ] = await Promise.all([
     supabase.from("chofer").select("id, nombre").order("id").limit(5000),
     supabase.from("ejecucion_evento")
@@ -2230,11 +2263,15 @@ export async function getInformeNomina(mes, anio) {
       .eq("tipo", "llegada")
       .gte("ocurrido_en", inicioISO)
       .lt("ocurrido_en", finISO),
-    supabase.from("empresa").select("id, base_lat, base_lon"),
+    // 18.C.3: múltiples bases -- un chófer puede desplazarse entre naves, así
+    // que "noche fuera" se calcula contra la base MÁS CERCANA de la empresa,
+    // no una única fija (confirmar este criterio con el gestor real en el
+    // discovery de 12.3 sigue pendiente).
+    supabase.from("base_empresa").select("lat, lon"),
   ]);
   if (errorChoferes) throw errorChoferes;
   if (errorLlegadas) throw errorLlegadas;
-  if (errorEmpresas) throw errorEmpresas;
+  if (errorBases) throw errorBases;
   const llegadasMes = llegadasMesRaw || [];
 
   const viajeIdsMes = [...new Set(llegadasMes.map((e) => e.viaje_id))];
@@ -2252,9 +2289,11 @@ export async function getInformeNomina(mes, anio) {
   if (errorViajes) throw errorViajes;
   if (errorHitos) throw errorHitos;
 
-  const base = (empresas || [])[0];
-  const tieneBase = base && base.base_lat != null && base.base_lon != null;
-  const basePunto = tieneBase ? { lat: base.base_lat, lon: base.base_lon } : null;
+  const tieneBase = (bases || []).length > 0;
+  // Distancia a la base más cercana, no a una fija -- ver comentario arriba.
+  function distanciaBaseMasCercana(punto) {
+    return Math.min(...bases.map((b) => haversineKm(punto, { lat: b.lat, lon: b.lon })));
+  }
 
   const hitoById = Object.fromEntries((hitos || []).map((h) => [h.id, h]));
   const viajeById = Object.fromEntries((viajes || []).map((v) => [v.id, v]));
@@ -2289,7 +2328,7 @@ export async function getInformeNomina(mes, anio) {
       const enVentana = hora >= NOCHE_HORA_INICIO || hora < NOCHE_HORA_FIN;
       if (!enVentana) continue;
 
-      const distancia = haversineKm(basePunto, { lat: hito.lat, lon: hito.lon });
+      const distancia = distanciaBaseMasCercana({ lat: hito.lat, lon: hito.lon });
       if (distancia > UMBRAL_NOCHE_FUERA_KM) {
         chofer._nochesSet.add(fechaNocheOperacion(ev.ocurrido_en));
       }

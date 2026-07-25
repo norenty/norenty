@@ -879,7 +879,9 @@ describe("getInformeNomina", () => {
   const CERCA_MADRID = { lat: 40.42, lon: -3.71 }; // <50km de la base
 
   function setBase(punto) {
-    TABLES.empresa = [{ id: "emp1", base_lat: punto?.lat ?? null, base_lon: punto?.lon ?? null }];
+    // 18.C.3: la fuente de verdad pasó de empresa.base_lat/lon a base_empresa
+    // (múltiples bases, se calcula contra la más cercana).
+    TABLES.base_empresa = punto ? [{ id: "b1", nombre: "Base principal", lat: punto.lat, lon: punto.lon }] : [];
   }
 
   it("nochesFuera = null cuando la empresa no tiene base configurada", async () => {

@@ -1,7 +1,9 @@
 "use client";
 
-import { Save, Building2, MapPin, Euro, Gauge, Target, Camera } from "lucide-react";
+import { useState } from "react";
+import { Save, Building2, MapPin, Euro, Gauge, Target, Camera, Plus, Trash2 } from "lucide-react";
 import RequireRol from "./RequireRol";
+import DireccionAutocomplete from "./ui/DireccionAutocomplete";
 
 /** Secciones de configuración de empresa en Ajustes (ítem 9.40): nombre,
  * ubicación base, coste/km, velocidad de planificación y coste desglosado.
@@ -12,11 +14,10 @@ export default function AjustesEmpresaSection({
   empresaNombre,
   setEmpresaNombre,
   guardarEmpresa,
-  baseLat,
-  setBaseLat,
-  baseLon,
-  setBaseLon,
-  guardarBase,
+  bases,
+  crearBase,
+  eliminarBase,
+  baseAccionando,
   costeKm,
   setCosteKm,
   guardarCoste,
@@ -43,6 +44,29 @@ export default function AjustesEmpresaSection({
   toggleRequierePod,
   guardando,
 }) {
+  // 18.C.3 (Fase 18, 2026-07-25): "podemos tener múltiples bases, es algo que
+  // debe estar contemplado" -- formulario de alta local a esta sección (mismo
+  // patrón que el filtro/selección de AjustesEquipoSection).
+  const [nuevaBaseNombre, setNuevaBaseNombre] = useState("");
+  const [nuevaBaseDireccion, setNuevaBaseDireccion] = useState("");
+  const [nuevaBaseLat, setNuevaBaseLat] = useState("");
+  const [nuevaBaseLon, setNuevaBaseLon] = useState("");
+  const [anadiendoBase, setAnadiendoBase] = useState(false);
+
+  async function anadirBase() {
+    if (!nuevaBaseNombre.trim() || nuevaBaseLat === "" || nuevaBaseLon === "" || anadiendoBase) return;
+    setAnadiendoBase(true);
+    try {
+      await crearBase(nuevaBaseNombre, nuevaBaseLat, nuevaBaseLon);
+      setNuevaBaseNombre("");
+      setNuevaBaseDireccion("");
+      setNuevaBaseLat("");
+      setNuevaBaseLon("");
+    } finally {
+      setAnadiendoBase(false);
+    }
+  }
+
   return (
     <>
       <section id="ajustes-empresa" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
@@ -78,46 +102,69 @@ export default function AjustesEmpresaSection({
       <section id="ajustes-ubicacion-base" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
         <div className="flex items-center gap-2 mb-1">
           <MapPin size={18} className="text-brand" />
-          <h2 className="text-sm font-medium text-ink">Ubicación base</h2>
+          <h2 className="text-sm font-medium text-ink">Bases / naves</h2>
         </div>
         <p className="text-xs text-ink-secondary mb-4">
-          Coordenadas del domicilio/base de la empresa. Se usan en el informe de
-          nómina para calcular las noches fuera (cuando un chófer duerme lejos de
-          la base). Déjalas vacías si aún no las tienes.
+          Naves o domicilios de la empresa. Se usan en el informe de nómina para calcular las
+          noches fuera (un chófer no está atado a una base fija — cuenta la distancia a la más
+          cercana). Añade al menos una si aún no la tienes.
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs text-ink-secondary mb-1">Latitud</label>
+
+        {bases && bases.length > 0 && (
+          <div className="flex flex-col gap-2 mb-4">
+            {bases.map((b) => (
+              <div key={b.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-md bg-surface-alt">
+                <span className="flex-1 min-w-0 truncate text-ink">{b.nombre}</span>
+                <span className="text-xs text-ink-muted font-mono shrink-0">{b.lat.toFixed(3)}, {b.lon.toFixed(3)}</span>
+                <button
+                  onClick={() => eliminarBase(b.id)}
+                  disabled={baseAccionando === b.id}
+                  aria-label={`Eliminar base ${b.nombre}`}
+                  className="p-1 text-ink-muted hover:text-estado-incidencia disabled:opacity-40 shrink-0"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-end gap-2 flex-wrap">
+          <div className="w-40">
+            <label className="block text-xs text-ink-secondary mb-1">Nombre</label>
             <input
-              type="number"
-              step="any"
-              value={baseLat}
-              onChange={(e) => setBaseLat(e.target.value)}
-              placeholder="40.4168"
+              value={nuevaBaseNombre}
+              onChange={(e) => setNuevaBaseNombre(e.target.value)}
+              placeholder="Nave Madrid"
+              maxLength={100}
               className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
             />
           </div>
-          <div>
-            <label className="block text-xs text-ink-secondary mb-1">Longitud</label>
-            <input
-              type="number"
-              step="any"
-              value={baseLon}
-              onChange={(e) => setBaseLon(e.target.value)}
-              placeholder="-3.7038"
-              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+          <div className="flex-1 min-w-[220px]">
+            <label className="block text-xs text-ink-secondary mb-1">Dirección</label>
+            <DireccionAutocomplete
+              value={nuevaBaseDireccion}
+              onChangeDireccion={setNuevaBaseDireccion}
+              onElegirSugerida={(d) => {
+                setNuevaBaseDireccion(d.direccion);
+                setNuevaBaseLat(String(d.lat));
+                setNuevaBaseLon(String(d.lon));
+              }}
+              direcciones={[]}
+              placeholder="Calle Mayor 3, Madrid"
             />
           </div>
-        </div>
-        <div className="mt-3">
           <button
-            onClick={guardarBase}
-            disabled={guardando}
-            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
+            onClick={anadirBase}
+            disabled={anadiendoBase || !nuevaBaseNombre.trim() || nuevaBaseLat === ""}
+            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40 shrink-0"
           >
-            <Save size={16} /> Guardar base
+            <Plus size={16} /> Añadir
           </button>
         </div>
+        {nuevaBaseDireccion && nuevaBaseLat === "" && (
+          <p className="text-xs text-ink-muted mt-1.5">Elige una sugerencia de la lista para ubicar la dirección.</p>
+        )}
       </section>
 
       <RequireRol roles={["admin"]}>
