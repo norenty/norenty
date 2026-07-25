@@ -10,6 +10,65 @@ PROGRESS.md y sigue). `[LOOP]` = spec inequívoca, el loop puede hacerlo solo.
 
 ---
 
+## 🔴🔴 FASE 19 — TRUNCAMIENTO SILENCIOSO A 1000 FILAS (hallazgo 2026-07-25, BLOQUEANTE DE ESCALA)
+
+**Pregunta del usuario:** *"¿estás 100% seguro de que el software es sólido y escalable? Supón que
+mañana entran 3 empresas, suman 1500 camiones y toda la operativa. ¿Aguantaría?"*
+
+**Respuesta honesta: NO, y hay prueba empírica, no teoría.**
+
+PostgREST (la capa REST de Supabase) **corta cualquier `select()` en 1000 filas sin avisar**: no
+lanza error, no marca nada, simplemente devuelve menos datos. Comprobado hoy contra la BD de dev:
+
+```
+bot_heartbeat: filas devueltas por un select() sin limit = 1000
+bot_heartbeat: cuenta REAL                               = 1529
+```
+
+Esto ya nos mordió una vez: el monitor "Estado del bot" decía **SIN SEÑAL con el bot vivo**
+(arreglado en `af2b090`). Aquello no fue un caso aislado, fue **el canario**. El mismo patrón está
+en consultas que hoy funcionan solo porque la empresa de prueba es pequeña.
+
+**Por qué es grave y no "un bug más":** el fallo no es un crash, son **números plausibles pero
+falsos**. Nadie se entera. En una nómina o una factura eso es dinero real mal pagado o mal cobrado.
+
+### Funciones afectadas (verificadas leyendo el código, 2026-07-25)
+
+- [ ] `[LOOP 19.1]` **🔴 `getInformeNomina`** — carga `chofer`, `viaje` E `hito` **enteras, sin
+  filtro de fecha ni `limit`** (`lib/data.js` ~2185-2187). Es el informe de **NÓMINA**: con >1000
+  chóferes/viajes/hitos empieza a pagar mal, en silencio. El peor de la lista.
+- [ ] `[LOOP 19.2]` **🔴 `getDatosFacturacion`** — `ejecucion_evento ... .eq("tipo","llegada")`
+  **sin cota de fecha ni `limit`** (~2904). Es **FACTURACIÓN**: mismo problema, con el cliente
+  delante.
+- [ ] `[LOOP 19.3]` **`sugerirChofer`** — lee `ubicacion` de las últimas 48 h (~1827). Con 1500
+  camiones emitiendo GPS esto son cientos de miles de filas: el ranking de chóferes se calcularía
+  sobre una muestra arbitraria de 1000.
+- [ ] `[LOOP 19.4]` **`getMetricasPuntualidad` / `getMetricasChoferes` / `getMetricasPorCliente`**
+  — `hito` y `viaje` sin `limit` (~999, ~1169, ~1240). Toda la Analítica (la pantalla que el
+  usuario dijo que más le gustaba) daría KPIs falsos.
+- [ ] `[LOOP 19.5]` **`getExportacionChofer`** — historial completo de `ubicacion` de un chófer
+  sin `limit` (~3493). Es el export de **derechos ARCO (RGPD)**: entregar datos incompletos a un
+  chófer que los reclama es un problema legal, no solo técnico.
+
+### Otros límites de escala detectados (mismo repaso, menos urgentes)
+
+- [ ] `[DECISIÓN 19.6]` **La analítica calcula en el navegador.** Aunque se quite el tope de 1000,
+  descargar cientos de miles de filas al cliente para sumarlas en JS no escala. Lo correcto es
+  agregar en Postgres (vistas materializadas o RPC) y que el navegador reciba el resultado, no la
+  materia prima. Es un rediseño, no un parche.
+- [ ] `[DECISIÓN 19.7]` **Crecimiento de `ubicacion`.** Ya estaba anotado como 9.24 (particionado)
+  y diferido "cuando supere X filas". Con 1500 camiones ese umbral se cruza en semanas, no años.
+- [ ] `[LOOP 19.8]` **N+1 en `getResumenHoy`** (~1955): una consulta a `ubicacion` **por cada
+  viaje activo** dentro de un `Promise.all`. Con 200 viajes en curso son 200 consultas por carga
+  de la pantalla de inicio.
+
+**Regla para el futuro (aplicar en toda consulta nueva):** ningún `select()` sobre una tabla que
+crece (`hito`, `ejecucion_evento`, `ubicacion`, `viaje`, `gasto_viaje`, `bot_heartbeat`,
+`mensaje_chofer`, `contexto`) sale sin **`limit` explícito + `order` explícito**, o sin una
+agregación hecha en el servidor. Si hace falta "todo", se pagina de verdad.
+
+---
+
 ## 🔥 FASE 18 — Revisión de producto del usuario (2026-07-24, recorriendo el dashboard en vivo)
 
 **Origen:** el usuario recorrió Ajustes / Analítica / Nómina / Facturación / Presupuesto y dio
