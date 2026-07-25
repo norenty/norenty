@@ -391,6 +391,18 @@ async function gestorIdPorDefecto() {
   return gestor.id;
 }
 
+/** C.1/C.2 -- siempre el propio gestor, NUNCA null. Para los casos donde no
+ * debe existir un estado "sin asignar" (choferes, decisión 2026-07-25: "creo
+ * que nunca debería haber un chofer sin asignar un gestor") o donde NULL
+ * perdería el rastro de auditoría (quién solicitó/resolvió una aprobación).
+ * Distinto de gestorIdPorDefecto(), que sigue devolviendo null para admin --
+ * ese es el comportamiento correcto para viaje.gestor_id (18.C.1, "pool" de
+ * viajes SÍ es un estado válido, decisión aparte). */
+async function gestorIdComoAutor() {
+  const gestor = await getCurrentGestor();
+  return gestor ? gestor.id : null;
+}
+
 // ==========================================================================
 // Clientes (ítem 11.1) — el cliente como entidad de primera clase, para que el
 // conocimiento gestor↔cliente tenga dónde vivir (precursor de la capa de
@@ -528,7 +540,7 @@ export async function getPlantillaHitos(plantillaRutaId) {
  * el asistente de nuevo viaje (getPlantillasRuta) hasta que se apruebe. */
 export async function crearPlantillaRuta({ nombre, clienteId = null, hitos = [] }) {
   const empresa_id = await getCurrentEmpresaId();
-  const gestorId = await gestorIdPorDefecto();
+  const gestorId = await gestorIdComoAutor();
   const { data: plantilla, error } = await supabase
     .from("plantilla_ruta")
     .insert({ nombre, empresa_id, cliente_id: clienteId || null, estado_aprobacion: "pendiente" })
@@ -582,7 +594,7 @@ export async function getSolicitudesAprobacion() {
  * cierra la solicitud -- no borra ni cancela nada automáticamente, el jefe
  * de tráfico decide qué hacer con la entidad desde su pantalla habitual. */
 export async function resolverSolicitudAprobacion(solicitudId, aprobar) {
-  const gestorId = await gestorIdPorDefecto();
+  const gestorId = await gestorIdComoAutor();
   const { data: solicitud, error: errorGet } = await supabase
     .from("solicitud_aprobacion")
     .select("entidad, entidad_id")
@@ -3823,7 +3835,9 @@ export function normalizarTelefonoE164(telefono, prefijoDefault = "+34") {
 
 export async function createChofer({ nombre, idioma, telefono = null }) {
   const empresa_id = await getCurrentEmpresaId();
-  const gestor_id = await gestorIdPorDefecto();
+  // C.2: nunca "sin asignar", ni siquiera si lo crea el admin -- ver
+  // gestorIdComoAutor(). El jefe de tráfico redistribuye después si hace falta.
+  const gestor_id = await gestorIdComoAutor();
   let telefonoNormalizado = null;
   if (telefono != null && telefono.toString().trim() !== "") {
     telefonoNormalizado = normalizarTelefonoE164(telefono);
@@ -4096,7 +4110,7 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
       entidad: "viaje",
       entidad_id: viaje.id,
       motivo: avisosViabilidad.map((a) => a.mensaje).join(" / "),
-      solicitado_por: gestor_id,
+      solicitado_por: await gestorIdComoAutor(),
     });
   }
 

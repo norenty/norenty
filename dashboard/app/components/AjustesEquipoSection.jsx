@@ -83,11 +83,12 @@ export default function AjustesEquipoSection({
   }
 
   async function aplicarBulk() {
-    if (!seleccionados.size) return;
+    // C.2: nunca "sin asignar" -- hace falta elegir un gestor de verdad.
+    if (!seleccionados.size || !gestorBulk) return;
     setAplicandoBulk(true);
     try {
       for (const choferId of seleccionados) {
-        await cambiarGestorChofer(choferId, gestorBulk || null);
+        await cambiarGestorChofer(choferId, gestorBulk);
       }
       setSeleccionados(new Set());
       setGestorBulk("");
@@ -229,8 +230,9 @@ export default function AjustesEquipoSection({
         Asignación de chóferes (F15.3)
       </h3>
       <p className="text-xs text-ink-secondary mb-3">
-        Un chófer "Sin asignar" es visible para todos los gestores. Asígnalo a uno para que
-        solo ese gestor vea sus rutas — tú (admin) siempre ves todo, asignado o no.
+        Todo chófer tiene siempre un gestor responsable — tú (admin) sigues viendo todo. Cuando
+        alguien se va de vacaciones o causa baja, redistribuye sus chóferes entre el resto aquí
+        (decisión C.1: nunca debería quedar un chófer sin asignar).
       </p>
       {!choferes || choferes.length === 0 ? (
         <p className="text-xs text-ink-muted">Sin chóferes todavía.</p>
@@ -252,14 +254,14 @@ export default function AjustesEquipoSection({
                   disabled={aplicandoBulk}
                   className="text-xs border border-border rounded-md px-2 py-1 disabled:opacity-40"
                 >
-                  <option value="">Sin asignar</option>
+                  <option value="">Elegir gestor…</option>
                   {gestores.filter((g) => g.activo).map((g) => (
                     <option key={g.id} value={g.id}>{g.nombre}</option>
                   ))}
                 </select>
                 <button
                   onClick={aplicarBulk}
-                  disabled={aplicandoBulk}
+                  disabled={aplicandoBulk || !gestorBulk}
                   className="text-xs px-2 py-1 rounded-md bg-brand text-white font-medium disabled:opacity-40 whitespace-nowrap"
                 >
                   {aplicandoBulk ? "Aplicando…" : "Reasignar seleccionados"}
@@ -280,10 +282,10 @@ export default function AjustesEquipoSection({
                 <select
                   value={c.gestor_id || ""}
                   disabled={choferAccionandoId === c.id}
-                  onChange={(e) => cambiarGestorChofer(c.id, e.target.value || null)}
+                  onChange={(e) => e.target.value && cambiarGestorChofer(c.id, e.target.value)}
                   className="text-xs border border-border rounded-md px-2 py-1 disabled:opacity-40"
                 >
-                  <option value="">Sin asignar</option>
+                  {!c.gestor_id && <option value="">Elegir gestor…</option>}
                   {gestores.filter((g) => g.activo).map((g) => (
                     <option key={g.id} value={g.id}>{g.nombre}</option>
                   ))}

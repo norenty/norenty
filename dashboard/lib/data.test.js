@@ -1935,10 +1935,10 @@ describe("createChofer / guardarTelefonoChofer (bot de llamadas, fase 1)", () =>
     expect(c.gestor_id).toBe("g-operativo");
   });
 
-  it("createChofer creado por un admin queda sin asignar (visible a todo el equipo, igual que hoy)", async () => {
+  it("C.1/C.2 (2026-07-25): createChofer creado por un admin también se auto-asigna -- nunca 'sin asignar'", async () => {
     TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "emp1", id: "g-admin", rol: "admin" }];
     const c = await createChofer({ nombre: "Mario", idioma: "es" });
-    expect(c.gestor_id).toBeNull();
+    expect(c.gestor_id).toBe("g-admin");
   });
 
   it("guardarTelefonoChofer actualiza el teléfono normalizado", async () => {
