@@ -32,14 +32,22 @@ empresa más seria, no un software de pacotilla"*.
   dejar pasar. Esto convierte la comprobación de viabilidad (ya construida) en un **gate real**,
   que es justo el argumento de "software serio". Requiere tabla de solicitudes + estados + quién
   aprueba.
-- [ ] `[DECISIÓN 18.A.3]` **Parámetros de empresa: bloquear lo que no debe tocarse a diario.** En
-  Ajustes hoy CUALQUIER gestor puede editar: nombre de la empresa, ubicación base, coste/km,
-  velocidad de planificación, objetivos de puntualidad y margen, coste desglosado. El usuario:
-  *"el nombre de la empresa es el que es, no puedes estar cambiándolo"*, *"nuestro objetivo de
-  puntualidad y margen, no entiendo cómo puede ser que puedas cambiarlo tú, una persona normal"*,
-  *"coge cualquiera sabiendo o sin saber y lo toca y te puede alterar parámetros"*. Propuesta:
-  se fijan **en el alta de la empresa**; después solo admin, y los sensibles con registro de
-  auditoría (ya existe `audit_log`) o aprobación.
+- [x] `[DECISIÓN 18.A.3]` **Parámetros de empresa: bloquear lo que no debe tocarse a diario.**
+  **DECIDIDO 2026-07-25** (aprobado explícitamente por el usuario): bloquear a **solo-admin**,
+  mismo patrón que Facturación (`RequireRol roles={["admin"]}`) — no aprobación/flujo nuevo, eso
+  queda en 18.A.2. Pasa a `[LOOP 18.A.3b]` de abajo con la especificación exacta.
+- [ ] `[LOOP 18.A.3b]` **Implementar 18.A.3: envolver `AjustesEmpresaSection` en
+  `RequireRol roles={["admin"]}`** en `ajustes/page.jsx` (`app/ajustes/page.jsx`), igual que ya
+  está `AjustesEquipoSection`. Cubre TODOS los campos de esa sección de una vez: nombre de empresa,
+  ubicación base, coste por km, velocidad de planificación, objetivos de puntualidad/margen, POD
+  requerido, coste desglosado (gasoil/peaje/dieta/conductor). Un gestor no-admin deja de VER el
+  formulario (no solo de poder guardarlo) — mismo criterio que Facturación, no hace falta
+  deshabilitar inputs uno a uno. Verificar: (a) tests en verde, (b) en el navegador como admin
+  la sección sigue visible y editable igual que hoy, (c) revisar que ningún otro sitio del código
+  llama a las funciones `guardarNombreEmpresa`/`guardarBaseEmpresa`/etc. fuera de este formulario
+  (si las hubiera, quedarían sin protección de UI — la protección de verdad la da RLS/GRANT de
+  columna en Postgres si existe; si NO existe, anotarlo como hallazgo, no bloquear el commit por
+  eso). Commit + marcar `[x]` cuando esté verificado.
 
 ### 18.B — Que los números salgan del histórico, no de un campo editable
 
