@@ -249,10 +249,16 @@ empresa más seria, no un software de pacotilla"*.
   `calcularOcupacion` nunca avisaba cuando la carga superaba el 100% de la capacidad, solo mostraba
   una barra llena. **HECHO**: `excedeCapacidad` en `calcularOcupacion` + aviso rojo en
   `/presupuesto`, `/viajes/nuevo-w` y `/viajes/[id]`. Commit `1be6c83`.
-- [ ] `[DECISIÓN 18.D.7]` **Presupuesto por audio o por email.** *"que yo pueda mandar un audio y
-  me lo diga, o mandar un correo a presupuestos@loquesea y me conteste con el presupuesto. Sé que
-  no es para esta fase, pero definitivamente tiene que estar en el roadmap"*. Encaja con Whisper
-  self-host (ya decidido) y con la capa de conocimiento de Fase 11.
+- [x] `[DECISIÓN 18.D.7]` **Presupuesto por audio o por email.** **DECIDIDO 2026-07-25** (alcance
+  acordado con el usuario: empezar por TEXTO en Telegram, no audio — Whisper self-host solo está
+  decidido de nombre, no implementado de verdad: el bot guarda hoy la nota de voz con la marca
+  "sin transcribir" y ahí se queda). **HECHO (fase 1)**: comando `/cotizar` en el mismo bot
+  (mismo patrón que ya distinguía chófer/gestor por `chat_id`) — cuestionario guiado paso a paso
+  (origen → destino → peso → volumen), cálculo con las mismas fórmulas que `/presupuesto` del
+  dashboard (modo blended, sin OSRM — mismo fallback que ya usa `cmd_eta`), resumen con las
+  consideraciones explícitas y confirmación con botones antes de darlo por bueno (pedido
+  explícito: *"que el gestor deba dar el ok y vea las consideraciones"*). Email y audio quedan
+  como fase 2, gateados por Whisper self-host real. Commit `a542b57`.
 
 ### 18.E — Arreglos concretos y acotados (los baratos)
 
