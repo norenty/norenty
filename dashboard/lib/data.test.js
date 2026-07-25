@@ -43,6 +43,13 @@ function makeBuilder(table) {
     },
     limit(n) { rows = rows.slice(0, n); return builder; },
     range(desde, hasta) { rows = rows.slice(desde, hasta + 1); return builder; },
+    is(field, value) { rows = rows.filter((r) => (value === null ? r[field] == null : r[field] === value)); return builder; },
+    maybeSingle() {
+      if (SELECT_ERRORS[table]) {
+        return Promise.resolve({ data: null, error: SELECT_ERRORS[table] });
+      }
+      return Promise.resolve({ data: rows[0] || null, error: null });
+    },
     single() {
       if (SELECT_ERRORS[table]) {
         return Promise.resolve({ data: null, error: SELECT_ERRORS[table] });
@@ -251,6 +258,10 @@ const {
   getContexto,
   createContexto,
   LIMITE_CONTEXTO,
+  crearPlantillaRuta,
+  getPlantillasRuta,
+  getSolicitudesAprobacion,
+  resolverSolicitudAprobacion,
 } = await import("./data.js");
 
 beforeEach(() => {
@@ -263,6 +274,46 @@ beforeEach(() => {
   UPDATE_ERRORS = {};
   SELECT_ERRORS = {};
   _limpiarCacheKmCarreteraParaTests();
+});
+
+describe("18.A.2 (caso a): crearPlantillaRuta + aprobación", () => {
+  it("nace 'pendiente' y no la ofrece getPlantillasRuta hasta que se aprueba", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+    TABLES.plantilla_ruta = [];
+    TABLES.plantilla_hito = [];
+    TABLES.solicitud_aprobacion = [];
+
+    const plantilla = await crearPlantillaRuta({
+      nombre: "Madrid-Barna",
+      hitos: [{ tipo: "recogida", direccion: "Madrid", lat: 40.4, lon: -3.7 }],
+    });
+    expect(plantilla.estado_aprobacion).toBe("pendiente");
+    expect(TABLES.solicitud_aprobacion).toHaveLength(1);
+    expect(TABLES.solicitud_aprobacion[0].tipo).toBe("ruta_nueva");
+    expect(TABLES.solicitud_aprobacion[0].entidad).toBe("plantilla_ruta");
+
+    // getPlantillasRuta filtra estado_aprobacion='aprobada' -- una recién
+    // creada NO debe aparecer en el asistente de nuevo viaje todavía.
+    expect(await getPlantillasRuta(null)).toHaveLength(0);
+
+    await resolverSolicitudAprobacion(TABLES.solicitud_aprobacion[0].id, true);
+    expect(TABLES.plantilla_ruta[0].estado_aprobacion).toBe("aprobada");
+    expect(await getPlantillasRuta(null)).toHaveLength(1);
+  });
+
+  it("rechazar una solicitud de ruta nueva la deja fuera del asistente", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+    TABLES.plantilla_ruta = [];
+    TABLES.plantilla_hito = [];
+    TABLES.solicitud_aprobacion = [];
+
+    await crearPlantillaRuta({ nombre: "Ruta rara", hitos: [] });
+    await resolverSolicitudAprobacion(TABLES.solicitud_aprobacion[0].id, false);
+    expect(TABLES.plantilla_ruta[0].estado_aprobacion).toBe("rechazada");
+    expect(await getPlantillasRuta(null)).toHaveLength(0);
+  });
 });
 
 describe("getReferenciaSugerida", () => {
@@ -3267,6 +3318,46 @@ describe("createViaje acepta precio (7A.11)", () => {
     TABLES.vehiculo = [];
     const { viaje } = await createViaje({ referencia: "REF2", choferId: null, vehiculoId: null, remolqueId: null, hitos: [] });
     expect(viaje.precio).toBeNull();
+  });
+
+  it("18.A.2 (caso b): viabilidad <100% -> nace pendiente_aprobacion y abre una solicitud", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+    TABLES.viaje = [];
+    TABLES.chofer = [];
+    TABLES.vehiculo = [];
+    TABLES.solicitud_aprobacion = [];
+    const hitos = [
+      { direccion: "Madrid", lat: 40.4, lon: -3.7, ventana_fin: "2026-01-01T08:00:00Z" },
+      { direccion: "Barcelona", lat: 41.4, lon: 2.2, ventana_inicio: "2026-01-01T09:00:00Z" },
+    ];
+    const { viaje, pendienteAprobacion } = await createViaje({
+      referencia: "REF-INVIABLE", choferId: null, vehiculoId: null, remolqueId: null, hitos,
+    });
+    expect(pendienteAprobacion).toBe(true);
+    expect(viaje.estado).toBe("pendiente_aprobacion");
+    expect(TABLES.solicitud_aprobacion).toHaveLength(1);
+    expect(TABLES.solicitud_aprobacion[0].tipo).toBe("viabilidad_baja");
+    expect(TABLES.solicitud_aprobacion[0].entidad_id).toBe(viaje.id);
+  });
+
+  it("18.A.2 (caso b): viabilidad OK -> planificado directo, sin solicitud", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+    TABLES.viaje = [];
+    TABLES.chofer = [];
+    TABLES.vehiculo = [];
+    TABLES.solicitud_aprobacion = [];
+    const hitos = [
+      { direccion: "Madrid", lat: 40.4, lon: -3.7, ventana_fin: "2026-01-01T08:00:00Z" },
+      { direccion: "Getafe", lat: 40.3, lon: -3.7, ventana_inicio: "2026-01-01T09:00:00Z" },
+    ];
+    const { viaje, pendienteAprobacion } = await createViaje({
+      referencia: "REF-VIABLE", choferId: null, vehiculoId: null, remolqueId: null, hitos,
+    });
+    expect(pendienteAprobacion).toBe(false);
+    expect(viaje.estado).toBe("planificado");
+    expect(TABLES.solicitud_aprobacion).toHaveLength(0);
   });
 });
 

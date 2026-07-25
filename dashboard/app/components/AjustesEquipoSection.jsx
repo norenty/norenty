@@ -6,6 +6,7 @@ import { Users, Send, Copy, Check, X } from "lucide-react";
 const ROLES = [
   { value: "admin", label: "Admin" },
   { value: "gestor_operativo", label: "Gestor operativo" },
+  { value: "comercial", label: "Comercial" },
   { value: "solo_lectura", label: "Solo lectura" },
 ];
 
@@ -35,6 +36,9 @@ export default function AjustesEquipoSection({
   viajesPool,
   cambiarGestorViaje,
   viajeAccionandoId,
+  solicitudesAprobacion,
+  resolverSolicitud,
+  solicitudAccionandoId,
 }) {
   // 17.G.3 (auditoría de asignación, 2026-07-23): con muchos chóferes (caso
   // real: 80 en la empresa de prueba "Transportes Pepito") esta lista se
@@ -355,6 +359,45 @@ export default function AjustesEquipoSection({
             )}
           </div>
         </>
+      )}
+
+      <h3 className="text-xs font-medium text-ink-secondary mb-2 mt-4">
+        Aprobaciones pendientes (18.A.2)
+      </h3>
+      <p className="text-xs text-ink-secondary mb-3">
+        Rutas nuevas y viajes cuya ventana horaria no es viable con los descansos legales
+        obligatorios — el jefe de tráfico decide antes de que sigan adelante.
+      </p>
+      {!solicitudesAprobacion || solicitudesAprobacion.length === 0 ? (
+        <p className="text-xs text-ink-muted">Sin solicitudes pendientes.</p>
+      ) : (
+        <div className="flex flex-col gap-2 max-h-96 overflow-y-auto">
+          {solicitudesAprobacion.map((s) => (
+            <div key={s.id} className="flex items-start gap-2 text-sm px-3 py-2 rounded-md bg-yellow-50 border border-yellow-200">
+              <div className="flex-1 min-w-0">
+                <div className="text-ink">
+                  {s.tipo === "ruta_nueva" ? "Ruta nueva" : "Viabilidad baja"}
+                  {s.solicitante?.nombre && <span className="text-ink-muted"> · pedido por {s.solicitante.nombre}</span>}
+                </div>
+                {s.motivo && <div className="text-xs text-ink-secondary mt-0.5">{s.motivo}</div>}
+              </div>
+              <button
+                disabled={solicitudAccionandoId === s.id}
+                onClick={() => resolverSolicitud(s.id, true)}
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-brand text-white disabled:opacity-40"
+              >
+                <Check size={13} /> Aprobar
+              </button>
+              <button
+                disabled={solicitudAccionandoId === s.id}
+                onClick={() => resolverSolicitud(s.id, false)}
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-border text-ink-secondary disabled:opacity-40"
+              >
+                <X size={13} /> Rechazar
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </section>
   );

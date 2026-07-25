@@ -10,6 +10,7 @@ import {
   guardarDesgloseCosteEmpresa, guardarObjetivoPuntualidadEmpresa, guardarMargenObjetivoEmpresa,
   guardarRequierePodEmpresa, getChoferesConGestor, guardarGestorChofer, guardarTelefonoGestor,
   getViajesConGestor, guardarGestorViaje, getIndiceGasoilNacional,
+  getSolicitudesAprobacion, resolverSolicitudAprobacion,
 } from "../../lib/data";
 import RequireRol from "../components/RequireRol";
 import AjustesPerfilSection from "../components/AjustesPerfilSection";
@@ -56,6 +57,8 @@ export default function AjustesPage() {
   const [choferAccionandoId, setChoferAccionandoId] = useState(null);
   const [viajesPool, setViajesPool] = useState([]);
   const [viajeAccionandoId, setViajeAccionandoId] = useState(null);
+  const [solicitudesAprobacion, setSolicitudesAprobacion] = useState([]);
+  const [solicitudAccionandoId, setSolicitudAccionandoId] = useState(null);
   const [mfaFactores, setMfaFactores] = useState([]);
   const [mfaEnrolando, setMfaEnrolando] = useState(false);
   const [mfaQr, setMfaQr] = useState(null);
@@ -131,6 +134,7 @@ export default function AjustesPage() {
           setGestores(await getGestoresEmpresa());
           setChoferesEquipo(await getChoferesConGestor());
           setViajesPool(await getViajesConGestor());
+          setSolicitudesAprobacion(await getSolicitudesAprobacion());
         }
       }
     }
@@ -161,6 +165,17 @@ export default function AjustesPage() {
       flash("Error: " + err.message);
     }
     setViajeAccionandoId(null);
+  }
+
+  async function resolverSolicitud(solicitudId, aprobar) {
+    setSolicitudAccionandoId(solicitudId);
+    try {
+      await resolverSolicitudAprobacion(solicitudId, aprobar);
+      setSolicitudesAprobacion(await getSolicitudesAprobacion());
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
+    setSolicitudAccionandoId(null);
   }
 
   async function cambiarRolGestor(gestorId, nuevoRol) {
@@ -530,6 +545,9 @@ export default function AjustesPage() {
           viajesPool={viajesPool}
           cambiarGestorViaje={cambiarGestorViaje}
           viajeAccionandoId={viajeAccionandoId}
+          solicitudesAprobacion={solicitudesAprobacion}
+          resolverSolicitud={resolverSolicitud}
+          solicitudAccionandoId={solicitudAccionandoId}
         />
       </RequireRol>
 

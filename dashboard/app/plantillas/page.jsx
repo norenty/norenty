@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Copy, Route } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { getCurrentEmpresaId, getClientes, getDireccionesGuardadas } from "../../lib/data";
+import { getCurrentEmpresaId, getClientes, getDireccionesGuardadas, crearPlantillaRuta } from "../../lib/data";
 import EmptyState from "../components/ui/EmptyState";
 import Buscador from "../components/ui/Buscador";
 import DireccionAutocomplete from "../components/ui/DireccionAutocomplete";
@@ -55,24 +55,9 @@ export default function PlantillasPage() {
     e.preventDefault();
     if (!nombre.trim()) return;
     setGuardando(true);
-    const empresa_id = await getCurrentEmpresaId();
-    const { data: plantilla } = await supabase
-      .from("plantilla_ruta")
-      .insert({ nombre: nombre.trim(), empresa_id, cliente_id: clienteId || null })
-      .select()
-      .single();
-
-    const rows = hitos
-      .filter((h) => h.direccion.trim())
-      .map((h, i) => ({
-        plantilla_ruta_id: plantilla.id,
-        orden: i + 1,
-        tipo: h.tipo,
-        direccion: h.direccion.trim(),
-        lat: h.lat === "" ? null : Number(h.lat),
-        lon: h.lon === "" ? null : Number(h.lon),
-      }));
-    if (rows.length) await supabase.from("plantilla_hito").insert(rows);
+    // 18.A.2 (caso a): nace 'pendiente' -- el jefe de tráfico la aprueba
+    // desde Ajustes antes de que aparezca en el asistente de nuevo viaje.
+    await crearPlantillaRuta({ nombre: nombre.trim(), clienteId, hitos });
 
     setNombre("");
     setClienteId("");
@@ -209,7 +194,15 @@ export default function PlantillasPage() {
                 <Route size={18} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-ink">{p.nombre}</div>
+                <div className="text-sm font-medium text-ink flex items-center gap-2">
+                  {p.nombre}
+                  {p.estado_aprobacion === "pendiente" && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Pendiente de aprobación</span>
+                  )}
+                  {p.estado_aprobacion === "rechazada" && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Rechazada</span>
+                  )}
+                </div>
                 {p.cliente?.nombre && <div className="text-xs text-ink-muted">{p.cliente.nombre}</div>}
                 <button
                   onClick={() => {
@@ -221,12 +214,14 @@ export default function PlantillasPage() {
                   {expandida === p.id ? "Ocultar hitos" : "Ver hitos"}
                 </button>
               </div>
-              <button
-                onClick={() => usarPlantilla(p.id)}
-                className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border border-brand text-brand hover:bg-brand hover:text-white transition-colors"
-              >
-                <Copy size={14} /> Usar
-              </button>
+              {p.estado_aprobacion === "aprobada" && (
+                <button
+                  onClick={() => usarPlantilla(p.id)}
+                  className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border border-brand text-brand hover:bg-brand hover:text-white transition-colors"
+                >
+                  <Copy size={14} /> Usar
+                </button>
+              )}
               <button
                 onClick={() => eliminar(p.id)}
                 className="text-ink-muted hover:text-estado-incidencia p-1"

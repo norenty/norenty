@@ -12,6 +12,8 @@ export const ESTADO_VIAJE = {
   en_curso: { t: "En curso", c: "text-estado-en-curso", bg: "bg-indigo-50" },
   completado: { t: "Completado", c: "text-estado-ok", bg: "bg-green-50" },
   cancelado: { t: "Cancelado", c: "text-ink-muted", bg: "bg-gray-100" },
+  // 18.A.2 (caso b): viabilidad <100%, pendiente de aprobación del jefe de tráfico.
+  pendiente_aprobacion: { t: "Pendiente de aprobación", c: "text-estado-riesgo", bg: "bg-orange-50" },
 };
 
 export const ESTADO_HITO = {

@@ -505,7 +505,9 @@ export async function buscarDireccion(texto) {
  * también sirven para cualquier cliente.
  */
 export async function getPlantillasRuta(clienteId) {
-  let query = supabase.from("plantilla_ruta").select("id, nombre, cliente_id").order("nombre");
+  // 18.A.2 (caso a): solo se ofrecen plantillas aprobadas por el jefe de
+  // tráfico -- una recién creada queda 'pendiente' hasta que la revisen.
+  let query = supabase.from("plantilla_ruta").select("id, nombre, cliente_id").eq("estado_aprobacion", "aprobada").order("nombre");
   query = clienteId ? query.eq("cliente_id", clienteId) : query.is("cliente_id", null);
   const { data } = await query;
   return data || [];
@@ -519,6 +521,91 @@ export async function getPlantillaHitos(plantillaRutaId) {
     .eq("plantilla_ruta_id", plantillaRutaId)
     .order("orden");
   return data || [];
+}
+
+/** 18.A.2 (caso a) — dar de alta una ruta nueva. Nace 'pendiente' de
+ * aprobación del jefe de tráfico (admin/gestor_operativo); no se ofrece en
+ * el asistente de nuevo viaje (getPlantillasRuta) hasta que se apruebe. */
+export async function crearPlantillaRuta({ nombre, clienteId = null, hitos = [] }) {
+  const empresa_id = await getCurrentEmpresaId();
+  const gestorId = await gestorIdPorDefecto();
+  const { data: plantilla, error } = await supabase
+    .from("plantilla_ruta")
+    .insert({ nombre, empresa_id, cliente_id: clienteId || null, estado_aprobacion: "pendiente" })
+    .select()
+    .single();
+  if (error) throw error;
+
+  const rows = (hitos || [])
+    .filter((h) => h.direccion?.trim())
+    .map((h, i) => ({
+      plantilla_ruta_id: plantilla.id,
+      orden: i + 1,
+      tipo: h.tipo,
+      direccion: h.direccion.trim(),
+      lat: h.lat === "" || h.lat == null ? null : Number(h.lat),
+      lon: h.lon === "" || h.lon == null ? null : Number(h.lon),
+    }));
+  if (rows.length) {
+    const { error: errorHitos } = await supabase.from("plantilla_hito").insert(rows);
+    if (errorHitos) throw errorHitos;
+  }
+
+  const { error: errorSolicitud } = await supabase.from("solicitud_aprobacion").insert({
+    empresa_id,
+    tipo: "ruta_nueva",
+    entidad: "plantilla_ruta",
+    entidad_id: plantilla.id,
+    motivo: `Ruta nueva: "${nombre}"`,
+    solicitado_por: gestorId,
+  });
+  if (errorSolicitud) throw errorSolicitud;
+
+  return plantilla;
+}
+
+/** 18.A.2 — solicitudes pendientes de aprobación del jefe de tráfico
+ * (admin/gestor_operativo), ambos casos (ruta nueva, viabilidad baja). */
+export async function getSolicitudesAprobacion() {
+  const { data, error } = await supabase
+    .from("solicitud_aprobacion")
+    .select("*, solicitante:solicitado_por(nombre)")
+    .eq("estado", "pendiente")
+    .order("solicitado_en", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+/** Resuelve una solicitud (aprobar/rechazar). Si es un viaje con viabilidad
+ * baja y se aprueba, lo desbloquea a 'planificado'; si es una ruta nueva y
+ * se aprueba, queda disponible en el asistente de nuevo viaje. Rechazar solo
+ * cierra la solicitud -- no borra ni cancela nada automáticamente, el jefe
+ * de tráfico decide qué hacer con la entidad desde su pantalla habitual. */
+export async function resolverSolicitudAprobacion(solicitudId, aprobar) {
+  const gestorId = await gestorIdPorDefecto();
+  const { data: solicitud, error: errorGet } = await supabase
+    .from("solicitud_aprobacion")
+    .select("entidad, entidad_id")
+    .eq("id", solicitudId)
+    .single();
+  if (errorGet) throw errorGet;
+
+  const { error } = await supabase
+    .from("solicitud_aprobacion")
+    .update({ estado: aprobar ? "aprobada" : "rechazada", resuelto_por: gestorId, resuelto_en: new Date().toISOString() })
+    .eq("id", solicitudId);
+  if (error) throw error;
+
+  if (aprobar && solicitud.entidad === "viaje") {
+    const { error: errorViaje } = await supabase.from("viaje").update({ estado: "planificado" }).eq("id", solicitud.entidad_id);
+    if (errorViaje) throw errorViaje;
+  } else if (solicitud.entidad === "plantilla_ruta") {
+    const { error: errorPlantilla } = await supabase
+      .from("plantilla_ruta")
+      .update({ estado_aprobacion: aprobar ? "aprobada" : "rechazada" })
+      .eq("id", solicitud.entidad_id);
+    if (errorPlantilla) throw errorPlantilla;
+  }
 }
 
 export async function createCliente({ nombre, cif = null, email = null, telefono = null, notas = null }) {
@@ -3974,6 +4061,14 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
   // m3), antes solo capturada en la calculadora standalone. Retrocompatible:
   // sin `carga`, las 3 columnas salen null igual que hoy.
   const num = (v) => (v !== undefined && v !== "" && v != null ? Number(v) : null);
+
+  // 18.A.2 (caso b): si la viabilidad no da 100% (ventanas horarias
+  // imposibles con descansos legales, ya calculado por calcularAvisosViabilidad),
+  // el viaje NO se planifica solo -- nace 'pendiente_aprobacion' y se abre una
+  // solicitud para el jefe de tráfico, en vez de dejarlo pasar en silencio.
+  const avisosViabilidad = calcularAvisosViabilidad(hitos || []);
+  const estadoInicial = avisosViabilidad.length > 0 ? "pendiente_aprobacion" : "planificado";
+
   const { data: viaje, error } = await supabase
     .from("viaje")
     .insert({
@@ -3984,7 +4079,7 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
       cliente_id: clienteId || null,
       empresa_id,
       gestor_id,
-      estado: "planificado",
+      estado: estadoInicial,
       precio: precio != null ? precio : null,
       carga_ldm: num(carga?.ldm),
       carga_kg: num(carga?.kg),
@@ -3993,6 +4088,17 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
     .select()
     .single();
   if (error) throw error;
+
+  if (avisosViabilidad.length > 0) {
+    await supabase.from("solicitud_aprobacion").insert({
+      empresa_id,
+      tipo: "viabilidad_baja",
+      entidad: "viaje",
+      entidad_id: viaje.id,
+      motivo: avisosViabilidad.map((a) => a.mensaje).join(" / "),
+      solicitado_por: gestor_id,
+    });
+  }
 
   const validos = (hitos || []).filter((h) => h.direccion || h.tipo);
   if (validos.length) {
@@ -4017,5 +4123,5 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
     }));
     await supabase.from("hito").insert(rows);
   }
-  return { viaje, avisos: validacion.avisos };
+  return { viaje, avisos: validacion.avisos, pendienteAprobacion: avisosViabilidad.length > 0 };
 }

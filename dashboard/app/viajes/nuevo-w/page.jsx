@@ -226,6 +226,11 @@ export default function NuevoViajeWizard() {
         precio: precio !== "" ? Number(precio) : null,
         carga,
       });
+      // 18.A.2 (caso b): la viabilidad no daba 100% -- el viaje se creó pero
+      // queda pendiente de aprobación del jefe de tráfico antes de arrancar.
+      if (result.pendienteAprobacion) {
+        alert("Este viaje se ha creado como pendiente de aprobación: la ventana horaria no parece viable con los descansos legales obligatorios. Un admin o gestor operativo debe aprobarlo en Ajustes → Equipo antes de que arranque.");
+      }
       router.push(`/viajes/${result.viaje.id}`);
     } catch (err) {
       setError(err.message);
