@@ -237,7 +237,7 @@ Todo el producto, la documentación y el discurso están en español, y el merca
 ICP tope a ~€1M ARR. Si en algún momento se quiere Europa, la deuda de internacionalización
 crece cada semana.
 
-**Arreglo:** decisión consciente ahora, no dentro de un año (ver sección 7). Si la respuesta
+**Arreglo:** decisión consciente ahora, no dentro de un año (ver sección 8). Si la respuesta
 es "España primero y ya veremos", perfecto — pero que sea una decisión, no un accidente.
 
 ---
@@ -324,7 +324,7 @@ consecuencias reales, no cosméticas:
 1. **Los márgenes cambian de naturaleza.** Un SaaS de €15/camión/mes tiene margen bruto del
    ~85-90% porque el coste marginal es servidor. Aquí el coste marginal incluye **sueldos de
    gestores reales**, así que el margen se parece más al de una consultora/gestoría (30-50%)
-   que al de un SaaS. El techo de la sección 7 (€1-1,5M ARR de nicho ibérico) habría que
+   que al de un SaaS. El techo de la sección 8 (€1-1,5M ARR de nicho ibérico) habría que
    recalcularlo con este margen, no con el de software — **no validado, hacer la cuenta antes
    de vender la primera unidad así.**
 2. **Escala de forma distinta.** Un SaaS escala con código; un BPO escala con contratación y
@@ -354,7 +354,7 @@ que hoy gastas en un gestor menos el ahorro, y yo pongo la persona (formada por 
 software) que hace ese trabajo durante los primeros 3-6 meses"*. Eso da un dato real y barato de
 validar: ¿el cliente prefiere comprar software o comprar un resultado gestionado? Si la
 respuesta es masivamente "resultado gestionado", el pivote de modelo de negocio se hace con
-evidencia, no con una corazonada — y hay que rehacer la sección 7 y el 5.3 con márgenes de
+evidencia, no con una corazonada — y hay que rehacer la sección 8 y el 5.3 con márgenes de
 servicio, no de software. Si la respuesta es "prefiero el software, ya tengo gestor", el modelo
 SaaS de las secciones 1-7 queda intacto y esta sección se archiva como opción de expansión, no
 como pivote necesario.
@@ -364,45 +364,127 @@ gestor de tráfico para terceros puede tocar normativa laboral (cesión ilegal d
 no se estructura bien, requisitos de ETT en España). No validado — consultarlo con un laboralista
 antes de ofrecerlo por escrito a ningún cliente, no después.
 
+### 5.5 Amigos-gestor: asesores primero, socios/empleados después — y el techo del modelo B es la pericia, no el dato
+
+Añadido el 2026-07-26, tras discutir si asociar/contratar a los gestores amigos que validan la
+idea (el fundador tiene varios — "casi me daría para montar la empresa de gestión
+subcontratada").
+
+**Amigos + dinero:** el instinto de no mezclarlos es correcto, pero la respuesta no es "sí o
+no" sino "en qué papel". Recomendación: empezar como **asesores pagados por hora/sesión**, sin
+equity ni nómina — bajo compromiso, bajo riesgo de que un fallo del negocio se convierta en un
+problema personal. Si más adelante alguno quiere entrar de verdad, hacerlo con reglas por
+escrito desde el día 1 (qué pasa si no funciona, cómo se reparte, cómo se sale) — la amistad se
+rompe por no hablar de esto, no por trabajar juntos.
+
+**La trampa de "solo hace falta al principio, hasta que el algoritmo lo haga":** puede ser
+cierta para el 80% mecánico del trabajo (cuadrar horas, kilómetros, nómina) y **falsa para el
+20% de excepciones**, que es justo donde vive el valor del gestor de 20 años — resuelve
+situaciones anómalas que un gestor novel escalaría sin más. Ese 20% no se automatiza solo
+porque se acumulen datos; por definición, lo anómalo es lo que peor generaliza. Conclusión: si
+el modelo B (Service-as-Software, sección 5.4) avanza, **el experto humano no es una muleta
+temporal — es una parte permanente del producto**, aunque en proporción decreciente. Decisión
+pendiente y honesta, no urgente pero sí consciente: ¿el negocio final es "software con apoyo
+humano decreciente" (SaaS) o "gestoría con software de apalancamiento" (BPO)? Son dos empresas
+con dos estructuras de coste distintas, y hay que responderla con datos de las primeras
+llamadas reales, no antes ni con una corazonada.
+
+**Por qué una "agencia" que reparte gestores entre varios clientes distintos NO conserva la
+misma pericia:** un gestor senior responde bien a lo anómalo porque conoce a fondo *una*
+operación concreta — sus clientes, sus rutas, sus manías. Repartirlo entre 4-5 flotas de
+clientes distintos con procesos distintos lo convierte de "experto en esta operación" a
+"generalista repartido" — la versión débil, no la fuerte. Es el mismo problema estructural de
+cualquier gestoría o call center outsourceado. Consecuencia para la unidad económica del modelo
+B: probablemente no es "un gestor para N clientes" sino algo más parecido a "un gestor senior
+supervisa a 2-3 junior, cada uno dedicado a 1-2 clientes" — una jerarquía, no un pool
+intercambiable. Esto sube el coste operativo asumido en 5.4 y hay que meterlo en la cuenta de
+márgenes **antes** de prometer "50k en vez de 100k con garantías totales" a nadie.
+
+**Recomendación concreta para ahora:** no contratar ni asociar a nadie todavía. Usar a 2-3
+amigos gestores como asesores puntuales pagados para las llamadas de validación (sección 6) y
+para revisar casos anómalos según aparezcan. Decidir la pregunta de SaaS-vs-BPO con datos de
+esas llamadas, no antes.
+
 ---
 
-## 6. Plan de 30 días (esto es lo que de verdad acelera el proyecto)
+## 6. Hoja de ruta: de aquí a las primeras conversaciones con el sector
+
+El fundador considera que el producto y el mensaje ya están en un punto presentable — "no me
+pilla en calzoncillos como hace unos días" — y quiere una secuencia concreta para hablar con
+gente del sector sin quemar los contactos importantes ni regalar más de lo necesario.
+
+### 6.1 Los tres miedos y cómo se gestiona cada uno (no con el mismo movimiento)
+
+| Miedo | Por qué no se resuelve hablando más | Qué lo resuelve |
+|---|---|---|
+| "No soy del sector, no me tomarán en serio" | No se puede fingir experiencia | Enseñar el **dashboard en vivo** (no capturas, no enviar accesos) + reconocer la asimetría en la primera frase, no esconderla |
+| "Me pueden copiar la idea" | La idea en sí no es defendible ni patentable | El activo real es la ejecución + la relación personal que se construye llamando primero — no pedir NDA para una charla exploratoria, controlar el nivel de detalle (problema sí, arquitectura/precio/modelo B no) |
+| "Mezclar amigos y negocio si sale mal" | Evitarlo del todo desperdicia el conocimiento que sí tienen | Empezarlos como **asesores pagados**, no socios/empleados (ver 5.5) |
+
+### 6.2 Orden de contactos — no probar el mensaje en los contactos que más importan
+
+1. **Nivel 0 — gestor(es) amigo(s):** no es venta, es informante + asesor puntual. Guion en 6.3.
+2. **Nivel 1 — contactos secundarios / flotas medianas que no son el founding partner soñado:**
+   aquí se prueba el pitch en voz alta por primera vez con alguien sin relación personal. Si
+   falla, el coste es bajo.
+3. **Nivel 2 — founding partners target (80/100/300 camiones):** no se llega a ellos hasta que
+   el mensaje ya sonó bien 2-3 veces en el nivel 1. Se ganan la versión pulida, no la primera.
+
+### 6.3 Guion para la primera llamada (nivel 0)
+
+1. **Apertura honesta sobre la asimetría:** *"Quiero pedirte 15 minutos de tu cabeza, no de tu
+   tiempo de trabajo. Llevo meses construyendo algo para flotas como la vuestra y prefiero
+   equivocarme contigo antes que con un cliente."*
+2. **Prueba de seriedad:** compartir pantalla con el dashboard con datos de prueba — 2 minutos.
+3. **Las 3 preguntas de validación** (ya estaban en el plan de 30 días, sección 6.4 semana 1):
+   tiempo mensual en nómina; ¿instalarían Telegram si se lo pides tú?; ¿alguna disputa real con
+   un cliente por una entrega?
+4. **Sonda del modelo B, como pregunta abierta, nunca como oferta:** *"Si te dijera que puedo
+   llevaros la gestión de tráfico por bastante menos de lo que os cuesta hoy el equipo, ¿eso
+   suena a ayuda o a que alguien os quiere quitar el puesto?"*
+5. **Cierre pidiendo puerta, no venta:** *"No te pido que compres nada. Dime sin filtro qué está
+   mal de lo que has visto, y si conoces a alguien más en tu situación."*
+
+### 6.4 Plan de 30 días (el marco de ejecución ya existente) (esto es lo que de verdad acelera el proyecto)
 
 **Regla marco:** durante 30 días, **cero features nuevas**. Solo se escribe código que un
 cliente con nombre y apellidos haya pedido, o que bloquee un piloto real.
 
 ### Semana 1 — Romper el bloqueo de validación
 - [ ] **Llamar al gestor amigo hoy.** No para la entrevista larga: para 3 preguntas.
-      (1) ¿Tus chóferes instalarían Telegram si se lo pides tú? (2) ¿Cuánto tardáis en la
-      nómina cada mes? (3) ¿Has tenido una disputa real con un cliente por una entrega?
-      → Esas tres respuestas valen más que las Fases 17-19 juntas.
+      (guion completo en 6.3, incluida la sonda del modelo B). → Esas tres respuestas valen
+      más que las Fases 17-19 juntas.
 - [ ] **Pedirle la intro a su jefe** (flota de 800) — no para vender: para escuchar.
-- [ ] **Llamar a uno de los tres Founding Partner target** (80/100/300). Objetivo de la llamada:
-      agendar 45 minutos, no cerrar nada.
+- [ ] **Usar el orden de contactos de 6.2**: no llamar todavía al founding partner soñado; antes
+      probar el mensaje con 1-2 contactos de nivel 1 (secundarios).
 
-### Semana 2 — Producto listo para demo, no para catálogo
+#### Semana 2 — Producto listo para demo, no para catálogo
 - [ ] **Modo esencial**: esconder todo menos Hoy / Viajes / Nómina / Documentos.
 - [ ] **Guion de demo de 10 minutos** que termine en la pantalla de nómina, no en analítica.
 - [ ] Un **one-pager** con: el número 30→60, "sin apps para el chófer", 3 plazas, precio.
 
-### Semana 3 — Primer piloto real
-- [ ] **Firmar 1 Founding Partner** (de los 80/100/300).
+#### Semana 3 — Primer piloto real
+- [ ] **Llamar a uno de los tres Founding Partner target** (80/100/300), ya con el mensaje
+      probado en el nivel 1. Objetivo de la llamada: agendar 45 minutos, no cerrar nada.
+- [ ] **Firmar 1 Founding Partner**.
 - [ ] **10 viajes reales** por Telegram con chóferes de verdad. Aquí saldrán bugs reales; ese
       es el objetivo, no el efecto secundario.
 - [ ] Cerrar el smoke test 10.1 con evidencia fechada en `PROGRESS.md`.
 
-### Semana 4 — Cerrar el bucle
+#### Semana 4 — Cerrar el bucle
 - [ ] **Sacar su primera nómina real** con Norenty y ponerla al lado de la que hicieron a mano.
       Si cuadra, ése es el activo comercial más valioso que tendrá el proyecto.
 - [ ] Reordenar el ROADMAP con lo aprendido (no con lo que ya estaba escrito).
-- [ ] Decidir conscientemente España-vs-Europa (sección 7).
+- [ ] Decidir conscientemente España-vs-Europa (sección 8).
+- [ ] Con los datos de las llamadas de las semanas 1-3, decidir SaaS-vs-BPO (sección 5.5) —
+      no antes.
 
 **Métrica única de estos 30 días:** no líneas de código, no fases cerradas. **Viajes reales
 completados por chóferes reales.** Hoy: 0.
 
 ---
 
-## 7. El techo, con honestidad
+## 8. El techo, con honestidad
 
 | Escenario | Requisitos | ARR realista | Probabilidad |
 |---|---|---|---|
@@ -428,7 +510,7 @@ real de no haber levantado dinero: se puede tardar. Lo que no se puede es no ten
 
 ---
 
-## 8. Las tres cosas que yo haría si esto fuera mío
+## 9. Las tres cosas que yo haría si esto fuera mío
 
 1. **Dejar de construir hoy.** No mañana. El producto está objetivamente por delante del
    cliente y cada fase nueva empeora la asimetría y sube el coste psicológico de pivotar.
