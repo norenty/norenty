@@ -455,8 +455,10 @@ El usuario pidió evaluar 5 repos/skills externos. Veredicto:
 - [ ] `[DECISIÓN F.2]` **`npm audit`: 4 vulnerabilidades** (3 moderate en postcss vía Next.js, 1
   high en xlsx). Ninguna tiene arreglo sin romper algo: postcss exige downgrade de Next.js entero;
   xlsx no tiene fix upstream. Evaluadas y aceptadas conscientemente — revisar cuando haya fix.
-- [ ] `[LOOP F.3]` **Backfill de `PROGRESS.md` (Fases 10-16)** — lanzado como tarea en background,
-  pendiente de confirmar que terminó bien.
+- [x] `[LOOP F.3]` **Backfill de `PROGRESS.md` (Fases 10-16)** — **CONFIRMADO 2026-07-25**: ya
+  estaba hecho de una tarea de background anterior. Verificado con grep: entradas específicas
+  para 10.8/10.9/10.9b/10.10/11.1/11.2/11.4/12.2/12.3/12.5 y toda la F13.x-F16.x. No hacía falta
+  trabajo nuevo, solo la confirmación pendiente.
 - [ ] `[DECISIÓN F.4]` **OSRM en producción** — hoy todo el cálculo de km/ETA usa el fallback
   Haversine×1.3, marcado como `estimado: true` en la UI. Degradación aceptable para el piloto
   (documentado en 9.22), pero es deuda visible al cliente.
