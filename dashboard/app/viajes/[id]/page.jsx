@@ -725,8 +725,14 @@ export default function ViajeDetalle() {
                       </span>
                     </div>
                     <div className="h-1.5 rounded-full bg-surface-alt overflow-hidden">
-                      <div className={`h-full rounded-full ${ocupacion.tipo === "completo" ? "bg-brand" : "bg-ink-muted"}`} style={{ width: `${Math.min(100, ocupacion.pctOcupacion)}%` }} />
+                      <div className={`h-full rounded-full ${ocupacion.excedeCapacidad ? "bg-estado-incidencia" : ocupacion.tipo === "completo" ? "bg-brand" : "bg-ink-muted"}`} style={{ width: `${Math.min(100, ocupacion.pctOcupacion)}%` }} />
                     </div>
+                    {ocupacion.excedeCapacidad && (
+                      <p className="text-xs text-estado-incidencia flex items-start gap-1.5 bg-red-50 rounded-md px-2.5 py-2 mt-2">
+                        <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                        La carga supera la capacidad de {ocupacion.dimensionLimitante?.toUpperCase()} del vehículo asignado.
+                      </p>
+                    )}
                   </div>
                 );
               })()}

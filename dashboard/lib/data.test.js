@@ -3183,6 +3183,17 @@ describe("calcularOcupacion — FTL vs. grupaje (COT.4)", () => {
     expect(encima.tipo).toBe("completo");
   });
 
+  it("18.D.6: la carga excede la capacidad del vehículo -> excedeCapacidad=true", () => {
+    const r = calcularOcupacion({ kg: 25000 }, { kg: 24000 });
+    expect(r.excedeCapacidad).toBe(true);
+    expect(r.dimensionLimitante).toBe("kg");
+  });
+
+  it("18.D.6: justo lleno (100%) NO excede -- solo por encima de 100%", () => {
+    const r = calcularOcupacion({ kg: 24000 }, { kg: 24000 });
+    expect(r.excedeCapacidad).toBe(false);
+  });
+
   it("sin capacidad conocida (vehículo sin configurar): tipo desconocido, no falla", () => {
     const r = calcularOcupacion({ ldm: 5, kg: 10000, m3: 30 }, {});
     expect(r.tipo).toBe("desconocido");

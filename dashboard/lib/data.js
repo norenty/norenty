@@ -2604,6 +2604,11 @@ export function calcularOcupacion(carga, capacidad) {
     pctOcupacion,
     dimensionLimitante,
     tipo: pctOcupacion >= UMBRAL_FTL_PCT ? "completo" : "grupaje",
+    // 18.D.6: "que sea viable realmente hacerlo" -- si la dimensión que más
+    // aprieta supera el 100%, la carga NO cabe en el vehículo asignado, no es
+    // solo "está muy lleno". Antes esto solo se veía como una barra al 100%
+    // sin distinguir "justo lleno" de "no cabe".
+    excedeCapacidad: pctOcupacion > 100,
   };
 }
 
