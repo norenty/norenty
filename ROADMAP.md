@@ -43,9 +43,11 @@ falsos**. Nadie se entera. En una nómina o una factura eso es dinero real mal p
   traía TODA la historia de llegadas de la empresa sin fecha ni `limit`, usado por la calibración
   automática (10.8/10.9). Ahora acotado por `ocurrido_en` en el mismo periodo que `ventana_fin`.
   432 tests en verde.
-- [ ] `[LOOP 19.3]` **`sugerirChofer`** — lee `ubicacion` de las últimas 48 h (~1827). Con 1500
-  camiones emitiendo GPS esto son cientos de miles de filas: el ranking de chóferes se calcularía
-  sobre una muestra arbitraria de 1000.
+- [x] `[LOOP 19.3]` **`sugerirChofer`** — **HECHO 2026-07-25** (mitigación, no la solución de
+  fondo): ventana de `ubicacion` bajada de 2 días a 3h — el código solo usa la posición MÁS
+  RECIENTE por chófer, así que 2 días de histórico completo era desperdicio puro a escala.
+  **La solución de fondo sigue pendiente** (fusionada con 19.6): una query "última posición por
+  chófer" agregada en Postgres (`DISTINCT ON`), no un recorte de ventana en el cliente.
 - [x] `[LOOP 19.4]` **`getMetricasPuntualidad` / `getMetricasChoferes` / `getMetricasPorCliente`**
   — **HECHO 2026-07-25**: `getMetricasPuntualidad` ya no trae `viaje` entero, solo los viajes con
   incidencia del periodo (`.in`); `chofer`/`cliente` (catálogos, no acotables por fecha) llevan

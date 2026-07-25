@@ -1820,11 +1820,15 @@ export async function sugerirChofer(viajeId, { hitosOverride = null } = {}) {
   let viajesActivosQuery = supabase.from("viaje").select("id, chofer_id").in("estado", ESTADOS_ACTIVOS);
   if (viajeId) viajesActivosQuery = viajesActivosQuery.neq("id", viajeId);
 
-  // ubicacion acotada a los últimos 2 días (auditoría de arquitectura
-  // 2026-07-05): antes traía la tabla ENTERA de la empresa sin límite de
-  // fecha, creciendo para siempre con cada ping GPS histórico. Una posición
-  // de hace más de 2 días tampoco sirve ya para "proximidad al origen".
-  const haceDosDias = new Date(Date.now() - 2 * 86400000).toISOString();
+  // Fase 19.3 (2026-07-25, ver ROADMAP): el acotado a 2 días de la auditoría
+  // de 2026-07-05 ya no basta a escala de flota real. Más abajo SOLO se usa
+  // la posición MÁS RECIENTE de cada chófer (`ultimaUbicacionPorChofer`) --
+  // con 1500 camiones pingueando cada pocos minutos, 2 días son cientos de
+  // miles de filas descargadas para quedarse con, como mucho, 1500. Se
+  // reduce a 3h: de sobra para "posición reciente" de un vehículo en ruta, y
+  // si no hay ping en 3h el fallback ya existente ("ubicación desconocida")
+  // es más honesto que una posición de hace dos días.
+  const haceTresHoras = new Date(Date.now() - 3 * 3600000).toISOString();
 
   const [
     { data: choferes, error: errorChoferes },
@@ -1839,7 +1843,7 @@ export async function sugerirChofer(viajeId, { hitosOverride = null } = {}) {
     viajesActivosQuery,
     supabase.from("documento").select("entidad_id, tipo, fecha_caducidad").eq("ambito", "chofer"),
     getMetricasChoferes(),
-    supabase.from("ubicacion").select("chofer_id, lat, lon, created_at").gte("created_at", haceDosDias),
+    supabase.from("ubicacion").select("chofer_id, lat, lon, created_at").gte("created_at", haceTresHoras),
     hitosOverride ? Promise.resolve({ data: hitosOverride }) : supabase.from("hito").select("orden, lat, lon").eq("viaje_id", viajeId),
     supabase.from("empresa").select("velocidad_planificacion_kmh"),
   ]);
