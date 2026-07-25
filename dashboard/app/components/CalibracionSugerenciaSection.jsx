@@ -11,7 +11,7 @@ import RequireRol from "./RequireRol";
  * en cada sección (nunca se aplica sola). Ver ROADMAP.md 10.9 para el
  * principio rector ("el sistema aprende de su propia verdad, pero cada
  * ajuste se ofrece como sugerencia transparente, nunca mutación silenciosa"). */
-export default function CalibracionSugerenciaSection({ onSugerirVelocidad, onSugerirCosteKm }) {
+export default function CalibracionSugerenciaSection({ onSugerirVelocidad, onSugerirCosteKm, onSugerirGasoil, onSugerirPeaje, onSugerirDieta }) {
   const [sugerencia, setSugerencia] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -34,8 +34,9 @@ export default function CalibracionSugerenciaSection({ onSugerirVelocidad, onSug
     );
   }
 
-  const { velocidad, costeKm, numViajesConDatos } = sugerencia;
-  if (!velocidad.sugerir && !costeKm.sugerir) {
+  const { velocidad, costeKm, gasoil, peaje, dieta, numViajesConDatos } = sugerencia;
+  const hayAlgunaSugerencia = velocidad.sugerir || costeKm.sugerir || gasoil?.sugerir || peaje?.sugerir || dieta?.sugerir;
+  if (!hayAlgunaSugerencia) {
     return (
       <RequireRol roles={["admin"]}>
         <p className="text-xs text-estado-ok mb-4">
@@ -83,6 +84,48 @@ export default function CalibracionSugerenciaSection({ onSugerirVelocidad, onSug
                 className="shrink-0 ml-2 text-xs px-2 py-1 rounded-md border border-brand text-brand hover:bg-brand/10"
               >
                 Usar {costeKm.real} €/km
+              </button>
+            </div>
+          )}
+          {gasoil?.sugerir && (
+            <div className="flex items-center justify-between text-xs bg-surface-alt rounded-md px-3 py-2">
+              <span>
+                Tu gasoil real medio (facturas de repostaje) es <strong>{gasoil.real} €/l</strong>, no
+                los {gasoil.configurado} €/l configurados.
+              </span>
+              <button
+                onClick={() => onSugerirGasoil?.(gasoil.real)}
+                className="shrink-0 ml-2 text-xs px-2 py-1 rounded-md border border-brand text-brand hover:bg-brand/10"
+              >
+                Usar {gasoil.real} €/l
+              </button>
+            </div>
+          )}
+          {peaje?.sugerir && (
+            <div className="flex items-center justify-between text-xs bg-surface-alt rounded-md px-3 py-2">
+              <span>
+                Tu peaje real medio es <strong>{peaje.real} €/km</strong>, no los{" "}
+                {peaje.configurado} €/km configurados.
+              </span>
+              <button
+                onClick={() => onSugerirPeaje?.(peaje.real)}
+                className="shrink-0 ml-2 text-xs px-2 py-1 rounded-md border border-brand text-brand hover:bg-brand/10"
+              >
+                Usar {peaje.real} €/km
+              </button>
+            </div>
+          )}
+          {dieta?.sugerir && (
+            <div className="flex items-center justify-between text-xs bg-surface-alt rounded-md px-3 py-2">
+              <span>
+                Tu dieta real media es <strong>{dieta.real} €/noche</strong>, no los{" "}
+                {dieta.configurado} €/noche configurados.
+              </span>
+              <button
+                onClick={() => onSugerirDieta?.(dieta.real)}
+                className="shrink-0 ml-2 text-xs px-2 py-1 rounded-md border border-brand text-brand hover:bg-brand/10"
+              >
+                Usar {dieta.real} €/noche
               </button>
             </div>
           )}

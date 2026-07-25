@@ -554,6 +554,9 @@ export default function AjustesPage() {
       <CalibracionSugerenciaSection
         onSugerirVelocidad={(v) => setVelocidadPlanificacion(String(v))}
         onSugerirCosteKm={(v) => setCosteKm(String(v))}
+        onSugerirGasoil={(v) => setPrecioGasoil(String(v))}
+        onSugerirPeaje={(v) => setCostePeaje(String(v))}
+        onSugerirDieta={(v) => setDietaNoche(String(v))}
       />
 
       {/* 18.A.3b (Fase 18, 2026-07-25): parámetros de empresa (coste/km, velocidad,

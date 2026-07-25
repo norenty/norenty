@@ -3215,7 +3215,7 @@ function mediana(valores) {
  */
 export async function getSugerenciaCalibracion({ minimoViajes = MIN_VIAJES_CALIBRACION_DEFAULT } = {}) {
   const [{ data: empresas }, { data: viajes }] = await Promise.all([
-    supabase.from("empresa").select("id, velocidad_planificacion_kmh, coste_km"),
+    supabase.from("empresa").select("id, velocidad_planificacion_kmh, coste_km, precio_gasoil_litro, coste_peaje_km, dieta_noche_eur"),
     supabase.from("viaje").select("id").eq("estado", "completado"),
   ]);
   const empresa = (empresas || [])[0] || null;
@@ -3228,16 +3228,28 @@ export async function getSugerenciaCalibracion({ minimoViajes = MIN_VIAJES_CALIB
   const [{ data: hitos }, { data: eventos }, { data: gastos }] = await Promise.all([
     supabase.from("hito").select("id, viaje_id, orden, estado, lat, lon").in("viaje_id", idsViajes),
     supabase.from("ejecucion_evento").select("viaje_id, tipo, ocurrido_en").eq("tipo", "llegada").in("viaje_id", idsViajes),
-    supabase.from("gasto_viaje").select("viaje_id, importe").in("viaje_id", idsViajes),
+    supabase.from("gasto_viaje").select("viaje_id, importe, tipo, litros").in("viaje_id", idsViajes),
   ]);
 
   const gastosPorViaje = {};
+  // 18.B.2: gastos reales por capa (gasoil/peaje/dieta) -- desglosados aparte
+  // del total, para sugerir cada campo del coste desglosado por su cuenta.
+  // "conductor" queda fuera a propósito: no hay ningún gasto_viaje de ese
+  // tipo (es coste de nómina, no un gasto imputado al viaje), así que no hay
+  // dato real del que tirar todavía.
+  const muestrasGasoil = [];
+  const muestrasDieta = [];
+  const peajePorViaje = {};
   (gastos || []).forEach((g) => {
     gastosPorViaje[g.viaje_id] = (gastosPorViaje[g.viaje_id] || 0) + Number(g.importe);
+    if (g.tipo === "repostaje" && g.litros > 0 && g.importe > 0) muestrasGasoil.push(Number(g.importe) / Number(g.litros));
+    if (g.tipo === "dieta" && g.importe > 0) muestrasDieta.push(Number(g.importe));
+    if (g.tipo === "peaje" && g.importe > 0) peajePorViaje[g.viaje_id] = (peajePorViaje[g.viaje_id] || 0) + Number(g.importe);
   });
 
   const muestrasVelocidad = [];
   const muestrasCosteKm = [];
+  const muestrasPeajeKm = [];
   const viajesConAlgunDato = new Set();
 
   for (const viajeId of idsViajes) {
@@ -3265,6 +3277,8 @@ export async function getSugerenciaCalibracion({ minimoViajes = MIN_VIAJES_CALIB
       muestrasCosteKm.push(gastosViaje / km);
       viajesConAlgunDato.add(viajeId);
     }
+
+    if (peajePorViaje[viajeId]) muestrasPeajeKm.push(peajePorViaje[viajeId] / km);
   }
 
   const numViajesConDatos = viajesConAlgunDato.size;
@@ -3274,6 +3288,9 @@ export async function getSugerenciaCalibracion({ minimoViajes = MIN_VIAJES_CALIB
 
   const velocidadReal = mediana(muestrasVelocidad);
   const costeKmReal = mediana(muestrasCosteKm);
+  const gasoilReal = mediana(muestrasGasoil);
+  const peajeKmReal = mediana(muestrasPeajeKm);
+  const dietaReal = mediana(muestrasDieta);
   const velocidadConfigurada = empresa.velocidad_planificacion_kmh ?? null;
   const costeKmConfigurado = empresa.coste_km ?? null;
 
@@ -3284,6 +3301,9 @@ export async function getSugerenciaCalibracion({ minimoViajes = MIN_VIAJES_CALIB
 
   const diffVelocidad = difierePct(velocidadReal, velocidadConfigurada);
   const diffCosteKm = difierePct(costeKmReal, costeKmConfigurado);
+  const diffGasoil = difierePct(gasoilReal, empresa.precio_gasoil_litro ?? null);
+  const diffPeaje = difierePct(peajeKmReal, empresa.coste_peaje_km ?? null);
+  const diffDieta = difierePct(dietaReal, empresa.dieta_noche_eur ?? null);
 
   return {
     suficiente: true,
@@ -3298,6 +3318,24 @@ export async function getSugerenciaCalibracion({ minimoViajes = MIN_VIAJES_CALIB
       real: costeKmReal != null ? Math.round(costeKmReal * 100) / 100 : null,
       configurado: costeKmConfigurado,
       sugerir: diffCosteKm != null && diffCosteKm >= UMBRAL_DIFERENCIA_SUGERENCIA_PCT,
+    },
+    // 18.B.2: mismo criterio que velocidad/costeKm -- solo sugerencia, nunca
+    // se sobreescribe solo. null si no hay muestras de esa capa todavía
+    // (p.ej. ningún gasto de tipo 'dieta' registrado).
+    gasoil: {
+      real: gasoilReal != null ? Math.round(gasoilReal * 1000) / 1000 : null,
+      configurado: empresa.precio_gasoil_litro ?? null,
+      sugerir: diffGasoil != null && diffGasoil >= UMBRAL_DIFERENCIA_SUGERENCIA_PCT,
+    },
+    peaje: {
+      real: peajeKmReal != null ? Math.round(peajeKmReal * 100) / 100 : null,
+      configurado: empresa.coste_peaje_km ?? null,
+      sugerir: diffPeaje != null && diffPeaje >= UMBRAL_DIFERENCIA_SUGERENCIA_PCT,
+    },
+    dieta: {
+      real: dietaReal != null ? Math.round(dietaReal * 100) / 100 : null,
+      configurado: empresa.dieta_noche_eur ?? null,
+      sugerir: diffDieta != null && diffDieta >= UMBRAL_DIFERENCIA_SUGERENCIA_PCT,
     },
   };
 }

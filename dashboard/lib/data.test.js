@@ -2949,6 +2949,49 @@ describe("sugerencia de calibración (10.9b — suggestion-only, N=20)", () => {
     expect(r.velocidad.sugerir).toBe(false);
     expect(r.costeKm.sugerir).toBe(false);
   });
+
+  it("18.B.2: sugiere gasoil/peaje/dieta desde gasto_viaje real, sin tocar el campo solo", async () => {
+    const { viajes, hitos, eventos } = construirViajes(20);
+    const gastos = [];
+    viajes.forEach((v, i) => {
+      // repostaje: 50€ por 25l -> 2 €/l real, muy distinto de 1 €/l configurado
+      gastos.push({ viaje_id: v.id, importe: 50, tipo: "repostaje", litros: 25 });
+      // peaje: 20€ en un viaje de 100km -> 0.2 €/km real, distinto de 0.05 configurado
+      gastos.push({ viaje_id: v.id, importe: 20, tipo: "peaje" });
+      // dieta: 60€/noche real, distinto de 30 configurado
+      gastos.push({ viaje_id: v.id, importe: 60, tipo: "dieta" });
+    });
+    TABLES.viaje = viajes;
+    TABLES.hito = hitos;
+    TABLES.ejecucion_evento = eventos;
+    TABLES.gasto_viaje = gastos;
+    TABLES.empresa = [{
+      id: "e1", velocidad_planificacion_kmh: 75, coste_km: 2,
+      precio_gasoil_litro: 1, coste_peaje_km: 0.05, dieta_noche_eur: 30,
+    }];
+
+    const r = await getSugerenciaCalibracion({ minimoViajes: 20 });
+    expect(r.gasoil.real).toBe(2);
+    expect(r.gasoil.configurado).toBe(1);
+    expect(r.gasoil.sugerir).toBe(true);
+    expect(r.peaje.real).toBe(0.2);
+    expect(r.peaje.sugerir).toBe(true);
+    expect(r.dieta.real).toBe(60);
+    expect(r.dieta.sugerir).toBe(true);
+  });
+
+  it("18.B.2: sin gastos de un tipo, esa capa sale null y no se sugiere (no inventa datos)", async () => {
+    const { viajes, hitos, eventos, gastos } = construirViajes(20);
+    TABLES.viaje = viajes;
+    TABLES.hito = hitos;
+    TABLES.ejecucion_evento = eventos;
+    TABLES.gasto_viaje = gastos; // solo gastos "sin tipo" (importe total), sin repostaje/peaje/dieta
+    TABLES.empresa = [{ id: "e1", velocidad_planificacion_kmh: 75, coste_km: 2, precio_gasoil_litro: 1 }];
+
+    const r = await getSugerenciaCalibracion({ minimoViajes: 20 });
+    expect(r.gasoil.real).toBeNull();
+    expect(r.gasoil.sugerir).toBe(false);
+  });
 });
 
 describe("plan-vs-real por hito (7A.9)", () => {
