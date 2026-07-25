@@ -400,24 +400,20 @@ Contexto: el modelo es **venta B2B directa a empresas grandes**, no SaaS de auto
 quitamos el botón de registro público (parche correcto pero insuficiente). Lo que falta es el
 modelo completo:
 
-- [ ] `[DECISIÓN C.1]` **🔴 TENSIÓN REAL DETECTADA: el scoping de Fase 15 choca con la cobertura de
-  vacaciones.** Dijiste: *"si alguien está de vacaciones, su trabajo debe hacerlo otra persona, no
-  pueden no hacerse"*. Pero F15.2 (RLS por gestor) hace que un `gestor_operativo` **solo vea sus
-  propios chóferes/viajes** — si María se va de vacaciones, sus viajes son invisibles para Juan, y
-  el trabajo se para. Justo lo contrario de lo que necesitas. **Hay que decidir el modelo**, y no
-  lo decido yo solo porque es criterio de negocio:
-  - **(a) Delegación temporal** — un gestor marca ausencia y designa sustituto; el sustituto ve su
-    ámbito durante ese periodo. Mantiene la frontera de seguridad, resuelve el caso real.
-    *Recomendación del CTO*: es el patrón enterprise estándar y el cambio más pequeño.
-  - **(b) Scoping por equipo** en vez de por persona — los compañeros del mismo equipo se cubren
-    entre sí por defecto.
-  - **(c) Scoping "blando"** — todos ven todo dentro de la empresa, y "lo mío" es solo un filtro de
-    UI. La frontera dura sigue siendo entre EMPRESAS (multi-tenant), no entre compañeros. Es como
-    funciona una oficina de tráfico real (están en la misma sala y se cubren).
-  - **(d) Solo admin cubre** — funciona hoy sin tocar nada, pero mete al jefe de tráfico de cuello
-    de botella en cada ausencia.
-- [ ] `[LOOP C.2]` **Implementar el modelo elegido en C.1** (migración + RLS + UI de Ajustes →
-  Equipo). No se toca antes de que C.1 esté decidido.
+- [x] `[DECISIÓN C.1]` **🔴 TENSIÓN REAL DETECTADA: el scoping de Fase 15 choca con la cobertura de
+  vacaciones.** **DECIDIDO 2026-07-25** (respuesta textual del usuario, no coincide con ninguna de
+  las 4 opciones que planteé — modelo propio): el jefe de tráfico **redistribuye manualmente** los
+  chóferes de quien se va entre el resto de gestores (no hay sustituto automático ni delegación
+  temporal). Lo que sí cambia de fondo: **"nunca debería haber un chófer sin asignar un gestor"** —
+  el estado "Sin asignar"/pool de F15.1 queda descartado como estado válido. Un calendario de
+  vacaciones queda anotado como "más secundario", no se construye ahora.
+- [x] `[LOOP C.2]` **Implementar el modelo elegido en C.1.** **HECHO 2026-07-25**: la
+  redistribución manual YA estaba construida (reasignación en bloque de `AjustesEquipoSection`,
+  17.G.3) — no hacía falta migración de modelo nuevo. Lo que sí se implementó: migración 0065
+  (backfill de choferes sin gestor al admin de su empresa), `gestorIdComoAutor()` en `data.js`
+  (createChofer ya no deja "sin asignar" ni siquiera si lo crea un admin), y la UI deja de ofrecer
+  "Sin asignar" como opción de reasignación. Verificado en vivo: los 90 chóferes de Transportes
+  Pepito muestran "Admin Pepito" como responsable. Commit `fc63385`.
 - [ ] `[LOOP C.3]` **Verificar el flujo de invitación de punta a punta en producción** — el
   mecanismo existe (6.9, `usar_invitacion`, UI en `AjustesEquipoSection`) pero nunca se ha probado
   con un usuario real: admin genera enlace → invitado entra → queda en la empresa correcta con el
