@@ -730,6 +730,19 @@ export async function guardarDesgloseCosteEmpresa(empresaId, campos) {
   if (error) throw error;
 }
 
+/** 18.B.3 — precio medio nacional de Gasóleo A (índice público del
+ * Ministerio, actualizado por backend/db/actualizar_precio_gasoil.py), solo
+ * como REFERENCIA para rellenar/arrancar una cotización. Nunca se aplica
+ * solo -- devuelve null si el script todavía no se ha ejecutado nunca. */
+export async function getIndiceGasoilNacional() {
+  const { data, error } = await supabase
+    .from("indice_gasoil_nacional")
+    .select("precio_medio_eur, actualizado_en")
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 /**
  * COT.3 — capacidad de carga del vehículo (LDM/kg/m³, migración 0050). Las
  * tres son opcionales e independientes (el cliente rellena la que le importe).

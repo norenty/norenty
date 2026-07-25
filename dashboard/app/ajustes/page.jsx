@@ -9,7 +9,7 @@ import {
   guardarNombreEmpresa, getBasesEmpresa, crearBaseEmpresa, eliminarBaseEmpresa, guardarCosteKmEmpresa, guardarVelocidadEmpresa,
   guardarDesgloseCosteEmpresa, guardarObjetivoPuntualidadEmpresa, guardarMargenObjetivoEmpresa,
   guardarRequierePodEmpresa, getChoferesConGestor, guardarGestorChofer, guardarTelefonoGestor,
-  getViajesConGestor, guardarGestorViaje,
+  getViajesConGestor, guardarGestorViaje, getIndiceGasoilNacional,
 } from "../../lib/data";
 import RequireRol from "../components/RequireRol";
 import AjustesPerfilSection from "../components/AjustesPerfilSection";
@@ -36,6 +36,7 @@ export default function AjustesPage() {
   const [dietaNoche, setDietaNoche] = useState("");
   const [costeConductor, setCosteConductor] = useState("");
   const [requierePod, setRequierePod] = useState(true);
+  const [indiceGasoil, setIndiceGasoil] = useState(null);
   const [gestor, setGestor] = useState(null);
   const [prefs, setPrefs] = useState({ notif_incidencias: true, notif_entregas: true, notif_fuera_ventana: false });
   const [telefonoGestor, setTelefonoGestor] = useState("");
@@ -121,6 +122,11 @@ export default function AjustesPage() {
           setDietaNoche(emp?.dieta_noche_eur != null ? String(emp.dieta_noche_eur) : "");
           setCosteConductor(emp?.coste_conductor_km != null ? String(emp.coste_conductor_km) : "");
           setRequierePod(emp?.requiere_pod ?? true);
+          try {
+            setIndiceGasoil(await getIndiceGasoilNacional());
+          } catch {
+            // 18.B.3: la sugerencia es un extra, nunca debe romper la carga de Ajustes
+          }
           setInvitaciones(await getInvitaciones());
           setGestores(await getGestoresEmpresa());
           setChoferesEquipo(await getChoferesConGestor());
@@ -570,6 +576,7 @@ export default function AjustesPage() {
         setCosteConductor={setCosteConductor}
         guardarDesglose={guardarDesglose}
         requierePod={requierePod}
+        indiceGasoil={indiceGasoil}
         toggleRequierePod={toggleRequierePod}
         guardando={guardando}
       />

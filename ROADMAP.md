@@ -153,9 +153,11 @@ empresa más seria, no un software de pacotilla"*.
 - [ ] `[DECISIÓN 18.B.3]` **Precio del gasoil automático.** *"me gustaría que pudiera cogerse
   automáticamente"*, aceptando que se pueda sobreescribir a mano. Candidato: índice público de
   carburantes (en España el Ministerio publica un dataset abierto). A investigar.
-- [ ] `[DECISIÓN 18.B.4]` **POD obligatorio: ¿puede desactivarse?** *"entiendo que es algo que
-  tiene un cumplimiento legal detrás"*. Revisar con la consulta legal (9.11) si el albarán es
-  legalmente exigible; si lo es, el toggle no debería ser libre.
+- [x] `[DECISIÓN 18.B.4]` **POD obligatorio: ¿puede desactivarse?** **DECIDIDO 2026-07-25**
+  (aprobado explícitamente por el usuario): obligatorio siempre hasta consultar con asesoría
+  legal (9.11) si el albarán es legalmente exigible. Toggle bloqueado en Ajustes (checkbox fijo,
+  ya no llama a `toggleRequierePod`); el campo `requiere_pod` y `guardarRequierePodEmpresa` se
+  dejan intactos por si la consulta legal confirma que sí se puede desactivar. Commit `6f48121`.
 
 ### 18.C — El flujo real de la empresa (comercial → jefe de tráfico → gestor → chófer)
 

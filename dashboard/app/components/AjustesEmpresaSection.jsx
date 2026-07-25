@@ -42,6 +42,7 @@ export default function AjustesEmpresaSection({
   guardarMargen,
   requierePod,
   toggleRequierePod,
+  indiceGasoil,
   guardando,
 }) {
   // 18.C.3 (Fase 18, 2026-07-25): "podemos tener múltiples bases, es algo que
@@ -331,6 +332,15 @@ export default function AjustesEmpresaSection({
               value={precioGasoil} onChange={(e) => setPrecioGasoil(e.target.value)} placeholder="1.50"
               className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
             />
+            {indiceGasoil?.precio_medio_eur != null && (
+              <button
+                type="button"
+                onClick={() => setPrecioGasoil(String(indiceGasoil.precio_medio_eur))}
+                className="mt-1 text-xs text-brand hover:underline"
+              >
+                Usar sugerido: {indiceGasoil.precio_medio_eur} €/l (media nacional)
+              </button>
+            )}
           </div>
           <div>
             <label htmlFor="ajustes-peaje" className="block text-xs text-ink-secondary mb-1">Peaje (€/km)</label>
