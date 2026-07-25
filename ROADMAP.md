@@ -59,12 +59,31 @@ falsos**. Nadie se entera. En una nómina o una factura eso es dinero real mal p
 
 ### Otros límites de escala detectados (mismo repaso, menos urgentes)
 
-- [ ] `[DECISIÓN 19.6]` **La analítica calcula en el navegador.** Aunque se quite el tope de 1000,
-  descargar cientos de miles de filas al cliente para sumarlas en JS no escala. Lo correcto es
-  agregar en Postgres (vistas materializadas o RPC) y que el navegador reciba el resultado, no la
-  materia prima. Es un rediseño, no un parche.
+- [~] `[DECISIÓN 19.6]` **La analítica calcula en el navegador.** **PRIMER PASO HECHO 2026-07-25**
+  (no el rediseño completo, ver nota honesta abajo): descubrimiento más fino durante la Fase 19 —
+  incluso acotando por fecha (19.4), UNA SOLA ventana de 90 días puede superar 1000 filas con
+  flota grande, el corte de PostgREST no distingue. `getMetricasPuntualidad` solo necesitaba un
+  NÚMERO (`totalConVentana`), nunca las filas: cambiado a `count: "exact", head: true` — Postgres
+  cuenta en el servidor, el navegador no recibe ni una fila, sin el límite de 1000. Verificado
+  empíricamente contra la BD real (1593 filas, `Content-Range: 0-0/1593`, respuesta de 47 bytes).
+  **Pendiente de verdad** (no atacado esta noche, riesgo real): `getMetricasChoferes`/
+  `getMetricasPorCliente`/`getMetricasRentabilidad`/`getMetricasFlota` SÍ necesitan las filas
+  (agrupan por chófer/cliente/vehículo, no solo cuentan) — su solución de fondo es un RPC de
+  agregación en Postgres (`GROUP BY` real), que es SQL más complejo y no se escribe sin
+  verificación humana a las tantas de la noche. Recomendación concreta para cuando se retome:
+  una función `rpc_metricas_choferes(desde, hasta)` que devuelva ya agregado por `chofer_id`
+  (viajes/incidencias/hitos-a-tiempo contados con `COUNT(*) FILTER (WHERE ...)`), probada primero
+  en `psql` contra datos reales antes de conectarla al dashboard.
 - [ ] `[DECISIÓN 19.7]` **Crecimiento de `ubicacion`.** Ya estaba anotado como 9.24 (particionado)
   y diferido "cuando supere X filas". Con 1500 camiones ese umbral se cruza en semanas, no años.
+  **Investigado 2026-07-25, NO ejecutado a propósito**: particionar una tabla operativa en
+  producción con datos reales es exactamente el tipo de acción "difícil de revertir, afecta a
+  sistemas compartidos" que no se lanza sin supervisión, y menos de madrugada. Propuesta concreta
+  para cuando se aborde con tiempo dedicado: particionado por RANGE mensual sobre `created_at`
+  (`CREATE TABLE ubicacion_2026_08 PARTITION OF ubicacion FOR VALUES FROM (...) TO (...)`),
+  migrando primero en una BD de prueba con un volumen de datos realista (no solo los 4 viajes de
+  Pepito) para medir de verdad el impacto antes de tocar nada real. `ejecucion_evento` tiene el
+  mismo patrón de crecimiento y debería particionarse a la vez, no por separado.
 - [x] `[LOOP 19.8]` **N+1 en `getViajesConHuecoUbicacion` (home "Hoy")** — **HECHO 2026-07-25**:
   de 1 consulta por viaje en curso (200 viajes = 200 consultas) a 1 sola consulta con `.in()` +
   ventana de 7 días, reducida en JS a la más reciente por chófer. Verificado en `/`: "Todo en
