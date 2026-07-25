@@ -2175,16 +2175,22 @@ export async function getInformeNomina(mes, anio) {
   const inicioISO = inicio.toISOString();
   const finISO = finExcl.toISOString();
 
+  // Fase 19.1 (2026-07-25, hallazgo real: PostgREST corta CUALQUIER select()
+  // sin `limit` en 1000 filas, SIN avisar -- comprobado empíricamente contra
+  // la BD, ver ROADMAP.md Fase 19). `viaje`/`hito` se pedían ENTEROS, sin
+  // acotar, aunque el informe es de UN MES. Con más de 1000 viajes/hitos en
+  // el histórico total (fácil con una flota grande, no solo con años de
+  // datos) la nómina se calcularía sobre un subconjunto arbitrario --
+  // "planificado" en dinero real. Fix: primero se resuelven las llegadas del
+  // mes (ya acotadas por fecha), y SOLO ENTONCES se piden viaje/hito de esos
+  // viajes concretos -- de cientos de miles de filas históricas a, como
+  // mucho, unos pocos miles ligados a la actividad real del mes.
   const [
     { data: choferes, error: errorChoferes },
-    { data: viajes, error: errorViajes },
-    { data: hitos, error: errorHitos },
     { data: llegadasMesRaw, error: errorLlegadas },
     { data: empresas, error: errorEmpresas },
   ] = await Promise.all([
-    supabase.from("chofer").select("id, nombre"),
-    supabase.from("viaje").select("id, referencia, chofer_id, estado"),
-    supabase.from("hito").select("id, viaje_id, orden, estado, lat, lon"),
+    supabase.from("chofer").select("id, nombre").order("id").limit(5000),
     supabase.from("ejecucion_evento")
       .select("hito_id, viaje_id, chofer_id, tipo, ocurrido_en")
       .eq("tipo", "llegada")
@@ -2192,16 +2198,25 @@ export async function getInformeNomina(mes, anio) {
       .lt("ocurrido_en", finISO),
     supabase.from("empresa").select("id, base_lat, base_lon"),
   ]);
-  // Ítem 9.35: las 5 alimentan el informe entero (lista de chóferes, mapa de
-  // viajes/hitos, llegadas del mes, base de la empresa) -- ninguna es un
-  // "vacío legítimo" a este nivel, así que un fallo real aquí debe lanzar,
-  // no verse como "0 km"/"0 noches fuera" para todos los chóferes.
   if (errorChoferes) throw errorChoferes;
-  if (errorViajes) throw errorViajes;
-  if (errorHitos) throw errorHitos;
   if (errorLlegadas) throw errorLlegadas;
   if (errorEmpresas) throw errorEmpresas;
   const llegadasMes = llegadasMesRaw || [];
+
+  const viajeIdsMes = [...new Set(llegadasMes.map((e) => e.viaje_id))];
+  const [
+    { data: viajes, error: errorViajes },
+    { data: hitos, error: errorHitos },
+  ] = await Promise.all([
+    viajeIdsMes.length
+      ? supabase.from("viaje").select("id, referencia, chofer_id, estado").in("id", viajeIdsMes)
+      : Promise.resolve({ data: [] }),
+    viajeIdsMes.length
+      ? supabase.from("hito").select("id, viaje_id, orden, estado, lat, lon").in("viaje_id", viajeIdsMes)
+      : Promise.resolve({ data: [] }),
+  ]);
+  if (errorViajes) throw errorViajes;
+  if (errorHitos) throw errorHitos;
 
   const base = (empresas || [])[0];
   const tieneBase = base && base.base_lat != null && base.base_lon != null;

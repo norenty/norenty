@@ -3528,6 +3528,10 @@ describe("9.35 — las funciones financieras LANZAN ante un fallo real de lectur
   });
 
   it("getInformeNomina lanza si falla la query de viaje (crítica)", async () => {
+    // Fase 19.1: viaje/hito solo se consultan si hubo llegadas ese mes (evita
+    // traer el histórico entero sin límite) -- hace falta una llegada real
+    // para que la query de viaje llegue a ejecutarse y pueda fallar.
+    TABLES.ejecucion_evento = [{ hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo: "llegada", ocurrido_en: "2026-03-15T10:00:00Z" }];
     SELECT_ERRORS.viaje = { message: "fallo real" };
     await expect(getInformeNomina(3, 2026)).rejects.toThrow("fallo real");
   });
