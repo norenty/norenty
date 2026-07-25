@@ -107,17 +107,30 @@ empresa más seria, no un software de pacotilla"*.
 
 ### 18.A — Gobernanza: no todo el mundo puede tocar todo (el hilo conductor)
 
-- [ ] `[DECISIÓN 18.A.1]` **🔴 Modelo de roles ampliado.** Hoy hay `admin` / `gestor` / `solo
-  lectura`. El usuario pide plantear al menos: **gestor de tráfico** (el principal, operativo),
-  **administrador** (parámetros de empresa), **contabilidad/control financiero** (ve Facturación),
-  **comercial** (crea viajes, ver 18.C.1). Decisión de modelo de datos + RLS, no es cosmética.
-  **Apuntado explícitamente para preguntarlo en el discovery (12.3).**
-- [ ] `[DECISIÓN 18.A.2]` **🔴 Flujo de aprobaciones.** *"que haya un flujo de aprobaciones algo
-  lógico"*. Casos que dio: (a) dar de alta una ruta nueva → la aprueba el jefe de tráfico; (b) si
-  la viabilidad no da 100% según nuestro propio sistema → aprobación manual explícita en vez de
-  dejar pasar. Esto convierte la comprobación de viabilidad (ya construida) en un **gate real**,
-  que es justo el argumento de "software serio". Requiere tabla de solicitudes + estados + quién
-  aprueba.
+- [x] `[DECISIÓN 18.A.1]` **🔴 Modelo de roles ampliado.** **DECIDIDO 2026-07-25** (primer paso,
+  aprobado explícitamente por el usuario): en vez de construir los 4 roles a ciegas, se añade
+  SOLO el 4º rol que ya tiene caso de uso concreto — **comercial** (crea/edita viajes, sin acceso
+  a Ajustes/Equipo/Facturación) — vía migración 0063 (`gestor_rol_check` ampliado +
+  `rol_comercial_restringido()`, allowlist viaje/hito/cliente). **Gestor de tráfico**
+  (= `gestor_operativo` existente, ya es quien aprueba en 18.A.2), **administrador** de parámetros
+  y **contabilidad** siguen pendientes del discovery real (12.3), tal como se apuntó. Commit
+  `eba2dbe`.
+- [x] `[DECISIÓN 18.A.2]` **🔴 Flujo de aprobaciones.** **DECIDIDO 2026-07-25** (aprobado
+  explícitamente por el usuario, ambos casos). Tabla única `solicitud_aprobacion` (migración
+  0063) para los dos casos que dio:
+  (a) ruta nueva (`plantilla_ruta`) nace `estado_aprobacion='pendiente'` (migración 0064) y no se
+  ofrece en el asistente de nuevo viaje hasta que el jefe de tráfico la aprueba;
+  (b) `createViaje` ahora corre `calcularAvisosViabilidad` (ya existía, antes solo se mostraba
+  como aviso no bloqueante) ANTES de insertar — si la ventana horaria no es viable con los
+  descansos legales, el viaje nace `pendiente_aprobacion` en vez de `planificado`, con solicitud
+  abierta.
+  Panel nuevo "Aprobaciones pendientes" en Ajustes → Equipo (Aprobar/Rechazar). Verificado en
+  vivo: rol Comercial en el desplegable, plantilla nueva sin "Usar" hasta aprobarla, test real
+  con coordenadas Madrid↔Barcelona (inviable) vs Madrid↔Getafe (viable) contra
+  `calcularAvisosViabilidad` de verdad. 436+242 tests en verde. Commit `eba2dbe`.
+  **Hallazgo sin resolver**: el panel de aprobaciones queda dentro de `RequireRol admin` aunque
+  la policy de BD ya permite también a `gestor_operativo` resolver — un gestor_operativo real
+  hoy no ve el panel en la UI aunque sí podría resolver vía API directa. No bloqueante, anotado.
 - [x] `[DECISIÓN 18.A.3]` **Parámetros de empresa: bloquear lo que no debe tocarse a diario.**
   **DECIDIDO 2026-07-25** (aprobado explícitamente por el usuario): bloquear a **solo-admin**,
   mismo patrón que Facturación (`RequireRol roles={["admin"]}`) — no aprobación/flujo nuevo, eso
