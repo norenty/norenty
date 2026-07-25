@@ -162,9 +162,13 @@ empresa más seria, no un software de pacotilla"*.
   km/h, no los Y configurados" + botón "Usar X km/h") cuando difiere lo suficiente
   (`UMBRAL_DIFERENCIA_SUGERENCIA_PCT`) y hay datos suficientes (`minimoViajes`). No hacía falta
   trabajo nuevo, solo la confirmación pendiente.
-- [ ] `[DECISIÓN 18.B.2]` **Coste desglosado desde histórico.** Mismo criterio: *"tienes que tirar
-  de histórico y no puedo coger yo aquí en Ajustes y cambiarlo"*. El gasoil real ya llegará por
-  las fotos de facturas de repostaje de los chóferes — usarlo.
+- [x] `[DECISIÓN 18.B.2]` **Coste desglosado desde histórico.** **DECIDIDO 2026-07-25** (alcance
+  acordado con el usuario: sugerencia igual que velocidad, NO bloquear la edición manual).
+  `getSugerenciaCalibracion` ampliada con gasoil (€/l, desde `gasto_viaje` tipo `repostaje`,
+  importe/litros), peaje (€/km, tipo `peaje` sumado por viaje / km) y dieta (€/noche, tipo
+  `dieta`) — mismo patrón "real vs configurado + botón Usar" que velocidad/coste·km, en
+  `CalibracionSugerenciaSection.jsx`. "Conductor" queda fuera: no hay gasto_viaje de ese tipo (es
+  coste de nómina, no un gasto imputado al viaje). Commit `b72aecf`.
 - [x] `[DECISIÓN 18.B.3]` **Precio del gasoil automático.** **DECIDIDO 2026-07-25** (aprobado
   explícitamente por el usuario, con matiz: *"el gasoil ese es una referencia para iniciar la
   cotización, tiene que poder modificarse manualmente si lo quiere el comercial"*).
