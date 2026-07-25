@@ -7,6 +7,7 @@ import json
 import math
 import os
 import logging
+import re
 import time
 import uuid
 from urllib.parse import quote_plus
@@ -794,6 +795,16 @@ def get_chofer_by_chat(chat_id):
     return r.data[0] if r.data else None
 
 
+def get_gestor_by_chat(chat_id):
+    """18.D.7: equivalente a get_chofer_by_chat pero para gestores -- la
+    cotización por texto (/cotizar) es una función de gestor, no de chófer."""
+    r = ejecutar_con_reintentos(
+        lambda: supabase.table("gestor").select("id, nombre, empresa_id").eq("telegram_chat_id", str(chat_id)).eq("activo", True).execute(),
+        contexto={"accion": "get_gestor_by_chat", "chat_id": str(chat_id)},
+    )
+    return r.data[0] if r.data else None
+
+
 def empresa_requiere_pod(empresa_id):
     """`empresa.requiere_pod` existe en el esquema desde el Milestone 3
     (migración 0002) pero nunca se conectó a nada -- hasta ahora TODAS las
@@ -1180,6 +1191,16 @@ async def _enviar_mensaje_a_gestor(chofer, viaje_id, texto):
 async def handle_menu_texto(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Enruta la pulsación de uno de los botones del menú persistente."""
     chat_id = str(update.effective_chat.id)
+
+    # 18.D.7: el mismo bot atiende a chóferes Y gestores, diferenciando por
+    # quién escribe (mismo patrón que ya existía para chofer vs. vincular_gestor
+    # en cmd_start) -- si hay un /cotizar en curso para este chat, el texto es
+    # la respuesta a esa pregunta, no un botón de menú de chófer.
+    cotizacion_en_curso = ctx.chat_data.get("cotizacion")
+    if cotizacion_en_curso:
+        await _procesar_paso_cotizacion(update, ctx, cotizacion_en_curso)
+        return
+
     chofer = get_chofer_by_chat(chat_id)
     if not chofer:
         return
@@ -2141,6 +2162,246 @@ def punto_en_checkpoint(lat, lon, hito, umbral_default=None):
     return distancia_m <= radio
 
 
+# ==========================================================================
+# 18.D.7 — Cotización rápida por texto en el bot (/cotizar), para el gestor
+# comercial: mismo cálculo que /presupuesto del dashboard, en modo blended
+# (sin vehículo concreto, ver calcularCosteRuta en dashboard/lib/data.js --
+# sin vehiculo.consumo_l_100km, ese cálculo YA cae a blended también). Alcance
+# de 18.D.7 acordado con el usuario 2026-07-25: texto por Telegram, no audio
+# todavía (Whisper self-host solo está decidido de nombre, no implementado).
+# ==========================================================================
+
+MARGEN_OBJETIVO_PCT_DEFAULT = 15  # mismo valor que MARGEN_OBJETIVO_PCT_DEFAULT en dashboard/lib/data.js
+NOMINATIM_VIEWBOX_ESPANA = "-9.8,44.0,4.6,35.8"  # mismo sesgo que buscarDireccion() en dashboard/lib/data.js
+
+
+async def geocodificar(texto):
+    """Espejo simplificado de buscarDireccion() (dashboard/lib/data.js): mismo
+    sesgo geográfico hacia España (viewbox sin `bounded`, no excluye el resto
+    del mundo -- una ruta a Ámsterdam/Milán tiene que poder seguir
+    encontrándose). Aquí solo hace falta EL PRIMER resultado -- flujo
+    conversacional paso a paso, no una lista para elegir como en el wizard
+    web. Devuelve None si no hay match o falla la red (se degrada pidiendo
+    que el gestor sea más concreto, no rompe la conversación)."""
+    q = (texto or "").strip()
+    if len(q) < 3:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={"format": "jsonv2", "limit": 1, "addressdetails": 0, "viewbox": NOMINATIM_VIEWBOX_ESPANA, "q": q},
+                headers={"Accept": "application/json", "User-Agent": "NorentyBot/1.0 (cotizador)"},
+            )
+        if resp.status_code != 200:
+            return None
+        datos = resp.json()
+    except Exception:  # noqa: BLE001 -- sin conexión/Nominatim caído: degradar, no romper
+        return None
+    if not datos:
+        return None
+    d = datos[0]
+    if not d.get("lat") or not d.get("lon"):
+        return None
+    return {"direccion": d.get("display_name") or q, "lat": float(d["lat"]), "lon": float(d["lon"])}
+
+
+def parsear_numero_es(texto):
+    """Extrae el PRIMER número de un texto libre tipo '15000 kg' o '30m3' --
+    coma tratada como punto decimal. Usa el número que aparece al principio
+    (con espacios/unidad opcionales delante), no cualquier dígito del texto:
+    "30m3" es 30, no 303 (que saldría de coger todos los dígitos sueltos).
+    NO intenta resolver separador de miles (ambigüedad real "15.000" europeo
+    vs "15.5" decimal) -- para las cifras de este flujo (peso/volumen de un
+    envío) no hace falta, se pide el número simple sin separadores."""
+    m = re.match(r"\s*([\d]+(?:[.,]\d+)?)", (texto or "").strip())
+    if not m:
+        return None
+    try:
+        return float(m.group(1).replace(",", "."))
+    except ValueError:
+        return None
+
+
+def calcular_presupuesto_bot(km, empresa):
+    """Versión simplificada (modo blended, sin vehículo concreto) del
+    cotizador de /presupuesto -- mismas fórmulas que calcularPresupuesto/
+    calcularCosteRuta en dashboard/lib/data.js, reducidas al caso sin
+    vehículo (que en el dashboard también cae a blended, ver
+    resolveCosteKm)."""
+    velocidad = empresa.get("velocidad_planificacion_kmh") or VELOCIDAD_PLANIFICACION_KMH_DEFAULT
+    horas_conduccion = km / velocidad
+    eta = calcular_eta_con_paradas(horas_conduccion)
+
+    coste_km = empresa.get("coste_km")
+    coste_total = round(km * coste_km, 2) if coste_km is not None else None
+
+    margen = empresa.get("margen_objetivo_pct")
+    if margen is None:
+        margen = MARGEN_OBJETIVO_PCT_DEFAULT
+    precio_sugerido = round(coste_total / (1 - margen / 100), 2) if coste_total is not None else None
+
+    return {
+        "km": round(km),
+        "horas_conduccion": round(horas_conduccion, 1),
+        "horas_totales": round(eta["horas_totales"], 1),
+        "paradas_45min": eta["paradas_45min"],
+        "descansos_11h": eta["descansos_11h"],
+        "coste_total": coste_total,
+        "margen_objetivo_pct": margen,
+        "precio_sugerido": precio_sugerido,
+    }
+
+
+async def cmd_cotizar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    chat_id = str(update.effective_chat.id)
+    gestor = get_gestor_by_chat(chat_id)
+    if not gestor:
+        await update.message.reply_text(
+            "Esta función es para gestores vinculados. Vincula tu cuenta desde "
+            "Ajustes → Alertas por Telegram en el dashboard."
+        )
+        return
+    ctx.chat_data["cotizacion"] = {"paso": "origen", "gestor_id": gestor["id"], "empresa_id": gestor["empresa_id"]}
+    await update.message.reply_text(
+        "📋 Cotización rápida — te pido unos datos, uno a uno (escribe /cancelar para salir).\n\n"
+        "1/4 · ¿Cuál es el ORIGEN? (ciudad o dirección)"
+    )
+
+
+async def cmd_cancelar_cotizacion(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if ctx.chat_data.pop("cotizacion", None) is not None:
+        await update.message.reply_text("Cotización cancelada.")
+
+
+async def _mostrar_resumen_cotizacion(update: Update, ctx: ContextTypes.DEFAULT_TYPE, estado):
+    empresa_r = ejecutar_con_reintentos(
+        lambda: supabase.table("empresa").select("velocidad_planificacion_kmh, coste_km, margen_objetivo_pct")
+        .eq("id", estado["empresa_id"]).execute(),
+        contexto={"accion": "cotizar_empresa", "empresa_id": estado["empresa_id"]},
+    )
+    empresa = empresa_r.data[0] if empresa_r.data else {}
+
+    km = haversine_km(
+        estado["origen"]["lat"], estado["origen"]["lon"], estado["destino"]["lat"], estado["destino"]["lon"]
+    ) * FACTOR_SINUOSIDAD_FALLBACK
+    resultado = calcular_presupuesto_bot(km, empresa)
+    estado["resultado"] = resultado
+    estado["paso"] = "confirmar"
+
+    lineas = [
+        "📋 *Cotización* (estimada — distancia en línea recta ×1.3, sin ruta real)",
+        "",
+        f"Origen: {estado['origen']['direccion']}",
+        f"Destino: {estado['destino']['direccion']}",
+        f"Distancia: ~{resultado['km']} km",
+    ]
+    if estado.get("peso_kg") is not None:
+        lineas.append(f"Peso: {estado['peso_kg']:.0f} kg")
+    if estado.get("volumen_m3") is not None:
+        lineas.append(f"Volumen: {estado['volumen_m3']:.1f} m³")
+    lineas.append(f"Tiempo estimado: ~{resultado['horas_totales']} h (con descansos legales incluidos)")
+    if resultado["coste_total"] is not None:
+        lineas.append(f"Coste estimado: {resultado['coste_total']:.2f} €")
+        lineas.append(f"Margen objetivo: {resultado['margen_objetivo_pct']}%")
+        lineas.append(f"*Precio sugerido: {resultado['precio_sugerido']:.2f} €*")
+    else:
+        lineas.append("⚠️ No hay coste/km configurado en Ajustes — no se puede sugerir un precio.")
+    lineas.append("")
+    lineas.append(
+        "Consideraciones: distancia estimada (sin OSRM), sin vehículo concreto asignado "
+        "(coste general de empresa, no el de un camión específico), sin desglose de "
+        "peajes/dietas por separado."
+    )
+    lineas.append("")
+    lineas.append("¿Confirmas esta cotización?")
+
+    teclado = InlineKeyboardMarkup([[
+        InlineKeyboardButton("✅ Confirmar", callback_data="cotizar_confirmar"),
+        InlineKeyboardButton("❌ Cancelar", callback_data="cotizar_cancelar"),
+    ]])
+    await update.message.reply_text("\n".join(lineas), parse_mode="Markdown", reply_markup=teclado)
+
+
+async def _procesar_paso_cotizacion(update: Update, ctx: ContextTypes.DEFAULT_TYPE, estado):
+    texto = (update.message.text or "").strip()
+    paso = estado["paso"]
+
+    if paso == "confirmar":
+        await update.message.reply_text("Usa los botones de arriba (✅/❌) para confirmar o cancelar esta cotización.")
+        return
+
+    if paso == "origen":
+        resultado = await geocodificar(texto)
+        if not resultado:
+            await update.message.reply_text(
+                "No he encontrado esa dirección. Prueba a ser más concreto (ej. 'Madrid' o 'Calle Mayor 3, Madrid')."
+            )
+            return
+        estado["origen"] = resultado
+        estado["paso"] = "destino"
+        await update.message.reply_text(f"Origen: {resultado['direccion']}\n\n2/4 · ¿Cuál es el DESTINO?")
+        return
+
+    if paso == "destino":
+        resultado = await geocodificar(texto)
+        if not resultado:
+            await update.message.reply_text("No he encontrado esa dirección. Prueba a ser más concreto.")
+            return
+        estado["destino"] = resultado
+        estado["paso"] = "peso"
+        await update.message.reply_text(
+            f"Destino: {resultado['direccion']}\n\n3/4 · ¿PESO de la carga en kg? (escribe 'no' si no aplica)"
+        )
+        return
+
+    if paso == "peso":
+        if texto.lower() in ("no", "n/a", "-", ""):
+            estado["peso_kg"] = None
+        else:
+            valor = parsear_numero_es(texto)
+            if valor is None:
+                await update.message.reply_text("No entendí el peso. Escribe solo el número en kg (ej. 15000) o 'no'.")
+                return
+            estado["peso_kg"] = valor
+        estado["paso"] = "volumen"
+        await update.message.reply_text("4/4 · ¿VOLUMEN de la carga en m³? (escribe 'no' si no aplica)")
+        return
+
+    if paso == "volumen":
+        if texto.lower() in ("no", "n/a", "-", ""):
+            estado["volumen_m3"] = None
+        else:
+            valor = parsear_numero_es(texto)
+            if valor is None:
+                await update.message.reply_text("No entendí el volumen. Escribe solo el número en m³ (ej. 30) o 'no'.")
+                return
+            estado["volumen_m3"] = valor
+        await _mostrar_resumen_cotizacion(update, ctx, estado)
+        return
+
+
+async def cb_cotizar_confirmar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    estado = ctx.chat_data.pop("cotizacion", None)
+    if not estado or not estado.get("resultado"):
+        await query.edit_message_text("Esta cotización ya no está activa.")
+        return
+    r = estado["resultado"]
+    resumen = f"✅ Cotización confirmada: {estado['origen']['direccion']} → {estado['destino']['direccion']}"
+    if r["precio_sugerido"] is not None:
+        resumen += f" — {r['precio_sugerido']:.2f} €"
+    await query.edit_message_text(resumen)
+
+
+async def cb_cotizar_cancelar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    ctx.chat_data.pop("cotizacion", None)
+    await query.edit_message_text("Cotización cancelada.")
+
+
 def debe_avisar_pausa(horas_conduccion, ya_avisado):
     """F13.5: True si toca avisar de la pausa legal (Reglamento 561, pausa
     tras 4,5h de conducción) y todavía no se ha avisado en este viaje. Pura,
@@ -2623,11 +2884,15 @@ def create_bot_app():
     app.add_handler(CommandHandler("incidencia", cmd_incidencia))
     app.add_handler(CommandHandler("parking", cmd_parking))
     app.add_handler(CommandHandler("eta", cmd_eta))
+    app.add_handler(CommandHandler("cotizar", cmd_cotizar))
+    app.add_handler(CommandHandler("cancelar", cmd_cancelar_cotizacion))
     app.add_handler(CallbackQueryHandler(cb_pre_llegada, pattern=r"^pre_llegada:"))
     app.add_handler(CallbackQueryHandler(cb_llegada, pattern=r"^llegada:"))
     app.add_handler(CallbackQueryHandler(cb_sin_pod, pattern=r"^sin_pod:"))
     app.add_handler(CallbackQueryHandler(cb_incidencia, pattern=r"^inc:"))
     app.add_handler(CallbackQueryHandler(cb_cancelar, pattern=r"^cancelar$"))
+    app.add_handler(CallbackQueryHandler(cb_cotizar_confirmar, pattern=r"^cotizar_confirmar$"))
+    app.add_handler(CallbackQueryHandler(cb_cotizar_cancelar, pattern=r"^cotizar_cancelar$"))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))

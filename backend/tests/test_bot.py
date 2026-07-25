@@ -1369,3 +1369,103 @@ async def test_heartbeat_no_lanza_si_falla_la_insercion(monkeypatch):
 
     monkeypatch.setattr(bot, "supabase", SupabaseRoto())
     await bot.heartbeat(SimpleNamespace())  # no debe lanzar
+
+
+# --- 18.D.7: cotización rápida por texto (/cotizar) ---
+
+def test_get_gestor_by_chat_encuentra_gestor_activo(fake_db):
+    fake_db.tables["gestor"] = [
+        {"id": "g1", "nombre": "Admin Pepito", "empresa_id": "e1", "telegram_chat_id": "999", "activo": True},
+    ]
+    gestor = bot.get_gestor_by_chat("999")
+    assert gestor["id"] == "g1"
+
+
+def test_get_gestor_by_chat_none_si_no_vinculado(fake_db):
+    fake_db.tables["gestor"] = []
+    assert bot.get_gestor_by_chat("999") is None
+
+
+@pytest.mark.parametrize("texto,esperado", [
+    ("15000", 15000.0),
+    ("15000 kg", 15000.0),
+    ("30m3", 30.0),
+    ("15,5", 15.5),
+    ("no", None),
+    ("", None),
+    ("sin datos", None),
+])
+def test_parsear_numero_es(texto, esperado):
+    assert bot.parsear_numero_es(texto) == esperado
+
+
+def test_calcular_presupuesto_bot_modo_blended():
+    # Madrid -> Getafe (~15km reales), coste 1 EUR/km, margen 20%
+    empresa = {"velocidad_planificacion_kmh": 75, "coste_km": 1.0, "margen_objetivo_pct": 20}
+    r = bot.calcular_presupuesto_bot(100, empresa)
+    assert r["coste_total"] == 100.0
+    assert r["precio_sugerido"] == 125.0  # 100 / (1 - 0.20)
+    assert r["margen_objetivo_pct"] == 20
+
+
+def test_calcular_presupuesto_bot_sin_coste_configurado():
+    """Sin coste_km en Ajustes, no se inventa un precio -- sale None, para
+    que el bot avise en vez de sugerir una cifra sin base real (9.35)."""
+    r = bot.calcular_presupuesto_bot(100, {})
+    assert r["coste_total"] is None
+    assert r["precio_sugerido"] is None
+    assert r["margen_objetivo_pct"] == bot.MARGEN_OBJETIVO_PCT_DEFAULT
+
+
+def _update_texto(chat_id, texto):
+    return SimpleNamespace(
+        effective_chat=SimpleNamespace(id=chat_id),
+        message=SimpleNamespace(text=texto, reply_text=AsyncMock()),
+    )
+
+
+@pytest.mark.asyncio
+async def test_flujo_cotizacion_completo_hasta_confirmar(fake_db, monkeypatch):
+    """Simula el cuestionario entero (origen -> destino -> peso -> volumen ->
+    confirmar) sin red real: geocodificar() se mockea para no depender de
+    Nominatim en el test."""
+    fake_db.tables["gestor"] = [
+        {"id": "g1", "nombre": "Admin Pepito", "empresa_id": "e1", "telegram_chat_id": "999", "activo": True},
+    ]
+    fake_db.tables["empresa"] = [{"id": "e1", "velocidad_planificacion_kmh": 75, "coste_km": 1.0, "margen_objetivo_pct": 15}]
+
+    async def geocodificar_falso(texto):
+        if "madrid" in texto.lower():
+            return {"direccion": "Madrid, España", "lat": 40.4168, "lon": -3.7038}
+        return {"direccion": "Barcelona, España", "lat": 41.3851, "lon": 2.1734}
+
+    monkeypatch.setattr(bot, "geocodificar", geocodificar_falso)
+
+    ctx = SimpleNamespace(chat_data={}, bot=AsyncMock())
+
+    await bot.cmd_cotizar(_update_texto(999, "/cotizar"), ctx)
+    assert ctx.chat_data["cotizacion"]["paso"] == "origen"
+
+    await bot.handle_menu_texto(_update_texto(999, "Madrid"), ctx)
+    assert ctx.chat_data["cotizacion"]["paso"] == "destino"
+
+    await bot.handle_menu_texto(_update_texto(999, "Barcelona"), ctx)
+    assert ctx.chat_data["cotizacion"]["paso"] == "peso"
+
+    await bot.handle_menu_texto(_update_texto(999, "15000"), ctx)
+    assert ctx.chat_data["cotizacion"]["paso"] == "volumen"
+    assert ctx.chat_data["cotizacion"]["peso_kg"] == 15000.0
+
+    await bot.handle_menu_texto(_update_texto(999, "no"), ctx)
+    assert ctx.chat_data["cotizacion"]["paso"] == "confirmar"
+    assert ctx.chat_data["cotizacion"]["volumen_m3"] is None
+    assert ctx.chat_data["cotizacion"]["resultado"]["precio_sugerido"] is not None
+
+
+@pytest.mark.asyncio
+async def test_cotizar_sin_gestor_vinculado_no_arranca_el_flujo(fake_db):
+    fake_db.tables["gestor"] = []
+    ctx = SimpleNamespace(chat_data={}, bot=AsyncMock())
+
+    await bot.cmd_cotizar(_update_texto(999, "/cotizar"), ctx)
+    assert "cotizacion" not in ctx.chat_data
