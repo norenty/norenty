@@ -6,8 +6,12 @@ let SESSION = null;
 
 function makeBuilder(table) {
   let rows = [...(TABLES[table] || [])];
+  let quiereCount = false;
   const builder = {
-    select() { return builder; },
+    // 19.6: `select(cols, { count: "exact", head: true })` -- el count real
+    // se calcula sobre `rows` YA filtradas, en el momento de resolver (ver
+    // `then`), no aquí (los .eq/.gte/etc. se encadenan DESPUÉS de select()).
+    select(_cols, opts) { if (opts && opts.count) quiereCount = true; return builder; },
     eq(field, value) { rows = rows.filter((r) => r[field] === value); return builder; },
     neq(field, value) { rows = rows.filter((r) => r[field] !== value); return builder; },
     in(field, values) { rows = rows.filter((r) => values.includes(r[field])); return builder; },
@@ -102,7 +106,7 @@ function makeBuilder(table) {
         resolve({ data: null, error: SELECT_ERRORS[table] });
         return;
       }
-      resolve({ data: rows, error: null });
+      resolve({ data: rows, error: null, count: quiereCount ? rows.length : null });
     },
   };
   return builder;

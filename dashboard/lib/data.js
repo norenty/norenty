@@ -1028,8 +1028,15 @@ function resolveRango({ desde, hasta } = {}) {
  */
 export async function getMetricasPuntualidad(rango = {}) {
   const { desde, hasta } = resolveRango(rango);
-  const [{ data: hitos }, { data: tarde }, { data: empresas, error: errEmpresa }] = await Promise.all([
-    supabase.from("hito").select("id, viaje_id, ventana_fin").gte("ventana_fin", desde).lt("ventana_fin", hasta),
+  // Fase 19.6 (2026-07-25, ver ROADMAP: "la analítica calcula en el
+  // navegador" -- primer paso real, no el rediseño completo). `totalConVentana`
+  // solo necesita un NÚMERO, nunca las filas -- antes se traían todas para
+  // contarlas en JS, sujeto al corte silencioso de 1000 de PostgREST (con
+  // fleet grande, un solo periodo de 90 días ya puede superarlo). `count:
+  // "exact", head: true` calcula el total en el servidor vía Content-Range,
+  // sin transferir ni una fila y sin ese límite.
+  const [{ count: totalConVentanaCount }, { data: tarde }, { data: empresas, error: errEmpresa }] = await Promise.all([
+    supabase.from("hito").select("id", { count: "exact", head: true }).gte("ventana_fin", desde).lt("ventana_fin", hasta).not("ventana_fin", "is", null),
     supabase.from("incidencia").select("id, viaje_id, created_at").eq("tipo", "fuera_de_ventana").gte("created_at", desde).lt("created_at", hasta),
     supabase.from("empresa").select("objetivo_puntualidad_pct").limit(1),
   ]);
@@ -1046,7 +1053,7 @@ export async function getMetricasPuntualidad(rango = {}) {
     ? await supabase.from("viaje").select("id, referencia").in("id", idsViajesTarde)
     : { data: [] };
 
-  const totalConVentana = (hitos || []).filter((h) => h.ventana_fin).length;
+  const totalConVentana = totalConVentanaCount || 0;
   const totalTarde = (tarde || []).length;
   const pctPuntualidad = totalConVentana > 0
     ? Math.round(((totalConVentana - totalTarde) / totalConVentana) * 100)
