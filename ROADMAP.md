@@ -155,11 +155,13 @@ empresa más seria, no un software de pacotilla"*.
 
 ### 18.B — Que los números salgan del histórico, no de un campo editable
 
-- [ ] `[DECISIÓN 18.B.1]` **Velocidad de planificación desde datos reales.** *"debería ser un
-  parámetro estándar de 75 km/h, y que tú a la hora de planificar puedas ver el histórico de
-  velocidad promedio y ver si es más viable hacerlo a 78"*. O sea: 75 fijo por defecto + mostrar
-  la media real observada como sugerencia, en vez de un input libre. Encaja con la calibración
-  automática que ya existe (necesita 20 viajes completos).
+- [x] `[DECISIÓN 18.B.1]` **Velocidad de planificación desde datos reales.** **CONFIRMADO
+  2026-07-25: ya estaba hecho** de una tarea anterior (mismo patrón que F.3) — `getSugerenciaCalibracion`
+  (`lib/data.js:3216`) calcula la velocidad real mediana de los viajes completados y
+  `CalibracionSugerenciaSection.jsx` la muestra como sugerencia ("Tu velocidad real media es X
+  km/h, no los Y configurados" + botón "Usar X km/h") cuando difiere lo suficiente
+  (`UMBRAL_DIFERENCIA_SUGERENCIA_PCT`) y hay datos suficientes (`minimoViajes`). No hacía falta
+  trabajo nuevo, solo la confirmación pendiente.
 - [ ] `[DECISIÓN 18.B.2]` **Coste desglosado desde histórico.** Mismo criterio: *"tienes que tirar
   de histórico y no puedo coger yo aquí en Ajustes y cambiarlo"*. El gasoil real ya llegará por
   las fotos de facturas de repostaje de los chóferes — usarlo.
