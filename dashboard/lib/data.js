@@ -995,13 +995,23 @@ function resolveRango({ desde, hasta } = {}) {
  */
 export async function getMetricasPuntualidad(rango = {}) {
   const { desde, hasta } = resolveRango(rango);
-  const [{ data: hitos }, { data: tarde }, { data: viajes }, { data: empresas, error: errEmpresa }] = await Promise.all([
+  const [{ data: hitos }, { data: tarde }, { data: empresas, error: errEmpresa }] = await Promise.all([
     supabase.from("hito").select("id, viaje_id, ventana_fin").gte("ventana_fin", desde).lt("ventana_fin", hasta),
     supabase.from("incidencia").select("id, viaje_id, created_at").eq("tipo", "fuera_de_ventana").gte("created_at", desde).lt("created_at", hasta),
-    supabase.from("viaje").select("id, referencia"),
     supabase.from("empresa").select("objetivo_puntualidad_pct").limit(1),
   ]);
   if (errEmpresa) throw new Error(errEmpresa.message);
+
+  // Fase 19.4 (2026-07-25, ver ROADMAP): antes se pedía `viaje` ENTERO (toda
+  // la empresa, sin límite) solo para resolver la referencia de los viajes
+  // con incidencia -- con >1000 viajes históricos, PostgREST lo cortaba en
+  // silencio y "peores rutas" podía referenciar viajes que ni estaban en el
+  // lote. Ahora solo se piden los viajes que de verdad aparecen en `tarde`
+  // (siempre un conjunto pequeño: incidencias del periodo, no el histórico).
+  const idsViajesTarde = [...new Set((tarde || []).map((i) => i.viaje_id))];
+  const { data: viajes } = idsViajesTarde.length
+    ? await supabase.from("viaje").select("id, referencia").in("id", idsViajesTarde)
+    : { data: [] };
 
   const totalConVentana = (hitos || []).filter((h) => h.ventana_fin).length;
   const totalTarde = (tarde || []).length;
@@ -1162,7 +1172,10 @@ export async function getMetricasChoferes(rango = {}) {
   const { desde, hasta } = resolveRango(rango);
   const [{ data: choferes }, { data: viajes }, { data: valoraciones }, { data: incidencias }, { data: hitos }] =
     await Promise.all([
-      supabase.from("chofer").select("id, nombre"),
+      // Fase 19.4: única query sin acotar por fecha aquí a propósito (es un
+      // catálogo, no crece con la actividad) -- cota defensiva de todos modos
+      // (ver ROADMAP Fase 19: PostgREST corta en 1000 filas sin avisar).
+      supabase.from("chofer").select("id, nombre").order("id").limit(5000),
       supabase.from("viaje").select("id, chofer_id").gte("created_at", desde).lt("created_at", hasta),
       supabase.from("valoracion").select("chofer_id, puntuacion").gte("created_at", desde).lt("created_at", hasta),
       supabase.from("incidencia").select("viaje_id, tipo").gte("created_at", desde).lt("created_at", hasta),
@@ -1234,7 +1247,9 @@ export async function getMetricasChoferes(rango = {}) {
 export async function getMetricasPorCliente(rango = {}) {
   const { desde, hasta } = resolveRango(rango);
   const [{ data: clientes }, { data: viajes }, { data: incidencias }, { data: hitos }] = await Promise.all([
-    supabase.from("cliente").select("id, nombre").eq("activo", true),
+    // Fase 19.4: cota defensiva (ver ROADMAP Fase 19) aunque en la práctica
+    // el número de clientes de una empresa rara vez se acerca a 1000.
+    supabase.from("cliente").select("id, nombre").eq("activo", true).order("id").limit(5000),
     supabase.from("viaje").select("id, cliente_id, precio").gte("created_at", desde).lt("created_at", hasta),
     supabase.from("incidencia").select("viaje_id, tipo").gte("created_at", desde).lt("created_at", hasta),
     supabase.from("hito").select("viaje_id, ventana_fin").gte("ventana_fin", desde).lt("ventana_fin", hasta),

@@ -46,9 +46,10 @@ falsos**. Nadie se entera. En una nómina o una factura eso es dinero real mal p
 - [ ] `[LOOP 19.3]` **`sugerirChofer`** — lee `ubicacion` de las últimas 48 h (~1827). Con 1500
   camiones emitiendo GPS esto son cientos de miles de filas: el ranking de chóferes se calcularía
   sobre una muestra arbitraria de 1000.
-- [ ] `[LOOP 19.4]` **`getMetricasPuntualidad` / `getMetricasChoferes` / `getMetricasPorCliente`**
-  — `hito` y `viaje` sin `limit` (~999, ~1169, ~1240). Toda la Analítica (la pantalla que el
-  usuario dijo que más le gustaba) daría KPIs falsos.
+- [x] `[LOOP 19.4]` **`getMetricasPuntualidad` / `getMetricasChoferes` / `getMetricasPorCliente`**
+  — **HECHO 2026-07-25**: `getMetricasPuntualidad` ya no trae `viaje` entero, solo los viajes con
+  incidencia del periodo (`.in`); `chofer`/`cliente` (catálogos, no acotables por fecha) llevan
+  `order+limit(5000)` defensivo. Verificado en `/analitica` con datos reales. 432 tests en verde.
 - [ ] `[LOOP 19.5]` **`getExportacionChofer`** — historial completo de `ubicacion` de un chófer
   sin `limit` (~3493). Es el export de **derechos ARCO (RGPD)**: entregar datos incompletos a un
   chófer que los reclama es un problema legal, no solo técnico.
