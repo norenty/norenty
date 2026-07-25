@@ -3425,16 +3425,24 @@ export function calcularDesfasePod(pod, eventos) {
 // ==========================================================================
 
 export async function getOnboardingEstado() {
+  // Fase 19 (mismo patrón encontrado el 2026-07-25, ver ROADMAP): esto solo
+  // necesita saber si "existe al menos 1" -- traía la tabla ENTERA (vehículo/
+  // chófer/viaje) solo para mirar `.length > 0`. Con una empresa consolidada
+  // (no recién dada de alta, que es cuando de verdad importa este checklist)
+  // eso puede ser toda la flota histórica. `.limit(1)` basta: nunca hace
+  // falta más de una fila para responder "sí/no".
   const [
     { data: vehiculos },
+    { data: choferesTelegram },
     { data: choferes },
     { data: viajes },
     { data: empresas },
   ] = await Promise.all([
-    supabase.from("vehiculo").select("id"),
-    supabase.from("chofer").select("id, chat_id"),
-    supabase.from("viaje").select("id"),
-    supabase.from("empresa").select("coste_km, precio_gasoil_litro"),
+    supabase.from("vehiculo").select("id").limit(1),
+    supabase.from("chofer").select("id").not("chat_id", "is", null).limit(1),
+    supabase.from("chofer").select("id").limit(1),
+    supabase.from("viaje").select("id").limit(1),
+    supabase.from("empresa").select("coste_km, precio_gasoil_litro").limit(1),
   ]);
 
   const empresa = (empresas || [])[0] || null;
@@ -3442,7 +3450,7 @@ export async function getOnboardingEstado() {
   const pasos = [
     { id: "vehiculo", done: (vehiculos || []).length > 0, label: "Añade tu primer vehículo", href: "/vehiculos" },
     { id: "chofer", done: (choferes || []).length > 0, label: "Añade tu primer chófer", href: "/choferes" },
-    { id: "telegram", done: (choferes || []).some((c) => c.chat_id), label: "Vincula un chófer a Telegram", href: "/choferes" },
+    { id: "telegram", done: (choferesTelegram || []).length > 0, label: "Vincula un chófer a Telegram", href: "/choferes" },
     { id: "viaje", done: (viajes || []).length > 0, label: "Crea tu primer viaje", href: "/viajes/nuevo-w" },
     { id: "costes", done: !!(empresa?.coste_km != null || empresa?.precio_gasoil_litro != null), label: "Configura tus costes de operación", href: "/ajustes" },
   ];
