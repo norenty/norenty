@@ -65,9 +65,10 @@ falsos**. Nadie se entera. En una nómina o una factura eso es dinero real mal p
   materia prima. Es un rediseño, no un parche.
 - [ ] `[DECISIÓN 19.7]` **Crecimiento de `ubicacion`.** Ya estaba anotado como 9.24 (particionado)
   y diferido "cuando supere X filas". Con 1500 camiones ese umbral se cruza en semanas, no años.
-- [ ] `[LOOP 19.8]` **N+1 en `getResumenHoy`** (~1955): una consulta a `ubicacion` **por cada
-  viaje activo** dentro de un `Promise.all`. Con 200 viajes en curso son 200 consultas por carga
-  de la pantalla de inicio.
+- [x] `[LOOP 19.8]` **N+1 en `getViajesConHuecoUbicacion` (home "Hoy")** — **HECHO 2026-07-25**:
+  de 1 consulta por viaje en curso (200 viajes = 200 consultas) a 1 sola consulta con `.in()` +
+  ventana de 7 días, reducida en JS a la más reciente por chófer. Verificado en `/`: "Todo en
+  orden" correcto, sin huecos falsos. 432 tests en verde.
 
 **Regla para el futuro (aplicar en toda consulta nueva):** ningún `select()` sobre una tabla que
 crece (`hito`, `ejecucion_evento`, `ubicacion`, `viaje`, `gasto_viaje`, `bot_heartbeat`,

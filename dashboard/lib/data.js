@@ -1969,16 +1969,31 @@ export async function getViajesConHuecoUbicacion() {
   const conChofer = (viajesEnCurso || []).filter((v) => v.chofer_id);
   if (conChofer.length === 0) return [];
 
-  const ultimos = await Promise.all(
-    conChofer.map((v) =>
-      supabase.from("ubicacion").select("created_at").eq("chofer_id", v.chofer_id)
-        .order("created_at", { ascending: false }).limit(1)
-    )
-  );
+  // Fase 19.8 (2026-07-25, ver ROADMAP): N+1 real -- antes 1 consulta a
+  // `ubicacion` POR viaje en curso, dentro de un Promise.all (con 200 viajes
+  // activos, 200 idas y vueltas de red solo para cargar la home). Ahora 1
+  // sola consulta para todos los chóferes activos a la vez, reducida en JS a
+  // "la más reciente por chófer" (mismo patrón que `ultimaUbicacionPorChofer`
+  // en sugerirChofer). Ventana de 7 días (no ilimitada): de sobra para
+  // cualquier viaje en_curso real -- si un viaje lleva más de 7 días activo
+  // sin NINGÚN ping, hay un problema mucho más gordo que este umbral.
+  const idsChofer = [...new Set(conChofer.map((v) => v.chofer_id))];
+  const haceSieteDias = new Date(Date.now() - 7 * 86400000).toISOString();
+  const { data: ubicacionesRecientes } = await supabase
+    .from("ubicacion")
+    .select("chofer_id, created_at")
+    .in("chofer_id", idsChofer)
+    .gte("created_at", haceSieteDias)
+    .order("created_at", { ascending: false });
+
+  const ultimoPingPorChofer = {};
+  (ubicacionesRecientes || []).forEach((u) => {
+    if (!(u.chofer_id in ultimoPingPorChofer)) ultimoPingPorChofer[u.chofer_id] = u.created_at;
+  });
 
   return conChofer
-    .map((v, i) => {
-      const ultimoPing = ultimos[i].data?.[0]?.created_at || null;
+    .map((v) => {
+      const ultimoPing = ultimoPingPorChofer[v.chofer_id] || null;
       const { hueco, horasSinSenal } = detectarHuecoUbicacion(ultimoPing);
       return hueco ? { viajeId: v.id, referencia: v.referencia || v.id.slice(0, 8), horasSinSenal } : null;
     })
