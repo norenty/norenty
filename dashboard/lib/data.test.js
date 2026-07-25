@@ -2930,7 +2930,7 @@ describe("sugerencia de calibración (10.9b — suggestion-only, N=20)", () => {
     expect(r.suficiente).toBe(true);
     expect(r.numViajesConDatos).toBe(20);
     expect(r.velocidad.real).toBe(50); // 100km / 2h
-    expect(r.velocidad.configurada).toBe(75);
+    expect(r.velocidad.configurado).toBe(75);
     expect(r.velocidad.sugerir).toBe(true);
     expect(r.costeKm.real).toBe(1); // 100€ / 100km
     expect(r.costeKm.configurado).toBe(2);

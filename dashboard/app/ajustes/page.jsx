@@ -8,7 +8,7 @@ import {
   getGestoresEmpresa, actualizarRolGestor, desactivarGestor, reactivarGestor, INVITACION_VALIDEZ_DIAS,
   guardarNombreEmpresa, getBasesEmpresa, crearBaseEmpresa, eliminarBaseEmpresa, guardarCosteKmEmpresa, guardarVelocidadEmpresa,
   guardarDesgloseCosteEmpresa, guardarObjetivoPuntualidadEmpresa, guardarMargenObjetivoEmpresa,
-  guardarRequierePodEmpresa, getChoferesConGestor, guardarGestorChofer, guardarTelefonoGestor,
+  getChoferesConGestor, guardarGestorChofer, guardarTelefonoGestor,
   getViajesConGestor, guardarGestorViaje, getIndiceGasoilNacional,
   getSolicitudesAprobacion, resolverSolicitudAprobacion,
 } from "../../lib/data";
@@ -36,7 +36,6 @@ export default function AjustesPage() {
   const [costePeaje, setCostePeaje] = useState("");
   const [dietaNoche, setDietaNoche] = useState("");
   const [costeConductor, setCosteConductor] = useState("");
-  const [requierePod, setRequierePod] = useState(true);
   const [indiceGasoil, setIndiceGasoil] = useState(null);
   const [gestor, setGestor] = useState(null);
   const [prefs, setPrefs] = useState({ notif_incidencias: true, notif_entregas: true, notif_fuera_ventana: false });
@@ -124,7 +123,6 @@ export default function AjustesPage() {
           setCostePeaje(emp?.coste_peaje_km != null ? String(emp.coste_peaje_km) : "");
           setDietaNoche(emp?.dieta_noche_eur != null ? String(emp.dieta_noche_eur) : "");
           setCosteConductor(emp?.coste_conductor_km != null ? String(emp.coste_conductor_km) : "");
-          setRequierePod(emp?.requiere_pod ?? true);
           try {
             setIndiceGasoil(await getIndiceGasoilNacional());
           } catch {
@@ -283,20 +281,6 @@ export default function AjustesPage() {
       await guardarMargenObjetivoEmpresa(empresa.id, margenObjetivo);
       flash("Margen objetivo guardado");
     } catch (err) {
-      flash("Error: " + err.message);
-    }
-    setGuardando(false);
-  }
-
-  async function toggleRequierePod(valor) {
-    if (!empresa) return;
-    setRequierePod(valor); // optimista: el toggle se siente instantáneo
-    setGuardando(true);
-    try {
-      await guardarRequierePodEmpresa(empresa.id, valor);
-      flash(valor ? "Ahora se pedirá foto de albarán en cada entrega" : "Ya no se pedirá foto de albarán");
-    } catch (err) {
-      setRequierePod(!valor); // revierte si falla
       flash("Error: " + err.message);
     }
     setGuardando(false);
@@ -596,9 +580,7 @@ export default function AjustesPage() {
         costeConductor={costeConductor}
         setCosteConductor={setCosteConductor}
         guardarDesglose={guardarDesglose}
-        requierePod={requierePod}
         indiceGasoil={indiceGasoil}
-        toggleRequierePod={toggleRequierePod}
         guardando={guardando}
       />
       </RequireRol>

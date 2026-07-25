@@ -35,7 +35,17 @@ export default function CalibracionSugerenciaSection({ onSugerirVelocidad, onSug
   }
 
   const { velocidad, costeKm, gasoil, peaje, dieta, numViajesConDatos } = sugerencia;
-  const hayAlgunaSugerencia = velocidad.sugerir || costeKm.sugerir || gasoil?.sugerir || peaje?.sugerir || dieta?.sugerir;
+  // ponytail: las 5 capas comparten la misma forma {real, configurado,
+  // sugerir} y el mismo bloque de UI -- una lista + un .map() en vez de 5
+  // bloques JSX casi idénticos.
+  const capas = [
+    { capa: velocidad, texto: "velocidad", genero: "media", unidad: "km/h", onUsar: onSugerirVelocidad },
+    { capa: costeKm, texto: "coste/km", genero: "medio", unidad: "€/km", onUsar: onSugerirCosteKm },
+    { capa: gasoil, texto: "gasoil (facturas de repostaje)", genero: "medio", unidad: "€/l", onUsar: onSugerirGasoil },
+    { capa: peaje, texto: "peaje", genero: "medio", unidad: "€/km", onUsar: onSugerirPeaje },
+    { capa: dieta, texto: "dieta", genero: "media", unidad: "€/noche", onUsar: onSugerirDieta },
+  ];
+  const hayAlgunaSugerencia = capas.some(({ capa }) => capa?.sugerir);
   if (!hayAlgunaSugerencia) {
     return (
       <RequireRol roles={["admin"]}>
@@ -59,76 +69,20 @@ export default function CalibracionSugerenciaSection({ onSugerirVelocidad, onSug
           de abajo — tú decides si guardarlos.
         </p>
         <div className="flex flex-col gap-2">
-          {velocidad.sugerir && (
-            <div className="flex items-center justify-between text-xs bg-surface-alt rounded-md px-3 py-2">
+          {capas.map(({ capa, texto, genero, unidad, onUsar }) => capa?.sugerir && (
+            <div key={texto} className="flex items-center justify-between text-xs bg-surface-alt rounded-md px-3 py-2">
               <span>
-                Tu velocidad real media es <strong>{velocidad.real} km/h</strong>, no los{" "}
-                {velocidad.configurada} km/h configurados.
+                Tu {texto} real {genero} es <strong>{capa.real} {unidad}</strong>, no los{" "}
+                {capa.configurado} {unidad} configurados.
               </span>
               <button
-                onClick={() => onSugerirVelocidad?.(velocidad.real)}
+                onClick={() => onUsar?.(capa.real)}
                 className="shrink-0 ml-2 text-xs px-2 py-1 rounded-md border border-brand text-brand hover:bg-brand/10"
               >
-                Usar {velocidad.real} km/h
+                Usar {capa.real} {unidad}
               </button>
             </div>
-          )}
-          {costeKm.sugerir && (
-            <div className="flex items-center justify-between text-xs bg-surface-alt rounded-md px-3 py-2">
-              <span>
-                Tu coste/km real medio es <strong>{costeKm.real} €/km</strong>, no los{" "}
-                {costeKm.configurado} €/km configurados.
-              </span>
-              <button
-                onClick={() => onSugerirCosteKm?.(costeKm.real)}
-                className="shrink-0 ml-2 text-xs px-2 py-1 rounded-md border border-brand text-brand hover:bg-brand/10"
-              >
-                Usar {costeKm.real} €/km
-              </button>
-            </div>
-          )}
-          {gasoil?.sugerir && (
-            <div className="flex items-center justify-between text-xs bg-surface-alt rounded-md px-3 py-2">
-              <span>
-                Tu gasoil real medio (facturas de repostaje) es <strong>{gasoil.real} €/l</strong>, no
-                los {gasoil.configurado} €/l configurados.
-              </span>
-              <button
-                onClick={() => onSugerirGasoil?.(gasoil.real)}
-                className="shrink-0 ml-2 text-xs px-2 py-1 rounded-md border border-brand text-brand hover:bg-brand/10"
-              >
-                Usar {gasoil.real} €/l
-              </button>
-            </div>
-          )}
-          {peaje?.sugerir && (
-            <div className="flex items-center justify-between text-xs bg-surface-alt rounded-md px-3 py-2">
-              <span>
-                Tu peaje real medio es <strong>{peaje.real} €/km</strong>, no los{" "}
-                {peaje.configurado} €/km configurados.
-              </span>
-              <button
-                onClick={() => onSugerirPeaje?.(peaje.real)}
-                className="shrink-0 ml-2 text-xs px-2 py-1 rounded-md border border-brand text-brand hover:bg-brand/10"
-              >
-                Usar {peaje.real} €/km
-              </button>
-            </div>
-          )}
-          {dieta?.sugerir && (
-            <div className="flex items-center justify-between text-xs bg-surface-alt rounded-md px-3 py-2">
-              <span>
-                Tu dieta real media es <strong>{dieta.real} €/noche</strong>, no los{" "}
-                {dieta.configurado} €/noche configurados.
-              </span>
-              <button
-                onClick={() => onSugerirDieta?.(dieta.real)}
-                className="shrink-0 ml-2 text-xs px-2 py-1 rounded-md border border-brand text-brand hover:bg-brand/10"
-              >
-                Usar {dieta.real} €/noche
-              </button>
-            </div>
-          )}
+          ))}
         </div>
       </div>
     </RequireRol>

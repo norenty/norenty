@@ -40,8 +40,6 @@ export default function AjustesEmpresaSection({
   margenObjetivo,
   setMargenObjetivo,
   guardarMargen,
-  requierePod,
-  toggleRequierePod,
   indiceGasoil,
   guardando,
 }) {

@@ -3291,57 +3291,33 @@ export async function getSugerenciaCalibracion({ minimoViajes = MIN_VIAJES_CALIB
     return { suficiente: false, numViajesConDatos, minimoViajes };
   }
 
-  const velocidadReal = mediana(muestrasVelocidad);
-  const costeKmReal = mediana(muestrasCosteKm);
-  const gasoilReal = mediana(muestrasGasoil);
-  const peajeKmReal = mediana(muestrasPeajeKm);
-  const dietaReal = mediana(muestrasDieta);
-  const velocidadConfigurada = empresa.velocidad_planificacion_kmh ?? null;
-  const costeKmConfigurado = empresa.coste_km ?? null;
-
-  function difierePct(real, configurado) {
-    if (real == null || configurado == null || configurado === 0) return null;
-    return Math.abs((real - configurado) / configurado) * 100;
+  // ponytail: las 5 capas (velocidad/costeKm/gasoil/peaje/dieta) comparten
+  // exactamente la misma forma {real, configurado, sugerir} -- un solo
+  // helper en vez de repetir el cálculo de diferencia % y el objeto 5 veces.
+  function capaSugerencia(real, configurado, decimales) {
+    const factor = 10 ** decimales;
+    const diffPct = real != null && configurado != null && configurado !== 0
+      ? Math.abs((real - configurado) / configurado) * 100
+      : null;
+    return {
+      real: real != null ? Math.round(real * factor) / factor : null,
+      configurado: configurado ?? null,
+      sugerir: diffPct != null && diffPct >= UMBRAL_DIFERENCIA_SUGERENCIA_PCT,
+    };
   }
-
-  const diffVelocidad = difierePct(velocidadReal, velocidadConfigurada);
-  const diffCosteKm = difierePct(costeKmReal, costeKmConfigurado);
-  const diffGasoil = difierePct(gasoilReal, empresa.precio_gasoil_litro ?? null);
-  const diffPeaje = difierePct(peajeKmReal, empresa.coste_peaje_km ?? null);
-  const diffDieta = difierePct(dietaReal, empresa.dieta_noche_eur ?? null);
 
   return {
     suficiente: true,
     numViajesConDatos,
     minimoViajes,
-    velocidad: {
-      real: velocidadReal != null ? Math.round(velocidadReal) : null,
-      configurada: velocidadConfigurada,
-      sugerir: diffVelocidad != null && diffVelocidad >= UMBRAL_DIFERENCIA_SUGERENCIA_PCT,
-    },
-    costeKm: {
-      real: costeKmReal != null ? Math.round(costeKmReal * 100) / 100 : null,
-      configurado: costeKmConfigurado,
-      sugerir: diffCosteKm != null && diffCosteKm >= UMBRAL_DIFERENCIA_SUGERENCIA_PCT,
-    },
-    // 18.B.2: mismo criterio que velocidad/costeKm -- solo sugerencia, nunca
-    // se sobreescribe solo. null si no hay muestras de esa capa todavía
-    // (p.ej. ningún gasto de tipo 'dieta' registrado).
-    gasoil: {
-      real: gasoilReal != null ? Math.round(gasoilReal * 1000) / 1000 : null,
-      configurado: empresa.precio_gasoil_litro ?? null,
-      sugerir: diffGasoil != null && diffGasoil >= UMBRAL_DIFERENCIA_SUGERENCIA_PCT,
-    },
-    peaje: {
-      real: peajeKmReal != null ? Math.round(peajeKmReal * 100) / 100 : null,
-      configurado: empresa.coste_peaje_km ?? null,
-      sugerir: diffPeaje != null && diffPeaje >= UMBRAL_DIFERENCIA_SUGERENCIA_PCT,
-    },
-    dieta: {
-      real: dietaReal != null ? Math.round(dietaReal * 100) / 100 : null,
-      configurado: empresa.dieta_noche_eur ?? null,
-      sugerir: diffDieta != null && diffDieta >= UMBRAL_DIFERENCIA_SUGERENCIA_PCT,
-    },
+    velocidad: capaSugerencia(mediana(muestrasVelocidad), empresa.velocidad_planificacion_kmh, 0),
+    costeKm: capaSugerencia(mediana(muestrasCosteKm), empresa.coste_km, 2),
+    // 18.B.2: mismo criterio -- solo sugerencia, nunca se sobreescribe solo.
+    // null si no hay muestras de esa capa todavía (p.ej. ningún gasto de
+    // tipo 'dieta' registrado).
+    gasoil: capaSugerencia(mediana(muestrasGasoil), empresa.precio_gasoil_litro, 3),
+    peaje: capaSugerencia(mediana(muestrasPeajeKm), empresa.coste_peaje_km, 2),
+    dieta: capaSugerencia(mediana(muestrasDieta), empresa.dieta_noche_eur, 2),
   };
 }
 

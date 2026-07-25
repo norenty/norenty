@@ -147,8 +147,6 @@ describe("AjustesEmpresaSection", () => {
         costeConductor=""
         setCosteConductor={() => {}}
         guardarDesglose={() => {}}
-        requierePod={true}
-        toggleRequierePod={() => {}}
         guardando={false}
       />
     );
