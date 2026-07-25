@@ -150,9 +150,17 @@ empresa más seria, no un software de pacotilla"*.
 - [ ] `[DECISIÓN 18.B.2]` **Coste desglosado desde histórico.** Mismo criterio: *"tienes que tirar
   de histórico y no puedo coger yo aquí en Ajustes y cambiarlo"*. El gasoil real ya llegará por
   las fotos de facturas de repostaje de los chóferes — usarlo.
-- [ ] `[DECISIÓN 18.B.3]` **Precio del gasoil automático.** *"me gustaría que pudiera cogerse
-  automáticamente"*, aceptando que se pueda sobreescribir a mano. Candidato: índice público de
-  carburantes (en España el Ministerio publica un dataset abierto). A investigar.
+- [x] `[DECISIÓN 18.B.3]` **Precio del gasoil automático.** **DECIDIDO 2026-07-25** (aprobado
+  explícitamente por el usuario, con matiz: *"el gasoil ese es una referencia para iniciar la
+  cotización, tiene que poder modificarse manualmente si lo quiere el comercial"*).
+  Implementado: `backend/db/actualizar_precio_gasoil.py` calcula la media nacional de "Precio
+  Gasoleo A" desde la API REST pública del Ministerio (verificado en vivo: 1.737 €/l de 11.271
+  gasolineras) y la guarda en `indice_gasoil_nacional` (migración 0062, solo lectura para
+  `authenticated`). En Ajustes, botón "Usar sugerido" junto al campo de gasoil que rellena el
+  input sin guardar solo — el campo sigue siendo 100% manual. Commit `66f6dcb`. Capturar el
+  gasoil REAL desde las facturas de repostaje de los chóferes sigue siendo 18.B.2, decisión
+  aparte, todavía pendiente. Sin scheduler todavía (mismo patrón que los demás scripts de
+  `backend/db/`: se ejecuta a mano o vía Tarea Programada hasta que exista infraestructura de cron).
 - [x] `[DECISIÓN 18.B.4]` **POD obligatorio: ¿puede desactivarse?** **DECIDIDO 2026-07-25**
   (aprobado explícitamente por el usuario): obligatorio siempre hasta consultar con asesoría
   legal (9.11) si el albarán es legalmente exigible. Toggle bloqueado en Ajustes (checkbox fijo,
