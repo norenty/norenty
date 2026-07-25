@@ -299,18 +299,13 @@ export default function AjustesEmpresaSection({
           <h2 className="text-sm font-medium text-ink">Prueba de entrega (POD)</h2>
         </div>
         <p className="text-xs text-ink-secondary mb-4">
-          Si tu empresa NO usa albarán físico, desactívalo aquí: el chófer marcará la entrega
-          como completada directamente, sin que el bot le pida la foto.
+          El albarán firmado tiene valor legal como prueba de entrega, así que de momento
+          queda siempre obligatorio (18.B.4: pendiente de consulta con asesoría legal antes
+          de poder desactivarlo).
         </p>
-        <label className="flex items-center gap-2 text-sm text-ink cursor-pointer w-fit">
-          <input
-            type="checkbox"
-            checked={requierePod}
-            onChange={(e) => toggleRequierePod(e.target.checked)}
-            disabled={guardando}
-            className="rounded border-border"
-          />
-          Pedir foto de albarán en cada entrega
+        <label className="flex items-center gap-2 text-sm text-ink-secondary w-fit">
+          <input type="checkbox" checked disabled className="rounded border-border" />
+          Pedir foto de albarán en cada entrega (obligatorio)
         </label>
       </section>
       </RequireRol>
