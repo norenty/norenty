@@ -238,9 +238,17 @@ empresa más seria, no un software de pacotilla"*.
   desglosado (combustible/conductor/peajes/dietas) para excluirlo solo de ese cálculo, sin tocar
   Ajustes. El desgaste de ruedas y similares quedan fuera a propósito — el propio usuario los
   calificó de *"hilar muy fino... un gasto ínfimo"* que nadie registra.
-- [ ] `[DECISIÓN 18.D.6]` **Tipo de vehículo/carga en la cotización** (tráiler doble, vehículo
-  especial) + *"una calculadora de cargas, pero eso te lo explico después"* — **pendiente de que
-  el usuario lo explique.**
+- [x] `[DECISIÓN 18.D.6]` **Tipo de vehículo/carga en la cotización.** **DECIDIDO 2026-07-25**
+  (explicado por el usuario): un "tráiler doble" (40→60 toneladas aprox., a confirmar con su
+  contacto del sector) NO necesita un tipo de vehículo nuevo — ya es un vehículo con su propia
+  `capacidad_kg/ldm/m3` (COT.3) y su propio `coste_km`, el modelo de datos ya lo soporta ("no te
+  cuesta el doble, la tractora gastará un poco más" → eso ya lo decide el coste/km de ESE
+  vehículo, no escala solo). La "calculadora de cargas" quedó descartada — el propio usuario
+  aclaró que cómo distribuir/apilar la mercancía "lo tiene que saber quien está cargándolo", no es
+  parte del sistema. Lo único real que faltaba — "que sea viable realmente hacerlo" — era que
+  `calcularOcupacion` nunca avisaba cuando la carga superaba el 100% de la capacidad, solo mostraba
+  una barra llena. **HECHO**: `excedeCapacidad` en `calcularOcupacion` + aviso rojo en
+  `/presupuesto`, `/viajes/nuevo-w` y `/viajes/[id]`. Commit `1be6c83`.
 - [ ] `[DECISIÓN 18.D.7]` **Presupuesto por audio o por email.** *"que yo pueda mandar un audio y
   me lo diga, o mandar un correo a presupuestos@loquesea y me conteste con el presupuesto. Sé que
   no es para esta fase, pero definitivamente tiene que estar en el roadmap"*. Encaja con Whisper
