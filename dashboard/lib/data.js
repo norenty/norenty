@@ -2914,9 +2914,17 @@ export async function getDatosFacturacion({ desde, hasta, clienteId = null } = {
  * de un solo viaje, a diferencia de getPlanVsReal). Mismo criterio de "hito
  * más reciente" que getMetricasPuntualidad. */
 async function agregarPuntualidadPeriodo(desde, hasta) {
+  // Fase 19.2 (2026-07-25, ver ROADMAP): `ejecucion_evento` pedía TODAS las
+  // llegadas de la historia de la empresa, sin fecha ni `limit` -- esta tabla
+  // crece con cada hito completado, para siempre. Con una flota grande supera
+  // los 1000 filas del corte silencioso de PostgREST en semanas, no años, y
+  // "% de hitos a tiempo" empezaría a calcularse sobre una muestra arbitraria.
+  // Se acota por `ocurrido_en` igual que `hito` por `ventana_fin` -- misma
+  // ventana temporal, un hito con ventana en el periodo llega casi siempre
+  // dentro del mismo periodo.
   const [{ data: hitos }, { data: eventos }] = await Promise.all([
     supabase.from("hito").select("id, ventana_fin").gte("ventana_fin", desde).lt("ventana_fin", hasta),
-    supabase.from("ejecucion_evento").select("hito_id, ocurrido_en").eq("tipo", "llegada"),
+    supabase.from("ejecucion_evento").select("hito_id, ocurrido_en").eq("tipo", "llegada").gte("ocurrido_en", desde).lt("ocurrido_en", hasta),
   ]);
 
   const llegadaPorHito = {};

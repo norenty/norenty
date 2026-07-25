@@ -38,9 +38,11 @@ falsos**. Nadie se entera. En una nómina o una factura eso es dinero real mal p
   solo de los viajes con actividad ESE mes (derivados de las llegadas, ya acotadas por fecha), no
   del histórico entero. `chofer` con `order+limit(5000)` como cota defensiva. Verificado en
   `/nomina` con datos reales, mismo resultado que antes. 432 tests en verde.
-- [ ] `[LOOP 19.2]` **🔴 `getDatosFacturacion`** — `ejecucion_evento ... .eq("tipo","llegada")`
-  **sin cota de fecha ni `limit`** (~2904). Es **FACTURACIÓN**: mismo problema, con el cliente
-  delante.
+- [x] `[LOOP 19.2]` **🔴 `agregarPuntualidadPeriodo`** (no `getDatosFacturacion` — esa ya estaba
+  bien acotada por fecha, corregido el diagnóstico). **HECHO 2026-07-25**: `ejecucion_evento`
+  traía TODA la historia de llegadas de la empresa sin fecha ni `limit`, usado por la calibración
+  automática (10.8/10.9). Ahora acotado por `ocurrido_en` en el mismo periodo que `ventana_fin`.
+  432 tests en verde.
 - [ ] `[LOOP 19.3]` **`sugerirChofer`** — lee `ubicacion` de las últimas 48 h (~1827). Con 1500
   camiones emitiendo GPS esto son cientos de miles de filas: el ranking de chóferes se calcularía
   sobre una muestra arbitraria de 1000.
