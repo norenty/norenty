@@ -286,6 +286,84 @@ documento lo contempla como variante; yo lo haría regla. Lo gratis no se defien
 no se prioriza, y no te dice nada sobre disposición real a pagar — que es justo lo que hay que
 aprender.
 
+### 5.4 Service-as-Software: el modelo que resuelve el conflicto de 4.4 en vez de gestionarlo
+
+Añadido el 2026-07-26, tras discutir una reformulación de la tesis comercial.
+
+**La idea del fundador, en sus palabras:** no vender "software que ayuda a tu gestor", vender
+*"tu departamento de gestores te cuesta 100k/año, te lo hago por 50k/30k con garantías totales
+— y de partida esos gestores los contrato yo para desarrollar el software hasta que funcione"*.
+Es decir: Norenty no vende una herramienta, vende el **resultado** (la flota gestionada) y se
+queda con el personal que hoy hace ese trabajo.
+
+**Por qué esto es mejor que "TMS más barato" y mejor que "ayuda a tu gestor a rendir más":**
+
+Category-wise es exactamente el patrón de las empresas de Service-as-Software que están
+ganando ahora mismo (Sierra, Decagon y similares): no vendes el asiento de software, vendes el
+puesto de trabajo hecho, con un precio que es una fracción del coste de plantilla. Es una venta
+brutalmente simple para el comprador — no hay que evaluar features, hay que comparar dos
+números (100k vs 50k) — y es coherente con el ángulo de Bezos de la sección 5.1: el cliente no
+compra "gestión de flota con IA", compra que el problema desaparezca de su balance.
+
+**El motivo por el que esto SÍ resuelve 4.4 (y no solo lo mitiga):** la sección 4.4 identificó
+que el gestor, al ser el usuario diario pero no el comprador, tiene incentivo a sabotear un
+producto que se vende como su propio reemplazo. Ese conflicto **existe porque el gestor sigue
+siendo empleado del cliente** mientras el software le compite. En el modelo de aquí, el gestor
+pasa a ser **empleado o subcontratado de Norenty**, no del cliente. Ya no hay saboteador interno
+posible en el sentido clásico: la persona que opera el sistema tiene ahora el mismo lado de la
+mesa que el vendedor, no el lado opuesto. El conflicto de incentivos no se gestiona con un
+"vender alivio, no reemplazo" (el parche de 4.4) — **se elimina de raíz, cambiando quién firma
+la nómina de esa persona.**
+
+**Lo que cambia de negocio, y hay que decirlo sin adornos:**
+
+Esto ya no es un SaaS puro — es un **BPO con software propietario**, mucho más parecido a lo que
+hace una gestoría o un contact center outsourceado que a lo que hace Qargo. Eso tiene
+consecuencias reales, no cosméticas:
+
+1. **Los márgenes cambian de naturaleza.** Un SaaS de €15/camión/mes tiene margen bruto del
+   ~85-90% porque el coste marginal es servidor. Aquí el coste marginal incluye **sueldos de
+   gestores reales**, así que el margen se parece más al de una consultora/gestoría (30-50%)
+   que al de un SaaS. El techo de la sección 7 (€1-1,5M ARR de nicho ibérico) habría que
+   recalcularlo con este margen, no con el de software — **no validado, hacer la cuenta antes
+   de vender la primera unidad así.**
+2. **Escala de forma distinta.** Un SaaS escala con código; un BPO escala con contratación y
+   formación de gente. El "loop nocturno que cierra fases en una noche" (sección 3.4) deja de
+   ser la ventaja competitiva central si el cuello de botella pasa a ser cuántos gestores puedes
+   contratar y formar bien. Sigue siendo una ventaja, pero dentro de una empresa distinta.
+3. **El pitch de "garantías totales" es una promesa operativa, no solo comercial.** Si Norenty
+   se compromete a gestionar la flota de un cliente por 50k cuando a él le cuesta 100k, un fallo
+   operativo (un chófer sin ruta un lunes, una nómina mal calculada) ya no es "un bug de
+   software" — es un incumplimiento de servicio con el mismo peso que si el cliente hubiera
+   despedido a su propio equipo y el sustituto no apareciera. El listón de fiabilidad sube de
+   golpe, y en fase inicial (0 clientes, producto con Fase 19 recién estabilizada) ese riesgo
+   es alto. Hay que dimensionarlo antes de prometerlo, no después del primer cliente.
+4. **Encaje con "chófer no instala nada" (3.1) — se refuerza, no compite.** Si Norenty pone el
+   gestor humano en la ecuación (aunque sea remoto), ese gestor puede absorber exactamente los
+   casos donde el chófer no manda el dato limpio por Telegram/WhatsApp — es el colchón humano
+   que hace tolerable la fricción residual del canal de mensajería. Encaja con el ROADMAP
+   18.D.7 (bot de cotización) como la primera pieza de "el sistema hace el 80%, el gestor
+   remoto de Norenty resuelve el 20% restante".
+
+**El orden correcto para probarlo, sin apostar la empresa entera de golpe:**
+
+No hace falta decidir "SaaS puro" vs "Service-as-Software" como blanco o negro desde ya. El
+camino de menor riesgo es usarlo como **variante de piloto, no como modelo único**: al primer
+Founding Partner (o a uno de los tres) ofrecerle explícitamente la opción B — *"tú me pagas lo
+que hoy gastas en un gestor menos el ahorro, y yo pongo la persona (formada por mí, usando mi
+software) que hace ese trabajo durante los primeros 3-6 meses"*. Eso da un dato real y barato de
+validar: ¿el cliente prefiere comprar software o comprar un resultado gestionado? Si la
+respuesta es masivamente "resultado gestionado", el pivote de modelo de negocio se hace con
+evidencia, no con una corazonada — y hay que rehacer la sección 7 y el 5.3 con márgenes de
+servicio, no de software. Si la respuesta es "prefiero el software, ya tengo gestor", el modelo
+SaaS de las secciones 1-7 queda intacto y esta sección se archiva como opción de expansión, no
+como pivote necesario.
+
+**Riesgo legal a no pasar por alto:** contratar o subcontratar personas que hacen el trabajo de
+gestor de tráfico para terceros puede tocar normativa laboral (cesión ilegal de trabajadores si
+no se estructura bien, requisitos de ETT en España). No validado — consultarlo con un laboralista
+antes de ofrecerlo por escrito a ningún cliente, no después.
+
 ---
 
 ## 6. Plan de 30 días (esto es lo que de verdad acelera el proyecto)
