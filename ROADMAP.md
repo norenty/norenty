@@ -403,9 +403,12 @@ modelo completo:
   respuesta es "solo creamos cuentas a mano para clientes firmados" (gate manual, cero código).
   *Recomendación*: mantenerlo manual hasta que haya volumen; añadir `empresa.estado`
   (trial/activa/suspendida) solo cuando dé problemas reales, no antes.
-- [ ] `[LOOP C.5]` **Revisar el primer arranque de una empresa nueva** — `ChecklistOnboarding` ya
-  existe; comprobar que guía bien a un admin real desde cero (sin datos demo) y no muestra pasos
-  que no aplican.
+- [~] `[LOOP C.5]` **Revisar el primer arranque de una empresa nueva** — **REVISADO 2026-07-25 por
+  código+tests, NO por click-through en vivo** (crear una empresa realmente nueva exige
+  confirmación de email real, no disponible en este entorno). Lógica de los 5 pasos correcta,
+  cubierta por 3 tests. Bonus: `getOnboardingEstado` tenía el mismo patrón de escala que toda la
+  Fase 19 (traía tablas enteras solo para `.length > 0`) — arreglado con `.limit(1)`. **Queda
+  pendiente el click-through real** con una cuenta nueva de verdad cuando haya ocasión.
 
 ### Bloque D — Operación real en producción
 
