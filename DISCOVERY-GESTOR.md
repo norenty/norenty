@@ -198,6 +198,19 @@ imposible"* (ítem 18.D.2).
 - ¿Repetís mucho los mismos puntos de carga/descarga? ¿Los tenéis apuntados en algún sitio?
 - ¿Cuántas paradas suele tener un viaje típico?
 
+### 3.11 Bases/naves y dónde duermen los chóferes (añadido 2026-07-25)
+
+Contexto: se implementó soporte para varias bases por empresa (18.C.3), calculando "noche fuera"
+contra la más cercana en vez de una única fija. El propio usuario lo pidió con una duda explícita:
+*"no tiene por qué estar asignado una persona a una base, sino que se podría desplazar entre
+ellas, no estoy del todo seguro, deberíamos preguntarlo"*.
+
+- ¿Cuántas naves/bases tenéis, y dónde?
+- Un chófer concreto, ¿sale y vuelve siempre de la misma nave, o depende de la ruta que le toque
+  esa semana?
+- Cuando pasa la noche lejos de casa, ¿la dieta se calcula respecto a su base de siempre o
+  respecto a donde esté la carga/descarga más cercana?
+
 ### 3.6 La pregunta de oro
 > "¿Qué es lo que más tiempo te quita al día sin aportarte nada?"
 

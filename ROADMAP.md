@@ -153,9 +153,12 @@ empresa más seria, no un software de pacotilla"*.
   **HECHO 2026-07-24**: el paso "Asignación" del wizard ahora se presenta explícitamente como
   opcional, con un atajo directo a "Confirmar" sin elegir nada — el viaje se crea en el pool
   (sin chófer/vehículo/gestor). El backend ya lo permitía, no hacía falta tocarlo.
-- [ ] `[DECISIÓN 18.C.3]` **Múltiples bases.** *"podemos tener múltiples bases, es algo que debe
-  estar contemplado"*. Hoy `empresa` tiene UNA lat/lon base, usada para calcular noches fuera.
-  Cambia el modelo de datos y el cálculo de nómina.
+- [x] `[DECISIÓN 18.C.3]` **Múltiples bases.** *"podemos tener múltiples bases"*.
+  **HECHO 2026-07-25**: migración 0061 (tabla `base_empresa`, RLS, backfill automático de la base
+  única existente), `getInformeNomina` calcula contra la base MÁS CERCANA (un chófer no está fijo
+  a una base — decisión del usuario, aunque él mismo pidió confirmarlo con el gestor real en el
+  discovery). UI en Ajustes → "Bases / naves" con el buscador de direcciones (18.D.2). Verificado
+  en vivo de punta a punta. 432 tests en verde.
 
 ### 18.D — Presupuesto instantáneo: necesita una vuelta grande
 
