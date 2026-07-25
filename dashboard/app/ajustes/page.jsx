@@ -522,6 +522,12 @@ export default function AjustesPage() {
         onSugerirCosteKm={(v) => setCosteKm(String(v))}
       />
 
+      {/* 18.A.3b (Fase 18, 2026-07-25): parámetros de empresa (coste/km, velocidad,
+          objetivos, coste desglosado...) bloqueados a admin -- feedback directo del
+          usuario, "no entiendo cómo puede ser que puedas cambiarlo tú, una persona
+          normal". Mismo patrón que Facturación (18.E.1): RequireRol, no inputs
+          deshabilitados uno a uno. */}
+      <RequireRol roles={["admin"]}>
       <AjustesEmpresaSection
         empresa={empresa}
         empresaNombre={empresaNombre}
@@ -558,6 +564,7 @@ export default function AjustesPage() {
         toggleRequierePod={toggleRequierePod}
         guardando={guardando}
       />
+      </RequireRol>
     </div>
   );
 }

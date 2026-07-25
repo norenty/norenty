@@ -36,7 +36,12 @@ empresa más seria, no un software de pacotilla"*.
   **DECIDIDO 2026-07-25** (aprobado explícitamente por el usuario): bloquear a **solo-admin**,
   mismo patrón que Facturación (`RequireRol roles={["admin"]}`) — no aprobación/flujo nuevo, eso
   queda en 18.A.2. Pasa a `[LOOP 18.A.3b]` de abajo con la especificación exacta.
-- [ ] `[LOOP 18.A.3b]` **Implementar 18.A.3: envolver `AjustesEmpresaSection` en
+- [x] `[LOOP 18.A.3b]` **HECHO 2026-07-25.** `AjustesEmpresaSection` envuelta en
+  `RequireRol roles={["admin"]}` en `ajustes/page.jsx`. `CalibracionSugerenciaSection` ya se
+  autogateaba a admin por dentro, no hizo falta tocarla. Verificado como admin en el navegador:
+  todas las subsecciones (nombre, base, coste/km, velocidad, objetivos, POD, coste desglosado)
+  siguen visibles y editables. 432 tests en verde.
+  *Spec original:* **Implementar 18.A.3: envolver `AjustesEmpresaSection` en
   `RequireRol roles={["admin"]}`** en `ajustes/page.jsx` (`app/ajustes/page.jsx`), igual que ya
   está `AjustesEquipoSection`. Cubre TODOS los campos de esa sección de una vez: nombre de empresa,
   ubicación base, coste por km, velocidad de planificación, objetivos de puntualidad/margen, POD
