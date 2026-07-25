@@ -38,6 +38,7 @@ function makeBuilder(table) {
       return builder;
     },
     limit(n) { rows = rows.slice(0, n); return builder; },
+    range(desde, hasta) { rows = rows.slice(desde, hasta + 1); return builder; },
     single() {
       if (SELECT_ERRORS[table]) {
         return Promise.resolve({ data: null, error: SELECT_ERRORS[table] });

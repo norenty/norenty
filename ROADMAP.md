@@ -50,9 +50,10 @@ falsos**. Nadie se entera. En una nómina o una factura eso es dinero real mal p
   — **HECHO 2026-07-25**: `getMetricasPuntualidad` ya no trae `viaje` entero, solo los viajes con
   incidencia del periodo (`.in`); `chofer`/`cliente` (catálogos, no acotables por fecha) llevan
   `order+limit(5000)` defensivo. Verificado en `/analitica` con datos reales. 432 tests en verde.
-- [ ] `[LOOP 19.5]` **`getExportacionChofer`** — historial completo de `ubicacion` de un chófer
-  sin `limit` (~3493). Es el export de **derechos ARCO (RGPD)**: entregar datos incompletos a un
-  chófer que los reclama es un problema legal, no solo técnico.
+- [x] `[LOOP 19.5]` **`getExportacionChofer`** — **HECHO 2026-07-25**: nueva `traerTodasLasFilas()`
+  pagina de verdad con `.range()` en vez de limitar (aquí un límite defensivo NO vale, es un export
+  legal ARCO). Aplicada a `ubicacion` (la de riesgo real: GPS cada pocos minutos). Verificado en
+  vivo: exportación completa sin errores. 432 tests en verde.
 
 ### Otros límites de escala detectados (mismo repaso, menos urgentes)
 

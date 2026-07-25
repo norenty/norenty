@@ -3524,11 +3524,33 @@ export async function getParkings() {
  * Derecho de ACCESO: recopila todo lo que el esquema real tiene ligado a un
  * chófer, tal cual existe hoy. Solo lectura, sin privilegios especiales.
  */
+/**
+ * Fase 19.5 (2026-07-25, ver ROADMAP): a diferencia del resto de la Fase 19
+ * (donde un `limit` defensivo basta porque son vistas/KPIs), esto es un
+ * export de derechos ARCO (RGPD) -- aquí "casi todo" no vale, tiene que ser
+ * TODO. `ubicacion` es la tabla de riesgo real: un chófer en activo genera
+ * un ping GPS cada pocos minutos, así que su historial supera las 1000 filas
+ * del corte silencioso de PostgREST en cuestión de días de trabajo, no de
+ * años. Pagina de verdad en vez de limitar.
+ */
+async function traerTodasLasFilas(query, pageSize = 1000) {
+  const filas = [];
+  let desde = 0;
+  for (;;) {
+    const { data, error } = await query.range(desde, desde + pageSize - 1);
+    if (error) throw error;
+    filas.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+    desde += pageSize;
+  }
+  return filas;
+}
+
 export async function getExportacionChofer(choferId) {
   const [chofer, viajes, ubicaciones, valoraciones, documentos, decisiones] = await Promise.all([
     supabase.from("chofer").select("*").eq("id", choferId).single(),
     supabase.from("viaje").select("id, referencia, estado, created_at").eq("chofer_id", choferId),
-    supabase.from("ubicacion").select("lat, lon, velocidad, rumbo, created_at").eq("chofer_id", choferId),
+    traerTodasLasFilas(supabase.from("ubicacion").select("lat, lon, velocidad, rumbo, created_at").eq("chofer_id", choferId).order("created_at")),
     supabase.from("valoracion").select("puntuacion, nota, created_at, viaje_id").eq("chofer_id", choferId),
     supabase.from("documento").select("tipo, fecha_emision, fecha_caducidad, estado, created_at").eq("ambito", "chofer").eq("entidad_id", choferId),
     supabase.from("decision_asignacion").select("viaje_id, siguio_sugerencia, motivo, created_at").or(`chofer_sugerido_id.eq.${choferId},chofer_elegido_id.eq.${choferId}`),
@@ -3536,7 +3558,7 @@ export async function getExportacionChofer(choferId) {
   return {
     chofer: chofer.data || null,
     viajes: viajes.data || [],
-    ubicaciones: ubicaciones.data || [],
+    ubicaciones,
     valoraciones: valoraciones.data || [],
     documentos: documentos.data || [],
     decisiones: decisiones.data || [],
