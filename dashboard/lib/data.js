@@ -813,6 +813,44 @@ export function calcularAvisoSeguroCarga(valorMercanciaEur, valorAseguradoMaximo
   };
 }
 
+// Auditoría de seguridad (2026-07-26): el bot ya valida tamaño + magic bytes
+// antes de subir una foto de POD (_foto_pod_valida, backend/app/bot.py:178),
+// pero las subidas del dashboard (gastos/documentos) confiaban en el
+// `file.type` que reporta el propio navegador -- fácil de falsear (un HTML/SVG
+// con extensión .jpg tiene `file.type` de imagen si el navegador así lo cree).
+// Mismo criterio que el bot: tamaño máximo + magic bytes reales, ANTES de
+// subir a Storage. Límite de tamaño alineado con POD_MAX_BYTES del bot (10MB).
+export const ARCHIVO_MAX_BYTES = 10 * 1024 * 1024;
+
+const MAGIC_BYTES = {
+  jpeg: [0xff, 0xd8, 0xff],
+  png: [0x89, 0x50, 0x4e, 0x47],
+  pdf: [0x25, 0x50, 0x44, 0x46], // "%PDF"
+};
+
+/**
+ * Valida un archivo por tamaño + magic bytes reales (no por `file.type`,
+ * que el navegador puede reportar mal o un atacante puede falsear). `tipos`
+ * es un subconjunto de las claves de MAGIC_BYTES a aceptar.
+ * @param {ArrayBuffer} buffer
+ * @param {string[]} tipos
+ */
+export function validarArchivoSubida(buffer, tipos = ["jpeg", "png", "pdf"]) {
+  if (!buffer || buffer.byteLength === 0) return { valido: false, error: "Archivo vacío." };
+  if (buffer.byteLength > ARCHIVO_MAX_BYTES) {
+    return { valido: false, error: `El archivo supera el máximo de ${ARCHIVO_MAX_BYTES / 1024 / 1024} MB.` };
+  }
+  const inicio = new Uint8Array(buffer.slice(0, 8));
+  const coincide = tipos.some((t) => {
+    const magic = MAGIC_BYTES[t];
+    return magic && magic.every((b, i) => inicio[i] === b);
+  });
+  if (!coincide) {
+    return { valido: false, error: "El contenido del archivo no coincide con un tipo permitido (imagen o PDF)." };
+  }
+  return { valido: true, error: null };
+}
+
 /**
  * `empresa.requiere_pod` existía en el esquema desde el Milestone 3
  * (migración 0002) pero nunca se conectó a ninguna pantalla ni al bot —
@@ -2093,7 +2131,7 @@ export async function sugerirChofer(viajeId, { hitosOverride = null } = {}) {
  * consola y se sigue.
  */
 export async function registrarDecisionAsignacion({
-  viajeId, choferSugeridoId, scoreSugerido, choferElegidoId, scoreElegido, motivo = null,
+  viajeId, choferSugeridoId, scoreSugerido, choferElegidoId, scoreElegido, motivo = null, tiempoVisibleMs = null,
 }) {
   try {
     const empresaId = await getCurrentEmpresaId();
@@ -2108,6 +2146,9 @@ export async function registrarDecisionAsignacion({
         score_elegido: scoreElegido,
         siguio_sugerencia: siguioSugerencia,
         motivo,
+        // ROADMAP 10.10: señal pasiva y honesta para distinguir juicio real de
+        // clic reflejo -- ver 0068_decision_asignacion_tiempo_visible.sql.
+        tiempo_visible_ms: tiempoVisibleMs,
       },
       { returning: "minimal" }
     );

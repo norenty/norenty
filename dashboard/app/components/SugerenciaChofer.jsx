@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { sugerirChofer, registrarDecisionAsignacion } from "../../lib/data";
 import ErrorCargaReintentar from "./ui/ErrorCargaReintentar";
 
@@ -16,14 +16,18 @@ export default function SugerenciaChofer({ viajeId, hitosOverride, onAsignado })
   const [pendiente, setPendiente] = useState(null);
   const [motivo, setMotivo] = useState("");
   const [asignando, setAsignando] = useState(false);
+  // ROADMAP 10.10: cuándo se mostró el ranking en pantalla -- señal pasiva
+  // para distinguir después una decisión reflejo de una evaluada de verdad.
+  const mostradoEnRef = useRef(null);
 
   useEffect(() => {
     let activo = true;
     if (!viajeId && !hitosOverride) return;
     setRanking(null);
     setError(null);
+    mostradoEnRef.current = null;
     sugerirChofer(viajeId || null, { hitosOverride })
-      .then((r) => { if (activo) setRanking(r); })
+      .then((r) => { if (activo) { setRanking(r); mostradoEnRef.current = Date.now(); } })
       .catch((err) => { if (activo) setError(err.message); });
     return () => {
       activo = false;
@@ -85,6 +89,7 @@ export default function SugerenciaChofer({ viajeId, hitosOverride, onAsignado })
           choferElegidoId: fila.chofer.id,
           scoreElegido: fila.score,
           motivo: motivoTexto || null,
+          tiempoVisibleMs: mostradoEnRef.current != null ? Date.now() - mostradoEnRef.current : null,
         });
       }
       setPendiente(null);

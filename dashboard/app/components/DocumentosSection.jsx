@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, FileText, ExternalLink, Trash2 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { getCurrentEmpresaId, registrarAuditoria } from "../../lib/data";
+import { getCurrentEmpresaId, registrarAuditoria, validarArchivoSubida } from "../../lib/data";
 import { badgeCaducidad, fmtFecha } from "../../lib/format";
 import RequireRol from "./RequireRol";
 import SectionCard from "./ui/SectionCard";
@@ -54,6 +54,12 @@ export default function DocumentosSection({ ambito, entidadId, tipos, titulo = "
     setGuardando(true);
     setError(null);
     try {
+      // Auditoría de seguridad: valida tamaño + magic bytes reales antes de
+      // subir, no el `file.type` que reporta el navegador (falseable).
+      const buffer = await form.archivo.arrayBuffer();
+      const { valido, error: errorValidacion } = validarArchivoSubida(buffer, ["jpeg", "png", "pdf"]);
+      if (!valido) throw new Error(errorValidacion);
+
       const empresaId = await getCurrentEmpresaId();
       const ext = form.archivo.name.split(".").pop() || "pdf";
       const path = `${empresaId}/${ambito}/${entidadId}/${crypto.randomUUID()}.${ext}`;

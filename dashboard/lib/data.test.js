@@ -206,6 +206,8 @@ const {
   calcularAvisoSeguroCarga,
   getSedesClientes,
   calcularParkingsEnRuta,
+  validarArchivoSubida,
+  ARCHIVO_MAX_BYTES,
   getRendimientoGestores,
   getMetricasPorCliente,
   kmAproxViaje,
@@ -2439,6 +2441,17 @@ describe("motor de asignación (7A.2)", () => {
     expect(TABLES.decision_asignacion[1].motivo).toBe("conoce la ruta");
   });
 
+  it("registrarDecisionAsignacion guarda tiempoVisibleMs (ROADMAP 10.10, señal honesta anti-rubber-stamp)", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.decision_asignacion = [];
+    await registrarDecisionAsignacion({
+      viajeId: "v1", choferSugeridoId: "c1", scoreSugerido: 90,
+      choferElegidoId: "c1", scoreElegido: 90, tiempoVisibleMs: 350,
+    });
+    expect(TABLES.decision_asignacion[0].tiempo_visible_ms).toBe(350);
+  });
+
   it("registrarDecisionAsignacion no lanza si falla (sin sesión)", async () => {
     SESSION = null;
     await expect(
@@ -3188,6 +3201,40 @@ describe("calcularAvisoSeguroCarga (ROADMAP 20.6)", () => {
   it("avisa con el exceso exacto si la carga supera el máximo", () => {
     const aviso = calcularAvisoSeguroCarga(350000, 300000);
     expect(aviso).toEqual({ valorMercanciaEur: 350000, valorAseguradoMaximoEur: 300000, excesoEur: 50000 });
+  });
+});
+
+describe("validarArchivoSubida (auditoría de seguridad 2026-07-26)", () => {
+  function buf(bytes) {
+    return new Uint8Array(bytes).buffer;
+  }
+
+  it("acepta un JPEG real (magic bytes FF D8 FF)", () => {
+    expect(validarArchivoSubida(buf([0xff, 0xd8, 0xff, 0, 0, 0, 0, 0]), ["jpeg"]).valido).toBe(true);
+  });
+
+  it("acepta un PDF real (magic bytes %PDF)", () => {
+    expect(validarArchivoSubida(buf([0x25, 0x50, 0x44, 0x46, 0, 0, 0, 0]), ["pdf"]).valido).toBe(true);
+  });
+
+  it("rechaza un archivo cuyo contenido no coincide con ningún tipo permitido -- aunque el navegador diga que es una imagen", () => {
+    // Los primeros bytes de un HTML, no de una imagen -- simula un file.type falseado/incorrecto.
+    const html = new TextEncoder().encode("<html><script>1</script>");
+    const r = validarArchivoSubida(html.buffer, ["jpeg", "png", "pdf"]);
+    expect(r.valido).toBe(false);
+    expect(r.error).toMatch(/no coincide/);
+  });
+
+  it("rechaza un archivo vacío", () => {
+    expect(validarArchivoSubida(buf([]), ["jpeg"]).valido).toBe(false);
+  });
+
+  it("rechaza un archivo por encima del tamaño máximo", () => {
+    const grande = new ArrayBuffer(ARCHIVO_MAX_BYTES + 1);
+    new Uint8Array(grande).set([0xff, 0xd8, 0xff]);
+    const r = validarArchivoSubida(grande, ["jpeg"]);
+    expect(r.valido).toBe(false);
+    expect(r.error).toMatch(/máximo/);
   });
 });
 

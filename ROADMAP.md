@@ -3687,9 +3687,64 @@ real lo haya pedido explícitamente y (b) que ya haya pasado el gate de discover
 
 El usuario preguntó por un avisador de documentos próximos a caducar. **Ya existe**:
 `documentosPorCaducar` en `lib/data.js` (línea ~1049) ya filtra por `fecha_caducidad` y alimenta
-las notificaciones. Lo que pidió de nuevo es de posición en el menú (bajo Analítica, no como
-sección aparte) — pendiente de decidir si merece la pena mover solo por ergonomía o dejarlo
-donde está.
+las notificaciones. Lo que pidió de nuevo — moverlo bajo Analítica en el menú — **HECHO
+2026-07-26** en `Sidebar.jsx` (el grupo "Documentos" pasó de estar antes de "Análisis" a estar
+después).
+
+---
+
+## Fase 22 — 10.10 (fuente real de verdad) + auditoría de seguridad (2026-07-26)
+
+### 10.10 — señal honesta contra "aprobar sin mirar"
+
+El usuario preguntó por qué se sugiere/aprueba un chófer y expresó preocupación explícita de que
+"aprobar la sugerencia sin mirar" contaminara los datos que algún día alimentarían 10.10. Cierto:
+hoy asignar al chófer #1 sugerido no pide nada (a propósito, para no friccionar el caso normal),
+así que `siguio_sugerencia=true` no distingue juicio real de clic reflejo.
+
+- [x] `[LOOP]` **Señal pasiva `tiempo_visible_ms`** — HECHO 2026-07-26. Sin añadir fricción al
+  flujo (no se pide confirmación extra), se registra cuánto tiempo estuvo el ranking visible en
+  pantalla antes de pulsar "Asignar" (`SugerenciaChofer.jsx`, migración
+  `0068_decision_asignacion_tiempo_visible.sql`). No decide nada por sí sola hoy, pero deja la
+  columna lista para que 10.10 (cuando haya datos reales) pueda filtrar/ponderar los clics
+  demasiado rápidos como probable no-evaluación. 1 test nuevo.
+
+### Auditoría de seguridad completa (backend Python/bot + dashboard Next.js)
+
+Metodología: revisión estática white-box guiada por la skill `code-audit` (55+ clases de
+vulnerabilidad, OWASP/CWE) sobre todo `backend/app/bot.py`, `backend/db/migrations/*.sql` (69
+migraciones), `dashboard/lib/data.js` y componentes de subida de archivos, más `npm audit` real.
+
+**Sin hallazgos críticos ni altos en el código propio.** RLS de Postgres es el backstop real de
+autorización (no un simple filtro de cliente); el portal público de seguimiento está bien
+diseñado (token impredecible, whitelist de campos, expiración real); sin secretos hardcodeados,
+`eval`/`exec`/`pickle`, SQL por concatenación, ni problemas de CORS.
+
+- [x] `[LOOP]` **Subida de archivos: magic bytes + tamaño, no `file.type` del navegador** — HECHO
+  2026-07-26. El bot ya validaba esto (`_foto_pod_valida`); el dashboard (`GastosViajeSection`,
+  `DocumentosSection`) confiaba en el MIME que reporta el propio navegador, falseable. Nueva
+  `validarArchivoSubida()` en `lib/data.js` (magic bytes JPEG/PNG/PDF + límite 10MB, mismo que el
+  bot), cableada en ambos componentes antes de subir a Storage. 5 tests nuevos.
+- [x] `[LOOP]` **`npm audit`: Next.js 15.5.19 → 15.5.22** (misma major, sin romper
+  `@sentry/nextjs`) — resuelve las vulnerabilidades reales de Next (SSRF en rewrites/Server
+  Actions, DoS, cache confusion, disclosure). Verificado: 456 tests + `npm run build` (22
+  páginas) en verde tras el cambio.
+- [ ] `[DECISIÓN]` **`xlsx` sin parche disponible** (prototype pollution + ReDoS, sin fix del
+  proveedor). Usado en `/importar`. Riesgo aceptado por ahora: solo explotable si se procesan
+  ficheros Excel de origen no confiable, y el flujo ya es de un gestor autenticado de la propia
+  empresa subiendo sus propios datos, no un tercero anónimo. Vigilar por si aparece parche o
+  alternativa (ej. una librería de import más acotada) más adelante — no bloqueante.
+- [ ] `[DECISIÓN]` **Defensa en profundidad: filtrar por `empresa_id` explícitamente en
+  `dashboard/lib/data.js`**, no solo confiar en RLS — informativo, no explotable hoy (RLS ya
+  cubre el camino real), pero sería más robusto que cada función repita el filtro en la query JS
+  en vez de depender solo de Postgres. Alcance: varias funciones con `.eq("id", ...)` — no se
+  toca en bloque para no introducir un refactor amplio sin verificación fila a fila; candidato a
+  abordarse function por function la próxima vez que se toque cada una por otro motivo.
+- [x] `[LOOP]` **postcss/sharp/brace-expansion/fast-uri** — arreglados con `npm audit fix`
+  (no-force), sin cambios de comportamiento. Los rastros restantes de postcss/sharp que quedan
+  en el audit están VENDORIZADOS dentro del propio `next` (no controlables desde nuestro
+  `package.json`) — bajo riesgo práctico (build-time, no alcanzable por input de atacante en
+  runtime normal).
 
 ---
 

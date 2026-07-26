@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Fuel, ParkingSquare, Siren, Bed, Receipt, Image as ImageIcon } from "lucide-react";
-import { getGastosViaje, createGastoViaje, deleteGastoViaje, getCurrentEmpresaId } from "../../lib/data";
+import { getGastosViaje, createGastoViaje, deleteGastoViaje, getCurrentEmpresaId, validarArchivoSubida } from "../../lib/data";
 import { supabase } from "../../lib/supabase";
 import { TIPO_GASTO_LABEL as TIPO_LABEL } from "../../lib/labels";
 import RequireRol from "./RequireRol";
@@ -17,15 +17,6 @@ const SIGNED_URL_TTL = 60; // segundos, mismo criterio que DocumentosSection
 
 function initForm(choferId) {
   return { tipo: "repostaje", importe: "", litros: "", fecha: "", descripcion: "", choferId: choferId || "", foto: null };
-}
-
-/** SHA-256 de un archivo en el navegador (Web Crypto), mismo principio de
- * evidencia-con-integridad que el POD (ítem 12.1): la foto del ticket/multa
- * queda hasheada, no solo guardada. */
-async function sha256DeArchivo(file) {
-  const buf = await file.arrayBuffer();
-  const hashBuf = await crypto.subtle.digest("SHA-256", buf);
-  return Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export default function GastosViajeSection({ viajeId, choferId = null, vehiculoId = null }) {
@@ -59,10 +50,16 @@ export default function GastosViajeSection({ viajeId, choferId = null, vehiculoI
       let fotoHash = null;
       if (form.foto) {
         setSubiendoFoto(true);
+        const buffer = await form.foto.arrayBuffer();
+        // Auditoría de seguridad: valida tamaño + magic bytes reales antes de
+        // subir, no el `file.type` que reporta el navegador (falseable).
+        const { valido, error: errorValidacion } = validarArchivoSubida(buffer, ["jpeg", "png"]);
+        if (!valido) throw new Error(errorValidacion);
         const empresaId = await getCurrentEmpresaId();
         const ext = form.foto.name.split(".").pop() || "jpg";
         const path = `${empresaId}/gasto/${viajeId}/${crypto.randomUUID()}.${ext}`;
-        fotoHash = await sha256DeArchivo(form.foto);
+        fotoHash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", buffer)))
+          .map((b) => b.toString(16).padStart(2, "0")).join("");
         const { error: uploadErr } = await supabase.storage
           .from("documentos")
           .upload(path, form.foto, { contentType: form.foto.type || undefined });
