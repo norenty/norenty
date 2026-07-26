@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { TIPO_PARKING_LABEL } from "../../lib/labels";
@@ -51,6 +51,15 @@ const ICON_PARKING_PROPIO = new L.DivIcon({
   iconAnchor: [10, 10],
 });
 
+// ROADMAP 21.4: sede de cliente -- icono de edificio, distinto de hitos/
+// parkings/chófer para no confundir "dónde entrego" con "quién es el cliente".
+const ICON_CLIENTE = new L.DivIcon({
+  className: "",
+  html: '<div style="width:22px;height:22px;border-radius:4px;background:#7C3AED;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px">🏢</div>',
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+});
+
 function FitBounds({ points }) {
   const map = useMap();
   useEffect(() => {
@@ -62,12 +71,14 @@ function FitBounds({ points }) {
   return null;
 }
 
-export default function MapView({ hitos, ubicaciones, parkings, onBorrarParking }) {
-  // Los parkings NO entran en fitBounds: son capa de contexto (763 en toda
-  // España), no deben forzar el zoom fuera de la operación.
+export default function MapView({ hitos, ubicaciones, parkings, clientes, rutaHitos, onBorrarParking }) {
+  // Los parkings/clientes NO entran en fitBounds: son capas de contexto (miles
+  // de puntos en toda Europa), no deben forzar el zoom fuera de la operación.
+  // La ruta seleccionada (21.1) SÍ entra -- es justo lo que se quiere ver.
   const allPoints = [
     ...(hitos || []).filter((h) => h.lat && h.lon),
     ...(ubicaciones || []).filter((u) => u.lat && u.lon),
+    ...(rutaHitos || []).filter((h) => h.lat && h.lon),
   ];
   const center = allPoints.length
     ? [allPoints[0].lat, allPoints[0].lon]
@@ -167,6 +178,25 @@ export default function MapView({ hitos, ubicaciones, parkings, onBorrarParking 
           </Popup>
         </Marker>
       ))}
+
+      {(clientes || []).map((c, i) => (
+        <Marker key={`${c.clienteNombre}-${i}`} position={[c.lat, c.lon]} icon={ICON_CLIENTE}>
+          <Popup>
+            <div style={{ fontSize: 13 }}>
+              <strong>{c.clienteNombre}</strong>
+              <br />
+              {c.direccion}
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+
+      {rutaHitos && rutaHitos.length > 1 && (
+        <Polyline
+          positions={rutaHitos.map((h) => [h.lat, h.lon])}
+          pathOptions={{ color: "#2563EB", weight: 3, dashArray: "6 6" }}
+        />
+      )}
     </MapContainer>
   );
 }

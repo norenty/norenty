@@ -4,8 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Plus } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { getParkings, createParkingPropio, deleteParkingPropio } from "../../lib/data";
+import {
+  getParkings, createParkingPropio, deleteParkingPropio,
+  getSedesClientes, calcularParkingsEnRuta, getViajes, getViaje,
+} from "../../lib/data";
 import { TIPOS_PARKING } from "../../lib/labels";
+import Buscador from "../components/ui/Buscador";
 
 const MapView = dynamic(() => import("../components/MapView"), { ssr: false });
 
@@ -26,6 +30,18 @@ export default function MapaPage() {
   const [guardandoParking, setGuardandoParking] = useState(false);
   const [errorParking, setErrorParking] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // ROADMAP 21.4: sedes de clientes como capa opcional del mapa.
+  const [clientes, setClientes] = useState([]);
+  const [verClientes, setVerClientes] = useState(false);
+
+  // ROADMAP 21.1: buscador de ruta -- elige un viaje, se dibuja su recorrido
+  // y se filtran los parkings a los que caen "en el camino" (no todo el
+  // dataset europeo, que saturaría el mapa sin aportar nada).
+  const [viajesOpciones, setViajesOpciones] = useState([]);
+  const [viajeRutaId, setViajeRutaId] = useState("");
+  const [hitosRuta, setHitosRuta] = useState([]);
+  const [cargandoRuta, setCargandoRuta] = useState(false);
 
   const loadParkings = useCallback(async () => {
     setParkings(await getParkings());
@@ -65,10 +81,30 @@ export default function MapaPage() {
       setHitos(hitosData || []);
       setUbicaciones(ubicFinal);
       await loadParkings();
+      setClientes(await getSedesClientes());
+      const viajes = await getViajes();
+      setViajesOpciones(viajes.map((v) => ({ value: v.id, label: v.referencia, sublabel: v.chofer?.nombre })));
       setLoading(false);
     }
     load();
   }, [loadParkings]);
+
+  async function elegirRuta(viajeId) {
+    setViajeRutaId(viajeId);
+    if (!viajeId) {
+      setHitosRuta([]);
+      return;
+    }
+    setCargandoRuta(true);
+    try {
+      const { hitos: hitosViaje } = await getViaje(viajeId);
+      setHitosRuta((hitosViaje || []).filter((h) => h.lat != null && h.lon != null));
+    } finally {
+      setCargandoRuta(false);
+    }
+  }
+
+  const parkingsEnRuta = hitosRuta.length ? calcularParkingsEnRuta(parkings, hitosRuta) : null;
 
   async function guardarParking(e) {
     e.preventDefault();
@@ -139,12 +175,36 @@ export default function MapaPage() {
           />
           Parkings ({parkings.length})
         </label>
+        <label className="flex items-center gap-1.5 text-xs text-ink-secondary cursor-pointer">
+          <input
+            type="checkbox"
+            checked={verClientes}
+            onChange={(e) => setVerClientes(e.target.checked)}
+            className="accent-brand w-3.5 h-3.5"
+          />
+          Clientes ({clientes.length})
+        </label>
         <button
           onClick={() => setMostrarFormParking((v) => !v)}
           className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-border text-ink-secondary hover:bg-surface-alt ml-auto"
         >
           <Plus size={12} /> Parking propio
         </button>
+      </div>
+
+      <div className="flex items-center gap-3 mb-4 max-w-md">
+        <Buscador
+          opciones={viajesOpciones}
+          value={viajeRutaId}
+          onChange={elegirRuta}
+          placeholder="Buscar viaje por referencia..."
+          vacioLabel="Ninguno (sin ruta seleccionada)"
+        />
+        {viajeRutaId && parkingsEnRuta !== null && (
+          <span className="text-xs text-ink-secondary whitespace-nowrap">
+            {cargandoRuta ? "Cargando ruta…" : `${parkingsEnRuta.length} parkings en el camino`}
+          </span>
+        )}
       </div>
 
       {mostrarFormParking && (
@@ -226,7 +286,9 @@ export default function MapaPage() {
           <MapView
             hitos={hitos.filter((h) => (h.tipo === "recogida" ? verRecogidas : verEntregas))}
             ubicaciones={verChoferes ? ubicaciones : []}
-            parkings={verParkings ? parkings : []}
+            parkings={verParkings ? (parkingsEnRuta !== null ? parkingsEnRuta : parkings) : []}
+            clientes={verClientes ? clientes : []}
+            rutaHitos={hitosRuta}
             onBorrarParking={borrarParking}
           />
         )}

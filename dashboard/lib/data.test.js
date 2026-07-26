@@ -204,6 +204,8 @@ const {
   guardarMargenObjetivoEmpresa,
   guardarValorAseguradoMaximoEmpresa,
   calcularAvisoSeguroCarga,
+  getSedesClientes,
+  calcularParkingsEnRuta,
   getRendimientoGestores,
   getMetricasPorCliente,
   kmAproxViaje,
@@ -3186,6 +3188,42 @@ describe("calcularAvisoSeguroCarga (ROADMAP 20.6)", () => {
   it("avisa con el exceso exacto si la carga supera el máximo", () => {
     const aviso = calcularAvisoSeguroCarga(350000, 300000);
     expect(aviso).toEqual({ valorMercanciaEur: 350000, valorAseguradoMaximoEur: 300000, excesoEur: 50000 });
+  });
+});
+
+describe("getSedesClientes (ROADMAP 21.4)", () => {
+  it("dedup por cliente+dirección, ignora viajes sin cliente o hitos sin coords", async () => {
+    TABLES.viaje = [
+      {
+        id: "v1", cliente_id: "c1", cliente: { nombre: "Adidas" },
+        hito: [
+          { direccion: "Nave 1, Madrid", lat: 40.1, lon: -3.1, created_at: "2026-01-01" },
+          { direccion: "Nave 1, Madrid", lat: 40.1, lon: -3.1, created_at: "2026-02-01" }, // duplicado
+          { direccion: null, lat: 41, lon: -3, created_at: "2026-01-01" }, // sin dirección, se ignora
+        ],
+      },
+      { id: "v2", cliente_id: null, cliente: null, hito: [{ direccion: "Sin cliente", lat: 39, lon: -2, created_at: "2026-01-01" }] },
+    ];
+    const sedes = await getSedesClientes();
+    expect(sedes).toEqual([{ clienteNombre: "Adidas", direccion: "Nave 1, Madrid", lat: 40.1, lon: -3.1 }]);
+  });
+});
+
+describe("calcularParkingsEnRuta (ROADMAP 21.1)", () => {
+  const ruta = [{ lat: 40.0, lon: -3.0 }, { lat: 41.0, lon: -3.0 }];
+
+  it("incluye un parking a menos del radio de CUALQUIER hito de la ruta", () => {
+    const parkings = [{ id: "p1", lat: 40.05, lon: -3.0 }];
+    expect(calcularParkingsEnRuta(parkings, ruta, 20)).toEqual(parkings);
+  });
+
+  it("excluye un parking fuera de radio de todos los hitos", () => {
+    const parkings = [{ id: "p1", lat: 45.0, lon: 5.0 }];
+    expect(calcularParkingsEnRuta(parkings, ruta, 20)).toEqual([]);
+  });
+
+  it("vacío si la ruta no tiene hitos con coordenadas", () => {
+    expect(calcularParkingsEnRuta([{ id: "p1", lat: 40, lon: -3 }], [], 20)).toEqual([]);
   });
 });
 

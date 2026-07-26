@@ -3659,18 +3659,29 @@ No es que esté mal, es que hay que decidirlo con los ojos abiertos, no por iner
 está el mapa, aprovechamos". **Regla del bloque: nada de aquí se empieza sin (a) que un cliente
 real lo haya pedido explícitamente y (b) que ya haya pasado el gate de discovery (12.3).**
 
-- [ ] `[DECISIÓN] 21.1 Visualizar la ruta de un viaje sobre el mapa` (línea entre hitos, no solo
-  puntos) + parkings que caen dentro del trayecto (no solo del radio de conducción de 20.5).
+- [x] `[LOOP]` **21.1 Visualizar la ruta de un viaje sobre el mapa** — HECHO 2026-07-26,
+  parcialmente adelantado (el usuario pidió seguir construyendo lo de más valor/menos riesgo de
+  negocio). Buscador de viaje en `/mapa` (reutiliza `Buscador` + `getViaje`), dibuja la ruta como
+  polilínea (`react-leaflet` `Polyline`) y filtra los parkings a los que caen dentro de 20km de
+  CUALQUIER hito de la ruta (`calcularParkingsEnRuta`, pura, sin OSRM — es una vista orientativa,
+  no de facturación). 4 tests nuevos.
 - [ ] `[DECISIÓN] 21.2 Vista de flota en tiempo real cruzada con incidencias` — ver todos los
   camiones a la vez y desde ahí abrir/gestionar una incidencia (hoy incidencias vive aparte).
+  NO construido: cruzar dos módulos de UI distintos es una decisión de producto, no solo dato.
 - [ ] `[DECISIÓN] 21.3 Reasignación de carga entre vehículos desde el mapa tras una incidencia`
   (enganchar a otra tractora y seguir el viaje) — esto además es una decisión de negocio, no solo
   de UI: qué pasa con el viaje/hitos/gestor_id al reasignar a mitad de ruta, no está definido.
-- [ ] `[DECISIÓN] 21.4 Sedes de clientes y almacenes/naves propias como capa del mapa` — las
-  bases propias ya existen (18.C.3); falta traer las direcciones de `cliente` como capa visual.
+  NO construido a propósito: construir la semántica de negocio sin decidirla primero sería
+  adivinar, y es exactamente el patrón que ya nos ha costado caro antes en la sesión.
+- [x] `[LOOP]` **21.4 Sedes de clientes como capa del mapa** — HECHO 2026-07-26. Sin añadir
+  columna lat/lon a `cliente` (habría duplicado formulario/geocodificación ya existente):
+  `getSedesClientes()` reutiliza las direcciones ya guardadas en `hito` de los viajes de cada
+  cliente (mismo espíritu que `getDireccionesGuardadas`), dedup por cliente+dirección. Checkbox
+  "Clientes" en `/mapa`, icono de edificio propio. 1 test nuevo.
 - [ ] `[DECISIÓN] 21.5 El mapa como vista embebida en Plantillas de ruta y en el detalle de viaje`,
   no solo como pestaña propia — petición explícita del usuario ("que en la plantilla de rutas
-  pudiera visualizarlos").
+  pudiera visualizarlos"). NO construido: es un cambio de layout en 2 pantallas más, se deja para
+  cuando 21.1-21.4 estén validados con un cliente real.
 
 ## Nota — Avisos de caducidad de documentos: YA EXISTEN, es una pregunta de UBICACIÓN, no de build
 

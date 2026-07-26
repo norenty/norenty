@@ -3749,6 +3749,51 @@ export async function getParkings() {
   return filas.slice(0, LIMITE_PARKINGS_MAXIMO);
 }
 
+/**
+ * ROADMAP 21.4: sedes de clientes para el mapa. No hay columna lat/lon en
+ * `cliente` -- en vez de añadir un formulario de dirección nuevo (duplicaría
+ * lo que ya existe), se reutilizan las direcciones que YA quedaron guardadas
+ * en `hito` de los viajes de ese cliente (mismo espíritu que
+ * getDireccionesGuardadas). Dedup por dirección, la más reciente gana.
+ */
+export async function getSedesClientes() {
+  const { data } = await supabase
+    .from("viaje")
+    .select("cliente(nombre), hito(direccion, lat, lon, created_at)")
+    .not("cliente_id", "is", null);
+
+  const vistas = new Set();
+  const sedes = [];
+  for (const v of data || []) {
+    const clienteNombre = v.cliente?.nombre;
+    if (!clienteNombre) continue;
+    for (const h of v.hito || []) {
+      if (!h.direccion || h.lat == null || h.lon == null) continue;
+      const clave = `${clienteNombre.trim().toLowerCase()}|${h.direccion.trim().toLowerCase()}`;
+      if (vistas.has(clave)) continue;
+      vistas.add(clave);
+      sedes.push({ clienteNombre, direccion: h.direccion, lat: h.lat, lon: h.lon });
+    }
+  }
+  return sedes;
+}
+
+/**
+ * ROADMAP 21.1: parkings que caen "en el camino" de una ruta (lista de hitos
+ * ordenados con lat/lon) -- un parking cuenta si está a `radioKm` o menos de
+ * CUALQUIER hito de la ruta. Pura, sin red: filtro geométrico simple sobre
+ * datos ya cargados, no hace falta OSRM para esto (es una vista orientativa,
+ * no un cálculo de facturación).
+ */
+export function calcularParkingsEnRuta(parkings, hitosRuta, radioKm = 20) {
+  const puntos = (hitosRuta || []).filter((h) => h.lat != null && h.lon != null);
+  if (!puntos.length) return [];
+  return (parkings || []).filter((p) => {
+    if (p.lat == null || p.lon == null) return false;
+    return puntos.some((h) => haversineKm({ lat: p.lat, lon: p.lon }, { lat: h.lat, lon: h.lon }) <= radioKm);
+  });
+}
+
 // ==========================================================================
 // Derechos ARCO (ítem 9.15 — ver PRIVACIDAD-ARCO.md para el procedimiento
 // completo y la tensión con la cadena de custodia de 9.6-9.8)
