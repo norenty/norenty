@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { Plus, Trash2, Copy, Route } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getCurrentEmpresaId, getClientes, getDireccionesGuardadas, crearPlantillaRuta } from "../../lib/data";
 import EmptyState from "../components/ui/EmptyState";
 import Buscador from "../components/ui/Buscador";
 import DireccionAutocomplete from "../components/ui/DireccionAutocomplete";
+
+// ROADMAP 21.5: mismo MapView que /mapa y el detalle de viaje, no una versión
+// nueva -- Leaflet no soporta SSR.
+const MapView = dynamic(() => import("../components/MapView"), { ssr: false });
 
 function nuevoHito() {
   return { tipo: "entrega", direccion: "", lat: "", lon: "" };
@@ -176,6 +181,21 @@ export default function PlantillasPage() {
               )}
             </div>
           ))}
+          {hitos.filter((h) => h.lat && h.lon).length > 1 && (
+            <div style={{ height: "12rem" }} className="rounded-lg overflow-hidden">
+              <MapView
+                hitos={hitos
+                  .map((h, i) => ({ id: i, tipo: h.tipo, direccion: h.direccion, lat: h.lat ? Number(h.lat) : null, lon: h.lon ? Number(h.lon) : null, estado: "pendiente" }))
+                  .filter((h) => h.lat != null && h.lon != null)}
+                ubicaciones={[]}
+                parkings={[]}
+                clientes={[]}
+                rutaHitos={hitos
+                  .map((h) => ({ lat: h.lat ? Number(h.lat) : null, lon: h.lon ? Number(h.lon) : null }))
+                  .filter((h) => h.lat != null && h.lon != null)}
+              />
+            </div>
+          )}
           <button
             type="button"
             onClick={() => setHitos((hs) => [...hs, nuevoHito()])}

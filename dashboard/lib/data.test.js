@@ -93,16 +93,26 @@ function makeBuilder(table) {
       return delChain;
     },
     update(payload) {
-      return {
+      // Acumula todos los .eq() encadenados (auditoría de seguridad 2026-07-26:
+      // varias funciones ahora hacen .update(...).eq("id",x).eq("empresa_id",y))
+      // y solo aplica al resolverse -- mismo patrón que delete() de aquí abajo.
+      const filtros = [];
+      const updChain = {
         eq(field, value) {
+          filtros.push([field, value]);
+          return updChain;
+        },
+        then(resolve) {
           if (UPDATE_ERRORS[table]) {
-            return Promise.resolve({ data: null, error: UPDATE_ERRORS[table] });
+            resolve({ data: null, error: UPDATE_ERRORS[table] });
+            return;
           }
-          const objetivo = (TABLES[table] || []).filter((r) => r[field] === value);
+          const objetivo = (TABLES[table] || []).filter((r) => filtros.every(([f, v]) => r[f] === v));
           objetivo.forEach((r) => Object.assign(r, payload));
-          return Promise.resolve({ data: objetivo, error: null });
+          resolve({ data: objetivo, error: null });
         },
       };
+      return updChain;
     },
     then(resolve) {
       // Simula un fallo real de lectura (ítem 9.35): SELECT_ERRORS.viaje =
@@ -208,6 +218,7 @@ const {
   calcularParkingsEnRuta,
   validarArchivoSubida,
   ARCHIVO_MAX_BYTES,
+  getIncidenciasAbiertasParaMapa,
   getRendimientoGestores,
   getMetricasPorCliente,
   kmAproxViaje,
@@ -1592,7 +1603,9 @@ describe("invitaciones (6.9)", () => {
   });
 
   it("deleteInvitacion borra la fila", async () => {
-    TABLES.invitacion = [{ id: "i1", email: "a@x.com" }];
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "emp1" }];
+    TABLES.invitacion = [{ id: "i1", email: "a@x.com", empresa_id: "emp1" }];
     await deleteInvitacion("i1");
     expect(TABLES.invitacion.find((i) => i.id === "i1")).toBeUndefined();
   });
@@ -1652,7 +1665,7 @@ describe("clientes (11.1 — cliente como entidad de primera clase)", () => {
   });
 
   it("actualizarCliente solo toca los campos dados y valida el nombre", async () => {
-    TABLES.cliente = [{ id: "c1", nombre: "Viejo", email: "a@x.com", activo: true }];
+    TABLES.cliente = [{ id: "c1", nombre: "Viejo", email: "a@x.com", activo: true, empresa_id: "emp1" }];
     await actualizarCliente("c1", { email: "  nuevo@x.com  " });
     expect(TABLES.cliente[0].email).toBe("nuevo@x.com");
     expect(TABLES.cliente[0].nombre).toBe("Viejo"); // intacto
@@ -1660,21 +1673,21 @@ describe("clientes (11.1 — cliente como entidad de primera clase)", () => {
   });
 
   it("desactivarCliente hace baja lógica (no borra)", async () => {
-    TABLES.cliente = [{ id: "c1", nombre: "X", activo: true }];
+    TABLES.cliente = [{ id: "c1", nombre: "X", activo: true, empresa_id: "emp1" }];
     await desactivarCliente("c1");
     expect(TABLES.cliente[0].activo).toBe(false);
     expect(TABLES.cliente.find((c) => c.id === "c1")).toBeDefined();
   });
 
   it("asignarClienteAViaje pone cliente_id sin tocar la referencia", async () => {
-    TABLES.viaje = [{ id: "v1", referencia: "ALB-123", cliente_id: null }];
+    TABLES.viaje = [{ id: "v1", referencia: "ALB-123", cliente_id: null, empresa_id: "emp1" }];
     await asignarClienteAViaje("v1", "c1");
     expect(TABLES.viaje[0].cliente_id).toBe("c1");
     expect(TABLES.viaje[0].referencia).toBe("ALB-123"); // conservada
   });
 
   it("asignarClienteAViaje con null desasocia", async () => {
-    TABLES.viaje = [{ id: "v1", referencia: "ALB-123", cliente_id: "c1" }];
+    TABLES.viaje = [{ id: "v1", referencia: "ALB-123", cliente_id: "c1", empresa_id: "emp1" }];
     await asignarClienteAViaje("v1", null);
     expect(TABLES.viaje[0].cliente_id).toBeNull();
   });
@@ -1962,13 +1975,13 @@ describe("createChofer / guardarTelefonoChofer (bot de llamadas, fase 1)", () =>
   });
 
   it("guardarTelefonoChofer actualiza el teléfono normalizado", async () => {
-    TABLES.chofer = [{ id: "c1", nombre: "Mario", telefono: null }];
+    TABLES.chofer = [{ id: "c1", nombre: "Mario", telefono: null, empresa_id: "emp1" }];
     await guardarTelefonoChofer("c1", "600111222");
     expect(TABLES.chofer[0].telefono).toBe("+34600111222");
   });
 
   it("guardarTelefonoChofer con string vacío borra el teléfono", async () => {
-    TABLES.chofer = [{ id: "c1", nombre: "Mario", telefono: "+34600111222" }];
+    TABLES.chofer = [{ id: "c1", nombre: "Mario", telefono: "+34600111222", empresa_id: "emp1" }];
     await guardarTelefonoChofer("c1", "");
     expect(TABLES.chofer[0].telefono).toBeNull();
   });
@@ -1992,13 +2005,17 @@ describe("getChoferesConGestor / guardarGestorChofer (F15.3 — asignación de e
   });
 
   it("guardarGestorChofer asigna un gestor_id", async () => {
-    TABLES.chofer = [{ id: "c1", nombre: "Mario", gestor_id: null }];
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "emp1" }];
+    TABLES.chofer = [{ id: "c1", nombre: "Mario", gestor_id: null, empresa_id: "emp1" }];
     await guardarGestorChofer("c1", "g1");
     expect(TABLES.chofer[0].gestor_id).toBe("g1");
   });
 
   it("guardarGestorChofer con null desasigna (vuelve a 'Sin asignar')", async () => {
-    TABLES.chofer = [{ id: "c1", nombre: "Mario", gestor_id: "g1" }];
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "emp1" }];
+    TABLES.chofer = [{ id: "c1", nombre: "Mario", gestor_id: "g1", empresa_id: "emp1" }];
     await guardarGestorChofer("c1", null);
     expect(TABLES.chofer[0].gestor_id).toBeNull();
   });
@@ -2038,7 +2055,9 @@ describe("createVehiculo (IMP.2 — alta manual y por importación masiva)", () 
 
 describe("guardarCapacidadVehiculo (COT.3 — capacidad de carga LDM/kg/m³)", () => {
   beforeEach(() => {
-    TABLES.vehiculo = [{ id: "v1", matricula: "1234ABC" }];
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "emp1" }];
+    TABLES.vehiculo = [{ id: "v1", matricula: "1234ABC", empresa_id: "emp1" }];
   });
 
   it("guarda las 3 dimensiones parseadas", async () => {
@@ -2070,31 +2089,51 @@ describe("gestión de roles del equipo (9.29 — sin cobertura hasta la auditor�
   });
 
   it("actualizarRolGestor cambia el rol de la fila indicada", async () => {
-    TABLES.gestor = [{ id: "g1", nombre: "Ana", rol: "admin", activo: true }];
+    SESSION = { user: { id: "u-admin" } };
+    TABLES.gestor = [
+      { id: "g-admin", nombre: "Admin", rol: "admin", activo: true, auth_user_id: "u-admin", empresa_id: "emp1" },
+      { id: "g1", nombre: "Ana", rol: "admin", activo: true, empresa_id: "emp1" },
+    ];
     await actualizarRolGestor("g1", "solo_lectura");
-    expect(TABLES.gestor[0].rol).toBe("solo_lectura");
+    expect(TABLES.gestor.find((g) => g.id === "g1").rol).toBe("solo_lectura");
   });
 
   it("actualizarRolGestor lanza si Supabase devuelve error (p.ej. RLS rechaza auto-promoción)", async () => {
-    TABLES.gestor = [{ id: "g1", nombre: "Ana", rol: "admin", activo: true }];
+    SESSION = { user: { id: "u-admin" } };
+    TABLES.gestor = [
+      { id: "g-admin", nombre: "Admin", rol: "admin", activo: true, auth_user_id: "u-admin", empresa_id: "emp1" },
+      { id: "g1", nombre: "Ana", rol: "admin", activo: true, empresa_id: "emp1" },
+    ];
     UPDATE_ERRORS.gestor = { message: "no puedes editar tu propia fila" };
     await expect(actualizarRolGestor("g1", "admin")).rejects.toThrow(/no puedes editar tu propia fila/);
   });
 
   it("desactivarGestor pone activo=false", async () => {
-    TABLES.gestor = [{ id: "g1", nombre: "Ana", rol: "gestor_operativo", activo: true }];
+    SESSION = { user: { id: "u-admin" } };
+    TABLES.gestor = [
+      { id: "g-admin", nombre: "Admin", rol: "admin", activo: true, auth_user_id: "u-admin", empresa_id: "emp1" },
+      { id: "g1", nombre: "Ana", rol: "gestor_operativo", activo: true, empresa_id: "emp1" },
+    ];
     await desactivarGestor("g1");
-    expect(TABLES.gestor[0].activo).toBe(false);
+    expect(TABLES.gestor.find((g) => g.id === "g1").activo).toBe(false);
   });
 
   it("reactivarGestor pone activo=true", async () => {
-    TABLES.gestor = [{ id: "g1", nombre: "Ana", rol: "gestor_operativo", activo: false }];
+    SESSION = { user: { id: "u-admin" } };
+    TABLES.gestor = [
+      { id: "g-admin", nombre: "Admin", rol: "admin", activo: true, auth_user_id: "u-admin", empresa_id: "emp1" },
+      { id: "g1", nombre: "Ana", rol: "gestor_operativo", activo: false, empresa_id: "emp1" },
+    ];
     await reactivarGestor("g1");
-    expect(TABLES.gestor[0].activo).toBe(true);
+    expect(TABLES.gestor.find((g) => g.id === "g1").activo).toBe(true);
   });
 
   it("desactivarGestor lanza si Supabase devuelve error", async () => {
-    TABLES.gestor = [{ id: "g1", nombre: "Ana", rol: "admin", activo: true }];
+    SESSION = { user: { id: "u-admin" } };
+    TABLES.gestor = [
+      { id: "g-admin", nombre: "Admin", rol: "admin", activo: true, auth_user_id: "u-admin", empresa_id: "emp1" },
+      { id: "g1", nombre: "Ana", rol: "admin", activo: true, empresa_id: "emp1" },
+    ];
     UPDATE_ERRORS.gestor = { message: "no puedes desactivarte a ti mismo" };
     await expect(desactivarGestor("g1")).rejects.toThrow(/no puedes desactivarte a ti mismo/);
   });
@@ -2641,7 +2680,9 @@ describe("gastos del viaje (7A.7)", () => {
   });
 
   it("deleteGastoViaje borra la fila", async () => {
-    TABLES.gasto_viaje = [{ id: "g1", viaje_id: "v1", tipo: "peaje", importe: 10 }];
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.gasto_viaje = [{ id: "g1", viaje_id: "v1", tipo: "peaje", importe: 10, empresa_id: "e1" }];
     await deleteGastoViaje("g1");
     expect(TABLES.gasto_viaje).toHaveLength(0);
   });
@@ -3238,6 +3279,18 @@ describe("validarArchivoSubida (auditoría de seguridad 2026-07-26)", () => {
   });
 });
 
+describe("getIncidenciasAbiertasParaMapa (ROADMAP 21.2)", () => {
+  it("solo incidencias abiertas/en_revision con chófer, une con el viaje", async () => {
+    TABLES.incidencia = [
+      { id: "i1", tipo: "retraso", descripcion: "d1", estado: "abierta", viaje: { id: "v1", referencia: "VJ-1", chofer_id: "c1" } },
+      { id: "i2", tipo: "avería", descripcion: "d2", estado: "resuelta", viaje: { id: "v2", referencia: "VJ-2", chofer_id: "c2" } },
+      { id: "i3", tipo: "otro", descripcion: "d3", estado: "en_revision", viaje: { id: "v3", referencia: "VJ-3", chofer_id: null } },
+    ];
+    const r = await getIncidenciasAbiertasParaMapa();
+    expect(r).toEqual([{ id: "i1", tipo: "retraso", descripcion: "d1", viajeId: "v1", viajeReferencia: "VJ-1", choferId: "c1" }]);
+  });
+});
+
 describe("getSedesClientes (ROADMAP 21.4)", () => {
   it("dedup por cliente+dirección, ignora viajes sin cliente o hitos sin coords", async () => {
     TABLES.viaje = [
@@ -3623,8 +3676,13 @@ describe("createViaje acepta clienteId (11.1b — no sustituye a referencia)", (
 });
 
 describe("portal de cliente (7A.14)", () => {
+  beforeEach(() => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+  });
+
   it("generarTokenPublico crea un uuid, fija caducidad a 30 días y actualiza el viaje", async () => {
-    TABLES.viaje = [{ id: "v1", token_publico: null, token_publico_expira: null }];
+    TABLES.viaje = [{ id: "v1", token_publico: null, token_publico_expira: null, empresa_id: "e1" }];
     const { token, expira } = await generarTokenPublico("v1");
     expect(token).toMatch(/^[0-9a-f-]{36}$/);
     expect(TABLES.viaje[0].token_publico).toBe(token);
@@ -3634,14 +3692,14 @@ describe("portal de cliente (7A.14)", () => {
   });
 
   it("generarTokenPublico acepta una validez distinta a la por defecto", async () => {
-    TABLES.viaje = [{ id: "v1", token_publico: null, token_publico_expira: null }];
+    TABLES.viaje = [{ id: "v1", token_publico: null, token_publico_expira: null, empresa_id: "e1" }];
     const { expira } = await generarTokenPublico("v1", { diasValidez: 7 });
     const dias = (new Date(expira) - Date.now()) / 86400000;
     expect(dias).toBeCloseTo(7, 0);
   });
 
   it("revocarTokenPublico limpia el token y la caducidad", async () => {
-    TABLES.viaje = [{ id: "v1", token_publico: "abc-123", token_publico_expira: "2030-01-01T00:00:00Z" }];
+    TABLES.viaje = [{ id: "v1", token_publico: "abc-123", token_publico_expira: "2030-01-01T00:00:00Z", empresa_id: "e1" }];
     await revocarTokenPublico("v1");
     expect(TABLES.viaje[0].token_publico).toBeNull();
     expect(TABLES.viaje[0].token_publico_expira).toBeNull();
@@ -3726,13 +3784,15 @@ describe("audit log (8.8)", () => {
 
 describe("derechos ARCO (9.15)", () => {
   beforeEach(() => {
-    TABLES.chofer = [{ id: "c1", nombre: "Mario", telefono: "600111222", idioma: "es", chat_id: "chat-1" }];
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.chofer = [{ id: "c1", nombre: "Mario", telefono: "600111222", idioma: "es", chat_id: "chat-1", empresa_id: "e1" }];
     TABLES.viaje = [{ id: "v1", chofer_id: "c1", referencia: "VJ-1", estado: "completado", created_at: "2026-01-01" }];
     TABLES.ubicacion = [{ chofer_id: "c1", lat: 40.1, lon: -3.1, created_at: "2026-01-01" }];
     TABLES.valoracion = [{ chofer_id: "c1", puntuacion: 5, nota: "bien", created_at: "2026-01-01", viaje_id: "v1" }];
     TABLES.documento = [
-      { id: "d1", ambito: "chofer", entidad_id: "c1", tipo: "licencia", estado: "vigente", created_at: "2026-01-01" },
-      { id: "d2", ambito: "viaje", entidad_id: "v1", tipo: "cmr", estado: "vigente", created_at: "2026-01-01" },
+      { id: "d1", ambito: "chofer", entidad_id: "c1", tipo: "licencia", estado: "vigente", created_at: "2026-01-01", empresa_id: "e1" },
+      { id: "d2", ambito: "viaje", entidad_id: "v1", tipo: "cmr", estado: "vigente", created_at: "2026-01-01", empresa_id: "e1" },
     ];
     TABLES.decision_asignacion = [
       { viaje_id: "v1", chofer_sugerido_id: "c1", chofer_elegido_id: "c1", siguio_sugerencia: true, created_at: "2026-01-01" },

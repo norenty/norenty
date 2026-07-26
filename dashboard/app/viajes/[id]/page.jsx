@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   ArrowLeft, MapPin, Package, Clock, Truck, Edit3, Check, X, AlertTriangle, Euro, Gauge, Copy, Share2, History, ChevronDown,
 } from "lucide-react";
@@ -23,6 +24,11 @@ import {
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
 import Timeline from "../../components/Timeline";
+
+// ROADMAP 21.5: el mapa embebido en el detalle de viaje reutiliza MapView tal
+// cual (mismo componente que /mapa), no una versión nueva -- Leaflet no
+// soporta SSR, mismo `dynamic(..., { ssr: false })` que ya usa /mapa.
+const MapView = dynamic(() => import("../../components/MapView"), { ssr: false });
 import RatingControl from "../../components/RatingControl";
 import { ESTADO_VIAJE, ESTADO_HITO, ESTADO_POD, TIPOS_DOC_VIAJE, LABEL_CAPA } from "../../../lib/labels";
 import { badgeMargen, fmtEur, fmtKm, fmtFechaHora, fmtHora } from "../../../lib/format";
@@ -503,6 +509,21 @@ export default function ViajeDetalle() {
               })}
             </div>
           </section>
+
+          {hitos.filter((h) => h.lat != null && h.lon != null).length > 1 && (
+            <section>
+              <h2 className="text-sm font-medium text-ink mb-3">Ruta (ROADMAP 21.5)</h2>
+              <div style={{ height: "16rem" }}>
+                <MapView
+                  hitos={hitos.filter((h) => h.lat != null && h.lon != null)}
+                  ubicaciones={[]}
+                  parkings={[]}
+                  clientes={[]}
+                  rutaHitos={[...hitos].filter((h) => h.lat != null && h.lon != null).sort((a, b) => a.orden - b.orden)}
+                />
+              </div>
+            </section>
+          )}
 
           {incidencias.length > 0 && (
             <section>

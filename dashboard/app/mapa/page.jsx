@@ -7,6 +7,7 @@ import { supabase } from "../../lib/supabase";
 import {
   getParkings, createParkingPropio, deleteParkingPropio,
   getSedesClientes, calcularParkingsEnRuta, getViajes, getViaje,
+  getIncidenciasAbiertasParaMapa,
 } from "../../lib/data";
 import { TIPOS_PARKING } from "../../lib/labels";
 import Buscador from "../components/ui/Buscador";
@@ -66,16 +67,24 @@ export default function MapaPage() {
       // supabase-js comunica errores vía el campo `error`, no lanzando.
       const { data: ubicData, error: ubicError } = await supabase.rpc("ultimas_ubicaciones");
 
+      // ROADMAP 21.2: incidencias abiertas cruzadas con el chófer que las
+      // tiene, para verlas junto a su posición en vivo -- NO se reasigna
+      // desde aquí (esa lógica ya existe en /viajes/[id], con confirmación y
+      // auditoría), solo se enlaza.
+      const incidenciasAbiertas = await getIncidenciasAbiertasParaMapa();
+      const incidenciaPorChofer = {};
+      incidenciasAbiertas.forEach((i) => { incidenciaPorChofer[i.choferId] ||= i; });
+
       let ubicFinal = [];
       if (ubicData && !ubicError) {
-        ubicFinal = ubicData.map((u) => ({ ...u, chofer_nombre: choferMap[u.chofer_id] || "Chófer" }));
+        ubicFinal = ubicData.map((u) => ({ ...u, chofer_nombre: choferMap[u.chofer_id] || "Chófer", incidencia: incidenciaPorChofer[u.chofer_id] || null }));
       } else {
         const { data: rawUbic } = await supabase
           .from("ubicacion")
           .select("*")
           .order("created_at", { ascending: false })
           .limit(50);
-        ubicFinal = (rawUbic || []).map((u) => ({ ...u, chofer_nombre: choferMap[u.chofer_id] || "Chófer" }));
+        ubicFinal = (rawUbic || []).map((u) => ({ ...u, chofer_nombre: choferMap[u.chofer_id] || "Chófer", incidencia: incidenciaPorChofer[u.chofer_id] || null }));
       }
 
       setHitos(hitosData || []);

@@ -3665,23 +3665,23 @@ real lo haya pedido explícitamente y (b) que ya haya pasado el gate de discover
   polilínea (`react-leaflet` `Polyline`) y filtra los parkings a los que caen dentro de 20km de
   CUALQUIER hito de la ruta (`calcularParkingsEnRuta`, pura, sin OSRM — es una vista orientativa,
   no de facturación). 4 tests nuevos.
-- [ ] `[DECISIÓN] 21.2 Vista de flota en tiempo real cruzada con incidencias` — ver todos los
-  camiones a la vez y desde ahí abrir/gestionar una incidencia (hoy incidencias vive aparte).
-  NO construido: cruzar dos módulos de UI distintos es una decisión de producto, no solo dato.
-- [ ] `[DECISIÓN] 21.3 Reasignación de carga entre vehículos desde el mapa tras una incidencia`
-  (enganchar a otra tractora y seguir el viaje) — esto además es una decisión de negocio, no solo
-  de UI: qué pasa con el viaje/hitos/gestor_id al reasignar a mitad de ruta, no está definido.
-  NO construido a propósito: construir la semántica de negocio sin decidirla primero sería
-  adivinar, y es exactamente el patrón que ya nos ha costado caro antes en la sesión.
+- [x] `[LOOP]` **21.2/21.3 Vista de flota cruzada con incidencias + reasignación**
+  (enganchar a otra tractora y seguir el viaje). **Decisión tomada 2026-07-26: mismo viaje,
+  cambia chófer/vehículo** (no se cierra ni se abre uno nuevo). HECHO: descubierto al construir
+  que la reasignación en sí YA EXISTÍA en `/viajes/[id]` (con confirmación + `registrarAuditoria`,
+  ítem 17.G.3) — no había que construirla. Lo que faltaba y sí se construyó: **21.2 cruzar
+  incidencias abiertas con la posición del chófer en el mapa** — `getIncidenciasAbiertasParaMapa()`
+  une `incidencia` con `viaje.chofer_id`; el marcador del chófer cambia a rojo si tiene una
+  incidencia abierta, con enlace directo a `/viajes/[id]` para reasignar desde ahí (sin duplicar
+  la lógica). 1 test nuevo.
 - [x] `[LOOP]` **21.4 Sedes de clientes como capa del mapa** — HECHO 2026-07-26. Sin añadir
   columna lat/lon a `cliente` (habría duplicado formulario/geocodificación ya existente):
   `getSedesClientes()` reutiliza las direcciones ya guardadas en `hito` de los viajes de cada
   cliente (mismo espíritu que `getDireccionesGuardadas`), dedup por cliente+dirección. Checkbox
   "Clientes" en `/mapa`, icono de edificio propio. 1 test nuevo.
-- [ ] `[DECISIÓN] 21.5 El mapa como vista embebida en Plantillas de ruta y en el detalle de viaje`,
-  no solo como pestaña propia — petición explícita del usuario ("que en la plantilla de rutas
-  pudiera visualizarlos"). NO construido: es un cambio de layout en 2 pantallas más, se deja para
-  cuando 21.1-21.4 estén validados con un cliente real.
+- [x] `[LOOP]` **21.5 El mapa como vista embebida en Plantillas de ruta y en el detalle de viaje**
+  — HECHO 2026-07-26. Mismo `MapView` reutilizado tal cual (no una versión nueva) en
+  `/viajes/[id]` (sección "Ruta") y `/plantillas` (preview en vivo del formulario de hitos).
 
 ## Nota — Avisos de caducidad de documentos: YA EXISTEN, es una pregunta de UBICACIÓN, no de build
 
@@ -3729,17 +3729,27 @@ diseñado (token impredecible, whitelist de campos, expiración real); sin secre
   `@sentry/nextjs`) — resuelve las vulnerabilidades reales de Next (SSRF en rewrites/Server
   Actions, DoS, cache confusion, disclosure). Verificado: 456 tests + `npm run build` (22
   páginas) en verde tras el cambio.
-- [ ] `[DECISIÓN]` **`xlsx` sin parche disponible** (prototype pollution + ReDoS, sin fix del
-  proveedor). Usado en `/importar`. Riesgo aceptado por ahora: solo explotable si se procesan
-  ficheros Excel de origen no confiable, y el flujo ya es de un gestor autenticado de la propia
-  empresa subiendo sus propios datos, no un tercero anónimo. Vigilar por si aparece parche o
-  alternativa (ej. una librería de import más acotada) más adelante — no bloqueante.
-- [ ] `[DECISIÓN]` **Defensa en profundidad: filtrar por `empresa_id` explícitamente en
-  `dashboard/lib/data.js`**, no solo confiar en RLS — informativo, no explotable hoy (RLS ya
-  cubre el camino real), pero sería más robusto que cada función repita el filtro en la query JS
-  en vez de depender solo de Postgres. Alcance: varias funciones con `.eq("id", ...)` — no se
-  toca en bloque para no introducir un refactor amplio sin verificación fila a fila; candidato a
-  abordarse function por function la próxima vez que se toque cada una por otro motivo.
+- [x] `[DECISIÓN]` **`xlsx` sin parche disponible** (prototype pollution + ReDoS). **Decisión
+  tomada 2026-07-26: riesgo aceptado tal cual** (no restringir a admin, no migrar de librería).
+  El mantenedor de SheetJS movió los parches a su versión de pago; el paquete gratuito de npm no
+  los recibe. Exposición real baja: solo gestores autenticados de la propia empresa importando
+  sus propios datos. Vigilar por si aparece alternativa viable más adelante.
+- [x] `[LOOP]` **Defensa en profundidad: `empresa_id` explícito en `dashboard/lib/data.js`** —
+  **decisión del usuario 2026-07-26: "soluciona ahora todo posible problema futuro"**. HECHO
+  para las 19 funciones de ESCRITURA (`UPDATE`/`DELETE`) identificadas por la auditoría —
+  `resolverSolicitudAprobacion`, `actualizarCliente`, `desactivarCliente`, `asignarClienteAViaje`,
+  `deleteInvitacion`, `eliminarBaseEmpresa`, `guardarCapacidadVehiculo`, `actualizarRolGestor`,
+  `desactivarGestor`, `reactivarGestor`, `guardarGestorChofer`, `guardarGestorViaje`,
+  `deleteGastoViaje`, `generarTokenPublico`, `revocarTokenPublico`, `deleteParkingPropio`,
+  `guardarTelefonoChofer`, `guardarTelefonoGestor`, `anonimizarChofer` — cada una ahora hace
+  `.eq("id", x).eq("empresa_id", empresaId)` en vez de confiar solo en RLS. Priorizadas las
+  escrituras sobre las ~20 lecturas (`SELECT`) también identificadas: un fallo de RLS en una
+  escritura es peor que en una lectura, y esto evita un refactor ciego de 40 funciones sin
+  verificación una a una; las lecturas quedan en `PROGRESS.md` como candidatas a abordar función
+  por función la próxima vez que se toquen por otro motivo.
+  **Hallazgo de paso:** el mock de tests (`data.test.js`) solo soportaba UN `.eq()` encadenado
+  tras `.update()` — arreglado para acumular filtros como ya hacía `.delete()`, y corregidas las
+  ~20 pruebas que no sembraban `empresa_id` en sus filas de prueba. 457 tests dashboard en verde.
 - [x] `[LOOP]` **postcss/sharp/brace-expansion/fast-uri** — arreglados con `npm audit fix`
   (no-force), sin cambios de comportamiento. Los rastros restantes de postcss/sharp que quedan
   en el audit están VENDORIZADOS dentro del propio `next` (no controlables desde nuestro

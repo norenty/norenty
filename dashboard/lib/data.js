@@ -594,28 +594,36 @@ export async function getSolicitudesAprobacion() {
  * cierra la solicitud -- no borra ni cancela nada automáticamente, el jefe
  * de tráfico decide qué hacer con la entidad desde su pantalla habitual. */
 export async function resolverSolicitudAprobacion(solicitudId, aprobar) {
+  // Auditoría de seguridad (2026-07-26): defensa en profundidad -- RLS ya
+  // exige empresa_id = current_empresa_id() en cada tabla, pero repetir el
+  // filtro aquí evita que un fallo de RLS en una sola tabla se propague a
+  // las otras dos que toca esta función.
+  const empresaId = await getCurrentEmpresaId();
   const gestorId = await gestorIdComoAutor();
   const { data: solicitud, error: errorGet } = await supabase
     .from("solicitud_aprobacion")
     .select("entidad, entidad_id")
     .eq("id", solicitudId)
+    .eq("empresa_id", empresaId)
     .single();
   if (errorGet) throw errorGet;
 
   const { error } = await supabase
     .from("solicitud_aprobacion")
     .update({ estado: aprobar ? "aprobada" : "rechazada", resuelto_por: gestorId, resuelto_en: new Date().toISOString() })
-    .eq("id", solicitudId);
+    .eq("id", solicitudId)
+    .eq("empresa_id", empresaId);
   if (error) throw error;
 
   if (aprobar && solicitud.entidad === "viaje") {
-    const { error: errorViaje } = await supabase.from("viaje").update({ estado: "planificado" }).eq("id", solicitud.entidad_id);
+    const { error: errorViaje } = await supabase.from("viaje").update({ estado: "planificado" }).eq("id", solicitud.entidad_id).eq("empresa_id", empresaId);
     if (errorViaje) throw errorViaje;
   } else if (solicitud.entidad === "plantilla_ruta") {
     const { error: errorPlantilla } = await supabase
       .from("plantilla_ruta")
       .update({ estado_aprobacion: aprobar ? "aprobada" : "rechazada" })
-      .eq("id", solicitud.entidad_id);
+      .eq("id", solicitud.entidad_id)
+      .eq("empresa_id", empresaId);
     if (errorPlantilla) throw errorPlantilla;
   }
 }
@@ -648,19 +656,23 @@ export async function actualizarCliente(id, campos) {
   for (const k of ["cif", "email", "telefono", "notas"]) {
     if (campos[k] !== undefined) payload[k] = campos[k]?.trim() || null;
   }
-  const { error } = await supabase.from("cliente").update(payload).eq("id", id);
+  // Auditoría de seguridad (2026-07-26): defensa en profundidad, ver nota en resolverSolicitudAprobacion.
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("cliente").update(payload).eq("id", id).eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
 /** Baja lógica (activo=false): no borra para no perder el histórico/contexto ligado. */
 export async function desactivarCliente(id) {
-  const { error } = await supabase.from("cliente").update({ activo: false }).eq("id", id);
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("cliente").update({ activo: false }).eq("id", id).eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
 /** Asocia (o desasocia, con clienteId=null) un cliente a un viaje. No toca `referencia`. */
 export async function asignarClienteAViaje(viajeId, clienteId) {
-  const { error } = await supabase.from("viaje").update({ cliente_id: clienteId }).eq("id", viajeId);
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("viaje").update({ cliente_id: clienteId }).eq("id", viajeId).eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
@@ -701,7 +713,8 @@ export async function createInvitacion(email) {
 
 /** Revoca (borra) una invitación pendiente. */
 export async function deleteInvitacion(id) {
-  const { error } = await supabase.from("invitacion").delete().eq("id", id);
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("invitacion").delete().eq("id", id).eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
@@ -762,7 +775,8 @@ export async function crearBaseEmpresa({ nombre, lat, lon }) {
 }
 
 export async function eliminarBaseEmpresa(baseId) {
-  const { error } = await supabase.from("base_empresa").delete().eq("id", baseId);
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("base_empresa").delete().eq("id", baseId).eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
@@ -926,7 +940,8 @@ export async function guardarCapacidadVehiculo(vehiculoId, campos) {
     }
     valores[mapaColumna[campo] || campo] = v;
   }
-  const { error } = await supabase.from("vehiculo").update(valores).eq("id", vehiculoId);
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("vehiculo").update(valores).eq("id", vehiculoId).eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
@@ -952,19 +967,22 @@ export async function getGestoresEmpresa() {
  * policy rechaza si el llamante intenta editar su propia fila.
  */
 export async function actualizarRolGestor(gestorId, nuevoRol) {
-  const { error } = await supabase.from("gestor").update({ rol: nuevoRol }).eq("id", gestorId);
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("gestor").update({ rol: nuevoRol }).eq("id", gestorId).eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
 /** Desactiva (expulsa) a un gestor de la empresa. NO borra: solo activo=false. */
 export async function desactivarGestor(gestorId) {
-  const { error } = await supabase.from("gestor").update({ activo: false }).eq("id", gestorId);
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("gestor").update({ activo: false }).eq("id", gestorId).eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
 /** Reactiva a un gestor previamente desactivado. */
 export async function reactivarGestor(gestorId) {
-  const { error } = await supabase.from("gestor").update({ activo: true }).eq("id", gestorId);
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("gestor").update({ activo: true }).eq("id", gestorId).eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
@@ -989,7 +1007,8 @@ export async function getChoferesConGestor() {
  * tal cual, no se intenta adivinar el mensaje aquí.
  */
 export async function guardarGestorChofer(choferId, gestorId) {
-  const { error } = await supabase.from("chofer").update({ gestor_id: gestorId || null }).eq("id", choferId);
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("chofer").update({ gestor_id: gestorId || null }).eq("id", choferId).eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
@@ -1017,7 +1036,8 @@ export async function getViajesConGestor() {
 /** Asigna (o desasigna con `gestorId = null`) un viaje a un gestor — mismo
  * criterio y mismas protecciones (solo admin) que `guardarGestorChofer`. */
 export async function guardarGestorViaje(viajeId, gestorId) {
-  const { error } = await supabase.from("viaje").update({ gestor_id: gestorId || null }).eq("id", viajeId);
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("viaje").update({ gestor_id: gestorId || null }).eq("id", viajeId).eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
@@ -2949,7 +2969,8 @@ export async function createGastoViaje({ viajeId, tipo, importe, litros = null, 
 }
 
 export async function deleteGastoViaje(id) {
-  const { error } = await supabase.from("gasto_viaje").delete().eq("id", id);
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("gasto_viaje").delete().eq("id", id).eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
@@ -3673,21 +3694,25 @@ export const DIAS_VALIDEZ_TOKEN_PUBLICO_DEFAULT = 30; // valor inicial razonable
  * no debe vivir para siempre (8.5). `diasValidez` opcional para casos que
  * necesiten una ventana distinta (ej. un seguimiento puntual más corto). */
 export async function generarTokenPublico(viajeId, { diasValidez = DIAS_VALIDEZ_TOKEN_PUBLICO_DEFAULT } = {}) {
+  const empresaId = await getCurrentEmpresaId();
   const token = crypto.randomUUID();
   const expira = new Date(Date.now() + diasValidez * 86400000).toISOString();
   const { error } = await supabase
     .from("viaje")
     .update({ token_publico: token, token_publico_expira: expira })
-    .eq("id", viajeId);
+    .eq("id", viajeId)
+    .eq("empresa_id", empresaId);
   if (error) throw error;
   return { token, expira };
 }
 
 export async function revocarTokenPublico(viajeId) {
+  const empresaId = await getCurrentEmpresaId();
   const { error } = await supabase
     .from("viaje")
     .update({ token_publico: null, token_publico_expira: null })
-    .eq("id", viajeId);
+    .eq("id", viajeId)
+    .eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
@@ -3820,6 +3845,30 @@ export async function getSedesClientes() {
 }
 
 /**
+ * ROADMAP 21.2: incidencias abiertas/en revisión, con el chófer al que
+ * afectan (vía el viaje), para poder marcarlas sobre el mapa en vivo. La
+ * reasignación de chófer/vehículo en sí YA EXISTE en `/viajes/[id]` (con
+ * confirmación + auditoría) -- esto solo enlaza esa pantalla desde el mapa,
+ * no duplica la lógica de reasignar.
+ */
+export async function getIncidenciasAbiertasParaMapa() {
+  const { data } = await supabase
+    .from("incidencia")
+    .select("id, tipo, descripcion, created_at, viaje:viaje_id(id, referencia, chofer_id)")
+    .in("estado", ALERTA_ESTADOS);
+  return (data || [])
+    .filter((i) => i.viaje?.chofer_id)
+    .map((i) => ({
+      id: i.id,
+      tipo: i.tipo,
+      descripcion: i.descripcion,
+      viajeId: i.viaje.id,
+      viajeReferencia: i.viaje.referencia,
+      choferId: i.viaje.chofer_id,
+    }));
+}
+
+/**
  * ROADMAP 21.1: parkings que caen "en el camino" de una ruta (lista de hitos
  * ordenados con lat/lon) -- un parking cuenta si está a `radioKm` o menos de
  * CUALQUIER hito de la ruta. Pura, sin red: filtro geométrico simple sobre
@@ -3903,17 +3952,20 @@ export async function getExportacionChofer(choferId) {
  *    propia operación, se dejan intactos a propósito (pendiente de 9.11).
  */
 export async function anonimizarChofer(choferId) {
+  const empresaId = await getCurrentEmpresaId();
   const { error: errorDocumento } = await supabase
     .from("documento")
     .delete()
     .eq("ambito", "chofer")
-    .eq("entidad_id", choferId);
+    .eq("entidad_id", choferId)
+    .eq("empresa_id", empresaId);
   if (errorDocumento) throw errorDocumento;
 
   const { error } = await supabase
     .from("chofer")
     .update({ nombre: "Chófer eliminado a petición propia", telefono: null })
-    .eq("id", choferId);
+    .eq("id", choferId)
+    .eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
@@ -3940,7 +3992,8 @@ export async function createParkingPropio({ nombre, tipo, lat, lon, notas, vigil
 
 /** Borra un parking propio. RLS impide borrar los del dataset abierto. */
 export async function deleteParkingPropio(id) {
-  const { error } = await supabase.from("parking").delete().eq("id", id);
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("parking").delete().eq("id", id).eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
@@ -3994,7 +4047,8 @@ export async function guardarTelefonoChofer(choferId, telefonoStr) {
   const t = (telefonoStr ?? "").toString().trim();
   const normalizado = t === "" ? null : normalizarTelefonoE164(t);
   if (t !== "" && !normalizado) throw new Error("el teléfono no parece válido");
-  const { error } = await supabase.from("chofer").update({ telefono: normalizado }).eq("id", choferId);
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("chofer").update({ telefono: normalizado }).eq("id", choferId).eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
@@ -4006,7 +4060,8 @@ export async function guardarTelefonoGestor(gestorId, telefonoStr) {
   const t = (telefonoStr ?? "").toString().trim();
   const normalizado = t === "" ? null : normalizarTelefonoE164(t);
   if (t !== "" && !normalizado) throw new Error("el teléfono no parece válido");
-  const { error } = await supabase.from("gestor").update({ telefono: normalizado }).eq("id", gestorId);
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("gestor").update({ telefono: normalizado }).eq("id", gestorId).eq("empresa_id", empresaId);
   if (error) throw error;
   return normalizado;
 }

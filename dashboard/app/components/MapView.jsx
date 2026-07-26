@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import Link from "next/link";
 import { TIPO_PARKING_LABEL } from "../../lib/labels";
 import RequireRol from "./RequireRol";
 
@@ -24,6 +25,17 @@ const ICON_CHOFER = new L.DivIcon({
   html: `<div style="position:relative;width:32px;height:32px">
     <div class="chofer-pulso" style="position:absolute;inset:-8px;border-radius:50%;background:#2563EB;opacity:.35"></div>
     <div style="position:relative;width:32px;height:32px;border-radius:50%;background:#2563EB;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px">🚛</div>
+  </div>`,
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+});
+// ROADMAP 21.2: chófer con una incidencia abierta -- mismo icono de camión,
+// aro rojo en vez de azul, para verlo de un vistazo cruzado con su posición.
+const ICON_CHOFER_INCIDENCIA = new L.DivIcon({
+  className: "",
+  html: `<div style="position:relative;width:32px;height:32px">
+    <div class="chofer-pulso" style="position:absolute;inset:-8px;border-radius:50%;background:#DC2626;opacity:.35"></div>
+    <div style="position:relative;width:32px;height:32px;border-radius:50%;background:#DC2626;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px">🚛</div>
   </div>`,
   iconSize: [32, 32],
   iconAnchor: [16, 16],
@@ -164,7 +176,7 @@ export default function MapView({ hitos, ubicaciones, parkings, clientes, rutaHi
       ))}
 
       {(ubicaciones || []).map((u) => (
-        <Marker key={u.id} position={[u.lat, u.lon]} icon={ICON_CHOFER}>
+        <Marker key={u.id} position={[u.lat, u.lon]} icon={u.incidencia ? ICON_CHOFER_INCIDENCIA : ICON_CHOFER}>
           <Popup>
             <div style={{ fontSize: 13 }}>
               <strong>{u.chofer_nombre || "Chófer"}</strong>
@@ -174,6 +186,18 @@ export default function MapView({ hitos, ubicaciones, parkings, clientes, rutaHi
               <span style={{ color: "#64748B" }}>
                 {new Date(u.created_at).toLocaleTimeString("es-ES")}
               </span>
+              {u.incidencia && (
+                <>
+                  <br />
+                  <span style={{ color: "#DC2626", fontWeight: 600 }}>
+                    ⚠ Incidencia: {u.incidencia.tipo}
+                  </span>
+                  <br />
+                  <Link href={`/viajes/${u.incidencia.viajeId}`} style={{ color: "#2563EB", textDecoration: "underline" }}>
+                    Ver viaje {u.incidencia.viajeReferencia || ""} (reasignar chófer/vehículo)
+                  </Link>
+                </>
+              )}
             </div>
           </Popup>
         </Marker>
