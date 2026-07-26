@@ -59,19 +59,6 @@ const groups = [
     ],
   },
   {
-    id: "documentos",
-    // Ítem de diseño (2026-07-15): "Documentos y cumplimiento" es un
-    // encabezado uppercase+tracking-wide demasiado largo para los ~184px de
-    // ancho útil del sidebar (w-52) -- envolvía a dos líneas y chocaba con el
-    // icono de plegado. Acortado; el enlace de dentro pasa a "Caducidades"
-    // (la página es en realidad la alerta de documentos por caducar, no un
-    // repositorio de documentos — "Documentos" a secas no lo describía bien).
-    label: "Documentos",
-    links: [
-      { href: "/documentos", label: "Caducidades", icon: FileWarning },
-    ],
-  },
-  {
     id: "analisis",
     label: "Análisis",
     links: [
@@ -83,6 +70,22 @@ const groups = [
       // por rol, no eliminado: admin sigue viéndolo.
       { href: "/facturacion", label: "Facturación", icon: Receipt, soloAdmin: true },
       { href: "/presupuesto", label: "Presupuesto", icon: Calculator },
+    ],
+  },
+  {
+    id: "documentos",
+    // Ítem de diseño (2026-07-15): "Documentos y cumplimiento" es un
+    // encabezado uppercase+tracking-wide demasiado largo para los ~184px de
+    // ancho útil del sidebar (w-52) -- envolvía a dos líneas y chocaba con el
+    // icono de plegado. Acortado; el enlace de dentro pasa a "Caducidades"
+    // (la página es en realidad la alerta de documentos por caducar, no un
+    // repositorio de documentos — "Documentos" a secas no lo describía bien).
+    // Reordenado (2026-07-26, petición del usuario): "rellenas una vez y
+    // vuelves cuando caduca" pesa menos que Análisis en el día a día, así que
+    // pasa a vivir DEBAJO en vez de encima.
+    label: "Documentos",
+    links: [
+      { href: "/documentos", label: "Caducidades", icon: FileWarning },
     ],
   },
 ];
