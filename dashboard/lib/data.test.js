@@ -202,6 +202,8 @@ const {
   guardarObjetivoPuntualidadEmpresa,
   guardarRequierePodEmpresa,
   guardarMargenObjetivoEmpresa,
+  guardarValorAseguradoMaximoEmpresa,
+  calcularAvisoSeguroCarga,
   getRendimientoGestores,
   getMetricasPorCliente,
   kmAproxViaje,
@@ -1854,6 +1856,20 @@ describe("ajustes de empresa (9.39 — extraído de ajustes/page.jsx a data.js)"
     await expect(guardarMargenObjetivoEmpresa("e1", "100")).rejects.toThrow("entre 0 y 100");
   });
 
+  it("guardarValorAseguradoMaximoEmpresa guarda un valor válido", async () => {
+    await guardarValorAseguradoMaximoEmpresa("e1", "300000");
+    expect(TABLES.empresa[0].valor_asegurado_maximo_eur).toBe(300000);
+  });
+
+  it("guardarValorAseguradoMaximoEmpresa vacío guarda null", async () => {
+    await guardarValorAseguradoMaximoEmpresa("e1", "");
+    expect(TABLES.empresa[0].valor_asegurado_maximo_eur).toBeNull();
+  });
+
+  it("guardarValorAseguradoMaximoEmpresa rechaza negativos", async () => {
+    await expect(guardarValorAseguradoMaximoEmpresa("e1", "-1")).rejects.toThrow("positivo");
+  });
+
   it("guardarDesgloseCosteEmpresa guarda las 4 columnas parseadas", async () => {
     await guardarDesgloseCosteEmpresa("e1", {
       precio_gasoil_litro: "1.5", coste_peaje_km: "0.1", dieta_noche_eur: "30", coste_conductor_km: "0.4",
@@ -3153,6 +3169,23 @@ describe("calcularDesfasePod — capa barata de validación de POD (decisión 20
     ];
     const r = calcularDesfasePod(pod, eventos);
     expect(r.minutos).toBeNull();
+  });
+});
+
+describe("calcularAvisoSeguroCarga (ROADMAP 20.6)", () => {
+  it("null si falta el valor de mercancía o el máximo asegurado", () => {
+    expect(calcularAvisoSeguroCarga(null, 300000)).toBeNull();
+    expect(calcularAvisoSeguroCarga(100000, null)).toBeNull();
+  });
+
+  it("null si la carga no supera el máximo asegurado", () => {
+    expect(calcularAvisoSeguroCarga(300000, 300000)).toBeNull();
+    expect(calcularAvisoSeguroCarga(100000, 300000)).toBeNull();
+  });
+
+  it("avisa con el exceso exacto si la carga supera el máximo", () => {
+    const aviso = calcularAvisoSeguroCarga(350000, 300000);
+    expect(aviso).toEqual({ valorMercanciaEur: 350000, valorAseguradoMaximoEur: 300000, excesoEur: 50000 });
   });
 });
 

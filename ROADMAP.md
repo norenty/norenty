@@ -3565,6 +3565,123 @@ datos listo para tu asesoría. Y si el sistema se cae, lo sabemos antes que tú.
 
 ---
 
+## Fase 20 — Precisión de km + mapa + discovery de campo (2026-07-26)
+
+Sesión de revisión del mapa en vivo + discusión con un amigo de STOP (logística/tecnología) y
+un amigo consultor técnico. Puntos de producto reales, no especulación — quedan aquí para que
+no se pierdan en el chat.
+
+- [x] `[LOOP]` **20.1 Mapa: toggles de capa + fix de zoom mundo-repetido** — HECHO 2026-07-26.
+  Recogida/Entrega/Chófer eran leyenda fija, ahora son checkboxes reales (mismo patrón que
+  Parkings) para no saturar el mapa con muchos puntos. Bug de ver el mundo repetido varias
+  veces al hacer zoom out arreglado con `minZoom={3}` + `maxBounds` Europa/Mediterráneo
+  (`MapView.jsx`). Añadido también anillo pulsante en el marcador de chófer + vuelo suave al
+  encuadrar (`flyToBounds`). 440 tests dashboard en verde.
+- [x] `[LOOP]` **20.2 El bot usa OSRM (carretera real) en vez de solo Haversine×1.3** — HECHO
+  2026-07-26. Decisión del usuario: *"el negocio es vender kilómetros, no vamos a renunciar a
+  la precisión por ahorrar unos segundos en una cotización que no es una decisión impulsiva"*.
+  Antes el bot SIEMPRE usaba línea recta × `FACTOR_SINUOSIDAD_FALLBACK` en `/cotizar`, `/eta` y
+  el aviso de asignación de viaje. Ahora las tres llamadas usan `km_entre_puntos()` →
+  `distancia_por_carretera()` (espejo Python de `dashboard/lib/osrm.js`, mismo self-host OSRM),
+  y solo caen a Haversine×1.3 tramo a tramo si OSRM no responde — con aviso explícito al
+  usuario en el mensaje de cotización cuando eso ocurre (antes decía siempre "estimada", ahora
+  dice la verdad según lo que pasó). 255 tests backend en verde.
+- [ ] `[DECISIÓN] 🔴 20.3 Desplegar el contenedor OSRM en producción` — **BLOQUEANTE real y no
+  técnico.** El motor OSRM existe, funciona en local (`docker-compose`, ver
+  `infra/osrm/README.md`) y ya lo usan nómina (desde antes) y ahora 20.2 (bot). Pero
+  `dashboard/lib/osrm.js` documenta que el despliegue del contenedor a producción **sigue sin
+  hacerse**. Mientras no se haga, en producción TODO esto cae silenciosamente al fallback
+  Haversine×1.3 — incluida la nómina, que es el número que se le paga al chófer. Es
+  "despliegue a producción": el usuario mismo lo marcó como acción que requiere su presencia
+  y decisión explícita, no autonomía del loop. **Prioridad técnica #1 antes de prometer
+  precisión de km a cualquier cliente real.**
+- [x] `[LOOP]` **20.4 Parkings a nivel Europa + distinción vigilado/normal** — HECHO 2026-07-26.
+  Decisión de fuente de datos: no existe registro SSPA/SSTPA abierto y gratuito (requiere cuenta
+  ECAS/DATEX II, sigue sin acceso). El dataset abierto (Fraunhofer/Zenodo) YA soportaba Europa
+  entera vía `seed_parking_abierto.py --pais TODOS` — solo estaba sembrado con `--pais ES` por
+  defecto. Ejecutado: **763 → 19.713 parkings**, Francia (Toulouse) incluida. Migración
+  `0067_parking_vigilado.sql`: columna `vigilado` nullable — `NULL` ("desconocido") para todo el
+  dataset abierto (honesto, no se inventa el dato que no tenemos), `true`/`false` solo en
+  parkings propios de empresa (select en el form de `/mapa`, el gestor sí lo sabe de primera
+  mano). Icono con escudo en el mapa + etiqueta en el popup para los marcados vigilados.
+  **Hallazgo de paso (mismo patrón de Fase 19):** `getParkings()` usaba `.limit(5000)`, que
+  NO evita el corte de PostgREST a 1000 filas — con 19.713 filas se habría truncado en
+  silencio. Cambiado a paginar de verdad con `traerTodasLasFilas()` (ya existía, de 19.5).
+  446 tests dashboard en verde.
+- [x] `[LOOP]` **20.5 "Km disponibles" = tiempo de conducción legal restante, no combustible** —
+  HECHO 2026-07-26. Al implementarlo se descubrió que YA EXISTÍA `horas_conduccion_estimadas_viaje`
+  (F13.5, vía GPS real, no autoinformado) y un comando `/parking` (ítem 6.7) que enseña los 3
+  parkings más cercanos sin filtro de alcance — así que 20.5 se construyó extendiendo lo que
+  había, no desde cero. Nuevo `radio_conduccion_disponible_km()`: si hay viaje en curso, calcula
+  cuánto puede conducir el chófer antes de la próxima pausa obligatoria (Reglamento CE 561/2006)
+  a partir de su conducción REAL de hoy (no un número que el chófer escriba), y `/parking` ahora
+  filtra a los parkings dentro de ese radio (mensaje "Puedes conducir hasta ~X km..."), con los
+  vigilados (20.4) marcados con 🛡️. **Hallazgo de paso:** la consulta al dataset abierto en
+  `/parking` traía TODAS las filas sin acotar — con 19.713 parkings europeos habría repetido el
+  corte de 1000 de PostgREST Y sido lento. Acotada con `.gte`/`.lte` de lat/lon (caja de
+  coordenadas alrededor del radio de búsqueda) antes de pedir los datos. 258 tests backend en
+  verde (3 nuevos: filtro de radio + 2 de detección de hueco de 20.7).
+- [x] `[LOOP]` **20.6 Aviso de límite de seguro de la carga** — HECHO 2026-07-26 (ver detalle
+  arriba en el propio ítem). Migración `0066_seguro_carga.sql`, campo en Ajustes → Empresa,
+  campo en el wizard de nuevo viaje, aviso automático al crear el viaje.
+- [x] `[LOOP]` **20.7 Reconciliación de km en zonas sin cobertura (caso Marruecos)** — HECHO
+  2026-07-26, en dos frentes distintos de los que se pensaba inicialmente uno solo:
+  (a) La nómina/facturación (`kmCarreteraViaje`) **nunca estuvo afectada** — siempre calcula
+  distancia por carretera OSRM entre los DOS hitos fijos (origen/destino), no suma el rastro de
+  GPS en vivo, así que un hueco de cobertura a mitad de camino no cambia ese número.
+  (b) Donde SÍ vivía el problema de verdad: `km_desde_pings` (F13.5/F14.5, usado por el aviso de
+  pausa 561 y el resumen de ruta), que SÍ suma Haversine entre pings consecutivos de `ubicacion`
+  — un hueco largo ahí subestimaba en línea recta. Arreglado: `UMBRAL_HUECO_COBERTURA_S` (45 min)
+  detecta el hueco; por encima del umbral el tramo se calcula con OSRM (20.2) en vez de
+  Haversine directo. Pendiente y NO construido (necesita fuente de datos que no tenemos):
+  cruce con tacógrafo digital como verificación adicional — se queda anotado como mejora futura
+  de cadena de evidencia (`ESTRATEGIA.md` §3.3), no bloquea nada de lo de arriba.
+
+**Nota:** 20.4/20.5/20.7 partieron de discovery informal con gente real del sector (amigos de
+STOP) el 2026-07-26 — más valioso que cualquier suposición interna, y en los tres casos construir
+reveló que ya existía más infraestructura de la que parecía (dataset europeo ya soportado,
+`/parking` ya construido, OSRM ya integrado) — la mayor parte del trabajo fue conectar piezas
+existentes, no crear de cero.
+
+---
+
+## Fase 21 — Mapa como centro de operación (backlog, NO empezar sin cliente real)
+
+Petición del usuario (2026-07-26): que el mapa deje de ser una pestaña aislada y se convierta en
+el sitio donde se cruza todo — rutas, viajes, chóferes, incidencias, sedes de clientes/almacenes.
+Ejemplo concreto: buscar el viaje Madrid→Toulouse y ver la ruta, qué parkings caen en el camino,
+dónde están los demás camiones por si hay que enganchar la carga a otra tractora tras una
+incidencia.
+
+**Advertencia explícita (coherente con `ESTRATEGIA.md` §4.3):** esto es, sin adornos, construir
+más superficie de TMS clásico — el terreno exacto donde Qargo compite con 46M€ y 400 clientes.
+No es que esté mal, es que hay que decidirlo con los ojos abiertos, no por inercia de "ya que
+está el mapa, aprovechamos". **Regla del bloque: nada de aquí se empieza sin (a) que un cliente
+real lo haya pedido explícitamente y (b) que ya haya pasado el gate de discovery (12.3).**
+
+- [ ] `[DECISIÓN] 21.1 Visualizar la ruta de un viaje sobre el mapa` (línea entre hitos, no solo
+  puntos) + parkings que caen dentro del trayecto (no solo del radio de conducción de 20.5).
+- [ ] `[DECISIÓN] 21.2 Vista de flota en tiempo real cruzada con incidencias` — ver todos los
+  camiones a la vez y desde ahí abrir/gestionar una incidencia (hoy incidencias vive aparte).
+- [ ] `[DECISIÓN] 21.3 Reasignación de carga entre vehículos desde el mapa tras una incidencia`
+  (enganchar a otra tractora y seguir el viaje) — esto además es una decisión de negocio, no solo
+  de UI: qué pasa con el viaje/hitos/gestor_id al reasignar a mitad de ruta, no está definido.
+- [ ] `[DECISIÓN] 21.4 Sedes de clientes y almacenes/naves propias como capa del mapa` — las
+  bases propias ya existen (18.C.3); falta traer las direcciones de `cliente` como capa visual.
+- [ ] `[DECISIÓN] 21.5 El mapa como vista embebida en Plantillas de ruta y en el detalle de viaje`,
+  no solo como pestaña propia — petición explícita del usuario ("que en la plantilla de rutas
+  pudiera visualizarlos").
+
+## Nota — Avisos de caducidad de documentos: YA EXISTEN, es una pregunta de UBICACIÓN, no de build
+
+El usuario preguntó por un avisador de documentos próximos a caducar. **Ya existe**:
+`documentosPorCaducar` en `lib/data.js` (línea ~1049) ya filtra por `fecha_caducidad` y alimenta
+las notificaciones. Lo que pidió de nuevo es de posición en el menú (bajo Analítica, no como
+sección aparte) — pendiente de decidir si merece la pena mover solo por ergonomía o dejarlo
+donde está.
+
+---
+
 ## Protocolo del loop autónomo (optimizado para tokens / operación prolongada)
 
 **Principio: cada iteración es STATELESS.** No depende del historial de conversación, solo de

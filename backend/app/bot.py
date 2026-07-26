@@ -237,6 +237,8 @@ TEXTOS = {
         "parking_titulo": "📍 Parkings cercanos:",
         "parking_sin_ubicacion": "No tengo tu ubicación todavía. Confirma la llegada a un hito o comparte tu ubicación por Telegram.",
         "parking_sin_resultados": "No encontré parkings cercanos.",
+        "parking_sin_resultados_radio": "No hay parkings dentro de lo que puedes conducir antes de la próxima pausa obligatoria.",
+        "parking_radio_disponible": "Puedes conducir hasta ~{km} km antes de la próxima pausa obligatoria.",
         "parking_tipo_parking": "Parking",
         "parking_tipo_fueling": "Gasolinera / Truck stop",
         "parking_tipo_rest_area": "Área de descanso",
@@ -310,6 +312,8 @@ TEXTOS = {
         "parking_titulo": "📍 Nearby parkings:",
         "parking_sin_ubicacion": "I don't have your location yet. Confirm arrival at a stop or share your location on Telegram.",
         "parking_sin_resultados": "No nearby parkings found.",
+        "parking_sin_resultados_radio": "No parkings within reach before your next mandatory break.",
+        "parking_radio_disponible": "You can drive up to ~{km} km before your next mandatory break.",
         "parking_tipo_parking": "Parking",
         "parking_tipo_fueling": "Fueling station / Truck stop",
         "parking_tipo_rest_area": "Rest area",
@@ -383,6 +387,8 @@ TEXTOS = {
         "parking_titulo": "📍 Parcări din apropiere:",
         "parking_sin_ubicacion": "Nu am încă locația ta. Confirmă sosirea la o oprire sau distribuie locația pe Telegram.",
         "parking_sin_resultados": "Nu am găsit parcări în apropiere.",
+        "parking_sin_resultados_radio": "Nu există parcări la care poți ajunge înainte de următoarea pauză obligatorie.",
+        "parking_radio_disponible": "Poți conduce până la ~{km} km înainte de următoarea pauză obligatorie.",
         "parking_tipo_parking": "Parcare",
         "parking_tipo_fueling": "Benzinărie / Truck stop",
         "parking_tipo_rest_area": "Zonă de odihnă",
@@ -456,6 +462,8 @@ TEXTOS = {
         "parking_titulo": "📍 Parkings à proximité :",
         "parking_sin_ubicacion": "Je n'ai pas encore votre position. Confirmez l'arrivée à un arrêt ou partagez votre position sur Telegram.",
         "parking_sin_resultados": "Aucun parking trouvé à proximité.",
+        "parking_sin_resultados_radio": "Aucun parking à portée avant votre prochaine pause obligatoire.",
+        "parking_radio_disponible": "Vous pouvez conduire jusqu'à ~{km} km avant votre prochaine pause obligatoire.",
         "parking_tipo_parking": "Parking",
         "parking_tipo_fueling": "Station-service / Truck stop",
         "parking_tipo_rest_area": "Aire de repos",
@@ -529,6 +537,8 @@ TEXTOS = {
         "parking_titulo": "📍 Parcheggi vicini:",
         "parking_sin_ubicacion": "Non ho ancora la tua posizione. Conferma l'arrivo a una tappa o condividi la tua posizione su Telegram.",
         "parking_sin_resultados": "Non ho trovato parcheggi vicini.",
+        "parking_sin_resultados_radio": "Nessun parcheggio raggiungibile prima della prossima pausa obbligatoria.",
+        "parking_radio_disponible": "Puoi guidare fino a ~{km} km prima della prossima pausa obbligatoria.",
         "parking_tipo_parking": "Parcheggio",
         "parking_tipo_fueling": "Stazione di servizio / Truck stop",
         "parking_tipo_rest_area": "Area di sosta",
@@ -602,6 +612,8 @@ TEXTOS = {
         "parking_titulo": "📍 Parques de estacionamento próximos:",
         "parking_sin_ubicacion": "Ainda não tenho a tua localização. Confirma a chegada a uma paragem ou partilha a tua localização no Telegram.",
         "parking_sin_resultados": "Não encontrei parques de estacionamento próximos.",
+        "parking_sin_resultados_radio": "Sem parques de estacionamento ao alcance antes da próxima pausa obrigatória.",
+        "parking_radio_disponible": "Podes conduzir até ~{km} km antes da próxima pausa obrigatória.",
         "parking_tipo_parking": "Parque de estacionamento",
         "parking_tipo_fueling": "Bomba de gasolina / Truck stop",
         "parking_tipo_rest_area": "Área de descanso",
@@ -675,6 +687,8 @@ TEXTOS = {
         "parking_titulo": "📍 Parkplätze in der Nähe:",
         "parking_sin_ubicacion": "Ich habe deinen Standort noch nicht. Bestätige die Ankunft an einem Stopp oder teile deinen Standort über Telegram.",
         "parking_sin_resultados": "Keine Parkplätze in der Nähe gefunden.",
+        "parking_sin_resultados_radio": "Kein Parkplatz erreichbar vor der nächsten Pflichtpause.",
+        "parking_radio_disponible": "Du kannst noch ~{km} km fahren bis zur nächsten Pflichtpause.",
         "parking_tipo_parking": "Parkplatz",
         "parking_tipo_fueling": "Tankstelle / Truck Stop",
         "parking_tipo_rest_area": "Rastplatz",
@@ -748,6 +762,8 @@ TEXTOS = {
         "parking_titulo": "📍 مواقف قريبة:",
         "parking_sin_ubicacion": "لا أملك موقعك بعد. أكّد وصولك إلى إحدى المحطات أو شارك موقعك عبر تيليجرام.",
         "parking_sin_resultados": "لم أجد مواقف قريبة.",
+        "parking_sin_resultados_radio": "لا توجد مواقف يمكن الوصول إليها قبل التوقف الإلزامي التالي.",
+        "parking_radio_disponible": "يمكنك القيادة حتى ~{km} كم قبل التوقف الإلزامي التالي.",
         "parking_tipo_parking": "موقف سيارات",
         "parking_tipo_fueling": "محطة وقود / Truck stop",
         "parking_tipo_rest_area": "منطقة راحة",
@@ -1071,7 +1087,7 @@ async def send_next_hito(chat_id, chofer, bot, chat_data=None):
         inicio = inicio_r.data[0].get("ocurrido_en") if inicio_r.data else None
         emp_r = supabase.table("empresa").select("velocidad_planificacion_kmh").eq("id", chofer["empresa_id"]).execute()
         velocidad = (emp_r.data[0].get("velocidad_planificacion_kmh") if emp_r.data else None) or VELOCIDAD_PLANIFICACION_KMH_DEFAULT
-        resumen = resumen_ruta_completada(chofer_id, inicio, velocidad, total)
+        resumen = await resumen_ruta_completada(chofer_id, inicio, velocidad, total)
         if resumen["km"] is not None:
             texto_resumen = t(chofer, "resumen_ruta", paradas=resumen["paradas"], km=resumen["km"], horas=resumen["horas"])
         else:
@@ -1631,7 +1647,7 @@ async def handle_location(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         if inicio:
             emp_r = supabase.table("empresa").select("velocidad_planificacion_kmh").eq("id", chofer["empresa_id"]).execute()
             velocidad = (emp_r.data[0].get("velocidad_planificacion_kmh") if emp_r.data else None) or VELOCIDAD_PLANIFICACION_KMH_DEFAULT
-            horas = horas_conduccion_estimadas_viaje(chofer["id"], inicio, velocidad)
+            horas = await horas_conduccion_estimadas_viaje(chofer["id"], inicio, velocidad)
             if debe_avisar_pausa(horas, False):
                 ctx.chat_data["aviso_pausa_561_viaje"] = viaje_id
                 await ctx.bot.send_message(chat_id=chat_id, text=t(chofer, "aviso_pausa_561"))
@@ -2064,10 +2080,13 @@ async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await _reportar_incidencia(update, ctx, chofer, "otro", texto)
 
 
-# Mismo factor que dashboard/lib/data.js (FACTOR_SINUOSIDAD_FALLBACK): el bot
-# no depende de OSRM, así que /eta siempre usa Haversine corregido, no solo
-# como fallback.
+# Mismo factor que dashboard/lib/data.js (FACTOR_SINUOSIDAD_FALLBACK). Decisión
+# 2026-07-26: el negocio vende kilómetros, así que la precisión importa más
+# que ahorrar unos segundos en la conversación -- el bot ahora intenta OSRM
+# (distancia por carretera real) igual que el dashboard, y SOLO cae a este
+# factor si OSRM no responde (self-host caído, tramo sin ruta, etc.).
 FACTOR_SINUOSIDAD_FALLBACK = 1.3
+OSRM_URL = os.environ.get("OSRM_URL", "http://localhost:5000")
 VELOCIDAD_PLANIFICACION_KMH_DEFAULT = 75
 
 # Distancia (metros) por debajo de la cual el bot pregunta proactivamente si el
@@ -2149,6 +2168,45 @@ def haversine_km(lat1, lon1, lat2, lon2):
         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
     )
     return 2 * r * math.asin(math.sqrt(a))
+
+
+async def distancia_por_carretera(lat1, lon1, lat2, lon2):
+    """Espejo en Python de distanciaPorCarretera() (dashboard/lib/osrm.js):
+    distancia por CARRETERA REAL (km) entre dos puntos vía OSRM self-hosted.
+    Devuelve None si OSRM no responde, no encuentra ruta, o falla la red --
+    nunca lanza, el llamador decide el fallback."""
+    url = f"{OSRM_URL}/route/v1/driving/{lon1},{lat1};{lon2},{lat2}"
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(url, params={"overview": "false"})
+        if resp.status_code != 200:
+            return None
+        datos = resp.json()
+        if datos.get("code") != "Ok" or not datos.get("routes"):
+            return None
+        return datos["routes"][0]["distance"] / 1000
+    except Exception:  # noqa: BLE001 -- OSRM caído/timeout: degradar a Haversine, no romper
+        return None
+
+
+async def km_entre_puntos(puntos):
+    """Suma km entre una lista de {lat, lon} consecutivos, tramo a tramo:
+    OSRM (carretera real) primero, Haversine × FACTOR_SINUOSIDAD_FALLBACK si
+    OSRM no responde para ese tramo concreto. Mismo criterio que
+    kmCarreteraViaje() en dashboard/lib/data.js.
+
+    @return (km, estimado) -- estimado=True si ALGÚN tramo cayó al fallback,
+    para poder avisar al usuario de que ese número no es 100% ruta real."""
+    km = 0.0
+    estimado = False
+    for i in range(len(puntos) - 1):
+        a, b = puntos[i], puntos[i + 1]
+        tramo = await distancia_por_carretera(a["lat"], a["lon"], b["lat"], b["lon"])
+        if tramo is None:
+            tramo = haversine_km(a["lat"], a["lon"], b["lat"], b["lon"]) * FACTOR_SINUOSIDAD_FALLBACK
+            estimado = True
+        km += tramo
+    return km, estimado
 
 
 def punto_en_checkpoint(lat, lon, hito, umbral_default=None):
@@ -2282,15 +2340,14 @@ async def _mostrar_resumen_cotizacion(update: Update, ctx: ContextTypes.DEFAULT_
     )
     empresa = empresa_r.data[0] if empresa_r.data else {}
 
-    km = haversine_km(
-        estado["origen"]["lat"], estado["origen"]["lon"], estado["destino"]["lat"], estado["destino"]["lon"]
-    ) * FACTOR_SINUOSIDAD_FALLBACK
+    km, estimado = await km_entre_puntos([estado["origen"], estado["destino"]])
     resultado = calcular_presupuesto_bot(km, empresa)
     estado["resultado"] = resultado
     estado["paso"] = "confirmar"
 
     lineas = [
-        "📋 *Cotización* (estimada — distancia en línea recta ×1.3, sin ruta real)",
+        "📋 *Cotización* (distancia por carretera real)" if not estimado
+        else "📋 *Cotización* (OSRM no disponible — distancia estimada en línea recta ×1.3)",
         "",
         f"Origen: {estado['origen']['direccion']}",
         f"Destino: {estado['destino']['direccion']}",
@@ -2308,10 +2365,9 @@ async def _mostrar_resumen_cotizacion(update: Update, ctx: ContextTypes.DEFAULT_
     else:
         lineas.append("⚠️ No hay coste/km configurado en Ajustes — no se puede sugerir un precio.")
     lineas.append("")
+    consideraciones = "sin vehículo concreto asignado (coste general de empresa, no el de un camión específico), sin desglose de peajes/dietas por separado."
     lineas.append(
-        "Consideraciones: distancia estimada (sin OSRM), sin vehículo concreto asignado "
-        "(coste general de empresa, no el de un camión específico), sin desglose de "
-        "peajes/dietas por separado."
+        f"Consideraciones: {'distancia estimada (OSRM no disponible), ' if estimado else ''}{consideraciones}"
     )
     lineas.append("")
     lineas.append("¿Confirmas esta cotización?")
@@ -2412,11 +2468,21 @@ def debe_avisar_pausa(horas_conduccion, ya_avisado):
     return horas_conduccion >= _PAUSA_TRAS_HORAS
 
 
-def km_desde_pings(chofer_id, desde_iso):
-    """Suma la distancia (Haversine) entre los pings consecutivos de
-    `ubicacion` de un chófer desde `desde_iso` -- extraído de
-    horas_conduccion_estimadas_viaje (F13.5) para reutilizarlo también en
-    resumen_ruta_completada (F14.5), sin duplicar la query/el bucle."""
+# ROADMAP 20.7 (Marruecos/amigos de STOP): un hueco de cobertura entre dos
+# pings consecutivos de `ubicacion` hace que Haversine punto-a-punto
+# SUBESTIME el recorrido real (línea recta vs. carretera real). Umbral en
+# segundos: por encima de esto, el tramo no se trata como "dos pings
+# seguidos", se calcula por carretera (OSRM) igual que un tramo cualquiera.
+UMBRAL_HUECO_COBERTURA_S = 45 * 60
+
+
+async def km_desde_pings(chofer_id, desde_iso):
+    """Suma la distancia entre los pings consecutivos de `ubicacion` de un
+    chófer desde `desde_iso` -- extraído de horas_conduccion_estimadas_viaje
+    (F13.5) para reutilizarlo también en resumen_ruta_completada (F14.5), sin
+    duplicar la query/el bucle. Tramo a tramo: Haversine si los dos pings
+    están dentro de lo esperado (UMBRAL_HUECO_COBERTURA_S), OSRM (carretera
+    real) si hay un hueco de cobertura entre medias -- ver 20.7."""
     r = ejecutar_con_reintentos(
         lambda: supabase.table("ubicacion").select("lat, lon, created_at")
         .eq("chofer_id", chofer_id).order("created_at").execute(),
@@ -2425,21 +2491,34 @@ def km_desde_pings(chofer_id, desde_iso):
     puntos = [p for p in (r.data or []) if p.get("created_at", "") >= desde_iso]
     km = 0.0
     for i in range(1, len(puntos)):
-        km += haversine_km(puntos[i - 1]["lat"], puntos[i - 1]["lon"], puntos[i]["lat"], puntos[i]["lon"])
+        a, b = puntos[i - 1], puntos[i]
+        hueco = False
+        try:
+            dt = datetime.fromisoformat(b["created_at"].replace("Z", "+00:00")) - datetime.fromisoformat(a["created_at"].replace("Z", "+00:00"))
+            hueco = dt.total_seconds() > UMBRAL_HUECO_COBERTURA_S
+        except Exception:  # noqa: BLE001 -- created_at raro: tratar como sin hueco, Haversine de siempre
+            hueco = False
+        if hueco:
+            tramo = await distancia_por_carretera(a["lat"], a["lon"], b["lat"], b["lon"])
+            if tramo is None:
+                tramo = haversine_km(a["lat"], a["lon"], b["lat"], b["lon"]) * FACTOR_SINUOSIDAD_FALLBACK
+        else:
+            tramo = haversine_km(a["lat"], a["lon"], b["lat"], b["lon"])
+        km += tramo
     return km
 
 
-def horas_conduccion_estimadas_viaje(chofer_id, desde_iso, velocidad_kmh):
+async def horas_conduccion_estimadas_viaje(chofer_id, desde_iso, velocidad_kmh):
     """F13.5: estima horas de conducción del viaje EN CURSO sumando la
     distancia entre los pings de `ubicacion` de este chófer desde que
     empezó el viaje (`desde_iso`) -- misma base honesta km/velocidad que
     `getEstado561` (JS), v1 conservadora, NO tacógrafo real (7B.4). Se apoya
     en los puntos ya guardados por UBI.1, sin llamada externa nueva."""
-    km = km_desde_pings(chofer_id, desde_iso)
+    km = await km_desde_pings(chofer_id, desde_iso)
     return km / velocidad_kmh if velocidad_kmh else 0.0
 
 
-def resumen_ruta_completada(chofer_id, desde_iso, velocidad_kmh, paradas):
+async def resumen_ruta_completada(chofer_id, desde_iso, velocidad_kmh, paradas):
     """F14.5: km/horas estimados de la ruta que el chófer acaba de terminar,
     para el mensaje de resumen (disparador = evento al completar el viaje,
     decisión del usuario 2026-07-15, NO cron). Reutiliza `km_desde_pings`
@@ -2448,7 +2527,7 @@ def resumen_ruta_completada(chofer_id, desde_iso, velocidad_kmh, paradas):
     caso raro) -> sin datos, se devuelve `km=None` en vez de fingir un 0."""
     if desde_iso is None:
         return {"km": None, "horas": None, "paradas": paradas}
-    km = km_desde_pings(chofer_id, desde_iso)
+    km = await km_desde_pings(chofer_id, desde_iso)
     horas = km / velocidad_kmh if velocidad_kmh else 0.0
     return {"km": round(km), "horas": round(horas, 1), "paradas": paradas}
 
@@ -2524,11 +2603,45 @@ def obtener_ubicacion_chofer(chofer):
     return None
 
 
+async def radio_conduccion_disponible_km(chofer):
+    """ROADMAP 20.5: km que el chófer puede conducir antes de la próxima
+    pausa obligatoria (Reglamento 561/2006, misma simplificación conservadora
+    que calcular_eta_con_paradas), a partir de la conducción REAL de hoy
+    estimada por GPS (horas_conduccion_estimadas_viaje, F13.5) -- no
+    autoinformada. None si no hay viaje en curso o falta el dato de inicio
+    (no se puede estimar, no se inventa un número)."""
+    viaje_r = (
+        supabase.table("viaje").select("id")
+        .eq("chofer_id", chofer["id"]).eq("estado", "en_curso").execute()
+    )
+    if not viaje_r.data:
+        return None
+    inicio_r = (
+        supabase.table("ejecucion_evento").select("ocurrido_en")
+        .eq("viaje_id", viaje_r.data[0]["id"]).order("ocurrido_en").limit(1).execute()
+    )
+    inicio = inicio_r.data[0].get("ocurrido_en") if inicio_r.data else None
+    if not inicio:
+        return None
+    emp_r = supabase.table("empresa").select("velocidad_planificacion_kmh").eq("id", chofer["empresa_id"]).execute()
+    velocidad = (emp_r.data[0].get("velocidad_planificacion_kmh") if emp_r.data else None) or VELOCIDAD_PLANIFICACION_KMH_DEFAULT
+    horas_conducidas = await horas_conduccion_estimadas_viaje(chofer["id"], inicio, velocidad)
+    margen_h = max(0.0, _PAUSA_TRAS_HORAS - horas_conducidas)
+    return velocidad * margen_h
+
+
 async def cmd_parking(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """El chófer pide parking cercano a su última ubicación conocida (ítem 6.7).
     Junta el dataset abierto (visible para todos) + los parkings propios de su
     empresa — mismo criterio que getParkings() en el dashboard, pero replicado
     a mano aquí porque el bot usa la service role key (salta RLS).
+
+    ROADMAP 20.4/20.5: el dataset abierto pasó de España (~763) a Europa
+    (~19.700) -- traerlo entero aquí repetiría el corte silencioso de 1000
+    filas de PostgREST (Fase 19) Y sería lento sin necesidad. Se acota por
+    caja de coordenadas ANTES de pedirlo. Si hay viaje en curso, el radio de
+    búsqueda es el km que el chófer puede conducir antes de la próxima pausa
+    obligatoria -- un parking "cercano" que ya no se alcanza no sirve.
     """
     chat_id = str(update.effective_chat.id)
     chofer = get_chofer_by_chat(chat_id)
@@ -2542,16 +2655,27 @@ async def cmd_parking(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
     lat, lon = punto
 
+    radio_km = await radio_conduccion_disponible_km(chofer)
+
+    # Caja de coordenadas generosa (radio × 2, o 150km sin radio conocido) --
+    # 1° de latitud ≈ 111 km; suficiente margen para no perder parkings por
+    # redondeo, sin descargar el dataset europeo entero en cada consulta.
+    margen_grados = ((radio_km or 150) * 2) / 111
+    lat_min, lat_max = lat - margen_grados, lat + margen_grados
+    lon_min, lon_max = lon - margen_grados, lon + margen_grados
+
     propios_r = (
         supabase.table("parking")
-        .select("nombre, tipo, lat, lon, fuente")
+        .select("nombre, tipo, lat, lon, fuente, vigilado")
         .eq("empresa_id", chofer["empresa_id"])
         .execute()
     )
     abiertos_r = (
         supabase.table("parking")
-        .select("nombre, tipo, lat, lon, fuente")
+        .select("nombre, tipo, lat, lon, fuente, vigilado")
         .eq("fuente", "dataset_abierto")
+        .gte("lat", lat_min).lte("lat", lat_max)
+        .gte("lon", lon_min).lte("lon", lon_max)
         .execute()
     )
     parkings = (propios_r.data or []) + (abiertos_r.data or [])
@@ -2561,20 +2685,27 @@ async def cmd_parking(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         for p in parkings
         if p.get("lat") is not None and p.get("lon") is not None
     ]
+    if radio_km is not None:
+        con_distancia = [par for par in con_distancia if par[1] <= radio_km]
     con_distancia.sort(key=lambda par: par[1])
     top3 = con_distancia[:3]
 
     if not top3:
-        await update.message.reply_text(t(chofer, "parking_sin_resultados"))
+        clave = "parking_sin_resultados_radio" if radio_km is not None else "parking_sin_resultados"
+        await update.message.reply_text(t(chofer, clave))
         return
 
     lineas = [t(chofer, "parking_titulo")]
+    if radio_km is not None:
+        lineas.append(t(chofer, "parking_radio_disponible", km=round(radio_km)))
     botones = []
     for p, dist in top3:
         if p.get("fuente") == "empresa" and p.get("nombre"):
             etiqueta = p["nombre"]
         else:
             etiqueta = t(chofer, TIPO_PARKING_KEY.get(p["tipo"], "parking_tipo_otro"))
+        if p.get("vigilado") is True:
+            etiqueta += " 🛡️"
         lineas.append(f"• {etiqueta} — {dist:.1f} km")
         gmaps = f"https://www.google.com/maps/dir/?api=1&destination={p['lat']},{p['lon']}"
         botones.append([
@@ -2593,8 +2724,8 @@ async def cmd_eta(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     completa desde el origen), aquí se calcula el tiempo que queda desde AHORA:
     solo los hitos que aún NO están completados (pendiente/en_curso/fallido no
     cuenta como resuelto pero tampoco aporta km — se excluye igual que completado).
-    El bot no depende de OSRM, así que usa Haversine × FACTOR_SINUOSIDAD_FALLBACK
-    directamente (no solo como fallback, como sí ocurre en el dashboard).
+    Usa OSRM (carretera real) igual que el dashboard, con Haversine ×
+    FACTOR_SINUOSIDAD_FALLBACK solo si OSRM no responde para algún tramo.
     """
     chat_id = str(update.effective_chat.id)
     chofer = get_chofer_by_chat(chat_id)
@@ -2639,11 +2770,7 @@ async def cmd_eta(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if empresa_r.data and empresa_r.data[0].get("velocidad_planificacion_kmh"):
         velocidad = empresa_r.data[0]["velocidad_planificacion_kmh"]
 
-    km = 0.0
-    for i in range(len(restantes) - 1):
-        km += haversine_km(
-            restantes[i]["lat"], restantes[i]["lon"], restantes[i + 1]["lat"], restantes[i + 1]["lon"]
-        ) * FACTOR_SINUOSIDAD_FALLBACK
+    km, _estimado = await km_entre_puntos(restantes)
 
     horas_conduccion = km / velocidad
     resultado = calcular_eta_con_paradas(horas_conduccion)
@@ -2725,11 +2852,7 @@ async def procesar_notificaciones_asignacion(ctx: ContextTypes.DEFAULT_TYPE):
         hitos_r = supabase.table("hito").select("orden, lat, lon, direccion").eq("viaje_id", viaje["id"]).order("orden").execute()
         hitos = hitos_r.data or []
         con_coords = [h for h in hitos if h.get("lat") is not None and h.get("lon") is not None]
-        km = 0.0
-        for i in range(len(con_coords) - 1):
-            km += haversine_km(
-                con_coords[i]["lat"], con_coords[i]["lon"], con_coords[i + 1]["lat"], con_coords[i + 1]["lon"]
-            ) * FACTOR_SINUOSIDAD_FALLBACK
+        km, _estimado = await km_entre_puntos(con_coords)
         direccion = (hitos[0].get("direccion") if hitos else None) or t(chofer, "hito_sin_dir")
 
         texto = (

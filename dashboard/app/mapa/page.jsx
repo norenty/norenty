@@ -10,7 +10,7 @@ import { TIPOS_PARKING } from "../../lib/labels";
 const MapView = dynamic(() => import("../components/MapView"), { ssr: false });
 
 function initParkingForm() {
-  return { nombre: "", tipo: "parking", lat: "", lon: "", notas: "" };
+  return { nombre: "", tipo: "parking", lat: "", lon: "", notas: "", vigilado: "" };
 }
 
 export default function MapaPage() {
@@ -18,6 +18,9 @@ export default function MapaPage() {
   const [ubicaciones, setUbicaciones] = useState([]);
   const [parkings, setParkings] = useState([]);
   const [verParkings, setVerParkings] = useState(false);
+  const [verChoferes, setVerChoferes] = useState(true);
+  const [verRecogidas, setVerRecogidas] = useState(true);
+  const [verEntregas, setVerEntregas] = useState(true);
   const [mostrarFormParking, setMostrarFormParking] = useState(false);
   const [formParking, setFormParking] = useState(initParkingForm());
   const [guardandoParking, setGuardandoParking] = useState(false);
@@ -78,7 +81,8 @@ export default function MapaPage() {
     setGuardandoParking(true);
     setErrorParking(null);
     try {
-      await createParkingPropio({ ...formParking, lat, lon });
+      const vigilado = formParking.vigilado === "" ? null : formParking.vigilado === "true";
+      await createParkingPropio({ ...formParking, lat, lon, vigilado });
       setFormParking(initParkingForm());
       setMostrarFormParking(false);
       setVerParkings(true);
@@ -99,15 +103,33 @@ export default function MapaPage() {
     <div>
       <h1 className="text-xl font-medium text-ink mb-4">Mapa en vivo</h1>
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="flex items-center gap-1.5 text-xs text-ink-secondary">
+        <label className="flex items-center gap-1.5 text-xs text-ink-secondary cursor-pointer">
+          <input
+            type="checkbox"
+            checked={verRecogidas}
+            onChange={(e) => setVerRecogidas(e.target.checked)}
+            className="accent-brand w-3.5 h-3.5"
+          />
           <span className="w-3 h-3 rounded-full bg-estado-en-curso inline-block" /> Recogida
-        </div>
-        <div className="flex items-center gap-1.5 text-xs text-ink-secondary">
+        </label>
+        <label className="flex items-center gap-1.5 text-xs text-ink-secondary cursor-pointer">
+          <input
+            type="checkbox"
+            checked={verEntregas}
+            onChange={(e) => setVerEntregas(e.target.checked)}
+            className="accent-brand w-3.5 h-3.5"
+          />
           <span className="w-3 h-3 rounded-full bg-estado-ok inline-block" /> Entrega
-        </div>
-        <div className="flex items-center gap-1.5 text-xs text-ink-secondary">
+        </label>
+        <label className="flex items-center gap-1.5 text-xs text-ink-secondary cursor-pointer">
+          <input
+            type="checkbox"
+            checked={verChoferes}
+            onChange={(e) => setVerChoferes(e.target.checked)}
+            className="accent-brand w-3.5 h-3.5"
+          />
           <span className="w-3 h-3 rounded-full bg-brand inline-block" /> Chófer
-        </div>
+        </label>
         <label className="flex items-center gap-1.5 text-xs text-ink-secondary cursor-pointer ml-2">
           <input
             type="checkbox"
@@ -154,6 +176,19 @@ export default function MapaPage() {
               ))}
             </select>
           </div>
+          <div>
+            <label htmlFor="parking-vigilado" className="block text-xs text-ink-secondary mb-1">Vigilado</label>
+            <select
+              id="parking-vigilado"
+              value={formParking.vigilado}
+              onChange={(e) => setFormParking((f) => ({ ...f, vigilado: e.target.value }))}
+              className="text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 bg-surface"
+            >
+              <option value="">Desconocido</option>
+              <option value="true">Sí, con seguridad</option>
+              <option value="false">No</option>
+            </select>
+          </div>
           <div className="w-28">
             <label htmlFor="parking-lat" className="block text-xs text-ink-secondary mb-1">Latitud *</label>
             <input
@@ -189,8 +224,8 @@ export default function MapaPage() {
           <div className="w-full h-full bg-border rounded-xl animate-pulse" />
         ) : (
           <MapView
-            hitos={hitos}
-            ubicaciones={ubicaciones}
+            hitos={hitos.filter((h) => (h.tipo === "recogida" ? verRecogidas : verEntregas))}
+            ubicaciones={verChoferes ? ubicaciones : []}
             parkings={verParkings ? parkings : []}
             onBorrarParking={borrarParking}
           />

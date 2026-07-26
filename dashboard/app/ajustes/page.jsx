@@ -8,6 +8,7 @@ import {
   getGestoresEmpresa, actualizarRolGestor, desactivarGestor, reactivarGestor, INVITACION_VALIDEZ_DIAS,
   guardarNombreEmpresa, getBasesEmpresa, crearBaseEmpresa, eliminarBaseEmpresa, guardarCosteKmEmpresa, guardarVelocidadEmpresa,
   guardarDesgloseCosteEmpresa, guardarObjetivoPuntualidadEmpresa, guardarMargenObjetivoEmpresa,
+  guardarValorAseguradoMaximoEmpresa,
   getChoferesConGestor, guardarGestorChofer, guardarTelefonoGestor,
   getViajesConGestor, guardarGestorViaje, getIndiceGasoilNacional,
   getSolicitudesAprobacion, resolverSolicitudAprobacion,
@@ -31,6 +32,7 @@ export default function AjustesPage() {
   const [costeKm, setCosteKm] = useState("");
   const [objetivoPuntualidad, setObjetivoPuntualidad] = useState("");
   const [margenObjetivo, setMargenObjetivo] = useState("");
+  const [valorAseguradoMaximo, setValorAseguradoMaximo] = useState("");
   const [velocidadPlanificacion, setVelocidadPlanificacion] = useState("");
   const [precioGasoil, setPrecioGasoil] = useState("");
   const [costePeaje, setCostePeaje] = useState("");
@@ -118,6 +120,7 @@ export default function AjustesPage() {
           setCosteKm(emp?.coste_km != null ? String(emp.coste_km) : "");
           setObjetivoPuntualidad(emp?.objetivo_puntualidad_pct != null ? String(emp.objetivo_puntualidad_pct) : "");
           setMargenObjetivo(emp?.margen_objetivo_pct != null ? String(emp.margen_objetivo_pct) : "");
+          setValorAseguradoMaximo(emp?.valor_asegurado_maximo_eur != null ? String(emp.valor_asegurado_maximo_eur) : "");
           setVelocidadPlanificacion(emp?.velocidad_planificacion_kmh != null ? String(emp.velocidad_planificacion_kmh) : "");
           setPrecioGasoil(emp?.precio_gasoil_litro != null ? String(emp.precio_gasoil_litro) : "");
           setCostePeaje(emp?.coste_peaje_km != null ? String(emp.coste_peaje_km) : "");
@@ -280,6 +283,18 @@ export default function AjustesPage() {
     try {
       await guardarMargenObjetivoEmpresa(empresa.id, margenObjetivo);
       flash("Margen objetivo guardado");
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
+    setGuardando(false);
+  }
+
+  async function guardarValorAseguradoMaximo() {
+    if (!empresa) return;
+    setGuardando(true);
+    try {
+      await guardarValorAseguradoMaximoEmpresa(empresa.id, valorAseguradoMaximo);
+      flash("Valor asegurado guardado");
     } catch (err) {
       flash("Error: " + err.message);
     }
@@ -567,6 +582,9 @@ export default function AjustesPage() {
         margenObjetivo={margenObjetivo}
         setMargenObjetivo={setMargenObjetivo}
         guardarMargen={guardarMargen}
+        valorAseguradoMaximo={valorAseguradoMaximo}
+        setValorAseguradoMaximo={setValorAseguradoMaximo}
+        guardarValorAseguradoMaximo={guardarValorAseguradoMaximo}
         velocidadPlanificacion={velocidadPlanificacion}
         setVelocidadPlanificacion={setVelocidadPlanificacion}
         guardarVelocidad={guardarVelocidad}

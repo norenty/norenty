@@ -40,6 +40,14 @@ class FakeQuery:
         self._rows = [r for r in self._rows if r.get(field) in values]
         return self
 
+    def gte(self, field, value):
+        self._rows = [r for r in self._rows if r.get(field) is not None and r.get(field) >= value]
+        return self
+
+    def lte(self, field, value):
+        self._rows = [r for r in self._rows if r.get(field) is not None and r.get(field) <= value]
+        return self
+
     def is_(self, field, value):
         # Espejo mínimo de postgrest-py: `.is_(col, "null")` == IS NULL.
         if value == "null":

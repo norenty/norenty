@@ -78,7 +78,7 @@ export default function NuevoViajeWizard() {
   const [error, setError] = useState(null);
   const [avisoAsignacion, setAvisoAsignacion] = useState(null);
   const [aviso561, setAviso561] = useState(null);
-  const [carga, setCarga] = useState({ ldm: "", kg: "", m3: "" });
+  const [carga, setCarga] = useState({ ldm: "", kg: "", m3: "", valorMercancia: "" });
   const [sugerenciaOrden, setSugerenciaOrden] = useState(null);
   const [plantillas, setPlantillas] = useState([]);
   const [plantillaId, setPlantillaId] = useState("");
@@ -230,6 +230,14 @@ export default function NuevoViajeWizard() {
       // queda pendiente de aprobación del jefe de tráfico antes de arrancar.
       if (result.pendienteAprobacion) {
         alert("Este viaje se ha creado como pendiente de aprobación: la ventana horaria no parece viable con los descansos legales obligatorios. Un admin o gestor operativo debe aprobarlo en Ajustes → Equipo antes de que arranque.");
+      }
+      // ROADMAP 20.6: la carga declarada supera el seguro máximo de la empresa.
+      if (result.avisoSeguro) {
+        alert(
+          `Aviso: la carga declarada (${result.avisoSeguro.valorMercanciaEur.toLocaleString("es-ES")} €) supera el ` +
+          `seguro máximo de la empresa (${result.avisoSeguro.valorAseguradoMaximoEur.toLocaleString("es-ES")} €) por ` +
+          `${result.avisoSeguro.excesoEur.toLocaleString("es-ES")} €. El viaje se ha creado igualmente.`
+        );
       }
       router.push(`/viajes/${result.viaje.id}`);
     } catch (err) {
@@ -602,6 +610,14 @@ export default function NuevoViajeWizard() {
                 vacioLabel="Sin remolque"
               />
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="w-valor-mercancia" className="block text-xs text-ink-secondary mb-1">Valor de mercancía (€, opcional)</label>
+            <input id="w-valor-mercancia" type="number" step="any" min="0" value={carga.valorMercancia}
+              onChange={(e) => setCarga((c) => ({ ...c, valorMercancia: e.target.value }))}
+              placeholder="Para avisar si supera el seguro de la empresa"
+              className="w-full max-w-xs text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand" />
           </div>
 
           {vehiculoId && (

@@ -21,7 +21,10 @@ const ICON_ENTREGA = new L.DivIcon({
 });
 const ICON_CHOFER = new L.DivIcon({
   className: "",
-  html: '<div style="width:32px;height:32px;border-radius:50%;background:#2563EB;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px">🚛</div>',
+  html: `<div style="position:relative;width:32px;height:32px">
+    <div class="chofer-pulso" style="position:absolute;inset:-8px;border-radius:50%;background:#2563EB;opacity:.35"></div>
+    <div style="position:relative;width:32px;height:32px;border-radius:50%;background:#2563EB;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px">🚛</div>
+  </div>`,
   iconSize: [32, 32],
   iconAnchor: [16, 16],
 });
@@ -32,6 +35,14 @@ const ICON_PARKING = new L.DivIcon({
   html: '<div style="width:18px;height:18px;border-radius:4px;background:#475569;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">P</div>',
   iconSize: [18, 18],
   iconAnchor: [9, 9],
+});
+// ROADMAP 20.4: parking propio marcado explícitamente como vigilado -- icono
+// con escudo en vez de "P" para que destaque frente al resto en el mapa.
+const ICON_PARKING_VIGILADO = new L.DivIcon({
+  className: "",
+  html: '<div style="width:20px;height:20px;border-radius:4px;background:#16A34A;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px">🛡️</div>',
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
 });
 const ICON_PARKING_PROPIO = new L.DivIcon({
   className: "",
@@ -45,7 +56,7 @@ function FitBounds({ points }) {
   useEffect(() => {
     if (points.length > 0) {
       const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lon]));
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+      map.flyToBounds(bounds, { padding: [40, 40], maxZoom: 13, duration: 1.2 });
     }
   }, [points, map]);
   return null;
@@ -66,6 +77,10 @@ export default function MapView({ hitos, ubicaciones, parkings, onBorrarParking 
     <MapContainer
       center={center}
       zoom={6}
+      minZoom={3}
+      maxBounds={[[20, -35], [72, 45]]}
+      maxBoundsViscosity={1.0}
+      worldCopyJump={false}
       style={{ width: "100%", height: "100%", borderRadius: "12px" }}
     >
       <TileLayer
@@ -98,13 +113,17 @@ export default function MapView({ hitos, ubicaciones, parkings, onBorrarParking 
         <Marker
           key={p.id}
           position={[p.lat, p.lon]}
-          icon={p.fuente === "empresa" ? ICON_PARKING_PROPIO : ICON_PARKING}
+          icon={p.vigilado === true ? ICON_PARKING_VIGILADO : p.fuente === "empresa" ? ICON_PARKING_PROPIO : ICON_PARKING}
         >
           <Popup>
             <div style={{ fontSize: 13 }}>
               <strong>{TIPO_PARKING_LABEL[p.tipo] || p.nombre}</strong>
               <br />
               {p.fuente === "empresa" ? "Parking propio de la empresa" : "Dataset abierto (Fraunhofer/OSM)"}
+              <br />
+              <span style={{ color: p.vigilado === true ? "#16A34A" : "#64748B" }}>
+                {p.vigilado === true ? "🛡️ Vigilado" : p.vigilado === false ? "Sin vigilancia" : "Vigilancia: desconocida"}
+              </span>
               {p.confianza && (
                 <>
                   <br />

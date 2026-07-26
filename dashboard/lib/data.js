@@ -785,6 +785,35 @@ export async function guardarMargenObjetivoEmpresa(empresaId, margenStr) {
 }
 
 /**
+ * ROADMAP 20.6: valor máximo cubierto por el seguro de mercancía (CMR) de la
+ * empresa. Nullable -- sin configurar, no se avisa de nada (mismo criterio
+ * que margen_objetivo_pct).
+ */
+export async function guardarValorAseguradoMaximoEmpresa(empresaId, valorStr) {
+  const valor = valorStr.trim() === "" ? null : Number(valorStr);
+  if (valor != null && (Number.isNaN(valor) || valor < 0)) {
+    throw new Error("el valor asegurado debe ser un número positivo");
+  }
+  const { error } = await supabase.from("empresa").update({ valor_asegurado_maximo_eur: valor }).eq("id", empresaId);
+  if (error) throw error;
+}
+
+/**
+ * ROADMAP 20.6: aviso cuando el valor de mercancía de un viaje supera el
+ * máximo cubierto por el seguro de la empresa. Pura -- null si falta
+ * cualquiera de los dos datos (nada configurado/declarado todavía).
+ */
+export function calcularAvisoSeguroCarga(valorMercanciaEur, valorAseguradoMaximoEur) {
+  if (valorMercanciaEur == null || valorAseguradoMaximoEur == null) return null;
+  if (valorMercanciaEur <= valorAseguradoMaximoEur) return null;
+  return {
+    valorMercanciaEur,
+    valorAseguradoMaximoEur,
+    excesoEur: Math.round((valorMercanciaEur - valorAseguradoMaximoEur) * 100) / 100,
+  };
+}
+
+/**
  * `empresa.requiere_pod` existía en el esquema desde el Milestone 3
  * (migración 0002) pero nunca se conectó a ninguna pantalla ni al bot —
  * hasta hoy TODAS las empresas pedían foto de albarán siempre, sin
@@ -3705,18 +3734,19 @@ export async function getAuditLog(entidad, entidadId) {
  * datos Fraunhofer/Zenodo CC-BY 4.0; NO es la certificación oficial SSTPA) más
  * los propios de su empresa (fuente='empresa'). RLS hace el filtrado real.
  */
-// El mapa necesita el dataset completo (no es una lista paginable), pero un límite duro
-// evita que un dataset abierto corrupto/inflado o un futuro error de seed tumbe la página
-// sin aviso (ítem 9.32). 5000 cubre con margen el dataset Fraunhofer/Zenodo de España
-// actual + los propios de una empresa.
-export const LIMITE_PARKINGS = 5000;
+// El mapa necesita el dataset completo (no es una lista paginable). Un límite duro de
+// .limit() NO basta -- PostgREST corta en 1000 filas de todas formas (mismo hallazgo que
+// Fase 19/getExportacionChofer); desde que el dataset abierto pasó de España (~763) a
+// Europa (~19.700, ROADMAP 20.4) haría falta paginar sí o sí. LIMITE_PARKINGS_MAXIMO es
+// una cota de seguridad (no un límite de query): si algún día el dataset se dispara por un
+// error de seed, esto para de traer páginas en vez de descargar el planeta entero (9.32).
+export const LIMITE_PARKINGS_MAXIMO = 50000;
 
 export async function getParkings() {
-  const { data } = await supabase
-    .from("parking")
-    .select("id, nombre, tipo, lat, lon, confianza, fuente, notas")
-    .limit(LIMITE_PARKINGS);
-  return data || [];
+  const filas = await traerTodasLasFilas(
+    supabase.from("parking").select("id, nombre, tipo, lat, lon, confianza, fuente, notas, vigilado")
+  );
+  return filas.slice(0, LIMITE_PARKINGS_MAXIMO);
 }
 
 // ==========================================================================
@@ -3802,7 +3832,7 @@ export async function anonimizarChofer(choferId) {
 }
 
 /** Alta de un parking propio de la empresa (su mapa curado). */
-export async function createParkingPropio({ nombre, tipo, lat, lon, notas }) {
+export async function createParkingPropio({ nombre, tipo, lat, lon, notas, vigilado = null }) {
   const empresaId = await getCurrentEmpresaId();
   const { data, error } = await supabase
     .from("parking")
@@ -3814,6 +3844,7 @@ export async function createParkingPropio({ nombre, tipo, lat, lon, notas }) {
       lon,
       notas: notas?.trim() || null,
       fuente: "empresa",
+      vigilado,
     })
     .select()
     .single();
@@ -4117,10 +4148,19 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
       carga_ldm: num(carga?.ldm),
       carga_kg: num(carga?.kg),
       carga_m3: num(carga?.m3),
+      valor_mercancia_eur: num(carga?.valorMercancia),
     })
     .select()
     .single();
   if (error) throw error;
+
+  // ROADMAP 20.6: aviso si la carga declarada supera el seguro de la empresa.
+  let avisoSeguro = null;
+  if (viaje.valor_mercancia_eur != null) {
+    const { data: empresaRow } = await supabase
+      .from("empresa").select("valor_asegurado_maximo_eur").eq("id", empresa_id).single();
+    avisoSeguro = calcularAvisoSeguroCarga(viaje.valor_mercancia_eur, empresaRow?.valor_asegurado_maximo_eur ?? null);
+  }
 
   if (avisosViabilidad.length > 0) {
     await supabase.from("solicitud_aprobacion").insert({
@@ -4156,5 +4196,5 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
     }));
     await supabase.from("hito").insert(rows);
   }
-  return { viaje, avisos: validacion.avisos, pendienteAprobacion: avisosViabilidad.length > 0 };
+  return { viaje, avisos: validacion.avisos, pendienteAprobacion: avisosViabilidad.length > 0, avisoSeguro };
 }

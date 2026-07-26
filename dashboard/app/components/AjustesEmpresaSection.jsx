@@ -40,6 +40,9 @@ export default function AjustesEmpresaSection({
   margenObjetivo,
   setMargenObjetivo,
   guardarMargen,
+  valorAseguradoMaximo,
+  setValorAseguradoMaximo,
+  guardarValorAseguradoMaximo,
   indiceGasoil,
   guardando,
 }) {
@@ -287,7 +290,31 @@ export default function AjustesEmpresaSection({
               <Save size={16} /> Guardar
             </button>
           </div>
+          <div className="flex items-end gap-3">
+            <div className="max-w-[10rem]">
+              <label htmlFor="ajustes-valor-asegurado" className="block text-xs text-ink-secondary mb-1">Seguro carga máx. (€)</label>
+              <input
+                id="ajustes-valor-asegurado"
+                type="number" step="any" min="0"
+                value={valorAseguradoMaximo}
+                onChange={(e) => setValorAseguradoMaximo(e.target.value)}
+                placeholder="300000"
+                className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              />
+            </div>
+            <button
+              onClick={guardarValorAseguradoMaximo}
+              disabled={guardando}
+              className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
+            >
+              <Save size={16} /> Guardar
+            </button>
+          </div>
         </div>
+        <p className="text-xs text-ink-secondary mt-2">
+          Valor máximo cubierto por el seguro de mercancía (CMR). Si un viaje declara una carga
+          por encima de este importe, se avisa al crearlo (ROADMAP 20.6).
+        </p>
       </section>
       </RequireRol>
 

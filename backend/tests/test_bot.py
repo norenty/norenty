@@ -734,6 +734,34 @@ async def test_cmd_parking_sin_resultados(fake_db):
 
 
 @pytest.mark.asyncio
+async def test_cmd_parking_filtra_por_radio_de_conduccion_disponible(fake_db, monkeypatch):
+    """ROADMAP 20.5: con viaje en curso, un parking fuera del radio que el
+    chófer puede conducir antes de la pausa obligatoria no debe salir, aunque
+    sea el más cercano en línea recta."""
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "es"}]
+    fake_db.tables["ubicacion"] = [{"chofer_id": "c1", "lat": MADRID[0], "lon": MADRID[1], "created_at": "2026-01-01T10:00:00Z"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "estado": "en_curso"}]
+    fake_db.tables["ejecucion_evento"] = [{"viaje_id": "v1", "ocurrido_en": "2026-01-01T09:00:00Z"}]
+    fake_db.tables["empresa"] = [{"id": "e1", "velocidad_planificacion_kmh": 75}]
+    fake_db.tables["parking"] = [
+        {"id": "p1", "empresa_id": "e1", "nombre": "Al lado", "tipo": "parking", "lat": 40.42, "lon": -3.71, "fuente": "empresa"},
+        {"id": "p2", "empresa_id": "e1", "nombre": "Muy lejos", "tipo": "parking", "lat": 45.0, "lon": 5.0, "fuente": "empresa"},
+    ]
+
+    async def sin_conduccion(_chofer_id, _desde_iso, _velocidad):
+        return 0.0  # el chófer aún no ha conducido nada -- margen completo (4.5h)
+
+    monkeypatch.setattr(bot, "horas_conduccion_estimadas_viaje", sin_conduccion)
+    update = SimpleNamespace(effective_chat=SimpleNamespace(id="chat-1"), message=SimpleNamespace(reply_text=AsyncMock()))
+    await bot.cmd_parking(update, SimpleNamespace())
+
+    texto = update.message.reply_text.call_args[0][0]
+    assert "Al lado" in texto
+    assert "Muy lejos" not in texto
+    assert "Puedes conducir hasta" in texto
+
+
+@pytest.mark.asyncio
 async def test_cmd_parking_en_ingles(fake_db):
     fake_db.tables["chofer"] = [{"id": "c1", "nombre": "John", "empresa_id": "e1", "chat_id": "chat-1", "idioma": "en"}]
     fake_db.tables["ubicacion"] = [{"chofer_id": "c1", "lat": MADRID[0], "lon": MADRID[1], "created_at": "2026-01-01T10:00:00Z"}]
@@ -1017,37 +1045,77 @@ def test_debe_avisar_pausa_ya_avisado_no_repite():
     assert bot.debe_avisar_pausa(6.0, True) is False
 
 
-def test_horas_conduccion_estimadas_viaje_suma_distancias_entre_pings(fake_db):
+@pytest.mark.asyncio
+async def test_horas_conduccion_estimadas_viaje_suma_distancias_entre_pings(fake_db):
     fake_db.tables["ubicacion"] = [
         {"chofer_id": "c1", "lat": 40.0, "lon": -3.0, "created_at": "2026-01-01T10:00:00Z"},
         {"chofer_id": "c1", "lat": 40.5, "lon": -3.0, "created_at": "2026-01-01T10:30:00Z"},
     ]
-    horas = bot.horas_conduccion_estimadas_viaje("c1", "2026-01-01T09:00:00Z", 75)
-    # ~55.6 km entre esos dos puntos / 75 km/h
+    horas = await bot.horas_conduccion_estimadas_viaje("c1", "2026-01-01T09:00:00Z", 75)
+    # ~55.6 km entre esos dos puntos / 75 km/h -- 30 min de hueco entre pings,
+    # por debajo de UMBRAL_HUECO_COBERTURA_S (45 min): sigue siendo Haversine.
     assert 0.7 < horas < 0.8
 
 
-def test_horas_conduccion_estimadas_viaje_ignora_pings_de_otro_chofer(fake_db):
+@pytest.mark.asyncio
+async def test_km_desde_pings_usa_osrm_si_hay_hueco_de_cobertura(fake_db, monkeypatch):
+    """ROADMAP 20.7: un hueco > UMBRAL_HUECO_COBERTURA_S entre dos pings debe
+    ir por OSRM (carretera real), no por Haversine punto-a-punto directo."""
+    fake_db.tables["ubicacion"] = [
+        {"chofer_id": "c1", "lat": 40.0, "lon": -3.0, "created_at": "2026-01-01T10:00:00Z"},
+        {"chofer_id": "c1", "lat": 40.5, "lon": -3.0, "created_at": "2026-01-01T12:00:00Z"},  # 2h de hueco
+    ]
+    llamada = {}
+
+    async def fake_osrm(lat1, lon1, lat2, lon2):
+        llamada["usada"] = True
+        return 999.0
+
+    monkeypatch.setattr(bot, "distancia_por_carretera", fake_osrm)
+    km = await bot.km_desde_pings("c1", "2026-01-01T09:00:00Z")
+    assert llamada.get("usada") is True
+    assert km == 999.0
+
+
+@pytest.mark.asyncio
+async def test_km_desde_pings_sin_hueco_no_llama_osrm(fake_db, monkeypatch):
+    fake_db.tables["ubicacion"] = [
+        {"chofer_id": "c1", "lat": 40.0, "lon": -3.0, "created_at": "2026-01-01T10:00:00Z"},
+        {"chofer_id": "c1", "lat": 40.5, "lon": -3.0, "created_at": "2026-01-01T10:30:00Z"},  # 30 min, sin hueco
+    ]
+
+    async def fake_osrm(*_args):
+        raise AssertionError("no debería llamarse a OSRM sin hueco de cobertura")
+
+    monkeypatch.setattr(bot, "distancia_por_carretera", fake_osrm)
+    km = await bot.km_desde_pings("c1", "2026-01-01T09:00:00Z")
+    assert 50 < km < 60
+
+
+@pytest.mark.asyncio
+async def test_horas_conduccion_estimadas_viaje_ignora_pings_de_otro_chofer(fake_db):
     fake_db.tables["ubicacion"] = [
         {"chofer_id": "otro", "lat": 40.0, "lon": -3.0, "created_at": "2026-01-01T10:00:00Z"},
     ]
-    horas = bot.horas_conduccion_estimadas_viaje("c1", "2026-01-01T09:00:00Z", 75)
+    horas = await bot.horas_conduccion_estimadas_viaje("c1", "2026-01-01T09:00:00Z", 75)
     assert horas == 0.0
 
 
 # --- resumen_ruta_completada (F14.5) ---
 
-def test_resumen_ruta_completada_sin_desde_iso_no_finge_datos(fake_db):
-    r = bot.resumen_ruta_completada("c1", None, 75, paradas=3)
+@pytest.mark.asyncio
+async def test_resumen_ruta_completada_sin_desde_iso_no_finge_datos(fake_db):
+    r = await bot.resumen_ruta_completada("c1", None, 75, paradas=3)
     assert r == {"km": None, "horas": None, "paradas": 3}
 
 
-def test_resumen_ruta_completada_estima_km_y_horas_desde_los_pings(fake_db):
+@pytest.mark.asyncio
+async def test_resumen_ruta_completada_estima_km_y_horas_desde_los_pings(fake_db):
     fake_db.tables["ubicacion"] = [
         {"chofer_id": "c1", "lat": 40.0, "lon": -3.0, "created_at": "2026-01-01T10:00:00Z"},
         {"chofer_id": "c1", "lat": 40.5, "lon": -3.0, "created_at": "2026-01-01T10:30:00Z"},
     ]
-    r = bot.resumen_ruta_completada("c1", "2026-01-01T09:00:00Z", 75, paradas=2)
+    r = await bot.resumen_ruta_completada("c1", "2026-01-01T09:00:00Z", 75, paradas=2)
     assert r["paradas"] == 2
     assert 50 < r["km"] < 60  # ~55.6 km entre esos dos puntos
     assert 0.7 <= r["horas"] < 0.8
