@@ -287,6 +287,88 @@ async def test_e2e_flujo_completo_start_hito_llegada_pod_completar(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_e2e_anotacion_entrega_tras_pod(monkeypatch):
+    """Fase 23, 23.A.2: tras subir el POD, el bot pregunta por el estado de la
+    mercancía; pulsar 'Llega mojada' registra un ejecucion_evento con el
+    motivo, en el momento -- no días después cuando ya no se puede probar
+    nada (DISCOVERY.md insight 14)."""
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": None,
+    }]
+    fake_db.tables["viaje"] = [{
+        "id": "v1", "chofer_id": CHOFER_ID, "empresa_id": "e1", "estado": "en_curso", "referencia": "VJ-1",
+    }]
+    fake_db.tables["hito"] = [
+        {
+            "id": "h2", "viaje_id": "v1", "orden": 1, "tipo": "entrega", "direccion": "Destino",
+            "estado": "en_curso",
+            "viaje": {"id": "v1", "chofer_id": CHOFER_ID, "estado": "en_curso", "referencia": "VJ-1"},
+        },
+    ]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": None}]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(command_update(app, f"/start {CHOFER_ID}"))
+
+        # Envía la foto del POD -> además del "pod_ok", debe llegar la
+        # pregunta de anotación con el hito h2 en el callback_data.
+        await app.process_update(photo_update(app))
+        assert fake_db.tables["hito"][0]["estado"] == "completado"
+        assert any("¿Todo bien con la mercancía" in s.get("text", "") for s in api.sent)
+        msg_anotacion = ultimo_mensaje_bot(app, api)
+
+        # Pulsa "Llega mojada" -> debe registrar el evento con el motivo.
+        await app.process_update(callback_update(app, "anot:mercancia_mojada:h2", msg_anotacion))
+
+        eventos_anotacion = [e for e in fake_db.tables["ejecucion_evento"] if e.get("tipo") == "anotacion_entrega"]
+        assert len(eventos_anotacion) == 1
+        assert eventos_anotacion[0]["hito_id"] == "h2"
+        assert eventos_anotacion[0]["detalle"] == "mercancia_mojada"
+        assert eventos_anotacion[0]["chofer_id"] == CHOFER_ID
+        assert any("Anotado" in e.get("text", "") for e in api.edited)
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_e2e_anotacion_entrega_todo_bien_no_genera_evento(monkeypatch):
+    """'Todo bien' es la ausencia de un dato, no un dato -- no debe crear
+    ningún ejecucion_evento (ruido = la próxima anotación real se ignora)."""
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": None,
+    }]
+    fake_db.tables["viaje"] = [{
+        "id": "v1", "chofer_id": CHOFER_ID, "empresa_id": "e1", "estado": "en_curso", "referencia": "VJ-1",
+    }]
+    fake_db.tables["hito"] = [
+        {
+            "id": "h2", "viaje_id": "v1", "orden": 1, "tipo": "entrega", "direccion": "Destino",
+            "estado": "en_curso",
+            "viaje": {"id": "v1", "chofer_id": CHOFER_ID, "estado": "en_curso", "referencia": "VJ-1"},
+        },
+    ]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": None}]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(command_update(app, f"/start {CHOFER_ID}"))
+        await app.process_update(photo_update(app))
+        msg_anotacion = ultimo_mensaje_bot(app, api)
+
+        await app.process_update(callback_update(app, "anot:bien:h2", msg_anotacion))
+
+        assert not [e for e in fake_db.tables.get("ejecucion_evento", []) if e.get("tipo") == "anotacion_entrega"]
+        assert any("Anotado" in e.get("text", "") for e in api.edited)
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_e2e_entrega_sin_pod_cuando_empresa_no_lo_requiere(monkeypatch):
     """Mismo flujo que arriba hasta el hito de ENTREGA, pero con
     `empresa.requiere_pod = False`: la entrega se completa SOLA al confirmar

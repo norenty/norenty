@@ -3595,6 +3595,15 @@ no se pierdan en el chat.
   "despliegue a producción": el usuario mismo lo marcó como acción que requiere su presencia
   y decisión explícita, no autonomía del loop. **Prioridad técnica #1 antes de prometer
   precisión de km a cualquier cliente real.**
+  - Añadido 2026-07-27, visto en demo: el mismo hueco afecta también al **mapa visual**, no
+    solo a los km calculados. `MapView.jsx` dibuja la `Polyline` de ruta uniendo los `lat/lon`
+    de los hitos en línea recta — nunca pide geometría a OSRM. Y `dashboard/lib/osrm.js` solo
+    expone `distanciaPorCarretera()` con `overview=false` (solo número de km, sin trazado). Para
+    que el mapa muestre la carretera real hace falta, además del despliegue del contenedor:
+    (1) una función nueva tipo `rutaPorCarretera()` pidiendo `overview=full&geometries=geojson`,
+    y (2) que `MapView.jsx` dibuje esa geometría en vez de los puntos de hitos directamente.
+    Mientras 20.3 no esté hecho, no mostrar la polyline como si fuera la ruta real en ninguna
+    demo a un cliente — es engañosa para alguien del sector.
 - [x] `[LOOP]` **20.4 Parkings a nivel Europa + distinción vigilado/normal** — HECHO 2026-07-26.
   Decisión de fuente de datos: no existe registro SSPA/SSTPA abierto y gratuito (requiere cuenta
   ECAS/DATEX II, sigue sin acceso). El dataset abierto (Fraunhofer/Zenodo) YA soportaba Europa
@@ -3755,6 +3764,685 @@ diseñado (token impredecible, whitelist de campos, expiración real); sin secre
   en el audit están VENDORIZADOS dentro del propio `next` (no controlables desde nuestro
   `package.json`) — bajo riesgo práctico (build-time, no alcanzable por input de atacante en
   runtime normal).
+
+---
+
+## Fase 24 — North Star: "el Bloomberg de la logística" (2026-07-28, BACKLOG, NO EMPEZAR)
+
+Confirmado con el usuario 2026-07-28 (ver `ESTRATEGIA.md` §0.5 para el razonamiento completo):
+la ambición final del proyecto es ser el líder absoluto de la industria — un algoritmo total que
+reciba todos los inputs (rutas, dónde vive el chófer, cumplimiento de schedule, incidentes de
+tráfico en tiempo real) y decida solo, con GPS real de tractora + remolque + persona.
+
+**Esta fase existe para que la ambición no se pierda, NO para empezarla ahora.** Gate explícito,
+igual de duro que el GATE MAESTRO: **ningún ítem de aquí se toca sin haber cerrado antes el
+criterio de éxito de la Fase 23 con al menos un cliente real** (`ESTRATEGIA.md` §6.5). El loop
+autónomo no promueve nada de esta fase por iniciativa propia.
+
+- [ ] `[DECISIÓN]` **24.1 Motor de replanificación por incidente** (tráfico cortado, incendios,
+  obras) — requiere datos de tráfico *truck-aware* de terceros (HERE, ver `DISCOVERY.md` sección
+  regulatoria/routing — "para lo difícil recurrir a terceros, no reimplementar"). No construir
+  motor propio: eso sería competir con HERE de frente, la misma trampa que competir con Qargo.
+- [ ] `[DECISIÓN]` **24.2 GPS real de tractora y remolque** (no derivado, telemetría física) —
+  mismo ítem que ROADMAP 23.0.3, aplazado hasta que exista un cliente cuya flota ya tenga
+  telemetría propia que integrar (es integración comercial por cliente, no feature interna).
+- [ ] `[DECISIÓN]` **24.3 "Dónde vive el chófer" como restricción dura de asignación automática**
+  — la semilla ya existe como observación (`DISCOVERY.md` insight 21: el planificador ya evita
+  mandar a alguien lejos de casa un jueves); convertirla en restricción de un asignador
+  automático requiere el asignador automático en sí, vetado hasta la Fase 23.E tenga uso real.
+- [ ] `[DECISIÓN]` **24.4 Algoritmo de asignación/optimización automática** (el "solo lo haga
+  todo") — sustituye al planificador humano de 23.E. Ver la tabla "Lo que NO se construye en esta
+  fase" de la Fase 23: es el ítem vetado con más insistencia en todo este documento, y sigue
+  vetado aquí. Solo se aborda con datos reales de varios meses de operación de al menos un
+  cliente, y como decisión explícita, nunca como consecuencia de "ya que estamos".
+
+**Métrica para pasar de Fase 23 a Fase 24, sin ambigüedad:** las mismas 4 condiciones del
+"Criterio de cierre de la Fase 23" (más abajo) cumplidas, más al menos un Founding Partner con
+3+ meses de datos reales de ejecución. Antes de eso, esta fase es un documento, no una cola de
+trabajo.
+
+---
+
+## Fase 23 — Los cuatro fallos de Cometweb (2026-07-27) 🔴 FASE PRINCIPAL ABIERTA
+
+**Origen:** sesión de ~60 min con un gestor de tráfico real recorriendo **Cometweb**, su TMS
+diario en Carreras, pantalla por pantalla (transcrita con Whisper local). Discovery completo en
+`DISCOVERY.md`, insights 9-21. **Todo lo de esta fase sale de dolores que él nombró sin que se
+le preguntara**, no de ideas nuestras.
+
+### Encuadre de CTO — leer antes de tocar nada
+
+**Qué NO es esta fase.** Cometweb es funcionalmente MUY completo (planificación, bolsa de viajes,
+órdenes de carga, RRHH, documentación, KPIs). La tentación después de verlo es clonarlo. Sería el
+error de `ESTRATEGIA.md` §4.3 (*"el producto se ha convertido en el TMS que decía no ser"*) a
+escala industrial, y nos pondría a competir de frente con Qargo y sus €46M. **Esta fase construye
+exactamente cuatro cosas: los cuatro puntos donde un usuario real de Cometweb dijo que su
+herramienta le falla y le cuesta dinero.** Nada más entra aquí sin una cita de un cliente.
+
+**El cambio de paradigma (revisión del 2026-07-27, tras repasar los audios con el usuario).** La
+primera versión de esta fase trataba el modelo de datos como un bloque más. **Es un error: es EL
+bloque.** Nuestro esquema asume hoy que un viaje es *una fila con un chófer, una tractora y un
+remolque fijos de principio a fin*. La operación real no funciona así:
+
+> "**El viaje que hace el remolque y el viaje que hace el camión no siempre es el mismo.**" ·
+> "Alguien lo ha cargado en Zaragoza, lo ha bajado a Madrid y lo ha soltado porque se ha ido con
+> otra cosa." · "Hay más remolques que tractoras."
+
+Hay **cuatro líneas de tiempo independientes que se cruzan**, no una: la del **chófer** (su
+jornada, sus horas 561, su casa, su nómina), la de la **tractora** (sus km, su mantenimiento), la
+de **cada remolque** (dónde está, si va cargado, quién lo dejó ahí) y la de la **carga/viaje
+comercial** (recoger en A, entregar en B, por X euros). Modelarlas como una sola fila es
+exactamente el error que hace que Cometweb "se haga mierda" — y hoy lo tenemos igual.
+
+**Y la consecuencia que lo vuelve urgente, no académico:** cruzar chófer ↔ tractora ↔ remolque(s)
+es lo que permite **saber dónde está cada remolque sin telemetría de remolque**. Si sé quién va
+acoplado a qué y desde cuándo, la posición del chófer *es* la de su tractora y la de todos sus
+remolques; y un remolque soltado se queda congelado donde lo dejaron. Eso no es un extra: es la
+única forma de que el resto de la fase diga la verdad. Por eso **23.C pasa a ejecutarse primero**.
+
+**Por qué estos bloques y no otros.** Cada uno cumple tres condiciones a la vez: (1) el gestor lo
+nombró como dolor concreto y recurrente, (2) le cuesta horas o euros medibles, (3) es
+estructuralmente difícil de copiar rápido para el incumbente — o porque exige un modelo de datos
+distinto, o porque exige un listón de fiabilidad que ellos ya han quemado.
+
+⚠️ **Las letras son identificadores, NO orden de ejecución.** El orden real está en el análisis de
+dependencias, más abajo.
+
+| Bloque | Dolor real (cita) | Coste que elimina | Defendibilidad |
+|---|---|---|---|
+| **23.C Unidad de transporte + ubicación cruzada** | "El ordenador se hace mierda [con los remolques]" | Km falsos, estados mentira, no saber dónde está un remolque | **Máxima — es un invariante de esquema, no se parchea** |
+| **23.A POD que se cobra** | "No se lee ninguna letra de la que me ha pasado" | Viajes no cobrados, descuentos indiscutibles a fin de mes | Media — barato de copiar, pero nadie lo hace |
+| **23.E Roles reales: comercial → planificador → gestor** | "Eso es el planificador. Yo no reparto los viajes" | Un modelo de permisos que no encaja con quién hace qué | Media — pero sin esto no se puede vender a una flota mediana |
+| **23.B Nómina completa** | "Todo eso lo tienes que meter tú a mano. Todo a mano" | Días/mes de trabajo manual, errores en la paga | Alta — local, sucio, poco sexy (§3.2) |
+| **23.D Adherencia al plan (ni tarde ni parado)** | "Que el ordenador me diga: este camión va tarde sí o sí" | El barrido manual de la mañana + horas de camión parado | Alta — ellos ya lo intentaron y lo quemaron |
+
+**GATE de la fase (no negociable, `ESTRATEGIA.md` §4.1).** Esta fase se abre con **cero clientes
+reales**, que sigue siendo el riesgo #1 del proyecto. Se abre igualmente porque los cuatro
+bloques salen de observación de campo, no de imaginación — pero con dos frenos:
+- **Freno 1:** ningún bloque posterior a 23.A se empieza sin que se haya intentado, con fecha,
+  la llamada del plan de 30 días (`ESTRATEGIA.md` §6.4 semana 1). Construir es la actividad
+  cómoda; llamar es la que mueve el proyecto.
+- **Freno 2:** la métrica de la fase NO es "ítems cerrados". Es **viajes reales completados por
+  chóferes reales**. Hoy: 0.
+
+**Forma del piloto al que sirve esta fase** (`ESTRATEGIA.md` §6.5, propuesta por el propio
+gestor): *1 mes · ~10 chóferes · en paralelo con Cometweb · sin apagar nada · entrando por lo que
+hoy es un Excel a mano*. Los bloques 23.A y 23.B **son** ese Excel a mano. Por eso van primero,
+aunque 23.C sea arquitectónicamente más profundo.
+
+### Análisis de dependencias y ORDEN DE EJECUCIÓN
+
+**Orden: 23.C → 23.A → 23.E → 23.B → 23.D.**
+
+```
+[DECISIÓN 20.3: OSRM en producción]  ──┬──> 23.B (km reales de nómina)
+                                       └──> 23.D (ETA real de la adherencia)
+
+23.C (modelo + ubicación cruzada)  ── sin dependencias ──> PRIMERO, es el cimiento
+   ├──> 23.A   (el POD necesita saber de QUÉ remolque sale la carga)
+   ├──> 23.E   (el planificador asigna unidades, no filas de viaje)
+   └──> 23.D   (sin saber dónde está cada unidad no hay adherencia fiable)
+23.A (POD)      ── solo depende de 23.C
+23.E (roles)    ── depende de 23.C; independiente de 23.A/23.B
+23.B (nómina)   ── depende de 20.3 para el km; independiente del resto
+23.D (adherencia) ── depende de 20.3 (duro) Y de 23.C (duro)
+```
+
+**Corrección explícita respecto a la primera versión de esta fase.** Antes se argumentó que 23.C
+podía ir tercero sin causar retrabajo, porque el POD trabaja a nivel de `hito` y la nómina calcula
+por chófer. **Ese análisis era técnicamente cierto pero estratégicamente equivocado**, y se
+corrige aquí:
+
+- `hito.remolque_id` cambia el significado de un hito (de "parada del viaje" a "operación de carga
+  sobre un remolque concreto"). Construir el POD y sus anotaciones sobre el significado viejo
+  obliga a revisarlos después, uno a uno, para decidir a qué remolque pertenecía cada uno.
+- La **posición derivada** (23.C.2) es un servicio del que dependen la adherencia, la vista de
+  remolques sueltos y la validación de secuencia. Construirlos antes significa construirlos contra
+  una posición que solo conoce al chófer.
+- Y el argumento decisivo: un error de modelado se paga con interés compuesto. Cuanto más código
+  se apoye en `viaje.remolque_id`, más caro es el cambio. Hoy el coste es bajo — hay que pagarlo hoy.
+
+**Lo que sigue siendo cierto:** la nómina (23.B) calcula por chófer y por día, y los km de nómina
+siguen a la **tractora** (donde va la persona), no al remolque. Es el único bloque genuinamente
+independiente del modelo, y por eso puede adelantarse si 23.C se atasca.
+
+### 23.0 — Decisiones y bloqueos previos
+
+- [ ] `[DECISIÓN] 🔴 23.0.1 Desplegar OSRM en producción` — **es el ítem 20.3, promovido aquí a
+  bloqueante de fase.** Deja de ser "precisión deseable" y pasa a ser cimiento: sin él, 23.B
+  paga nóminas con Haversine×1,3 y 23.D da ETAs falsos, que es exactamente el fallo por el que
+  el gestor dejó de mirar el semáforo de Cometweb. Detalle técnico completo en el ítem 20.3
+  (incluye el hueco del trazado del mapa). **Requiere presencia del usuario (STOP duro).**
+- [ ] `[DECISIÓN] 23.0.2 Validez probatoria de WhatsApp vs canal propio` — `DISCOVERY.md` insight
+  17: en Marcotran obligaban a usar el sistema porque "WhatsApp no era válido a nivel de ley", y
+  él cree que "ahora ya debe serlo". **Es una impresión, no un dato.** No usarlo como argumento
+  comercial hasta confirmarlo con fuente legal. No bloquea código.
+- [ ] `[DECISIÓN] 23.0.3 Telemetría independiente de remolque (SOLO la verificación cruzada)` —
+  ⚠️ **Corregido el 2026-07-27: la primera versión de este ítem aplazaba demasiado y estaba mal
+  encuadrada.** El aplazamiento se reduce a su mínimo real.
+
+  - **Lo que SÍ se construye ya, en 23.C.2, y es el núcleo de la fase:** cruzar chófer ↔ tractora
+    ↔ remolque(s) para saber dónde está cada unidad. **No necesita telemetría de remolque.** Si el
+    sistema sabe quién va acoplado a qué y desde cuándo (`acoplamiento`), la posición del chófer
+    *es* la de su tractora y la de todos sus remolques acoplados; y un remolque soltado queda
+    congelado en el punto donde se soltó. Sale gratis del modelo bien hecho.
+  - **Lo que SÍ se puede detectar ya, sin telemetría** (versión parcial de lo que él pidió): las
+    **contradicciones**. Si el remolque R consta acoplado al chófer A pero llega un POD de un hito
+    de R desde el Telegram del chófer B, el acoplamiento está mal registrado. Se detecta y se
+    avisa. Va en 23.C.4.
+  - **Lo único que se aplaza, y con motivo:** detectar que un remolque se movió cuando **nadie
+    dijo nada al sistema**. Sin una segunda fuente física no hay forma de saberlo, y esa fuente es
+    el proveedor de telemática que ya tenga cada flota (uno distinto por cliente). Es una
+    integración comercial, no una feature interna, y no se decide sin un cliente concreto delante.
+
+  **Consecuencia práctica:** esto deja de bloquear nada. El modelo de 23.C se diseña para que, el
+  día que exista una fuente física, entre como una `fuente` más de posición sin rehacer nada.
+
+### Bloque 23.A — El POD que sí se cobra (2.º en el orden; requiere 23.C)
+
+> "Hay muchos [fallos] en la foto del albarán… no se lee ninguna letra de la que me ha pasado.
+> Tengo que volver a pedirle al chófer que me la pase." · "Si el cliente ha recibido la mercancía
+> y no te toca los huevos aunque hayas perdido el papel, te vale el viaje. **Pero está en su
+> derecho de decirte que no.**"
+
+Racional: es el bloque más barato y ataca la raíz del problema de la cadena de
+evidencia — que no es la criptografía (esa ya está bien), es **la calidad del dato de entrada**.
+Va después de 23.C porque una entrega no es "una parada del viaje": es **una descarga de un
+remolque concreto**, y el POD tiene que colgar de ahí desde el primer día (ver dependencias).
+Una foto ilegible rompe la cadena entera y no nos enteramos hasta días después, con el chófer a
+500 km. Todo lo de aquí se valida **en el muelle, mientras el chófer sigue allí**.
+
+- [x] `[LOOP]` **23.A.1 Validación de calidad de foto en el bot, en el momento** — HECHO
+  2026-07-28. `_foto_pod_valida()` extendida (no se creó otra función) en `backend/app/bot.py`:
+  ahora devuelve `(valida, motivo)` en vez de solo bool. Comprueba, con Pillow (nueva dependencia
+  ligera en `requirements.txt`, sin API de pago ni LLM): **nitidez** (varianza de
+  `ImageFilter.FIND_EDGES`), **luminosidad** (demasiado oscura o quemada por flash/sol), y
+  **resolución mínima**. Motivo específico devuelto al chófer en su idioma (`foto_borrosa`,
+  `foto_oscura`, `foto_quemada`, `foto_pequena`, añadidas a los 8 idiomas de `TEXTOS` — hay un
+  test que exige paridad de claves entre idiomas y lo detectó al primer intento). Cableada en los
+  dos sitios que ya llamaban a la función (`handle_photo` y `_subir_foto_incidencia`).
+  **Regla de diseño respetada de verdad, no solo enunciada:** si Pillow no puede abrir la imagen
+  (corrupta pero con magic bytes válidos), se **acepta** — ante la duda de si se puede analizar,
+  nunca se rechaza. Verificado con test explícito.
+  **Calibración real, no adivinada:** el umbral de nitidez inicial (8.0) fue insuficiente — el
+  test con una foto realmente borrosa (desenfoque gaussiano fuerte sobre un tablero de alto
+  contraste) medía nitidez ~10, por debajo del umbral pero el test seguía fallando porque 8.0
+  estaba mal puesto; recalibrado a 20.0 tras medir los valores reales (nítida ~54, borrosa ~10) —
+  documentado en el propio código para que se reajuste con fotos reales del primer piloto, no con
+  las sintéticas de test.
+  8 tests nuevos con **imágenes JPEG sintéticas reales generadas con Pillow** (nítida de alto
+  contraste, borrosa por desenfoque gaussiano, oscura, quemada, diminuta, formato inválido, y
+  datos corruptos con magic bytes válidos) — no mocks de la función, imágenes de verdad
+  procesadas por el código real. 273 tests backend en total, todos en verde.
+- [x] `[LOOP]` **23.A.2 Anotaciones estructuradas en la entrega** — HECHO 2026-07-28.
+  > "Anotaciones: mercancía llega mojada. Porque luego llega el fin de mes y te van a decir que
+  > este dinero te lo descontamos, y nadie va a saber nada, y lo vas a tener que pagar."
+
+  Tras subir el POD (o al saltarlo con "No la tengo ahora"), el bot pregunta con un teclado de un
+  toque: `mercancia_mojada`, `mercancia_danada`, `faltan_bultos`, `sello_ilegible`, o "Todo bien".
+  Se guarda **en `ejecucion_evento`** reutilizando la columna `detalle` que ya existía (migración
+  `0006`) — **sin tabla nueva**, ya entra en la cadena de evidencia. Notifica al gestor cuando hay
+  anotación real. "Todo bien" **no genera evento** (ausencia de dato, no un dato — evita ruido en
+  la cadena). Textos en los 8 idiomas del bot (hay un test que exige paridad de claves).
+  2 tests E2E nuevos en `backend/tests/test_bot_e2e.py`, recorriendo el camino real de
+  `CallbackQueryHandler` (no solo llamando la función a mano): uno confirma que "Llega mojada"
+  registra el evento con el motivo y el hito correctos, otro confirma que "Todo bien" no deja
+  rastro. 275 tests backend en total, todos en verde.
+  **Recorte de scope deliberado:** se dejó fuera la opción "otro + texto libre" del diseño
+  original — el flujo de texto libre del bot ya tiene varios estados pendientes en `chat_data`
+  (incidencia, contactar gestor) y añadir uno más sin una revisión conjunta de esa máquina de
+  estados es más riesgo que valor para esta iteración. Los 4 botones fijos cubren las citas
+  reales del discovery. Se retoma si un piloto real pide más categorías.
+  **Pendiente, no bloqueante:** exponer las anotaciones en el detalle del viaje del dashboard
+  (hoy solo viven en `ejecucion_evento`, consultable pero no mostrado en ninguna pantalla).
+- [x] `[LOOP]` **23.A.3 Buscador de albaranes por referencia/cliente/matrícula** — HECHO
+  2026-07-28.
+  > "Me he pegado media hora buscando papeles en el armario. Es imposible encontrar algo."
+  > (custodia real: 3 años albaranes, 10 años facturas)
+
+  `buscarAlbaranes()` en `dashboard/lib/data.js`: filtra sobre los POD ya almacenados por
+  referencia de viaje, cliente, matrícula, chófer y rango de fechas (todos opcionales,
+  combinables). Sin storage nuevo — vista sobre `pod` + su viaje. UI: sección "Buscar albaranes"
+  añadida a `dashboard/app/documentos/page.jsx` (no una pantalla nueva — es la misma familia
+  temática de "papeleo del viaje" que ya cubre esa página). 7 tests nuevos (474 dashboard en
+  total, todos en verde). **Verificado en navegador contra dev**: la búsqueda se ejecuta, no da
+  errores de consola, y devuelve "Sin resultados" honestamente — confirmado por consulta directa
+  que dev tiene 0 PODs reales hoy, no es un fallo silencioso.
+  **Pendiente, no bloqueante:** chófer como filtro visible en la UI (la función ya lo soporta,
+  `choferId`, pero el formulario de esta iteración solo expone referencia/cliente/matrícula —
+  añadir un selector de chófer cuando haya datos reales de un piloto para priorizar el diseño).
+
+### Bloque 23.B — La nómina completa (4.º; el único independiente del modelo)
+
+> "Todo eso lo tienes que meter tú a mano. **Todo a mano.**"
+
+Racional: `ESTRATEGIA.md` §3.2 ya identificó la nómina como el mejor caballo de Troya. Lo que
+esta sesión cambió es **el tamaño del hueco**: creíamos tenerlo al 80%, está al ~30%. La tabla
+completa está en `DISCOVERY.md` insight 12. Orden dentro del bloque: primero lo que es 100%
+derivable de datos que ya capturamos, después lo que necesita un flag humano.
+
+- [ ] `[LOOP]` **23.B.1 Dieta internacional (dentro/fuera de España) por GPS** — `model: sonnet`,
+  esfuerzo bajo, **spec cerrada abajo**.
+  > "Por el GPS se podía ver si ha estado el día entero fuera de España, o más del 80%, y le pagas
+  > el internacional."
+
+  Determinar, por chófer y día natural, la fracción del tiempo con posiciones fuera de España.
+  **Decisión técnica ya tomada — no improvisar:** point-in-polygon **en local** contra un GeoJSON
+  simplificado de España (peninsular + Baleares + Canarias + Ceuta/Melilla), versionado en el
+  repo. **Nada de llamar a Nominatim**: son miles de puntos al mes, la instancia pública tiene
+  límite de uso, y una nómina no puede depender de que un servicio externo esté vivo. Umbral por
+  defecto configurable (arranca en 80% del tiempo del día fuera → día internacional), documentado
+  junto a `UMBRAL_NOCHE_FUERA_KM` y con el mismo criterio: valor razonable inicial, **no pactado
+  con cliente real**. Verificación: tests con puntos conocidos (Madrid dentro, Lisboa fuera,
+  Perpiñán fuera, Las Palmas dentro, un punto en el mar fuera).
+- [ ] `[LOOP]` **23.B.2 Fin de semana: medio día / día entero con la regla de las 4,5 h** —
+  `model: sonnet`, esfuerzo bajo.
+  > "Si han trabajado el fin de semana: solo medio sábado, sábado entero, solo medio domingo o
+  > domingo entero. No por horas." · "**Si ha estado más de 4 horas y media trabajando, le pagas
+  > el día entero.** Incluyendo el descanso, se suele incluir."
+
+  Derivar de los timestamps de `ejecucion_evento` las horas trabajadas en sábado y domingo, y
+  aplicar la regla de fracción (>4,5 h → día completo; >0 y ≤4,5 h → medio día; 0 → nada). Ojo al
+  detalle que dio: **el descanso cuenta dentro de la jornada**, no se resta. Verificación: tests
+  de los tres tramos y del borde exacto en 4,5 h.
+- [ ] `[LOOP]` **23.B.3 Palets entregados y devueltos + informe de pendientes** — `model: sonnet`,
+  esfuerzo bajo.
+  > "¿Cuántos euros dijo mi jefe? En palets que habían desaparecido. **Miles y miles de euros.**"
+
+  Dos contadores por hito (`palets_entregados`, `palets_devueltos`) que el chófer ya maneja
+  físicamente, más un informe de **palets pendientes de recuperar por cliente**. Es la línea de
+  ahorro más fácil de enseñar en euros delante de un dueño, y hoy no la mide nadie bien.
+  Verificación: test del cálculo de saldo por cliente y del caso "cliente que nunca devuelve".
+- [ ] `[LOOP]` **23.B.4 Extras con marca manual: ADR, carga/descarga por el chófer, retén** —
+  `model: sonnet`, esfuerzo bajo. Los tres necesitan un dato que ningún sensor da:
+  - **ADR** (mercancía peligrosa): flag por viaje. "No lo lleva todo el mundo: tienes que tener un
+    curso, renovarlo, y poner unas chapas en el camión."
+  - **Carga/descarga por el chófer**: flag por hito ("si carga o descarga él").
+  - **Retén**: "dejar a un tío parado para hacer un viaje concreto al día siguiente" — p. ej.
+    pararlo el día antes a las 16:00 para que salga a las 5:00 con disco limpio. **Es la única
+    entidad nueva del bloque** (no es un viaje ni un hito: es un día de un chófer). Tabla mínima
+    `reten (empresa_id, chofer_id, fecha, motivo, viaje_siguiente_id)`.
+
+  Los tres entran en `getInformeNomina` como conceptos separados. Verificación: test de que cada
+  concepto aparece en el informe y que su ausencia no rompe el cálculo del resto.
+- [ ] `[LOOP]` **23.B.5 Exportación del informe de nómina** — `model: sonnet`, esfuerzo bajo.
+  > "Si ya usan SAP o un programa de contabilidad… al final le exportas todo y ya está."
+
+  Sin export, **el piloto en paralelo de `ESTRATEGIA.md` §6.5 no es viable** — es requisito de
+  entrada, no un extra. Formato tabular por chófer y concepto. **Cuidado con el hallazgo de la
+  Fase 19** (truncamiento silencioso a 1000 filas): este export tiene que traer *todo* o fallar
+  ruidosamente, nunca traer 1000 filas y callarse. Verificación explícita con más de 1000 filas.
+
+### Bloque 23.C — Unidad de transporte + ubicación cruzada 🔴 EL CIMIENTO (1.º en el orden)
+
+> "El tema de cambios hace mucha mierda al ordenador. **El programa no está preparado.**" ·
+> "No entiende que la mercancía va en uno o en otro." · "**El viaje que hace el remolque y el
+> viaje que hace el camión no siempre es el mismo.**"
+
+Racional, y es el punto más importante de toda la fase: **nuestro esquema tiene hoy el mismo error
+que él acaba de describir como roto.** `viaje.vehiculo_id` + `viaje.remolque_id` = un solo
+remolque, fijo durante todo el viaje. No es una feature que falte, es un **error de modelado del
+dominio** heredado del competidor sin saberlo. Cuatro escenarios reales que lo rompen: duo con
+Dolly, desacoplo parcial en ruta, remolque cargado dejado suelto, y cambio no registrado ("te
+pasas un mes con el remolque equivocado").
+
+**El modelo mental correcto — cuatro líneas de tiempo, no una fila.**
+
+| Entidad | Su línea de tiempo propia | Qué cuelga de ella |
+|---|---|---|
+| **Chófer** | Su jornada, sus horas 561, cuándo vuelve a casa | Nómina, dietas, descansos, **la posición GPS que hoy capturamos** |
+| **Tractora** | Sus km, su combustible, su mantenimiento, su ITV | Coste por km, taller |
+| **Remolque** (1..2 + Dolly) | Dónde está, si va cargado, quién lo dejó ahí y cuándo | **La mercancía va aquí dentro**, no "en el viaje" |
+| **Viaje comercial** | Recoger en A, entregar en B, por X €, para el cliente C | Precio, criticidad, ventanas, requisitos (ADR, temperatura) |
+
+Las cuatro se cruzan y se separan continuamente. Un remolque puede pasar por tres tractoras y dos
+chóferes en un mismo viaje comercial; y una misma tractora puede tocar tres viajes comerciales
+distintos en un día. **La pieza que las une no es un campo, es un intervalo de tiempo**: quién
+estuvo acoplado a qué, desde cuándo y hasta cuándo. Ése es el objeto que falta (`acoplamiento`).
+
+**Y aquí está el desbloqueo que justifica ponerlo primero** (corrección del 2026-07-27): con ese
+objeto, **la ubicación de cada unidad sale gratis, sin telemetría de remolque**. Hoy `ubicacion`
+cuelga de `chofer_id` — es el único GPS que tenemos, el del Telegram del chófer. Pero si sé que a
+las 14:30 el chófer A iba acoplado a la tractora T y a los remolques R1 y R2, entonces la posición
+de A a las 14:30 **es** la de T, R1 y R2. Y si R1 se soltó en Madrid a las 16:00, R1 está en
+Madrid hasta que alguien declare que lo ha vuelto a enganchar. Un dato, cuatro entidades
+localizadas. Sin esto, ni la adherencia (23.D) ni los remolques sueltos ni la validación de
+secuencia pueden decir la verdad.
+
+**La tesis de defendibilidad:** esto no se parchea con una pantalla nueva. Se arregla en el
+esquema, y una vez arreglado, los estados imposibles **son imposibles a nivel de base de datos**,
+no "validados por la aplicación". Un incumbente con 400 clientes y datos históricos en el modelo
+malo no puede hacer esa migración a la ligera. Es el mismo tipo de ventaja que la cadena de
+evidencia: hay que diseñarlo desde el principio.
+
+- [x] `[LOOP]` **23.C.1 Esquema: `acoplamiento` como historia, no como campo** — HECHO
+  2026-07-27. Migración `0069_acoplamiento.sql` aplicada en dev (68→69, sin errores).
+  `SPECS-23.md` con el diseño cerrado. Los dos índices únicos parciales se **verificaron de
+  verdad** contra dev (no se asumió): insertar un mismo remolque acoplado a dos tractoras a la
+  vez produce `23505 duplicate key value violates unique constraint
+  idx_acoplamiento_remolque_vigente` — el estado que rompía Cometweb es irrepresentable en
+  Postgres, no solo "no debería pasar". `hito.remolque_id` añadido (nullable, sin backfill
+  obligatorio). Backfill de viajes existentes con `motivo='correccion'`/`registrado_por='sistema'`
+  para distinguirlo de lo registrado en vivo. Nada destructivo: `viaje.remolque_id` se conserva.
+  **Nota de diseño que sigue pendiente de implementar (no en esta migración):** `viaje.chofer_id`
+  debería dejar de ser "la verdad de ejecución" y pasar a ser solo "chófer asignado por el
+  planificador" (una intención); quién ejecutó cada hito de verdad se derivará del acoplamiento
+  vigente en ese instante — se hace en 23.C.2, no aquí.
+  **Pendiente:** aplicar en producción junto con el resto de migraciones pendientes (requiere luz
+  verde explícita, igual que siempre).
+- [x] `[LOOP]` **23.C.2 Posición derivada de cada unidad (chófer → tractora → remolques)** —
+  HECHO 2026-07-27. `getPosicionUnidades()` en `dashboard/lib/data.js`: deriva la posición de
+  tractora y remolques cruzando `ubicacion` (que sigue colgando solo del chófer) con el
+  `acoplamiento` vigente, con 4 niveles de procedencia (`directa|obsoleta|congelada|desconocida`)
+  y umbral `UMBRAL_POSICION_OBSOLETA_MIN` documentado junto al resto de umbrales del proyecto.
+  5 tests nuevos (355 dashboard en total, todos en verde) cubriendo el cruce completo, el remolque suelto
+  congelado, la obsolescencia, la ausencia de dato, y que no se infiere identidad por cercanía.
+  **Bug real cazado por el propio test, no por lectura de código:** la primera versión duplicaba
+  la tractora una vez por cada remolque acoplado (caso duo, 2 filas de `acoplamiento` con la misma
+  `tractora_id`) — corregido deduplicando por `tractora_id` antes de insertar en el resultado.
+  **Pendiente, no bloqueante:** todavía no cableado a ninguna pantalla (eso es 23.C.5 / 23.D); hoy
+  es un servicio de datos correcto y probado, sin consumidor visual aún.
+- [x] `[LOOP]` **23.C.3 Operaciones de patio en el bot: enganchar, soltar, cambiar** — HECHO
+  2026-07-27. `/remolque` en `backend/app/bot.py`: sin argumentos muestra los remolques acoplados
+  ahora mismo; `/remolque soltar MATRICULA` desengancha; `/remolque enganchar MATRICULA` engancha
+  a la tractora actual del chófer (posición 1, o 2 si ya lleva otro — duo). Si el remolque venía
+  de otro sitio, cierra ese acoplamiento antes de abrir el nuevo, para dar un mensaje claro al
+  chófer en vez de un error crudo de base de datos. 7 tests nuevos en `backend/tests/test_bot.py`
+  (265 backend en total, todos en verde), incluido el caso real completo de la lanzadera: dos
+  chóferes que se cruzan a mitad de camino e intercambian remolques, cada uno desde su propio
+  Telegram, sin confundirse.
+  **Hallazgo real de modelo, cazado por ese mismo test de la lanzadera:** la primera versión de
+  `_tractora_actual_de_chofer` "olvidaba" con qué tractora iba un chófer en cuanto soltaba un
+  remolque, porque derivaba la tractora del acoplamiento vigente del remolque — y al soltarlo, ese
+  acoplamiento se cierra. Corregido añadiendo un nivel intermedio: el último acoplamiento **con
+  tractora** del chófer, cerrado o no, antes de caer al viaje en curso. Confirma en código lo que
+  `DISCOVERY.md` insight 9 ya decía en la teoría: cambiar de remolque y cambiar de tractora son
+  dos hechos independientes que el esquema no debe confundir.
+  **Simplificación deliberada de scope, no bug:** "confirmar matrícula sugerida por defecto" (idea
+  original de la spec) se dejó para cuando exista una pantalla de patio en el dashboard con la
+  lista de remolques cercanos — desde Telegram puro, pedir la matrícula por texto es más simple y
+  suficientemente rápido, y evita construir un selector que hoy no tiene datos de "cercanía" en
+  los que apoyarse.
+  Añadido soporte de `.ilike()` al fake de tests (`backend/tests/fakes.py`), no existía.
+- [x] `[LOOP]` **23.C.4 Contradicciones de acoplamiento (la alerta que SÍ se puede hacer hoy)** —
+  HECHO 2026-07-27, con una **corrección de diseño respecto a lo escrito originalmente aquí**: la
+  idea de "reutilizar `alerta_integridad`" era incorrecta y no llegó a picarse. Al verificar la
+  tabla (migración `0045`), **no tiene `empresa_id` ni policies RLS para `authenticated`** — es
+  intencionalmente invisible al dashboard, solo la usa `monitor_integridad.py` (un cron interno).
+  Reutilizarla habría significado, en el mejor caso, que el gestor nunca vería la alerta, y en el
+  peor, una fuga de datos entre empresas al no estar aislada por RLS.
+
+  **Solución real:** `getContradiccionesAcoplamiento()` en `dashboard/lib/data.js`, función de
+  LECTURA (mismo patrón que `getIncidenciasAbiertasParaMapa`, ya aislada por `empresa_id` vía las
+  consultas normales de Supabase + RLS), sin tabla nueva. Detecta, de las cuatro incoherencias
+  previstas, las **dos** construibles sin ambigüedad con los datos de hoy:
+  - `chofer_no_coincide`: un hito activo (`en_curso`/`completado`) con `remolque_id` cuyo
+    acoplamiento vigente está a nombre de un chófer **distinto** del asignado al viaje — alguien
+    hizo el cambio de remolque sin declararlo por `/remolque`.
+  - `sin_acoplamiento_vigente`: un hito activo con `remolque_id` que **hoy no tiene ningún
+    acoplamiento vigente** — se está usando un remolque que, según el sistema, nadie tiene
+    enganchado.
+
+  Las otras dos previstas (distancia GPS tractora↔remolque; remolque suelto con un hito lejano) se
+  dejan **honestamente pendientes**: requieren telemetría de remolque (bloqueada en 23.0.3) o cruzar
+  posición geográfica con umbral de distancia, que se hará cuando 23.C.5 (vista de remolques
+  sueltos) esté construida y haya un consumidor real para esa comparación.
+
+  **No auto-corrige nunca**: es una lista para que el gestor decida, porque la corrección depende
+  de contexto que el sistema no tiene. 4 tests nuevos (una operación normal no genera alerta, cada
+  incoherencia se detecta, y un hito `pendiente` —aún no iniciado— nunca genera alerta aunque su
+  remolque no esté acoplado todavía, porque eso es normal antes de arrancar el viaje).
+- [x] `[LOOP]` **23.C.5 Vista "remolques sueltos"** — HECHO 2026-07-27 (parcial, ver abajo).
+  > "Ves todos los viajes y todos los remolques cargados… lo ha bajado a Madrid y lo ha soltado
+  > porque se ha ido con otra cosa. **Hay más remolques que tractoras.**"
+
+  Banner en `dashboard/app/vehiculos/page.jsx` (no una pantalla nueva — la página de vehículos ya
+  existía y es donde tiene sentido vivir esto): remolques con `getPosicionUnidades()` de tipo
+  `remolque` sin `tractoraId`, con su último punto conocido. **Verificado en navegador contra dev
+  con dato real, no solo con tests**: sembré un acoplamiento suelto de verdad en la base de dev
+  (`0069`) y confirmé que el banner "Remolques sueltos (1) — 7890EFG — Último punto conocido:
+  26/7/2026, 16:38:31" aparece exactamente como se diseñó, sin errores de consola; dato de prueba
+  limpiado después. 467 tests dashboard en verde (sin tests nuevos de UI — la lógica ya estaba
+  cubierta por los tests de `getPosicionUnidades`; esto solo la consume).
+  **Recorte de scope deliberado:** el checklist de enganche con foto (¿ruedas?, ¿cortes en la
+  lona?) se deja pendiente — depende de 23.A.1 (validación de calidad de foto en el bot), que
+  todavía no está construida. Añadirlo ahora habría significado un flujo de foto sin la
+  validación que lo hace fiable. Se retoma cuando 23.A.1 exista.
+
+### Bloque 23.D — Adherencia al plan: ni llegar tarde ni estar parado (5.º, el de más valor)
+
+> "Que tú vengas a las 8 de la mañana y el ordenador te diga: **este camión va tarde sí o sí.**
+> Eso tendría que ir como un tiro."
+
+Y por qué el de Cometweb está muerto:
+> "El mismo se supone que lo calcula, pero **no es muy fiable**." · "**Está todo rojo.**"
+
+**Corrección del 2026-07-27 — la señal es BIDIRECCIONAL, no un "llega tarde".** La primera versión
+de este bloque solo medía el retraso. El gestor fue explícito en que la desviación **hacia
+adelante también cuesta dinero**, y es incluso más frecuente:
+
+> "**El parado también es un problema.** O que te descarguen y no tengas nada para después." ·
+> "Una cagada es que digas 'tengo este camión vacío a las 10' y llegues a las 11. **Pero muchos
+> dicen 'no puedo estar vacío hasta las 13' y llegan vacíos a las 10: vas a tener un camión 3
+> horas parado como mínimo.**"
+
+Es decir: **el número que de verdad importa no es "llega tarde sí/no", es *cuándo y dónde queda
+libre esta tractora* (`disponible_desde`)** — porque es con ese dato con el que el planificador
+encaja el siguiente viaje. Un error hacia atrás rompe el compromiso con el cliente; un error hacia
+adelante deja un camión parado, que es capacidad vendida y no cobrada. Los dos son fallos, y hoy
+los dos se comen a mano.
+
+**Y conecta con el incentivo perverso ya documentado** (`DISCOVERY.md` insight 15): al gestor se
+le mide el "porcentaje de acierto en estimaciones", así que tiene motivo racional para **inflar**
+sus estimaciones y no fallar nunca por retraso. El resultado sistemático de ese sesgo son camiones
+parados. Medir la desviación en las dos direcciones no es solo una feature: **expone una fuga que
+hoy nadie ve porque el KPI actual la premia.** Eso es un argumento de venta al dueño, no al gestor.
+
+Racional de ingeniería y **la lección más importante de la sesión**: un semáforo que se equivoca
+no es una feature a medias, es peor que no tenerla. Se pone todo rojo, el gestor deja de mirarlo,
+y el módulo muere aunque luego se arregle. **La primera impresión de fiabilidad es
+irrecuperable.** Por eso va el último: cuando OSRM esté en producción (20.3) y la posición
+derivada de 23.C.2 sea de fiar. Es el ítem de más valor y el de más riesgo reputacional del
+proyecto entero.
+
+Sustituye el barrido manual que hoy es lo primero que hace cada mañana:
+> "Lo primero que hago es ver dónde están mis camiones. **Uno por uno, por GPS.**"
+
+- [ ] `[LOOP]` **23.D.1 ETA honesto: carretera real + paradas legales + servicio en muelle** —
+  `model: opus`, esfuerzo medio (**produce spec antes de picar**; toca varias piezas a la vez).
+  `ETA = ahora + conducción OSRM (carretera real, con waypoints) + paradas obligatorias 561/2006
+  según horas ya conducidas + tiempo de servicio en el hito`. Piezas que hoy faltan y salen del
+  discovery:
+  - **Tiempo de servicio en muelle ≈ 2 h de media**, variable por cliente, que hoy el gestor
+    estima a mano en cada viaje. Parametrizable por cliente con default documentado.
+  - **Waypoints**: la ruta real no es la óptima. Le meten paradas a propósito (por casa del
+    chófer, rodeando incendios) y "esos kilómetros los tienen que llevar los parámetros".
+  - **Horas ya conducidas** del chófer, para no prometer un ETA que exige saltarse la ley.
+
+  **Salida principal del ítem — `disponible_desde`:** además del ETA de cada hito, el cálculo debe
+  publicar **cuándo y dónde queda libre la tractora** (fin de la última descarga + tiempo de
+  servicio). Es el dato con el que trabaja el planificador (*"a qué hora va a estar vacío"*) y el
+  que hoy se estima a mano y se infla. Todo 23.E se apoya en este número.
+
+  Verificación: casos de test con rutas conocidas donde la parada obligatoria cambia el día de
+  llegada, que es justo donde un cálculo ingenuo falla. Y un test de `disponible_desde` en un
+  viaje con dos descargas, donde la segunda es la que manda.
+- [ ] `[LOOP]` **23.D.2 Estado bidireccional, con "no lo sé" explícito** — `model: sonnet`,
+  esfuerzo bajo. **Este ítem es una regla de producto antes que código.** **Cinco** estados, no
+  tres, y la novedad es el de la izquierda:
+
+  | Estado | Qué significa | Qué cuesta |
+  |---|---|---|
+  | **`adelantado`** | Llega bastante antes de su ventana | **Camión parado esperando** = capacidad vendida y no cobrada |
+  | `en_plan` | Dentro de la holgura razonable | Nada — es el objetivo |
+  | `ajustado` | Holgura corta, un imprevisto lo rompe | Riesgo, aún accionable |
+  | `retrasado` | No llega a la ventana ni forzando | Incumplimiento; grave si el cliente es crítico |
+  | **`desconocido`** | Sin dato fiable para decidir | Se dice, no se disimula |
+
+  Se entra en `desconocido` si la posición derivada (23.C.2) no es `directa`, si OSRM no responde,
+  o si falta la ventana horaria del hito.
+
+  **Prohibido el falso verde y prohibido el falso rojo.** Sin dato no se pinta tranquilidad ni
+  alarma: se dice "no lo sé" y por qué. Es exactamente el fallo que mató el semáforo de Cometweb —
+  ellos pintan rojo cuando no saben, y el gestor dejó de mirarlo. **Y `adelantado` no es "verde
+  con premio": es un aviso accionable** ("este camión queda libre 3 h antes de lo previsto, dale
+  algo o avisa al planificador"), que es justo el uso que él le daría:
+  > "Le digo al planificador: oye, este tío está 2 horas antes. Y ya el juego se va a mover."
+
+  Umbrales como constantes documentadas, junto al resto de umbrales del proyecto. Verificación:
+  test explícito de que OSRM caído produce `desconocido` y **nunca** `en_plan`; test de que llegar
+  3 h antes produce `adelantado` y no se confunde con ir bien.
+- [ ] `[LOOP]` **23.D.3 La barrita de holgura** — `model: sonnet`, esfuerzo bajo. Pedida literal:
+  > "Que salga una barrita que se fuera llenando, con un punto medio, y si se va por atrás muy
+  > rojo, y si va muy bien, verde."
+
+  Fíjate en que **la barra que él describe ya es bidireccional**: tiene un **punto medio** y se
+  desvía a un lado o al otro. Encaja exactamente con los cinco estados de 23.D.2 — centro =
+  `en_plan`, desviación a un lado = `retrasado`, al otro = `adelantado` (camión parado). No es
+  una barra de progreso, es **una barra de desviación respecto al plan**.
+
+  Componente de holgura por viaje, reutilizado en la lista de viajes y en el detalle. En estado
+  `desconocido` la barra **no se pinta a medias**: se muestra vacía con su motivo.
+- [ ] `[LOOP]` **23.D.4 Validación de secuencia de hitos (el bug de los 350 km en vacío)** —
+  `model: sonnet`, esfuerzo bajo. El fallo de Cometweb que le cuesta una auditoría manual mensual
+  de toda la flota:
+  > "Entiende que es antes la carga que la descarga [porque ordena por la primera hora de la
+  > ventana]… te va a poner **350 kilómetros en vacío**." · "Y todos los meses tenemos que
+  > meternos todos a mirar nuestros camiones uno por uno por si te pasó."
+
+  **Nuestro `hito.orden` ya es una secuencia explícita, no derivada de la hora — estructuralmente
+  ya estamos bien.** Lo que falta es el aviso: al guardar un viaje, comprobar que cada par
+  consecutivo es físicamente posible con el ETA de 23.D.1, y avisar si no lo es o si aparece un
+  tramo en vacío sospechosamente largo. **Avisar, no bloquear**: a veces el desvío raro es
+  correcto y el gestor sabe por qué. Verificación: test que reproduce su caso exacto (descarga a
+  las 11:30, carga siguiente con ventana de 8 a 18, 350 km de por medio).
+- [ ] `[LOOP]` **23.D.5 Notación de fecha relativa en los formularios** — `model: sonnet`,
+  esfuerzo bajo. Elogiada espontáneamente por él sobre Cometweb (lo único que elogió):
+  > "Si pones punto es hoy; si pones +1, +2, -1… te pone la fecha. **Eso está de puta madre, es
+  > mucho más cómodo.**"
+
+  Aceptar `.`, `+1`, `+2`, `-1`… en los campos de fecha del dashboard, resolviendo a fecha real al
+  vuelo. Es la mejora de UX más barata de toda la fase y toca el gesto que él repite decenas de
+  veces al día.
+
+### Bloque 23.E — Los tres roles reales: comercial → planificador → gestor (3.º)
+
+Añadido el 2026-07-27 a petición del usuario, tras repasar los audios. **Es un hueco de modelo que
+no habíamos visto**: tenemos `admin | gestor_operativo | solo_lectura`, y la operación real de una
+flota mediana tiene tres funciones distintas con datos, vistas e incentivos distintos.
+
+**La cadena, tal como la describe:**
+
+1. **Comercial** — consigue el viaje y fija el contrato: origen, destino, ventanas, **precio**,
+   requisitos (temperatura, tipo de plataforma, ADR, riesgo de robo, criticidad).
+   > "El comercial da el viaje y dice: vale, tengo que llevarlo a Alcañiz. Lo compra… tiene que
+   > recogerlo hasta tal hora y entregarlo hasta otra hora."
+2. **Planificador** — decide **quién** lo hace. Junta viaje + tractora + chófer.
+   > "Llega el planificador y te dice: vale, tengo este viaje, **lo hace esta persona**." · "Lo ha
+   > arrastrado a la tractora que lo va a hacer."
+3. **Gestor** — hace que sea **verdad**. Fija las horas exactas, manda la orden al chófer, vigila
+   y corrige.
+   > "Y te llega a ti y dices: vale, **¿a qué hora puede estar?**" · "**Mi trabajo es que mis 30
+   > tíos estén donde pone el ordenador. Que lo que hay aquí sea verdad.**"
+
+**Por qué esto importa para el producto y no es burocracia de permisos:** el planificador y el
+gestor **miran datos distintos y opuestos**. El gestor mira *sus* ~30 camiones en profundidad, hoy.
+El planificador mira *todos* los camiones de una delegación, mañana, en superficie — y necesita
+ver el **precio**, que es justo lo que hoy `gestor_operativo` tiene prohibido escribir. Sin esta
+separación no se puede vender a una flota que ya tiene los dos roles, porque el producto no encaja
+con su organigrama.
+
+⚠️ **Delimitación estricta:** este bloque construye **el rol, su vista y el traspaso entre roles**.
+**NO** construye asignación automática de viajes — eso sigue vetado (ver la tabla de abajo). El
+planificador humano sigue decidiendo; nosotros le damos los datos que hoy busca a mano.
+
+- [ ] `[LOOP]` **23.E.1 Rol `planificador` con visibilidad de precio** — `model: opus`, esfuerzo
+  medio (toca RLS, y RLS es el backstop real de autorización — no es un cambio mecánico). Añadir
+  `planificador` al `CHECK` de `gestor.rol` (hoy `admin|gestor_operativo|solo_lectura`,
+  migración `0032`). Perfil: ve **todos** los chóferes y vehículos de la empresa (no solo los suyos,
+  a diferencia del `gestor_operativo`), **ve el precio del viaje** (lo necesita para decidir qué
+  compensa), y puede asignar viaje↔tractora↔chófer. **No** toca nómina ni datos personales.
+  Verificación: extender `isolation.test.js` con el rol nuevo, y test explícito de que un
+  `gestor_operativo` sigue **sin** poder ver/escribir precio (no relajar lo que ya está cerrado).
+- [ ] `[LOOP]` **23.E.2 Vista del planificador: la flota de una delegación, mañana** —
+  `model: sonnet`, esfuerzo bajo. **Depende de 23.D.1 (`disponible_desde`) y de 23.C.2 (posición).**
+  Reproduce lo que hoy hace filtrando a mano:
+  > "En vez de filtrar mis camiones como yo, [filtra] todos los camiones que hay en la delegación
+  > 1, que es Zaragoza. **¿Cuántos camiones hay mañana en Zaragoza?** Y hay todos estos… 34."
+
+  Columnas que él usa de verdad, y ninguna más: matrícula, tipo de plataforma, chófer, **dónde y
+  cuándo queda libre** (`disponible_desde`), **horas de conducción ya gastadas y las que le
+  quedan**, y el próximo descanso obligatorio. Ese último dato es el que le veta un viaje:
+  > "Este tío, con 5 [horas gastadas], solo puede conducir 4 o 5 horas más. **O sea que el
+  > planificador ya no lo puede coger.**"
+
+  **Delegación = reutilizar `base_empresa`** (migración `0061`, ya soporta varias bases). No
+  inventar una entidad nueva. Verificación: test del filtro por base y de que las horas restantes
+  se calculan con las reglas 561/2006 ya documentadas en `DISCOVERY.md`.
+- [ ] `[LOOP]` **23.E.3 Orden de carga ≠ orden de trabajo del chófer** — `model: opus`, esfuerzo
+  medio. **Entra en `SPECS-23.md`; es modelo, no pantalla.** Distinción que hoy no tenemos y que
+  él marcó explícitamente:
+  > "**No es lo mismo el viaje del ordenador que el que tú le mandas al chófer.** Es orden de carga
+  > y orden de trabajo. El chófer recibe la orden de trabajo, **que se la modifico yo**."
+
+  - **Viaje comercial** (lo que vendió el comercial): ventanas amplias, precio, cliente.
+  - **Orden de carga (OC)**: la ejecución concreta. **Un viaje puede llevar varias** ("puede ser
+    que un mismo viaje lleve tres órdenes de carga, si hace tres cargas"). Lleva tractora,
+    remolque, chófer, delegación a la que se imputa el coste/beneficio, tipo de plataforma,
+    temperatura y referencia.
+  - **Orden de trabajo (OT)**: lo que llega al Telegram del chófer, **modificada por el gestor**:
+    hora exacta dentro de la ventana ("te pone de 8 a 18, pues le pones a las 11 en punto"), puntos
+    de paso añadidos (la casa del chófer), y notas ("para en este parking, arranca mañana a esta
+    hora, y cuando estés vacío llámame").
+
+  **Encaje con 23.C:** la OC es justo donde vive `hito.remolque_id` — es la pieza que dice qué
+  carga va en qué remolque. Por eso 23.C va antes. Verificación: test del caso real de tres cargas
+  en un viaje con dos remolques distintos, y test de que modificar la OT no altera el viaje
+  comercial (son objetos distintos, y esa es toda la gracia).
+- [ ] `[LOOP]` **23.E.4 Traspaso planificador ↔ gestor con trazabilidad** — `model: sonnet`,
+  esfuerzo bajo. Hoy esa conversación ocurre de viva voz ("a veces se sientan en mi misma
+  oficina") y por eso se pierde. Y cuando se pierde, duele:
+  > "Me cambió el horario el de arriba y yo no me acuerdo… **usuario tal, hora: ha habido una
+  > modificación de horario.**" (su jefe: *"este programa es perfecto para encontrar culpables"*)
+
+  Dos direcciones: el planificador propone (viaje→tractora) y el gestor confirma o devuelve con
+  motivo ("no llego, no hay tiempo físico" — caso que él describe discutiendo con el de arriba). Y
+  al revés: el gestor avisa de que un camión queda libre antes ("este tío está 2 horas antes") y
+  el planificador reacciona. **Reutilizar `audit_log`, que ya existe pero no se muestra en
+  ninguna parte** — el trabajo aquí es sobre todo exponerlo donde se necesita, no crear tabla.
+  Verificación: test de que un cambio de hora queda registrado con quién y cuándo, y aparece en el
+  detalle del viaje.
+
+### Lo que NO se construye en esta fase (y por qué)
+
+Disciplina de `ESTRATEGIA.md` §4.3 y de la skill `ponytail`. Todo esto apareció en la sesión, todo
+es real, y **nada de esto entra**:
+
+| Descartado ahora | Por qué no |
+|---|---|
+| **Asignación AUTOMÁTICA** de viajes a camiones | Es el corazón de Cometweb y de Qargo; competir ahí de frente es la trampa de §2, y `DISCOVERY.md` insight 4 ya decidió que no se empieza por ahí. **Ojo a la distinción: el ROL de planificador y su vista SÍ se construyen (23.E)** — lo vetado es el algoritmo que decide por él. Le damos los datos; decide él |
+| Bolsa de viajes, compra/venta de cargas | Marketplace. Moonshot `7B.9`, no fase actual |
+| Módulo de RRHH, vacaciones, administración | Él mismo dijo que se saque fuera para poder entrar (§6.5). Sacarlo fuera significa **no construirlo** |
+| Panel de KPIs por gestor | Tiene comprador (el dueño, insight 15) pero **no hemos hablado con ningún dueño nunca**. Construirlo antes de esa conversación es §4.1 otra vez |
+| eCMR (carta de porte electrónica) | Estándar regulatorio con complejidad propia; "aún no se usa". Sí: **diseñar la exportación de evidencia pensando en él**, no implementarlo |
+| Auditoría de infracciones 561/2006 | Construible y él lo pidió, **pero** solo tiene sentido en clave preventiva ("esto te va a salir grave, párate"). Nunca como herramienta para optimizar el incumplimiento — ni por ética ni porque dejaría rastro de que el sistema lo sabía. Requiere decisión explícita antes de existir |
+| Consolidación de cargas / huecos libres | Necesita modelo de volumen y capacidad que no tenemos. Después de 23.C, no antes |
+| Verificación de acoplamiento con **telemetría física** de remolque | Solo se aplaza esto: detectar que un remolque se movió **sin que nadie lo declarara**. Exige integrar el proveedor de telemática de cada flota (23.0.3). **La detección de contradicciones en lo declarado SÍ se construye, en 23.C.4** |
+| Doble tripulación (2 chóferes/camión) | Real (insight 21) pero minoritario. `acoplamiento` de 23.C ya lo admite por diseño; la UI se hará cuando un cliente lo pida |
+
+### Criterio de cierre de la Fase 23
+
+No se cierra por tener los ítems en `[x]`. Se cierra cuando:
+1. Un gestor real ha usado 23.A + 23.B **un mes en paralelo** con su TMS actual (§6.5).
+2. Su primera nómina calculada con Norenty se ha puesto **al lado de la que hizo a mano** y
+   cuadra (`ESTRATEGIA.md` §6.4, semana 4 — "el activo comercial más valioso que tendrá el
+   proyecto").
+3. La adherencia de 23.D ha estado una semana funcionando **sin un solo falso `en_plan` y sin un
+   solo falso `retrasado`**.
+4. **La prueba del remolque:** un remolque real se ha soltado cargado en un sitio, lo ha recogido
+   **otro chófer con otra tractora**, y el sistema ha sabido en todo momento dónde estaba, qué
+   llevaba dentro y de quién era la responsabilidad — sin que nadie lo corrigiera a mano. Ése es
+   el examen que Cometweb suspende, y es el que dice si el modelo de 23.C está bien hecho.
 
 ---
 

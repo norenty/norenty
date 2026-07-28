@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Truck } from "lucide-react";
+import { Plus, Truck, PackageOpen } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { createVehiculo } from "../../lib/data";
+import { createVehiculo, getPosicionUnidades } from "../../lib/data";
 import { TIPOS_VEHICULO as TIPOS } from "../../lib/labels";
 import EmptyState from "../components/ui/EmptyState";
 
@@ -15,6 +15,7 @@ export default function VehiculosPage() {
   const [filtro, setFiltro] = useState("todos");
   const [error, setError] = useState(null);
   const [procesandoId, setProcesandoId] = useState(null);
+  const [remolquesSueltos, setRemolquesSueltos] = useState([]);
 
   async function load() {
     const { data } = await supabase
@@ -23,7 +24,16 @@ export default function VehiculosPage() {
       .order("created_at", { ascending: false });
     setVehiculos(data || []);
   }
-  useEffect(() => { load(); }, []);
+  async function loadSueltos() {
+    // ROADMAP 23.C.5: "hay más remolques que tractoras" -- remolques con un
+    // acoplamiento vigente pero SIN tractora (soltados en algún punto) se
+    // quedan invisibles si no se busca explícitamente. `getPosicionUnidades`
+    // ya deriva su posición "congelada" (23.C.2); aquí solo se filtra y se
+    // cruza con la matrícula, sin duplicar esa lógica.
+    const posiciones = await getPosicionUnidades();
+    setRemolquesSueltos(posiciones.filter((u) => u.tipo === "remolque" && !u.tractoraId));
+  }
+  useEffect(() => { load(); loadSueltos(); }, []);
 
   async function añadir(e) {
     e.preventDefault();
@@ -64,6 +74,32 @@ export default function VehiculosPage() {
       <p className="text-sm text-ink-secondary mb-6">
         Gestiona tractoras, remolques y otros vehículos de la flota.
       </p>
+
+      {remolquesSueltos.length > 0 && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-ink mb-2">
+            <PackageOpen size={16} className="text-amber-600" />
+            Remolques sueltos ({remolquesSueltos.length})
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {remolquesSueltos.map((r) => {
+              const veh = vehiculos.find((v) => v.id === r.id);
+              return (
+                <div key={r.id} className="text-xs text-ink-secondary flex items-center justify-between">
+                  <Link href={`/vehiculos/${r.id}`} className="font-mono text-ink hover:text-brand no-underline">
+                    {veh?.matricula || r.id.slice(0, 8)}
+                  </Link>
+                  <span>
+                    {r.fuente === "congelada" && r.actualizadoEn
+                      ? `Último punto conocido: ${new Date(r.actualizadoEn).toLocaleString("es-ES")}`
+                      : "Sin posición conocida"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 text-xs px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-estado-incidencia flex items-center justify-between">

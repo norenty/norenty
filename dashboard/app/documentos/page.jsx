@@ -2,10 +2,108 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FileWarning, Truck, CarFront, Users, AlertTriangle } from "lucide-react";
-import { getDocumentosPorCaducar, getConflictosMantenimientoViaje } from "../../lib/data";
+import { FileWarning, Truck, CarFront, Users, AlertTriangle, Search, Image as ImageIcon } from "lucide-react";
+import { getDocumentosPorCaducar, getConflictosMantenimientoViaje, buscarAlbaranes } from "../../lib/data";
 import { TIPO_DOC_LABEL, AMBITO_LABEL } from "../../lib/labels";
 import { fmtFecha, badgeCaducidad } from "../../lib/format";
+
+// Fase 23, Bloque A (23.A.3) -- DISCOVERY.md insight 14: "me he pegado media
+// hora buscando papeles en el armario". Sin pantalla nueva -- vive aquí porque
+// es la misma familia de "papeleo del viaje" que ya cubre esta página.
+function BuscadorAlbaranes() {
+  const [filtros, setFiltros] = useState({ referencia: "", clienteNombre: "", matricula: "" });
+  const [resultados, setResultados] = useState(null);
+  const [buscando, setBuscando] = useState(false);
+
+  async function buscar(e) {
+    e.preventDefault();
+    setBuscando(true);
+    const r = await buscarAlbaranes({
+      referencia: filtros.referencia.trim() || undefined,
+      clienteNombre: filtros.clienteNombre.trim() || undefined,
+      matricula: filtros.matricula.trim() || undefined,
+    });
+    setResultados(r);
+    setBuscando(false);
+  }
+
+  return (
+    <div className="max-w-3xl mt-8">
+      <div className="flex items-center gap-2 mb-1">
+        <Search size={18} className="text-ink-secondary" />
+        <h2 className="text-lg font-medium text-ink">Buscar albaranes</h2>
+      </div>
+      <p className="text-sm text-ink-secondary mb-4">
+        Por referencia de viaje, cliente o matrícula — evita revisar viaje a viaje.
+      </p>
+      <form onSubmit={buscar} className="bg-surface border border-border rounded-xl p-4 mb-4 flex items-end gap-3 flex-wrap">
+        <div>
+          <label className="block text-xs text-ink-secondary mb-1">Referencia</label>
+          <input
+            value={filtros.referencia}
+            onChange={(e) => setFiltros({ ...filtros, referencia: e.target.value })}
+            placeholder="VJ-1234"
+            className="text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand w-32"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-ink-secondary mb-1">Cliente</label>
+          <input
+            value={filtros.clienteNombre}
+            onChange={(e) => setFiltros({ ...filtros, clienteNombre: e.target.value })}
+            placeholder="Mercadona"
+            className="text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand w-36"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-ink-secondary mb-1">Matrícula</label>
+          <input
+            value={filtros.matricula}
+            onChange={(e) => setFiltros({ ...filtros, matricula: e.target.value })}
+            placeholder="1234 ABC"
+            className="text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand w-32"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={buscando}
+          className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
+        >
+          <Search size={16} /> {buscando ? "Buscando..." : "Buscar"}
+        </button>
+      </form>
+
+      {resultados !== null && (
+        resultados.length === 0 ? (
+          <div className="bg-surface border border-border rounded-xl p-6 text-center text-sm text-ink-secondary">
+            Sin resultados con esos filtros.
+          </div>
+        ) : (
+          <div className="bg-surface border border-border rounded-xl overflow-hidden">
+            {resultados.map((a) => (
+              <Link
+                key={a.id}
+                href={`/viajes/${a.viajeId}`}
+                className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0 no-underline hover:bg-surface-alt transition-colors"
+              >
+                <ImageIcon size={16} className="text-ink-muted shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-ink font-mono">{a.viajeReferencia || a.viajeId.slice(0, 8)}</div>
+                  <div className="text-xs text-ink-muted">
+                    {a.clienteNombre && `${a.clienteNombre} · `}
+                    {a.matricula && `${a.matricula} · `}
+                    {a.choferNombre && `${a.choferNombre} · `}
+                    {fmtFecha(a.creadoEn)}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )
+      )}
+    </div>
+  );
+}
 
 const AMBITO_ICON = { viaje: Truck, vehiculo: CarFront, chofer: Users };
 
@@ -100,6 +198,8 @@ export default function DocumentosPorCaducar() {
           })}
         </div>
       )}
+
+      <BuscadorAlbaranes />
     </div>
   );
 }

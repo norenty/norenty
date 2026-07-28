@@ -174,11 +174,71 @@ async def limitar_flujo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 POD_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
 POD_JPEG_MAGIC = b"\xff\xd8\xff"
 
+# Fase 23, Bloque A (23.A.1) -- DISCOVERY.md insight 14: "Hay muchos fallos en
+# la foto del albarán... no se lee ninguna letra." Una foto ilegible rompe la
+# cadena de evidencia y no se detecta hasta días después, con el chófer a
+# 500 km. Estos umbrales validan CALIDAD (nitidez/luz/resolución), no solo
+# formato -- valores iniciales razonables, NO pactados con cliente real,
+# mismo estatus que el resto de umbrales del proyecto.
+POD_RESOLUCION_MIN_PX = 300  # por debajo de esto, ilegible aunque esté enfocada
+POD_LUMINOSIDAD_MIN = 25   # 0-255; por debajo, prácticamente negra
+POD_LUMINOSIDAD_MAX = 235  # por encima, quemada por flash/sol directo
+POD_NITIDEZ_MIN = 20.0     # varianza del filtro de bordes; por debajo, movida/desenfocada.
+# Calibrado con un tablero de ajedrez sintético (test_bot.py): nítido ~54,
+# con desenfoque gaussiano fuerte (radius=12) ~10 -- 20 deja margen claro
+# entre ambos sin ser tan alto que rechace fotos reales con menos contraste
+# que un tablero de ajedrez. Ajustar con fotos reales del primer piloto.
 
-def _foto_pod_valida(datos: bytes) -> bool:
-    if len(datos) > POD_MAX_BYTES:
-        return False
-    return bytes(datos[:3]) == POD_JPEG_MAGIC
+try:
+    from PIL import Image, ImageFilter, ImageStat
+    _PIL_DISPONIBLE = True
+except ImportError:  # Pillow es opcional: sin ella, se degrada a solo formato/tamaño.
+    _PIL_DISPONIBLE = False
+
+
+def _calidad_foto_pod(datos: bytes):
+    """Analiza nitidez/luz/resolución con Pillow. Devuelve None si Pillow no
+    está disponible o la imagen no se puede abrir (nunca lanza -- ante la
+    duda de si PODEMOS analizarla, se acepta la foto en vez de rechazarla;
+    rechazar una foto buena cuesta más que aceptar una regular, ver ROADMAP
+    23.A.1). Si devuelve dict, siempre trae las tres métricas."""
+    if not _PIL_DISPONIBLE:
+        return None
+    try:
+        import io
+        with Image.open(io.BytesIO(bytes(datos))) as img:
+            ancho, alto = img.size
+            gris = img.convert("L")
+            luminosidad = ImageStat.Stat(gris).mean[0]
+            bordes = gris.filter(ImageFilter.FIND_EDGES)
+            nitidez = ImageStat.Stat(bordes).stddev[0]
+            return {"ancho": ancho, "alto": alto, "luminosidad": luminosidad, "nitidez": nitidez}
+    except Exception:
+        return None
+
+
+def _foto_pod_valida(datos: bytes):
+    """Devuelve (valida: bool, motivo: str|None). `motivo` es la clave de
+    TEXTOS a mostrar al chófer (None si es válida). Los checks de formato
+    (tamaño/magic bytes) son estructurales y no negociables; los de calidad
+    (nitidez/luz/resolución) son best-effort vía Pillow y SIEMPRE aceptan si
+    hay cualquier duda -- un falso rechazo (foto buena marcada como mala)
+    cuesta más en adopción que un falso positivo (foto regular aceptada)."""
+    if len(datos) > POD_MAX_BYTES or bytes(datos[:3]) != POD_JPEG_MAGIC:
+        return False, "foto_invalida"
+
+    calidad = _calidad_foto_pod(datos)
+    if calidad is None:
+        return True, None
+    if calidad["ancho"] < POD_RESOLUCION_MIN_PX or calidad["alto"] < POD_RESOLUCION_MIN_PX:
+        return False, "foto_pequena"
+    if calidad["luminosidad"] < POD_LUMINOSIDAD_MIN:
+        return False, "foto_oscura"
+    if calidad["luminosidad"] > POD_LUMINOSIDAD_MAX:
+        return False, "foto_quemada"
+    if calidad["nitidez"] < POD_NITIDEZ_MIN:
+        return False, "foto_borrosa"
+    return True, None
 
 
 # --- i18n ---
@@ -209,6 +269,17 @@ TEXTOS = {
         "sin_entrega_esperando": "No hay ninguna entrega esperando albarán.\nUsa /estado para ver tu siguiente hito.",
         "pod_ok": "Albarán recibido para {dir}.\nEntrega completada.",
         "foto_invalida": "Esa foto no parece válida. Mándame una foto normal del albarán (no un fichero ni un vídeo).",
+        "foto_borrosa": "Se ve movida y no se lee bien. Mándame otra foto del albarán, parado y con buena luz.",
+        "foto_oscura": "Se ve muy oscura y no se lee. Mándame otra foto del albarán con más luz.",
+        "foto_quemada": "Se ve quemada por el flash o el sol. Mándame otra foto del albarán sin flash directo.",
+        "foto_pequena": "La foto es muy pequeña para leerse bien. Mándame otra foto del albarán más de cerca.",
+        "anot_pregunta": "¿Todo bien con la mercancía entregada?",
+        "btn_anot_mojada": "💧 Llega mojada",
+        "btn_anot_danada": "📦 Llega dañada",
+        "btn_anot_faltan": "❗ Faltan bultos",
+        "btn_anot_sello": "🖊️ Sello/firma ilegible",
+        "btn_anot_bien": "✅ Todo bien",
+        "anot_registrada": "Anotado. Gracias.",
         "incidencia_ayuda": "Cuéntame qué ha pasado: mándame una nota de voz 🎤 o escríbelo aquí.",
         "inc_elige": "¿Qué ha pasado?",
         "btn_inc_averia": "🔧 Avería",
@@ -284,6 +355,17 @@ TEXTOS = {
         "sin_entrega_esperando": "No delivery is waiting for a proof of delivery.\nUse /estado to see your next stop.",
         "pod_ok": "Proof of delivery received for {dir}.\nDelivery completed.",
         "foto_invalida": "That photo doesn't look valid. Send me a normal photo of the proof of delivery (not a file or a video).",
+        "foto_borrosa": "It looks blurry and hard to read. Send me another photo of the proof of delivery, steady and with good light.",
+        "foto_oscura": "It looks too dark to read. Send me another photo of the proof of delivery with more light.",
+        "foto_quemada": "It looks washed out by flash or sunlight. Send me another photo without direct flash.",
+        "foto_pequena": "The photo is too small to read clearly. Send me another photo closer up.",
+        "anot_pregunta": "Is everything OK with the delivered goods?",
+        "btn_anot_mojada": "💧 Arrived wet",
+        "btn_anot_danada": "📦 Arrived damaged",
+        "btn_anot_faltan": "❗ Missing packages",
+        "btn_anot_sello": "🖊️ Illegible stamp/signature",
+        "btn_anot_bien": "✅ All good",
+        "anot_registrada": "Noted. Thanks.",
         "incidencia_ayuda": "Tell me what happened: send me a voice note 🎤 or type it here.",
         "inc_elige": "What happened?",
         "btn_inc_averia": "🔧 Breakdown",
@@ -359,6 +441,17 @@ TEXTOS = {
         "sin_entrega_esperando": "Nicio livrare nu așteaptă document.\nFolosește /estado pentru a vedea următoarea oprire.",
         "pod_ok": "Document primit pentru {dir}.\nLivrare finalizată.",
         "foto_invalida": "Fotografia nu pare validă. Trimite-mi o fotografie normală a documentului (nu un fișier sau un videoclip).",
+        "foto_borrosa": "Este neclară și greu de citit. Trimite-mi altă fotografie a documentului, stabilă și cu lumină bună.",
+        "foto_oscura": "Este prea întunecată pentru a fi citită. Trimite-mi altă fotografie cu mai multă lumină.",
+        "foto_quemada": "Este supraexpusă de blitz sau soare. Trimite-mi altă fotografie fără blitz direct.",
+        "foto_pequena": "Fotografia este prea mică pentru a fi citită clar. Trimite-mi altă fotografie mai aproape.",
+        "anot_pregunta": "Totul e în regulă cu marfa livrată?",
+        "btn_anot_mojada": "💧 Ajunge udă",
+        "btn_anot_danada": "📦 Ajunge deteriorată",
+        "btn_anot_faltan": "❗ Lipsesc colete",
+        "btn_anot_sello": "🖊️ Ștampilă/semnătură ilizibilă",
+        "btn_anot_bien": "✅ Totul e bine",
+        "anot_registrada": "Notat. Mulțumesc.",
         "incidencia_ayuda": "Spune-mi ce s-a întâmplat: trimite-mi o notă vocală 🎤 sau scrie aici.",
         "inc_elige": "Ce s-a întâmplat?",
         "btn_inc_averia": "🔧 Defecțiune",
@@ -434,6 +527,17 @@ TEXTOS = {
         "sin_entrega_esperando": "Aucune livraison n'attend de bon.\nUtilisez /estado pour voir votre prochain arrêt.",
         "pod_ok": "Bon de livraison reçu pour {dir}.\nLivraison terminée.",
         "foto_invalida": "Cette photo ne semble pas valide. Envoyez-moi une photo normale du bon de livraison (pas un fichier ni une vidéo).",
+        "foto_borrosa": "Elle est floue et difficile à lire. Envoyez-moi une autre photo, stable et bien éclairée.",
+        "foto_oscura": "Elle est trop sombre pour être lue. Envoyez-moi une autre photo avec plus de lumière.",
+        "foto_quemada": "Elle est surexposée par le flash ou le soleil. Envoyez-moi une autre photo sans flash direct.",
+        "foto_pequena": "La photo est trop petite pour être lue clairement. Envoyez-moi une autre photo de plus près.",
+        "anot_pregunta": "Tout va bien avec la marchandise livrée ?",
+        "btn_anot_mojada": "💧 Arrivée mouillée",
+        "btn_anot_danada": "📦 Arrivée endommagée",
+        "btn_anot_faltan": "❗ Colis manquants",
+        "btn_anot_sello": "🖊️ Cachet/signature illisible",
+        "btn_anot_bien": "✅ Tout va bien",
+        "anot_registrada": "Noté. Merci.",
         "incidencia_ayuda": "Dites-moi ce qui s'est passé : envoyez une note vocale 🎤 ou écrivez ici.",
         "inc_elige": "Que s'est-il passé ?",
         "btn_inc_averia": "🔧 Panne",
@@ -509,6 +613,17 @@ TEXTOS = {
         "sin_entrega_esperando": "Nessuna consegna in attesa di bolla.\nUsa /estado per vedere la tua prossima tappa.",
         "pod_ok": "Bolla di consegna ricevuta per {dir}.\nConsegna completata.",
         "foto_invalida": "Questa foto non sembra valida. Inviami una foto normale della bolla di consegna (non un file né un video).",
+        "foto_borrosa": "È sfocata e difficile da leggere. Inviami un'altra foto, ferma e con buona luce.",
+        "foto_oscura": "È troppo scura per essere letta. Inviami un'altra foto con più luce.",
+        "foto_quemada": "È sovraesposta dal flash o dal sole. Inviami un'altra foto senza flash diretto.",
+        "foto_pequena": "La foto è troppo piccola per essere letta chiaramente. Inviami un'altra foto più da vicino.",
+        "anot_pregunta": "Tutto bene con la merce consegnata?",
+        "btn_anot_mojada": "💧 Arriva bagnata",
+        "btn_anot_danada": "📦 Arriva danneggiata",
+        "btn_anot_faltan": "❗ Mancano colli",
+        "btn_anot_sello": "🖊️ Timbro/firma illeggibile",
+        "btn_anot_bien": "✅ Tutto bene",
+        "anot_registrada": "Annotato. Grazie.",
         "incidencia_ayuda": "Dimmi cosa è successo: inviami una nota vocale 🎤 o scrivi qui.",
         "inc_elige": "Cosa è successo?",
         "btn_inc_averia": "🔧 Guasto",
@@ -584,6 +699,17 @@ TEXTOS = {
         "sin_entrega_esperando": "Não há nenhuma entrega à espera de guia.\nUsa /estado para veres a tua próxima paragem.",
         "pod_ok": "Guia de transporte recebida para {dir}.\nEntrega concluída.",
         "foto_invalida": "Essa foto não parece válida. Envia-me uma foto normal da guia de transporte (não um ficheiro nem um vídeo).",
+        "foto_borrosa": "Está desfocada e difícil de ler. Envia-me outra foto, parada e com boa luz.",
+        "foto_oscura": "Está demasiado escura para ler. Envia-me outra foto com mais luz.",
+        "foto_quemada": "Está sobreexposta pelo flash ou pelo sol. Envia-me outra foto sem flash direto.",
+        "foto_pequena": "A foto é demasiado pequena para ler bem. Envia-me outra foto mais de perto.",
+        "anot_pregunta": "Está tudo bem com a mercadoria entregue?",
+        "btn_anot_mojada": "💧 Chega molhada",
+        "btn_anot_danada": "📦 Chega danificada",
+        "btn_anot_faltan": "❗ Faltam volumes",
+        "btn_anot_sello": "🖊️ Carimbo/assinatura ilegível",
+        "btn_anot_bien": "✅ Tudo bem",
+        "anot_registrada": "Registado. Obrigado.",
         "incidencia_ayuda": "Diz-me o que aconteceu: envia-me uma nota de voz 🎤 ou escreve aqui.",
         "inc_elige": "O que aconteceu?",
         "btn_inc_averia": "🔧 Avaria",
@@ -659,6 +785,17 @@ TEXTOS = {
         "sin_entrega_esperando": "Es wartet keine Lieferung auf einen Lieferschein.\nNutze /estado, um deinen nächsten Stopp zu sehen.",
         "pod_ok": "Lieferschein für {dir} erhalten.\nLieferung abgeschlossen.",
         "foto_invalida": "Dieses Foto scheint ungültig zu sein. Schick mir ein normales Foto des Lieferscheins (keine Datei und kein Video).",
+        "foto_borrosa": "Es ist verwackelt und schlecht lesbar. Schick mir ein weiteres Foto, ruhig gehalten und mit gutem Licht.",
+        "foto_oscura": "Es ist zu dunkel zum Lesen. Schick mir ein weiteres Foto mit mehr Licht.",
+        "foto_quemada": "Es ist durch Blitz oder Sonne überbelichtet. Schick mir ein weiteres Foto ohne direkten Blitz.",
+        "foto_pequena": "Das Foto ist zu klein, um es klar zu lesen. Schick mir ein weiteres Foto aus der Nähe.",
+        "anot_pregunta": "Ist mit der gelieferten Ware alles in Ordnung?",
+        "btn_anot_mojada": "💧 Kommt nass an",
+        "btn_anot_danada": "📦 Kommt beschädigt an",
+        "btn_anot_faltan": "❗ Pakete fehlen",
+        "btn_anot_sello": "🖊️ Stempel/Unterschrift unleserlich",
+        "btn_anot_bien": "✅ Alles in Ordnung",
+        "anot_registrada": "Notiert. Danke.",
         "incidencia_ayuda": "Sag mir, was passiert ist: Schick mir eine Sprachnachricht 🎤 oder schreib hier.",
         "inc_elige": "Was ist passiert?",
         "btn_inc_averia": "🔧 Panne",
@@ -734,6 +871,17 @@ TEXTOS = {
         "sin_entrega_esperando": "لا يوجد تسليم بانتظار سند.\nاستخدم /estado لمعرفة محطتك التالية.",
         "pod_ok": "تم استلام سند التسليم لـ {dir}.\nاكتمل التسليم.",
         "foto_invalida": "هذه الصورة لا تبدو صالحة. أرسل لي صورة عادية لسند التسليم (وليس ملفًا أو فيديو).",
+        "foto_borrosa": "الصورة غير واضحة ويصعب قراءتها. أرسل لي صورة أخرى ثابتة وبإضاءة جيدة.",
+        "foto_oscura": "الصورة مظلمة جدًا ولا يمكن قراءتها. أرسل لي صورة أخرى بإضاءة أكثر.",
+        "foto_quemada": "الصورة محروقة بسبب الفلاش أو الشمس. أرسل لي صورة أخرى بدون فلاش مباشر.",
+        "foto_pequena": "الصورة صغيرة جدًا ولا تُقرأ بوضوح. أرسل لي صورة أخرى أقرب.",
+        "anot_pregunta": "هل البضاعة المسلَّمة بحالة جيدة؟",
+        "btn_anot_mojada": "💧 وصلت مبللة",
+        "btn_anot_danada": "📦 وصلت تالفة",
+        "btn_anot_faltan": "❗ طرود ناقصة",
+        "btn_anot_sello": "🖊️ الختم/التوقيع غير واضح",
+        "btn_anot_bien": "✅ كل شيء جيد",
+        "anot_registrada": "تم التسجيل. شكرًا.",
         "incidencia_ayuda": "أخبرني بما حدث: أرسل لي رسالة صوتية 🎤 أو اكتب هنا.",
         "inc_elige": "ماذا حدث؟",
         "btn_inc_averia": "🔧 عطل",
@@ -1160,6 +1308,27 @@ def incidencia_keyboard(chofer):
     return InlineKeyboardMarkup(filas)
 
 
+# Fase 23, Bloque A (23.A.2) -- anotaciones estructuradas de la mercancía al
+# cerrar una entrega. DISCOVERY.md insight 14: sin esto, un descuento de fin
+# de mes por "mercancía mojada" no se puede discutir porque nadie lo anotó en
+# el momento. (clave, texto_boton) -- "bien" no genera evento, es "sin novedad".
+TIPOS_ANOTACION_ENTREGA = [
+    ("mercancia_mojada", "btn_anot_mojada"),
+    ("mercancia_danada", "btn_anot_danada"),
+    ("faltan_bultos", "btn_anot_faltan"),
+    ("sello_ilegible", "btn_anot_sello"),
+]
+
+
+def anotacion_entrega_keyboard(chofer, hito_id):
+    filas = [
+        [InlineKeyboardButton(t(chofer, btn), callback_data=f"anot:{tipo}:{hito_id}")]
+        for tipo, btn in TIPOS_ANOTACION_ENTREGA
+    ]
+    filas.append([InlineKeyboardButton(t(chofer, "btn_anot_bien"), callback_data=f"anot:bien:{hito_id}")])
+    return InlineKeyboardMarkup(filas)
+
+
 def contactar_keyboard(chofer):
     """2026-07-23: el usuario pidió explícitamente conservar la vía de
     llamada real para emergencias ("en caso de emergencia hablar por
@@ -1362,6 +1531,182 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         extra={"chofer_id": codigo, "chat_id": chat_id, "empresa_id": chofer.get("empresa_id")},
     )
     await send_next_hito(chat_id, chofer, ctx.bot, ctx.chat_data)
+
+
+# Fase 23, Bloque C (23.C.3) — Operaciones de patio: enganchar/soltar un
+# remolque desde Telegram, con el mínimo de fricción posible (el chófer
+# "no sabe ni marcar llegadas", DISCOVERY.md insight 21 -- se confirma con
+# UN comando y su matrícula, no con un formulario). Cada operación escribe
+# en `acoplamiento` (0069) y por tanto entra en la cadena de evidencia.
+def _acoplamientos_vigentes_de_chofer(chofer_id):
+    r = ejecutar_con_reintentos(
+        lambda: supabase.table("acoplamiento")
+        .select("id, tractora_id, remolque_id, posicion")
+        .eq("chofer_id", chofer_id)
+        .is_("hasta", "null")
+        .execute(),
+        contexto={"accion": "acoplamientos_vigentes_de_chofer", "chofer_id": chofer_id},
+    )
+    return r.data or []
+
+
+def _tractora_actual_de_chofer(chofer_id, empresa_id):
+    """La tractora con la que trabaja el chófer ahora mismo. Un cambio de
+    REMOLQUE (soltar/enganchar) no significa que el chófer haya cambiado de
+    TRACTORA -- son dos cosas distintas que el esquema no separa en entidades
+    propias, así que aquí se resuelve con tres niveles, del más al menos
+    directo:
+    1. Acoplamiento VIGENTE con tractora (caso normal, ya enganchado a algo).
+    2. Su último acoplamiento CERRADO con tractora (acaba de soltar un
+       remolque pero sigue con la misma tractora -- éste es el caso que
+       encontró el test de la lanzadera: sin él, soltar un remolque hacía
+       "olvidar" con qué tractora iba el chófer).
+    3. El viaje en curso (`viaje.vehiculo_id`, dato heredado pre-0069), para
+       un chófer que todavía no tiene ningún acoplamiento registrado.
+    """
+    propios = [a for a in ejecutar_con_reintentos(
+        lambda: supabase.table("acoplamiento")
+        .select("tractora_id, desde")
+        .eq("chofer_id", chofer_id)
+        .not_.is_("tractora_id", "null")
+        .order("desde", desc=True)
+        .limit(1)
+        .execute(),
+        contexto={"accion": "ultimo_acoplamiento_con_tractora", "chofer_id": chofer_id},
+    ).data]
+    if propios:
+        return propios[0]["tractora_id"]
+
+    r = ejecutar_con_reintentos(
+        lambda: supabase.table("viaje")
+        .select("vehiculo_id")
+        .eq("chofer_id", chofer_id)
+        .eq("empresa_id", empresa_id)
+        .eq("estado", "en_curso")
+        .not_.is_("vehiculo_id", "null")
+        .limit(1)
+        .execute(),
+        contexto={"accion": "tractora_actual_de_chofer_fallback", "chofer_id": chofer_id},
+    )
+    return r.data[0]["vehiculo_id"] if r.data else None
+
+
+def _buscar_remolque_por_matricula(empresa_id, matricula):
+    r = ejecutar_con_reintentos(
+        lambda: supabase.table("vehiculo")
+        .select("id, matricula")
+        .eq("empresa_id", empresa_id)
+        .eq("tipo", "remolque")
+        .ilike("matricula", matricula.strip())
+        .limit(1)
+        .execute(),
+        contexto={"accion": "buscar_remolque_por_matricula", "matricula": matricula},
+    )
+    return r.data[0] if r.data else None
+
+
+async def cmd_remolque(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """/remolque -- muestra el estado actual (tractora + remolques acoplados).
+    /remolque soltar MATRICULA -- desengancha ese remolque (queda suelto, sin
+      tractora, "congelado" en su última posición conocida -- 23.C.2).
+    /remolque enganchar MATRICULA -- engancha ese remolque a la tractora actual
+      del chófer, en la primera posición libre (1, o 2 si ya lleva otro -- duo).
+    """
+    chat_id = str(update.effective_chat.id)
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
+        await update.message.reply_text(t("es", "no_vinculado"))
+        return
+
+    args = ctx.args or []
+    if not args:
+        vigentes = _acoplamientos_vigentes_de_chofer(chofer["id"])
+        if not vigentes:
+            await update.message.reply_text(
+                "No tienes ningún remolque acoplado registrado.\n"
+                "Para enganchar uno: /remolque enganchar MATRICULA"
+            )
+            return
+        lineas = ["Remolques acoplados ahora:"]
+        for a in vigentes:
+            veh = supabase.table("vehiculo").select("matricula").eq("id", a["remolque_id"]).execute()
+            matricula = veh.data[0]["matricula"] if veh.data else a["remolque_id"][:8]
+            lineas.append(f"· {matricula} (posición {a['posicion']})")
+        lineas.append("\nPara soltar uno: /remolque soltar MATRICULA")
+        await update.message.reply_text("\n".join(lineas))
+        return
+
+    accion = args[0].lower()
+    matricula = " ".join(args[1:]).strip()
+    if accion not in ("soltar", "enganchar") or not matricula:
+        await update.message.reply_text(
+            "Uso: /remolque soltar MATRICULA  ó  /remolque enganchar MATRICULA"
+        )
+        return
+
+    remolque = _buscar_remolque_por_matricula(chofer["empresa_id"], matricula)
+    if not remolque:
+        await update.message.reply_text(f"No encuentro ningún remolque con matrícula {matricula}.")
+        return
+
+    ahora_iso = datetime.now(timezone.utc).isoformat()
+
+    if accion == "soltar":
+        vigente = ejecutar_con_reintentos(
+            lambda: supabase.table("acoplamiento")
+            .select("id")
+            .eq("remolque_id", remolque["id"])
+            .eq("chofer_id", chofer["id"])
+            .is_("hasta", "null")
+            .limit(1)
+            .execute(),
+            contexto={"accion": "acoplamiento_a_soltar", "remolque_id": remolque["id"]},
+        )
+        if not vigente.data:
+            await update.message.reply_text(f"El remolque {remolque['matricula']} no está acoplado a ti ahora mismo.")
+            return
+        ejecutar_con_reintentos(
+            lambda: supabase.table("acoplamiento")
+            .update({"hasta": ahora_iso, "motivo": "suelta"})
+            .eq("id", vigente.data[0]["id"])
+            .execute(),
+            contexto={"accion": "soltar_remolque", "acoplamiento_id": vigente.data[0]["id"]},
+        )
+        await update.message.reply_text(f"✅ Remolque {remolque['matricula']} soltado. Queda registrado como suelto.")
+        return
+
+    # accion == "enganchar"
+    # Si el remolque venía acoplado a otro sitio (a otro chófer/tractora, o
+    # suelto), se cierra ese acoplamiento primero -- el índice único de 0069
+    # lo exigiría igualmente, pero así el mensaje al chófer es claro y no un
+    # error de base de datos crudo.
+    anterior = ejecutar_con_reintentos(
+        lambda: supabase.table("acoplamiento").select("id, chofer_id").eq("remolque_id", remolque["id"]).is_("hasta", "null").limit(1).execute(),
+        contexto={"accion": "acoplamiento_anterior_remolque", "remolque_id": remolque["id"]},
+    )
+    if anterior.data:
+        ejecutar_con_reintentos(
+            lambda: supabase.table("acoplamiento").update({"hasta": ahora_iso, "motivo": "cambio"}).eq("id", anterior.data[0]["id"]).execute(),
+            contexto={"accion": "cerrar_acoplamiento_anterior", "acoplamiento_id": anterior.data[0]["id"]},
+        )
+
+    tractora_id = _tractora_actual_de_chofer(chofer["id"], chofer["empresa_id"])
+    posiciones_ocupadas = {a["posicion"] for a in _acoplamientos_vigentes_de_chofer(chofer["id"]) if a.get("tractora_id") == tractora_id}
+    posicion = 2 if 1 in posiciones_ocupadas else 1
+
+    ejecutar_con_reintentos(
+        lambda: supabase.table("acoplamiento").insert({
+            "empresa_id": chofer["empresa_id"],
+            "tractora_id": tractora_id,
+            "remolque_id": remolque["id"],
+            "posicion": posicion,
+            "chofer_id": chofer["id"],
+            "motivo": "enganche",
+            "registrado_por": "bot",
+        }).execute(),
+        contexto={"accion": "enganchar_remolque", "remolque_id": remolque["id"], "chofer_id": chofer["id"]},
+    )
+    await update.message.reply_text(f"✅ Remolque {remolque['matricula']} enganchado (posición {posicion}).")
 
 
 async def cmd_estado(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1697,8 +2042,9 @@ async def _subir_foto_incidencia(update, ctx, chofer, incidencia_id, viaje_id):
     file = await ctx.bot.get_file(photo.file_id)
     file_bytes = await file.download_as_bytearray()
 
-    if not _foto_pod_valida(file_bytes):
-        await update.message.reply_text(t(chofer, "foto_invalida"))
+    valida, motivo = _foto_pod_valida(file_bytes)
+    if not valida:
+        await update.message.reply_text(t(chofer, motivo))
         return
 
     file_path = f"{chofer['empresa_id']}/incidencia/{incidencia_id}/{uuid.uuid4()}.jpg"
@@ -1874,12 +2220,13 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     # ítem 9.9: validar tamaño y firma (magic bytes) antes de subir nada —
     # nunca confiar en que "photo" de Telegram implica un JPEG válido.
-    if not _foto_pod_valida(file_bytes):
+    valida, motivo = _foto_pod_valida(file_bytes)
+    if not valida:
         logger.warning(
-            "Foto de POD rechazada (tamaño=%d) para hito %s", len(file_bytes), hito["id"],
-            extra={"hito_id": hito["id"], "viaje_id": viaje["id"], "chofer_id": chofer_id, "tamano_bytes": len(file_bytes)},
+            "Foto de POD rechazada (motivo=%s, tamaño=%d) para hito %s", motivo, len(file_bytes), hito["id"],
+            extra={"hito_id": hito["id"], "viaje_id": viaje["id"], "chofer_id": chofer_id, "tamano_bytes": len(file_bytes), "motivo": motivo},
         )
-        await update.message.reply_text(t(chofer, "foto_invalida"))
+        await update.message.reply_text(t(chofer, motivo))
         return
 
     # Ruta: {empresa_id}/{viaje_id}/{hito_id}/{uuid}.jpg
@@ -1937,6 +2284,11 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"📄 Albarán recibido — Viaje {ref}, hito {hito['orden']} ({dir_hito}). Chófer: {chofer['nombre']}.",
     )
 
+    # Fase 23, Bloque A (23.A.2) -- DISCOVERY.md insight 14: "mercancía llega
+    # mojada... luego a fin de mes te descuentan y nadie sabe nada". Se
+    # pregunta AQUÍ, con el chófer todavía en el muelle, no días después.
+    await update.message.reply_text(t(chofer, "anot_pregunta"), reply_markup=anotacion_entrega_keyboard(chofer, hito["id"]))
+
     await send_next_hito(chat_id, chofer, ctx.bot, ctx.chat_data)
 
 
@@ -1987,6 +2339,7 @@ async def cb_sin_pod(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
 
     await query.edit_message_text(t(chofer, "sin_pod_ok", dir=dir_hito))
+    await query.message.reply_text(t(chofer, "anot_pregunta"), reply_markup=anotacion_entrega_keyboard(chofer, hito_id))
     await send_next_hito(chat_id, chofer, ctx.bot, ctx.chat_data)
 
 
@@ -2060,6 +2413,57 @@ async def cb_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     # Quita los botones del mensaje anterior para que no se pueda pulsar dos veces.
     await query.edit_message_text(t(chofer, "inc_elige") + " ✓")
     await _reportar_incidencia(update, ctx, chofer, tipo, t(chofer, desc_key))
+
+
+async def cb_anotacion_entrega(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Fase 23, 23.A.2 -- registra la anotación de mercancía elegida, en el
+    momento, mientras el chófer sigue en el muelle. `tipo == "bien"` no
+    genera evento (sin novedad no es un dato, es la ausencia de uno)."""
+    query = update.callback_query
+    await query.answer()
+
+    _, tipo, hito_id = query.data.split(":")
+    chat_id = str(query.message.chat_id)
+
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
+        await query.edit_message_text(t("es", "no_vinculado"))
+        return
+
+    r = ejecutar_con_reintentos(
+        lambda: supabase.table("hito").select("viaje_id").eq("id", hito_id).execute(),
+        contexto={"accion": "anotacion_entrega_buscar_hito", "hito_id": hito_id},
+    )
+    if not r.data:
+        await query.edit_message_text(t(chofer, "anot_pregunta"))
+        return
+    viaje_id = r.data[0]["viaje_id"]
+
+    if tipo != "bien":
+        ejecutar_con_reintentos(
+            lambda: supabase.table("ejecucion_evento").insert({
+                "viaje_id": viaje_id,
+                "hito_id": hito_id,
+                "chofer_id": chofer["id"],
+                "tipo": "anotacion_entrega",
+                "detalle": tipo,
+            }).execute(),
+            contexto={"accion": "registrar_anotacion_entrega", "hito_id": hito_id, "tipo": tipo},
+        )
+        await notificar_gestor_evento(
+            chofer["empresa_id"], viaje_id,
+            f"⚠️ Anotación en entrega — {t(chofer, TIPOS_ANOTACION_ENTREGA_DESC.get(tipo, tipo))}. Chófer: {chofer['nombre']}.",
+        )
+
+    await query.edit_message_text(t(chofer, "anot_registrada"))
+
+
+TIPOS_ANOTACION_ENTREGA_DESC = {
+    "mercancia_mojada": "btn_anot_mojada",
+    "mercancia_danada": "btn_anot_danada",
+    "faltan_bultos": "btn_anot_faltan",
+    "sello_ilegible": "btn_anot_sello",
+}
 
 
 async def cmd_incidencia(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -3004,6 +3408,7 @@ def create_bot_app():
     app.add_handler(TypeHandler(Update, limitar_flujo), group=-1)
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("estado", cmd_estado))
+    app.add_handler(CommandHandler("remolque", cmd_remolque))
     app.add_handler(CommandHandler("incidencia", cmd_incidencia))
     app.add_handler(CommandHandler("parking", cmd_parking))
     app.add_handler(CommandHandler("eta", cmd_eta))
@@ -3013,6 +3418,7 @@ def create_bot_app():
     app.add_handler(CallbackQueryHandler(cb_llegada, pattern=r"^llegada:"))
     app.add_handler(CallbackQueryHandler(cb_sin_pod, pattern=r"^sin_pod:"))
     app.add_handler(CallbackQueryHandler(cb_incidencia, pattern=r"^inc:"))
+    app.add_handler(CallbackQueryHandler(cb_anotacion_entrega, pattern=r"^anot:"))
     app.add_handler(CallbackQueryHandler(cb_cancelar, pattern=r"^cancelar$"))
     app.add_handler(CallbackQueryHandler(cb_cotizar_confirmar, pattern=r"^cotizar_confirmar$"))
     app.add_handler(CallbackQueryHandler(cb_cotizar_cancelar, pattern=r"^cotizar_cancelar$"))

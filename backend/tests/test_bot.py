@@ -1157,6 +1157,238 @@ async def test_handle_location_pregunta_si_cerca_del_hito_pendiente(fake_db):
     assert ctx.chat_data["geo_preguntado"] == "h1"
 
 
+# --- /remolque (Fase 23, 23.C.3) — operaciones de patio desde Telegram ---
+
+def _remolque_update(texto_args, chat_id="chat-1"):
+    return SimpleNamespace(
+        effective_chat=SimpleNamespace(id=chat_id),
+        message=SimpleNamespace(reply_text=AsyncMock()),
+    )
+
+
+@pytest.mark.asyncio
+async def test_cmd_remolque_sin_vincular(fake_db):
+    update = _remolque_update([])
+    ctx = SimpleNamespace(args=[])
+    await bot.cmd_remolque(update, ctx)
+    texto = update.message.reply_text.call_args[0][0]
+    assert texto == bot.t("es", "no_vinculado")
+
+
+@pytest.mark.asyncio
+async def test_cmd_remolque_sin_argumentos_muestra_estado_vacio(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "chat_id": "chat-1", "empresa_id": "e1"}]
+    update = _remolque_update([])
+    ctx = SimpleNamespace(args=[])
+    await bot.cmd_remolque(update, ctx)
+    texto = update.message.reply_text.call_args[0][0]
+    assert "ningún remolque acoplado" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_remolque_enganchar_matricula_desconocida(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "chat_id": "chat-1", "empresa_id": "e1"}]
+    update = _remolque_update([])
+    ctx = SimpleNamespace(args=["enganchar", "ZZZZ999"])
+    await bot.cmd_remolque(update, ctx)
+    texto = update.message.reply_text.call_args[0][0]
+    assert "No encuentro ningún remolque" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_remolque_enganchar_usa_tractora_del_viaje_en_curso(fake_db):
+    """Caso base: el chófer no tiene acoplamiento previo, pero sí un viaje en
+    curso con tractora asignada (dato heredado pre-0069) -- debe usarse esa."""
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "empresa_id": "e1", "estado": "en_curso", "vehiculo_id": "trac1"}]
+    fake_db.tables["vehiculo"] = [{"id": "rem1", "matricula": "1234ABC", "tipo": "remolque", "empresa_id": "e1"}]
+    update = _remolque_update([])
+    ctx = SimpleNamespace(args=["enganchar", "1234ABC"])
+    await bot.cmd_remolque(update, ctx)
+
+    acoplamientos = fake_db.tables["acoplamiento"]
+    assert len(acoplamientos) == 1
+    assert acoplamientos[0]["tractora_id"] == "trac1"
+    assert acoplamientos[0]["remolque_id"] == "rem1"
+    assert acoplamientos[0]["posicion"] == 1
+    assert acoplamientos[0]["motivo"] == "enganche"
+    assert acoplamientos[0]["registrado_por"] == "bot"
+    texto = update.message.reply_text.call_args[0][0]
+    assert "enganchado" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_remolque_enganchar_segundo_remolque_va_a_posicion_2(fake_db):
+    """Caso duo: ya lleva un remolque en posición 1, el segundo debe ir a la 2."""
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["vehiculo"] = [{"id": "rem2", "matricula": "5678XYZ", "tipo": "remolque", "empresa_id": "e1"}]
+    fake_db.tables["acoplamiento"] = [
+        {"id": "ac1", "empresa_id": "e1", "tractora_id": "trac1", "remolque_id": "rem1", "posicion": 1, "chofer_id": "c1", "hasta": None},
+    ]
+    update = _remolque_update([])
+    ctx = SimpleNamespace(args=["enganchar", "5678XYZ"])
+    await bot.cmd_remolque(update, ctx)
+
+    nuevo = [a for a in fake_db.tables["acoplamiento"] if a["remolque_id"] == "rem2"]
+    assert len(nuevo) == 1
+    assert nuevo[0]["posicion"] == 2
+    assert nuevo[0]["tractora_id"] == "trac1"
+
+
+@pytest.mark.asyncio
+async def test_cmd_remolque_soltar(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["vehiculo"] = [{"id": "rem1", "matricula": "1234ABC", "tipo": "remolque", "empresa_id": "e1"}]
+    fake_db.tables["acoplamiento"] = [
+        {"id": "ac1", "empresa_id": "e1", "tractora_id": "trac1", "remolque_id": "rem1", "posicion": 1, "chofer_id": "c1", "hasta": None},
+    ]
+    update = _remolque_update([])
+    ctx = SimpleNamespace(args=["soltar", "1234ABC"])
+    await bot.cmd_remolque(update, ctx)
+
+    ac = fake_db.tables["acoplamiento"][0]
+    assert ac["hasta"] is not None
+    assert ac["motivo"] == "suelta"
+    texto = update.message.reply_text.call_args[0][0]
+    assert "soltado" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_remolque_lanzadera_dos_choferes_intercambian(fake_db):
+    """El caso real que describió el gestor: dos chóferes salen, se cruzan a
+    mitad de camino, e intercambian remolques -- cada uno declara desde su
+    propio Telegram sin que el sistema se confunda."""
+    fake_db.tables["chofer"] = [
+        {"id": "c1", "nombre": "Mario", "chat_id": "chat-1", "empresa_id": "e1"},
+        {"id": "c2", "nombre": "Luis", "chat_id": "chat-2", "empresa_id": "e1"},
+    ]
+    fake_db.tables["vehiculo"] = [
+        {"id": "rem-norte", "matricula": "NORTE01", "tipo": "remolque", "empresa_id": "e1"},
+        {"id": "rem-sur", "matricula": "SUR01", "tipo": "remolque", "empresa_id": "e1"},
+    ]
+    fake_db.tables["acoplamiento"] = [
+        {"id": "ac1", "empresa_id": "e1", "tractora_id": "trac-madrid", "remolque_id": "rem-norte", "posicion": 1, "chofer_id": "c1", "hasta": None},
+        {"id": "ac2", "empresa_id": "e1", "tractora_id": "trac-barna", "remolque_id": "rem-sur", "posicion": 1, "chofer_id": "c2", "hasta": None},
+    ]
+
+    # En el punto de cruce: c1 suelta rem-norte y engancha rem-sur; c2 al revés.
+    await bot.cmd_remolque(_remolque_update([], "chat-1"), SimpleNamespace(args=["soltar", "NORTE01"]))
+    await bot.cmd_remolque(_remolque_update([], "chat-2"), SimpleNamespace(args=["soltar", "SUR01"]))
+    await bot.cmd_remolque(_remolque_update([], "chat-1"), SimpleNamespace(args=["enganchar", "SUR01"]))
+    await bot.cmd_remolque(_remolque_update([], "chat-2"), SimpleNamespace(args=["enganchar", "NORTE01"]))
+
+    vigentes = {a["remolque_id"]: a for a in fake_db.tables["acoplamiento"] if a.get("hasta") is None}
+    assert vigentes["rem-sur"]["tractora_id"] == "trac-madrid"
+    assert vigentes["rem-norte"]["tractora_id"] == "trac-barna"
+
+
+# --- _foto_pod_valida / _calidad_foto_pod (Fase 23, 23.A.1) ---
+# Origen: DISCOVERY.md insight 14 -- "no se lee ninguna letra de la que me ha
+# pasado". Fotos SINTÉTICAS reales (no mocks) generadas con Pillow: nítida de
+# alto contraste, borrosa (desenfoque gaussiano), oscura, quemada, y diminuta.
+
+from PIL import Image, ImageDraw, ImageFilter
+import io
+
+
+def _jpeg_bytes(img):
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=90)
+    return buf.getvalue()
+
+
+def _foto_nitida_valida():
+    """Alto contraste con muchos bordes (tablero de ajedrez) -- lo que se
+    espera de un albarán real con texto legible."""
+    img = Image.new("L", (800, 800), color=255)
+    draw = ImageDraw.Draw(img)
+    for i in range(0, 800, 40):
+        for j in range(0, 800, 40):
+            if (i // 40 + j // 40) % 2 == 0:
+                draw.rectangle([i, j, i + 40, j + 40], fill=0)
+    return _jpeg_bytes(img.convert("RGB"))
+
+
+def _foto_borrosa():
+    """Mismo tablero, pero con un desenfoque gaussiano fuerte -- simula una
+    foto movida donde no se lee el texto."""
+    img = Image.new("L", (800, 800), color=255)
+    draw = ImageDraw.Draw(img)
+    for i in range(0, 800, 40):
+        for j in range(0, 800, 40):
+            if (i // 40 + j // 40) % 2 == 0:
+                draw.rectangle([i, j, i + 40, j + 40], fill=0)
+    borrosa = img.filter(ImageFilter.GaussianBlur(radius=12))
+    return _jpeg_bytes(borrosa.convert("RGB"))
+
+
+def _foto_oscura():
+    return _jpeg_bytes(Image.new("RGB", (800, 800), color=(5, 5, 5)))
+
+
+def _foto_quemada():
+    return _jpeg_bytes(Image.new("RGB", (800, 800), color=(250, 250, 250)))
+
+
+def _foto_diminuta():
+    img = Image.new("RGB", (50, 50), color=(120, 120, 120))
+    return _jpeg_bytes(img)
+
+
+def test_foto_pod_valida_acepta_foto_nitida():
+    valida, motivo = bot._foto_pod_valida(_foto_nitida_valida())
+    assert valida is True
+    assert motivo is None
+
+
+def test_foto_pod_valida_rechaza_borrosa():
+    valida, motivo = bot._foto_pod_valida(_foto_borrosa())
+    assert valida is False
+    assert motivo == "foto_borrosa"
+
+
+def test_foto_pod_valida_rechaza_oscura():
+    valida, motivo = bot._foto_pod_valida(_foto_oscura())
+    assert valida is False
+    assert motivo == "foto_oscura"
+
+
+def test_foto_pod_valida_rechaza_quemada():
+    valida, motivo = bot._foto_pod_valida(_foto_quemada())
+    assert valida is False
+    assert motivo == "foto_quemada"
+
+
+def test_foto_pod_valida_rechaza_pequena():
+    valida, motivo = bot._foto_pod_valida(_foto_diminuta())
+    assert valida is False
+    assert motivo == "foto_pequena"
+
+
+def test_foto_pod_valida_rechaza_formato_invalido_antes_de_analizar_calidad():
+    """Un .txt disfrazado de foto ni siquiera llega al análisis de calidad --
+    el check estructural (magic bytes) es el primero y no negociable."""
+    valida, motivo = bot._foto_pod_valida(b"esto no es una imagen")
+    assert valida is False
+    assert motivo == "foto_invalida"
+
+
+def test_foto_pod_valida_datos_corruptos_con_magic_bytes_validos_se_acepta():
+    """Bytes que EMPIEZAN como JPEG válido pero están corruptos por dentro:
+    Pillow no puede abrirlos -> `_calidad_foto_pod` devuelve None -> se
+    ACEPTA (ante la duda de si se puede analizar, no se rechaza; ver 23.A.1)."""
+    datos_corruptos = bot.POD_JPEG_MAGIC + b"\x00" * 500
+    valida, motivo = bot._foto_pod_valida(datos_corruptos)
+    assert valida is True
+    assert motivo is None
+
+
+def test_todos_los_idiomas_tienen_los_nuevos_textos_de_calidad_de_foto():
+    for lang, textos in bot.TEXTOS.items():
+        for clave in ("foto_borrosa", "foto_oscura", "foto_quemada", "foto_pequena"):
+            assert clave in textos, f"{lang} no tiene la clave {clave}"
+
+
 @pytest.mark.asyncio
 async def test_handle_location_no_pregunta_dos_veces(fake_db):
     fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "idioma": "es", "chat_id": "chat-1", "empresa_id": "e1"}]

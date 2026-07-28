@@ -319,6 +319,51 @@ export async function getViaje(id) {
 }
 
 /**
+ * Fase 23, Bloque A (23.A.3) — DISCOVERY.md insight 14: "me he pegado media
+ * hora buscando papeles en el armario" (custodia real: 3 años albaranes, 10
+ * facturas). Buscador sobre los POD ya almacenados -- sin storage nuevo, es
+ * una VISTA sobre lo que ya hay. Todos los filtros son opcionales y se
+ * combinan con AND; sin ninguno, trae los más recientes primero.
+ *
+ * @param {{referencia?, clienteNombre?, matricula?, choferId?, desde?, hasta?}} filtros
+ */
+export async function buscarAlbaranes(filtros = {}) {
+  let query = supabase
+    .from("pod")
+    .select(
+      "id, foto_url, hash_sha256, created_at, hito_id, " +
+      "viaje:viaje_id(id, referencia, cliente:cliente_id(nombre), chofer:chofer_id(id, nombre), vehiculo:vehiculo_id(matricula))"
+    )
+    .order("created_at", { ascending: false });
+
+  if (filtros.desde) query = query.gte("created_at", filtros.desde);
+  if (filtros.hasta) query = query.lte("created_at", filtros.hasta);
+
+  const { data } = await query;
+
+  return (data || [])
+    .filter((p) => p.viaje) // aislamiento: RLS ya scopa `pod` por empresa vía el viaje, esto filtra huérfanos
+    .filter((p) => {
+      if (filtros.referencia && !(p.viaje.referencia || "").toLowerCase().includes(filtros.referencia.toLowerCase())) return false;
+      if (filtros.clienteNombre && !(p.viaje.cliente?.nombre || "").toLowerCase().includes(filtros.clienteNombre.toLowerCase())) return false;
+      if (filtros.matricula && !(p.viaje.vehiculo?.matricula || "").toLowerCase().includes(filtros.matricula.toLowerCase())) return false;
+      if (filtros.choferId && p.viaje.chofer?.id !== filtros.choferId) return false;
+      return true;
+    })
+    .map((p) => ({
+      id: p.id,
+      fotoUrl: p.foto_url,
+      hash: p.hash_sha256,
+      creadoEn: p.created_at,
+      viajeId: p.viaje.id,
+      viajeReferencia: p.viaje.referencia,
+      clienteNombre: p.viaje.cliente?.nombre || null,
+      choferNombre: p.viaje.chofer?.nombre || null,
+      matricula: p.viaje.vehiculo?.matricula || null,
+    }));
+}
+
+/**
  * F13.2 — Dossier de evidencia para reclamaciones: reúne todo lo probatorio de
  * un viaje (cadena de hash de los eventos, POD con su hash SHA-256 y hora,
  * checkpoints, llegadas) para un documento imprimible que enseñar a un cliente
@@ -2240,6 +2285,186 @@ export async function getViajesConHuecoUbicacion() {
       return hueco ? { viajeId: v.id, referencia: v.referencia || v.id.slice(0, 8), horasSinSenal } : null;
     })
     .filter(Boolean);
+}
+
+// ==========================================================================
+// Fase 23, Bloque C (23.C.2) — Posición derivada de cada unidad de transporte.
+//
+// Origen: DISCOVERY.md insight 9/21 (2026-07-27) — el gestor pidió literalmente
+// que el sistema sepa dónde está cada remolque sin GPS propio de remolque, y
+// hoy lo hace a mano cada mañana ("uno por uno, por GPS"). Solución: `ubicacion`
+// sigue colgando SOLO del chófer (no hay telemetría de remolque, ver ROADMAP
+// 23.0.3), pero cruzada con `acoplamiento` (0069) permite derivar la posición
+// de la tractora y de cada remolque acoplado sin sensor propio.
+//
+// Regla de diseño no negociable: NUNCA se inventa una posición interpolando
+// por la ruta teórica -- sería fabricar evidencia en un sistema cuyo valor ES
+// la evidencia. Toda posición devuelta lleva su `fuente` y su antigüedad.
+// ==========================================================================
+
+export const UMBRAL_POSICION_OBSOLETA_MIN = 30; // valor inicial razonable, mismo estatus que otros umbrales del proyecto
+
+/**
+ * Posición derivada de TODAS las unidades vigentes de una empresa: chóferes,
+ * sus tractoras y sus remolques acoplados, más los remolques sueltos.
+ *
+ * Cada unidad devuelve `{ tipo, id, lat, lon, fuente, actualizadoEn }` donde
+ * `fuente` es una de:
+ *   - 'directa'   -- hay un chófer acoplado y su último ping está dentro del
+ *                    umbral. Máxima confianza.
+ *   - 'obsoleta'  -- hay chófer acoplado pero su último ping es más viejo que
+ *                    el umbral. Se devuelve la posición Y su antigüedad real,
+ *                    nunca como si fuera actual.
+ *   - 'congelada' -- remolque suelto (sin tractora vigente): se queda en el
+ *                    punto de la última posición conocida ANTES de soltarse,
+ *                    hasta que alguien lo vuelva a enganchar. Fiable para
+ *                    saber que sigue ahí, inútil para saber si alguien se lo
+ *                    llevó sin declararlo (eso requiere telemetría física,
+ *                    ver ROADMAP 23.0.3).
+ *   - 'desconocida' -- sin acoplamiento vigente y sin ping previo utilizable.
+ *
+ * No infiere identidad por cercanía (DISCOVERY.md insight 21: en Épila hay
+ * 200 camiones juntos) -- la identidad viene SIEMPRE del acoplamiento
+ * declarado, nunca de "está cerca de".
+ */
+export async function getPosicionUnidades() {
+  const empresaId = await getCurrentEmpresaId();
+  const ahora = new Date();
+
+  const { data: acoplamientos } = await supabase
+    .from("acoplamiento")
+    .select("id, tractora_id, remolque_id, posicion, chofer_id")
+    .eq("empresa_id", empresaId)
+    .is("hasta", null);
+
+  const vigentes = acoplamientos || [];
+  const idsChofer = [...new Set(vigentes.map((a) => a.chofer_id).filter(Boolean))];
+
+  const ultimaUbicacionPorChofer = {};
+  if (idsChofer.length > 0) {
+    const haceSieteDias = new Date(ahora.getTime() - 7 * 86400000).toISOString();
+    const { data: ubicaciones } = await supabase
+      .from("ubicacion")
+      .select("chofer_id, lat, lon, created_at")
+      .in("chofer_id", idsChofer)
+      .gte("created_at", haceSieteDias)
+      .order("created_at", { ascending: false });
+    (ubicaciones || []).forEach((u) => {
+      if (!(u.chofer_id in ultimaUbicacionPorChofer)) ultimaUbicacionPorChofer[u.chofer_id] = u;
+    });
+  }
+
+  function posicionDeChofer(choferId) {
+    const u = ultimaUbicacionPorChofer[choferId];
+    if (!u) return null;
+    const minutos = (ahora.getTime() - new Date(u.created_at).getTime()) / 60000;
+    return {
+      lat: u.lat,
+      lon: u.lon,
+      actualizadoEn: u.created_at,
+      fuente: minutos <= UMBRAL_POSICION_OBSOLETA_MIN ? "directa" : "obsoleta",
+    };
+  }
+
+  const resultado = [];
+  const tractorasYaAnadidas = new Set(); // una tractora puede tener 2 remolques (duo) -> 2 filas de acoplamiento, 1 sola entidad tractora
+  for (const a of vigentes) {
+    const posChofer = a.chofer_id ? posicionDeChofer(a.chofer_id) : null;
+
+    if (a.tractora_id && !tractorasYaAnadidas.has(a.tractora_id)) {
+      tractorasYaAnadidas.add(a.tractora_id);
+      resultado.push({
+        tipo: "tractora",
+        id: a.tractora_id,
+        acoplamientoId: a.id,
+        ...(posChofer || { lat: null, lon: null, actualizadoEn: null, fuente: "desconocida" }),
+      });
+    }
+    resultado.push({
+      tipo: "remolque",
+      id: a.remolque_id,
+      posicion: a.posicion,
+      acoplamientoId: a.id,
+      tractoraId: a.tractora_id,
+      // Remolque suelto (sin tractora vigente): su posición es la del último
+      // punto conocido -- se queda "congelado" ahí hasta que alguien declare
+      // un nuevo enganche. Con tractora, comparte la posición del chófer.
+      ...(a.tractora_id
+        ? posChofer || { lat: null, lon: null, actualizadoEn: null, fuente: "desconocida" }
+        : posChofer
+          ? { ...posChofer, fuente: "congelada" }
+          : { lat: null, lon: null, actualizadoEn: null, fuente: "desconocida" }),
+    });
+  }
+
+  return resultado;
+}
+
+/**
+ * Fase 23, Bloque C (23.C.4) — Contradicciones de acoplamiento: incoherencias
+ * entre lo que dice el sistema y un hito activo, sin necesitar telemetría de
+ * remolque (bloqueada en ROADMAP 23.0.3). Función de LECTURA, mismo patrón
+ * que `getIncidenciasAbiertasParaMapa` -- sin tabla nueva, aislada por
+ * `empresa_id` a través de las consultas normales de Supabase + RLS.
+ *
+ * NO reutiliza `alerta_integridad` (0045): esa tabla no tiene `empresa_id` ni
+ * policies para `authenticated` -- es intencionalmente invisible al
+ * dashboard, solo la usa el monitor de cron. Reutilizarla habría escondido la
+ * alerta del gestor (o peor, filtrado datos entre empresas).
+ *
+ * Nunca corrige nada por sí sola: es una lista para que el gestor decida,
+ * porque la corrección real depende de contexto que el sistema no tiene.
+ * Solo mira hitos YA activos (`en_curso`/`completado`) -- un hito
+ * `pendiente` sin remolque acoplado todavía es normal (el viaje no ha
+ * arrancado), no una contradicción.
+ */
+export async function getContradiccionesAcoplamiento() {
+  const empresaId = await getCurrentEmpresaId();
+
+  const { data: hitos } = await supabase
+    .from("hito")
+    .select("id, remolque_id, estado, viaje:viaje_id(id, referencia, chofer_id, empresa_id)")
+    .not("remolque_id", "is", null)
+    .in("estado", ["en_curso", "completado"]);
+
+  const hitosDeLaEmpresa = (hitos || []).filter((h) => h.viaje?.empresa_id === empresaId);
+  if (hitosDeLaEmpresa.length === 0) return [];
+
+  const idsRemolque = [...new Set(hitosDeLaEmpresa.map((h) => h.remolque_id))];
+  const { data: acoplamientos } = await supabase
+    .from("acoplamiento")
+    .select("remolque_id, chofer_id")
+    .eq("empresa_id", empresaId)
+    .in("remolque_id", idsRemolque)
+    .is("hasta", null);
+
+  const vigentePorRemolque = {};
+  (acoplamientos || []).forEach((a) => { vigentePorRemolque[a.remolque_id] = a; });
+
+  const contradicciones = [];
+  for (const h of hitosDeLaEmpresa) {
+    const vigente = vigentePorRemolque[h.remolque_id];
+    if (!vigente) {
+      contradicciones.push({
+        tipo: "sin_acoplamiento_vigente",
+        hitoId: h.id,
+        remolqueId: h.remolque_id,
+        viajeId: h.viaje.id,
+        viajeReferencia: h.viaje.referencia,
+        detalle: "Este hito usa un remolque que, según el sistema, nadie tiene enganchado ahora mismo.",
+      });
+    } else if (h.viaje.chofer_id && vigente.chofer_id && vigente.chofer_id !== h.viaje.chofer_id) {
+      contradicciones.push({
+        tipo: "chofer_no_coincide",
+        hitoId: h.id,
+        remolqueId: h.remolque_id,
+        viajeId: h.viaje.id,
+        viajeReferencia: h.viaje.referencia,
+        detalle: "El remolque de este hito está acoplado a otro chófer distinto del asignado al viaje.",
+      });
+    }
+  }
+  return contradicciones;
 }
 
 export async function getResumenHoy() {

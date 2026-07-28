@@ -40,6 +40,13 @@ class FakeQuery:
         self._rows = [r for r in self._rows if r.get(field) in values]
         return self
 
+    def ilike(self, field, value):
+        # Espejo mínimo: sin comodines %, solo igualdad case-insensitive
+        # (suficiente para lo que usa app/bot.py: buscar matrícula exacta).
+        v = str(value).lower()
+        self._rows = [r for r in self._rows if str(r.get(field, "")).lower() == v]
+        return self
+
     def gte(self, field, value):
         self._rows = [r for r in self._rows if r.get(field) is not None and r.get(field) >= value]
         return self

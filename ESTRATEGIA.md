@@ -13,6 +13,51 @@ validado" en vez de inventarlo.
 
 ---
 
+## 0.5 North Star (2026-07-28) — "el Bloomberg de la logística", y cómo se llega sin morir en el camino
+
+Confirmado con el usuario: la ambición final NO es un módulo de nómina ni una capa de ejecución
+modesta — es ser **el líder absoluto de la industria**. En sus palabras: un algoritmo total que
+reciba todos los inputs (rutas, dónde vive cada chófer, cumplimiento del schedule, incidentes de
+tráfico en tiempo real — "si hay un incendio en Burdeos y cortan la carretera, recircular las
+rutas solo") y GPS real de **tractora + remolque + persona**, de modo que el sistema decida solo.
+
+**Por qué esto es correcto como North Star y peligroso como plan de esta semana.** Es
+literalmente la definición de un TMS completo con motor de optimización — el terreno exacto de
+Qargo (€46M, 400 clientes) y de HERE/Trimble (20 años de ventaja en routing *truck-aware*).
+Section 2 de este mismo documento ya lo advirtió: *"Norenty NO puede ganar como un TMS más
+completo — en funcionalidades, siempre pierde."* Intentar construir el algoritmo total ahora, con
+**cero clientes reales** (§4.1, riesgo #1 del proyecto), es apostar meses de trabajo sobre
+supuestos que nadie ha validado — el patrón exacto que `MENTORIA-ESTRATEGICA.md` diagnosticó como
+la amenaza real del proyecto, no la competencia ni la tecnología.
+
+**La resolución, no un "no":** el North Star se escribe y se guarda, no se folcloriza ni se
+descarta. Pero se persigue **por capas, cada una validada con un cliente real antes de escalarla**
+— no de golpe:
+
+1. **Capa 0 (Fase 23, en curso):** el cimiento de datos correcto — unidad de transporte real
+   (chófer/tractora/remolque como líneas de tiempo independientes, no un campo), posición
+   derivada sin telemetría propia, nómina completa, POD fiable, semáforo honesto. Esto no es "la
+   versión pequeña" del North Star: es su cimiento literal. Un algoritmo de rutas construido sobre
+   el modelo viejo (remolque fijo por viaje) heredaría el mismo error que tiene Cometweb hoy.
+2. **Capa 1 (tras el primer piloto real, §6.5):** con datos reales de viajes ejecutados, hay algo
+   que optimizar y algo con qué medir si un algoritmo de rutas mejora de verdad la operación de
+   ESE cliente. Antes de eso, "optimizar rutas" es optimizar contra una simulación.
+3. **Capa 2 (con 2-3 Founding Partners, gate de §5.6):** telemetría de remolque real (hoy bloqueada
+   en ROADMAP 23.0.3 por falta de proveedor y de cliente que la pague), reglas de replanificación
+   por incidente (tráfico, incendios, cortes) sobre datos de tráfico de terceros (HERE tiene esto
+   *truck-aware*, ver §3, "para lo difícil recurrir a terceros, no reimplementar" — un motor de
+   rutas propio compitiendo con HERE no es el foso, integrarlo bien sí lo es), y "dónde vive el
+   chófer" como restricción dura de asignación (ya hay una semilla real de esto en
+   `DISCOVERY.md` insight 21 — el planificador ya evita mandar a un chófer lejos de casa un jueves).
+4. **Capa 3 (escala, §8):** aquí es donde "Bloomberg de la logística" deja de ser aspiracional.
+
+**Regla de secuencia (no negociable, y es la misma del GATE MAESTRO):** ningún ítem de Capa 1+ se
+empieza sin haber cerrado el criterio de éxito de la Capa anterior con un cliente real. El loop
+autónomo NO decide subir de capa por iniciativa propia — eso requiere una decisión explícita del
+usuario, igual que un despliegue.
+
+---
+
 ## 0. Veredicto en 30 segundos
 
 **Sí, la idea tiene sentido y merece intentarse — pero el proyecto está a una decisión de
@@ -158,16 +203,34 @@ la Fase 19 **era existencial, no una deuda técnica más** — una nómina mal c
 mata la cuenta y la referencia. Bien encontrado y bien arreglado; y confirma dónde debe estar
 el listón de calidad: en la cuña, no repartido por igual entre 22 pantallas.
 
-### 3.3 La cadena de evidencia: opción real, todavía no validada
+### 3.3 La cadena de evidencia: ✅ VALIDADA el 2026-07-27 — pasa de opción a pilar
 
 El hash-chain de POD + GPS + timestamps es genuinamente difícil de copiar rápido (hay que
 diseñarlo desde el día 1, no añadirlo después). Abre puertas más allá del TMS: defensa en
 disputas, negociación de primas de seguro, *factoring* con entrega verificada.
 
-**Pero:** `DISCOVERY-GESTOR.md` §3.7 pregunta si las disputas son un dolor real… y no está
-contestada. Sin esa validación, la cadena de evidencia es una solución elegante buscando un
-problema. **Es una opción valiosa, no un pilar de venta todavía.** No construir más encima
-hasta confirmarlo.
+~~**Pero:** `DISCOVERY-GESTOR.md` §3.7 pregunta si las disputas son un dolor real… y no está
+contestada.~~ **Contestada el 2026-07-27** (`DISCOVERY.md` insight 16), y por iniciativa del
+gestor, sin que se le preguntara:
+
+> "Lo lógico sería cambiarlo todo a nivel de que sea **una huella digital. Todo digital. Y que
+> sea inalterable**. Es una trazabilidad digital."
+
+Lo que la convierte en dolor económico y no en elegancia técnica:
+- **Papel perdido = viaje potencialmente no cobrado.** "Está en su derecho de decirte que no."
+- **Fotos de albarán ilegibles** son un problema diario: hay que volver a pedírselas al chófer
+  días después, cuando ya está a 500 km.
+- **Anotaciones no registradas** ("mercancía mojada") se convierten en descuentos a fin de mes
+  que ya no se pueden discutir.
+- **Custodia legal de 3 años (albaranes) y 10 (facturas)** en armarios físicos: "me he pegado
+  media hora buscando papeles. Es imposible encontrar algo."
+- **eCMR** (carta de porte electrónica) "ya está en marcha, pero no se usa aún" → hay un estándar
+  al que engancharse en vez de inventar un formato propio.
+
+**Corrección de rumbo respecto a la versión anterior de esta sección:** el problema NO estaba en
+si la cadena de evidencia importa (importa), sino en **la calidad del dato de entrada**. Una foto
+borrosa rompe la cadena entera y no nos enteramos hasta que es tarde. Por eso la Fase 23 ataca
+primero la validación de la foto en el momento de la captura, no más criptografía encima.
 
 ### 3.4 El activo que nadie ha puesto en el pitch: la velocidad
 
@@ -196,17 +259,31 @@ conversación incómoda con un cliente.
 **Arreglo (no negociable):** el GATE MAESTRO que ya propuso `MENTORIA-ESTRATEGICA.md`, pero
 esta vez con un compromiso de calendario, no de intención. Ver plan de 30 días (sección 6).
 
-### 4.2 🔴 El discovery está construido sobre una sola fuente, y es amiga
+### 4.2 🟡 El discovery está construido sobre una sola fuente, y es amiga
 
-Todo lo que "sabemos" del cliente viene de **una conversación informal con un gestor amigo del
-fundador**, y el propio `DISCOVERY.md` marca el sesgo. Faltan: el comprador económico
-(dueño/gerente — **cero conversaciones**), un gestor ciego sin relación personal, y la
-respuesta a Telegram-vs-WhatsApp.
+**Actualizado 2026-07-27 — mejora sustancial, pero el riesgo de fondo NO desaparece.**
+
+Todo lo que "sabemos" del cliente viene de **un único gestor amigo del fundador**, y el propio
+`DISCOVERY.md` marca el sesgo. Lo que cambió el 2026-07-27: una sesión de ~60 min **con su TMS
+real (Cometweb) en pantalla**, recorriendo la operación pantalla por pantalla. Eso sube la
+calidad de "anécdota recordada" a **auditoría de campo + auditoría competitiva directa**, y
+produjo los insights 9-21 de `DISCOVERY.md`, incluidos cuatro fallos concretos del competidor
+que él nombró sin que se le preguntara.
+
+**Lo que sigue exactamente igual de mal:** es la MISMA persona. Un punto de datos muy profundo
+sigue siendo un punto de datos. Faltan, sin excusa:
+- El **comprador económico** (dueño/gerente): **cero conversaciones**. Y ahora sabemos que ya
+  existe una "mega Excel del jefe" midiendo a los gestores (insight 15) — es decir, el dueño ya
+  tiene una pregunta que Norenty contesta, y no hemos hablado con él nunca.
+- Un **gestor ciego**, sin relación personal, para contrastar el sesgo de apertura del insight 6.
+- **Telegram-vs-WhatsApp** desde el punto de vista del chófer: sigue sin contestarse. Apareció un
+  ángulo legal nuevo (insight 17: WhatsApp no era válido como prueba en Marcotran) pero es una
+  impresión suya, **no validada** — no usarlo como argumento de venta sin confirmarlo.
 
 Andreessen: el mercado es el factor dominante, y sobre este mercado se tiene un solo punto de
-datos con sesgo conocido.
+datos con sesgo conocido — ahora muy bien documentado, pero uno.
 
-**Arreglo:** 3 conversaciones en 2 semanas (1 dueño, 1 gestor ciego, 1 confirmación de canal).
+**Arreglo (sin cambios):** 3 conversaciones (1 dueño, 1 gestor ciego, 1 confirmación de canal).
 
 ### 4.3 🟡 El producto se ha convertido en el TMS que decía no ser
 
@@ -405,6 +482,23 @@ amigos gestores como asesores puntuales pagados para las llamadas de validación
 para revisar casos anómalos según aparezcan. Decidir la pregunta de SaaS-vs-BPO con datos de
 esas llamadas, no antes.
 
+### 5.6 Cuándo cambiar el mensaje: apalancamiento primero, ahorro de personal después
+
+Confirmado con el usuario (2026-07-26): el mensaje principal siempre ha sido vender "puerta a
+puerta" con la promesa de apalancamiento ("el mismo gestor lleva más flota", sección 5.2) — no
+"te reduzco la plantilla". El cambio de mensaje a "el TMS del futuro que te recorta el coste de
+personal" se reserva a propósito para **después** de tener 2-3 Founding Partners reales
+funcionando.
+
+**Por qué este orden y no al revés:** vender la reducción de coste de personal ANTES de tener un
+caso real es prometer un ahorro que nadie ha visto todavía — y es exactamente el mensaje que
+activa el sabotaje del gestor descrito en 4.4 (la persona que tienes delante en la demo se
+siente amenazada). Vender apalancamiento primero dejando que el ahorro se demuestre solo con
+los primeros clientes evita quemar ningún contacto: la reducción de coste, cuando llegue, se
+cuenta como caso de estudio de un cliente distinto ("la empresa X pasó de 3 gestores a 1"), no
+como promesa al gestor que tienes enfrente. El gate para el cambio de mensaje: 2-3 Founding
+Partners con datos reales de al menos varios meses, no antes.
+
 ---
 
 ## 6. Hoja de ruta: de aquí a las primeras conversaciones con el sector
@@ -429,6 +523,19 @@ gente del sector sin quemar los contactos importantes ni regalar más de lo nece
    falla, el coste es bajo.
 3. **Nivel 2 — founding partners target (80/100/300 camiones):** no se llega a ellos hasta que
    el mensaje ya sonó bien 2-3 veces en el nivel 1. Se ganan la versión pulida, no la primera.
+
+**Actualización de pipeline (2026-07-28):** la empresa grande donde trabaja el gestor amigo
+(Nivel 0) probablemente **no es un cliente viable** — el propio usuario intuye resistencia por
+secretismo de datos, aunque el amigo cree que sí ayudarían a desarrollarlo. Tratar esa empresa
+como fuente de discovery/asesoría (ya lo es), no como target de venta.
+
+En cambio, hay **dos contactos de Nivel 1/2 con acceso directo al comprador económico**, no solo
+al usuario diario: una empresa donde el usuario conoce personalmente al **propietario**, y otra
+donde conoce al **jefe supremo** (máximo responsable). Esto es mejor posición de la que describía
+§6.2 en general ("secundarios, sin relación personal") — aquí SÍ hay relación personal con quien
+firma el cheque, lo que salta directamente hacia el perfil de Founding Partner real. Candidatos
+fuertes para la Semana 3 del plan de 30 días (§6.4), una vez el mensaje se haya probado en Nivel 1
+si hace falta, o directamente si la relación personal ya reduce el riesgo de quemar el contacto.
 
 ### 6.3 Guion para la primera llamada (nivel 0)
 
@@ -481,6 +588,44 @@ cliente con nombre y apellidos haya pedido, o que bloquee un piloto real.
 
 **Métrica única de estos 30 días:** no líneas de código, no fases cerradas. **Viajes reales
 completados por chóferes reales.** Hoy: 0.
+
+### 6.5 La forma del piloto — nos la dio el propio gestor (2026-07-27)
+
+Añadido tras la sesión con Cometweb en pantalla (`DISCOVERY.md` insight 20). Hasta ahora el
+piloto era una idea nuestra; ahora tiene forma dicha por el cliente, y eso cambia la venta.
+
+**La objeción que hay que superar, en sus palabras:**
+> "Tú también tienes un problema: no estás vendiendo una cosita. Estás vendiendo que **te juegas
+> que te funcione todo, a ti y a la empresa**."
+
+Es la objeción correcta y es fatal si se ignora: un TMS es infraestructura crítica, y nadie
+apaga el suyo por un producto de un fundador solo sin clientes. **No se responde con una demo
+mejor, se responde con una estructura de piloto que no pueda romper nada.**
+
+**La estructura, propuesta por él:**
+
+1. **Entrada por módulo, no reemplazo.** "Podrías ponerlo un poco aparte y sacar cosas: la zona
+   de recursos humanos fuera, la administrativa también, el tema comercial un poco también."
+   → Norenty entra por lo que hoy es **un Excel a mano** (nómina, palets, POD), no por lo que hoy
+   es el sistema de registro. Cero riesgo operativo, cero migración.
+2. **Un mes, en paralelo, ~10 chóferes, sin apagar nada.** "Corres con esto y corres con lo otro…
+   un mes, usándolo diez personas, con todas las incidencias, y ver cómo va."
+3. **Exportación como condición de entrada.** "Si ya usan SAP o un programa de contabilidad, al
+   final le exportas todo y ya está." Sin export, el paralelo no es viable.
+4. **Contar con la resistencia desde el día 1.** "Los que lo estén haciendo dirán: me gasta los
+   huevos, todo mal." → el piloto necesita un campeón con nombre (§4.4) y un canal de quejas que
+   se atienda en horas, que es justo la ventaja de velocidad de §3.4.
+
+**Por qué esto mejora el plan que teníamos:** el "modo esencial" de §4.3 (esconder pantallas para
+que la demo cierre) era la solución correcta al problema equivocado. El problema no es que el
+producto parezca complejo — es que **sustituir asusta**. Correr en paralelo sobre un módulo que
+hoy es manual elimina el miedo sin tocar el producto. El modo esencial sigue siendo buena idea
+para la demo, pero ya no es lo que desbloquea la firma.
+
+**Criterio de éxito del piloto, medible en la primera semana** (insight 18): el gestor dedica hoy
+**2-3 h/día** a "reflejar bien los viajes en el ordenador" y cree que con la herramienta adecuada
+"se hace en 20 minutos". Ése es el número a medir — es mucho mejor que "de 30 a 60 camiones",
+porque se observa en días en vez de en trimestres.
 
 ---
 

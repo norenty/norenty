@@ -165,6 +165,9 @@ const {
   getConflictosMantenimientoViaje,
   detectarHuecoUbicacion,
   getViajesConHuecoUbicacion,
+  getPosicionUnidades,
+  UMBRAL_POSICION_OBSOLETA_MIN,
+  getContradiccionesAcoplamiento,
   getMetricasPuntualidad,
   getMetricasIncidencias,
   getMetricasChoferes,
@@ -215,6 +218,7 @@ const {
   guardarValorAseguradoMaximoEmpresa,
   calcularAvisoSeguroCarga,
   getSedesClientes,
+  buscarAlbaranes,
   calcularParkingsEnRuta,
   validarArchivoSubida,
   ARCHIVO_MAX_BYTES,
@@ -2536,6 +2540,193 @@ describe("detectarHuecoUbicacion / getViajesConHuecoUbicacion (F14.2)", () => {
     TABLES.viaje = [{ id: "v1", referencia: "REF1", chofer_id: null, estado: "en_curso" }];
     TABLES.ubicacion = [];
     const r = await getViajesConHuecoUbicacion();
+    expect(r).toEqual([]);
+  });
+});
+
+describe("getPosicionUnidades (Fase 23, 23.C.2 — posición cruzada chófer/tractora/remolque)", () => {
+  beforeEach(() => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+    TABLES.acoplamiento = [];
+    TABLES.ubicacion = [];
+  });
+
+  it("un chófer acoplado a tractora + 2 remolques: los 3 comparten su posición directa", async () => {
+    TABLES.acoplamiento = [
+      { empresa_id: "e1", id: "a1", tractora_id: "trac1", remolque_id: "rem1", posicion: 1, chofer_id: "c1", hasta: null },
+      { empresa_id: "e1", id: "a2", tractora_id: "trac1", remolque_id: "rem2", posicion: 2, chofer_id: "c1", hasta: null },
+    ];
+    TABLES.ubicacion = [{ chofer_id: "c1", lat: 41.65, lon: -0.88, created_at: new Date().toISOString() }];
+
+    const r = await getPosicionUnidades();
+    expect(r).toHaveLength(3); // 1 tractora + 2 remolques
+    r.forEach((u) => {
+      expect(u.fuente).toBe("directa");
+      expect(u.lat).toBe(41.65);
+      expect(u.lon).toBe(-0.88);
+    });
+  });
+
+  it("remolque suelto (sin tractora vigente) queda 'congelado' en su última posición conocida", async () => {
+    TABLES.acoplamiento = [
+      { empresa_id: "e1", id: "a1", tractora_id: null, remolque_id: "rem-suelto", posicion: 1, chofer_id: "c1", hasta: null },
+    ];
+    TABLES.ubicacion = [{ chofer_id: "c1", lat: 40.4, lon: -3.7, created_at: new Date().toISOString() }];
+
+    const r = await getPosicionUnidades();
+    expect(r).toHaveLength(1); // solo el remolque, sin tractora acoplada
+    expect(r[0].fuente).toBe("congelada");
+    expect(r[0].lat).toBe(40.4);
+  });
+
+  it("posición más vieja que el umbral se marca 'obsoleta', nunca 'directa'", async () => {
+    const vieja = new Date(Date.now() - (UMBRAL_POSICION_OBSOLETA_MIN + 5) * 60000).toISOString();
+    TABLES.acoplamiento = [
+      { empresa_id: "e1", id: "a1", tractora_id: "trac1", remolque_id: "rem1", posicion: 1, chofer_id: "c1", hasta: null },
+    ];
+    TABLES.ubicacion = [{ chofer_id: "c1", lat: 1, lon: 1, created_at: vieja }];
+
+    const r = await getPosicionUnidades();
+    expect(r.every((u) => u.fuente === "obsoleta")).toBe(true);
+    expect(r.some((u) => u.fuente === "directa")).toBe(false);
+  });
+
+  it("sin ping de ubicación para el chófer acoplado, la unidad es 'desconocida'", async () => {
+    TABLES.acoplamiento = [
+      { empresa_id: "e1", id: "a1", tractora_id: "trac1", remolque_id: "rem1", posicion: 1, chofer_id: "c1", hasta: null },
+    ];
+    TABLES.ubicacion = [];
+
+    const r = await getPosicionUnidades();
+    expect(r.every((u) => u.fuente === "desconocida")).toBe(true);
+    expect(r.every((u) => u.lat === null)).toBe(true);
+  });
+
+  it("no infiere identidad por cercanía: dos chóferes distintos nunca comparten posición cruzada", async () => {
+    TABLES.acoplamiento = [
+      { empresa_id: "e1", id: "a1", tractora_id: "trac1", remolque_id: "rem1", posicion: 1, chofer_id: "c1", hasta: null },
+      { empresa_id: "e1", id: "a2", tractora_id: "trac2", remolque_id: "rem2", posicion: 1, chofer_id: "c2", hasta: null },
+    ];
+    TABLES.ubicacion = [
+      { chofer_id: "c1", lat: 41.6, lon: -1.13, created_at: new Date().toISOString() }, // Épila
+      { chofer_id: "c2", lat: 41.6001, lon: -1.1301, created_at: new Date().toISOString() }, // "cerca" pero OTRO chófer
+    ];
+
+    const r = await getPosicionUnidades();
+    const remolque1 = r.find((u) => u.id === "rem1");
+    const remolque2 = r.find((u) => u.id === "rem2");
+    expect(remolque1.lat).toBe(41.6);
+    expect(remolque2.lat).toBe(41.6001);
+  });
+});
+
+describe("buscarAlbaranes (Fase 23, 23.A.3)", () => {
+  beforeEach(() => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+    TABLES.pod = [
+      {
+        id: "p1", foto_url: "a.jpg", hash_sha256: "h1", created_at: "2026-07-10T10:00:00Z", hito_id: "h1",
+        viaje: { id: "v1", referencia: "VJ-100", cliente: { nombre: "Mercadona" }, chofer: { id: "c1", nombre: "Mario" }, vehiculo: { matricula: "1234ABC" } },
+      },
+      {
+        id: "p2", foto_url: "b.jpg", hash_sha256: "h2", created_at: "2026-07-15T10:00:00Z", hito_id: "h2",
+        viaje: { id: "v2", referencia: "VJ-200", cliente: { nombre: "Carrefour" }, chofer: { id: "c2", nombre: "Luis" }, vehiculo: { matricula: "5678XYZ" } },
+      },
+    ];
+  });
+
+  it("sin filtros, devuelve todos ordenados del más reciente al más antiguo", async () => {
+    const r = await buscarAlbaranes();
+    expect(r.map((a) => a.id)).toEqual(["p2", "p1"]);
+  });
+
+  it("filtra por referencia (parcial, insensible a mayúsculas)", async () => {
+    const r = await buscarAlbaranes({ referencia: "vj-100" });
+    expect(r).toHaveLength(1);
+    expect(r[0].viajeReferencia).toBe("VJ-100");
+  });
+
+  it("filtra por nombre de cliente", async () => {
+    const r = await buscarAlbaranes({ clienteNombre: "carrefour" });
+    expect(r).toHaveLength(1);
+    expect(r[0].clienteNombre).toBe("Carrefour");
+  });
+
+  it("filtra por matrícula", async () => {
+    const r = await buscarAlbaranes({ matricula: "5678xyz" });
+    expect(r).toHaveLength(1);
+    expect(r[0].matricula).toBe("5678XYZ");
+  });
+
+  it("filtra por chófer", async () => {
+    const r = await buscarAlbaranes({ choferId: "c1" });
+    expect(r).toHaveLength(1);
+    expect(r[0].choferNombre).toBe("Mario");
+  });
+
+  it("filtra por rango de fechas", async () => {
+    const r = await buscarAlbaranes({ desde: "2026-07-14T00:00:00Z" });
+    expect(r.map((a) => a.id)).toEqual(["p2"]);
+  });
+
+  it("ignora PODs huérfanos (sin viaje asociado)", async () => {
+    TABLES.pod.push({ id: "p3", foto_url: "c.jpg", hash_sha256: "h3", created_at: "2026-07-20T10:00:00Z", hito_id: "h3", viaje: null });
+    const r = await buscarAlbaranes();
+    expect(r.find((a) => a.id === "p3")).toBeUndefined();
+  });
+});
+
+describe("getContradiccionesAcoplamiento (Fase 23, 23.C.4)", () => {
+  beforeEach(() => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+    TABLES.hito = [];
+    TABLES.acoplamiento = [];
+    TABLES.viaje = [];
+  });
+
+  it("hito activo con remolque bien acoplado al chófer del viaje: sin contradicción", async () => {
+    TABLES.hito = [{ id: "h1", remolque_id: "rem1", estado: "en_curso", viaje: { id: "v1", referencia: "VJ-1", chofer_id: "c1", empresa_id: "e1" } }];
+    TABLES.acoplamiento = [{ empresa_id: "e1", remolque_id: "rem1", chofer_id: "c1", hasta: null }];
+
+    const r = await getContradiccionesAcoplamiento();
+    expect(r).toEqual([]);
+  });
+
+  it("hito pendiente (viaje aún no arrancado) sin acoplamiento: NO es contradicción", async () => {
+    TABLES.hito = [{ id: "h1", remolque_id: "rem1", estado: "pendiente", viaje: { id: "v1", referencia: "VJ-1", chofer_id: "c1", empresa_id: "e1" } }];
+    TABLES.acoplamiento = [];
+
+    const r = await getContradiccionesAcoplamiento();
+    expect(r).toEqual([]);
+  });
+
+  it("detecta 'sin_acoplamiento_vigente': hito activo cuyo remolque nadie tiene enganchado", async () => {
+    TABLES.hito = [{ id: "h1", remolque_id: "rem1", estado: "en_curso", viaje: { id: "v1", referencia: "VJ-1", chofer_id: "c1", empresa_id: "e1" } }];
+    TABLES.acoplamiento = [];
+
+    const r = await getContradiccionesAcoplamiento();
+    expect(r).toHaveLength(1);
+    expect(r[0].tipo).toBe("sin_acoplamiento_vigente");
+    expect(r[0].viajeReferencia).toBe("VJ-1");
+  });
+
+  it("detecta 'chofer_no_coincide': el remolque está acoplado a OTRO chófer distinto del viaje", async () => {
+    TABLES.hito = [{ id: "h1", remolque_id: "rem1", estado: "completado", viaje: { id: "v1", referencia: "VJ-1", chofer_id: "c1", empresa_id: "e1" } }];
+    TABLES.acoplamiento = [{ empresa_id: "e1", remolque_id: "rem1", chofer_id: "c2", hasta: null }];
+
+    const r = await getContradiccionesAcoplamiento();
+    expect(r).toHaveLength(1);
+    expect(r[0].tipo).toBe("chofer_no_coincide");
+  });
+
+  it("no cruza empresas: un hito de otra empresa nunca genera contradicción aquí", async () => {
+    TABLES.hito = [{ id: "h1", remolque_id: "rem1", estado: "en_curso", viaje: { id: "v-otra", referencia: "OTRA", chofer_id: "cX", empresa_id: "e2" } }];
+    TABLES.acoplamiento = [];
+
+    const r = await getContradiccionesAcoplamiento();
     expect(r).toEqual([]);
   });
 });
