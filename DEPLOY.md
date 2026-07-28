@@ -60,16 +60,37 @@ habiendo leído este archivo.** Arquitectura decidida: GitHub → Vercel (dashbo
 
 ## 3. OSRM en producción
 
-Hoy OSRM es infraestructura de desarrollo (`infra/osrm/docker-compose.yml`, ver su README).
-Para producción:
-1. Decidir dónde se hostea (un servicio Docker en Railway/Fly.io/una VM — necesita RAM suficiente
-   para el extracto de España cargado en memoria).
-2. Repetir el preprocesado del mapa (`infra/osrm/README.md` §Preparación) en el entorno de
-   producción — el `.osm.pbf` no se versiona ni se copia, se regenera.
-3. Apuntar `NEXT_PUBLIC_OSRM_URL` (Vercel) a la URL pública de ese servicio.
-4. Si no se hace en el primer despliegue: no pasa nada, todo el sistema ya tiene el fallback
-   Haversine×1.3 marcado como estimado (`estimado: true` en toda la UI) — es una degradación
-   aceptable para un primer piloto, no un bloqueante.
+**Decisión del usuario 2026-07-28: proceder con el despliegue.** Estado real a esa fecha:
+
+- `infra/osrm/Dockerfile` (nuevo) construye la imagen de producción descargando y preprocesando
+  el extracto de España **dentro del build** — pensado para que Railway lo construya en su propia
+  infraestructura sin necesitar Docker local.
+- **No verificado todavía.** Esta máquina de desarrollo no tiene Docker ni Railway CLI
+  instalados, así que el build no se ha podido ejecutar ni comprobar ni una sola vez. El
+  `README.md` de `infra/osrm/` ya avisaba de esto desde julio: "este servicio NUNCA se ha
+  levantado ni probado contra un caso real".
+- **Riesgo real sin verificar:** el preprocesado completo de España (`osrm-extract` +
+  `osrm-partition` + `osrm-customize`) necesita RAM y tiempo de build considerables — puede
+  exceder los límites del plan gratuito/hobby de Railway. Si el build falla por memoria/timeout,
+  la alternativa es preprocesar en una máquina con más RAM (o localmente con Docker instalado) y
+  subir los ficheros `.osrm*` ya generados a un volumen persistente, en vez de regenerarlos en
+  cada build.
+
+**Pasos que faltan, y quién los hace:**
+1. En Railway: **Nuevo servicio → Deploy from repo → root directory `infra/osrm`** (Railway
+   detecta el `Dockerfile` y lo construye solo). Esto requiere acceso a la cuenta de Railway, que
+   el asistente no tiene en esta sesión — lo hace el usuario, o se conecta un token de Railway
+   CLI para que el asistente pueda ejecutarlo en una sesión futura.
+2. Vigilar el build en los logs de Railway: si falla por memoria, ver el plan B de arriba.
+3. Fijar región UE (ítem 9.14, igual que el resto de servicios).
+4. Una vez arriba, comprobar con una ruta real: `curl "https://<url-railway>/route/v1/driving/-3.7038,40.4168;2.1734,41.3851?overview=false"` debe devolver `"code":"Ok"`.
+5. Apuntar `NEXT_PUBLIC_OSRM_URL` (Vercel) a esa URL.
+6. Smoke test: crear un viaje de prueba con 2+ hitos reales y confirmar que el informe de nómina
+   dejar de decir `estimado: true` para ese tramo.
+
+Si el paso 1 no se hace todavía: no pasa nada, todo el sistema sigue con el fallback
+Haversine×1.3 marcado como estimado (`estimado: true` en toda la UI) — degradación aceptable
+para un primer piloto, no un bloqueante para seguir construyendo el resto de la Fase 23.
 
 ## 4. Sentry (opcional pero recomendado antes de un piloto real)
 

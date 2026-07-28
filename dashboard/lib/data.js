@@ -18,6 +18,86 @@ export const UMBRAL_NOCHE_FUERA_KM = 50;
 // inicial RAZONABLE, NO pactado con un cliente real (igual que UMBRAL_NOCHE_FUERA_KM).
 export const UMBRAL_MARGEN_AMBAR_PCT = 10;
 
+// --- Dieta internacional por GPS (Fase 23, 23.B.1) ---
+//
+// DISCOVERY.md insight 12/21: "Por el GPS se podía ver si ha estado el día
+// entero fuera de España, o más del 80%, y le pagas el internacional." Hoy
+// esto se mete a mano, chófer por chófer, cada mes.
+//
+// Point-in-polygon EN LOCAL, sin llamar a Nominatim/terceros: son miles de
+// puntos al mes y una nómina no puede depender de que un servicio externo
+// esté vivo (mismo criterio que "para lo difícil, terceros; para nómina,
+// nunca depender de un tercero que puede caerse", ver ROADMAP/DISCOVERY).
+//
+// ⚠️ Polígono SIMPLIFICADO a mano (frontera con Portugal y Pirineos
+// aproximados por tramos rectos, no la línea fronteriza real) -- valor
+// inicial razonable, NO pactado con cliente real, mismo estatus que
+// UMBRAL_NOCHE_FUERA_KM. Ajustar con casos reales del primer piloto si
+// aparece un falso positivo/negativo cerca de una frontera.
+const ESPANA_PENINSULAR_POLIGONO = [
+  [-7.68, 43.79], [-6.13, 43.53], [-3.82, 43.45], [-1.79, 43.38],
+  [-1.75, 43.31], [-0.70, 42.87], [0.70, 42.68], [1.72, 42.47],
+  [2.96, 42.43], [3.20, 41.92], [1.25, 41.15], [0.16, 40.15],
+  [-0.33, 39.45], [-0.49, 38.35], [-0.68, 37.60], [-2.46, 36.83],
+  [-4.42, 36.72], [-5.60, 36.13], [-7.40, 37.20], [-7.45, 37.18],
+  [-7.03, 38.03], [-7.02, 39.03], [-6.83, 40.13], [-6.83, 41.03],
+  [-6.53, 41.88], [-8.13, 42.13],
+]; // [lon, lat], cierra implícitamente con el primer punto
+
+// Islas/territorios fuera de la península: bounding box simple (suficiente,
+// son áreas compactas sin frontera terrestre que aproximar).
+const ESPANA_BBOXES = [
+  { lonMin: 1.1, lonMax: 4.4, latMin: 38.6, latMax: 40.1 },     // Baleares
+  { lonMin: -18.2, lonMax: -13.3, latMin: 27.6, latMax: 29.5 }, // Canarias
+  { lonMin: -5.37, lonMax: -5.27, latMin: 35.86, latMax: 35.92 }, // Ceuta
+  { lonMin: -2.99, lonMax: -2.89, latMin: 35.26, latMax: 35.32 }, // Melilla
+];
+
+function puntoEnPoligono(lon, lat, poligono) {
+  // Ray casting estándar. `poligono`: array de [lon, lat].
+  let dentro = false;
+  for (let i = 0, j = poligono.length - 1; i < poligono.length; j = i++) {
+    const [xi, yi] = poligono[i];
+    const [xj, yj] = poligono[j];
+    const cruza = yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+    if (cruza) dentro = !dentro;
+  }
+  return dentro;
+}
+
+/** Punto dentro de España (peninsular + Baleares + Canarias + Ceuta/Melilla). */
+export function puntoEnEspana(lat, lon) {
+  if (lat == null || lon == null) return false;
+  if (puntoEnPoligono(lon, lat, ESPANA_PENINSULAR_POLIGONO)) return true;
+  return ESPANA_BBOXES.some((b) => lon >= b.lonMin && lon <= b.lonMax && lat >= b.latMin && lat <= b.latMax);
+}
+
+// Fracción del tiempo del día fuera de España a partir de la cual se cuenta
+// como "día internacional" completo. Valor inicial razonable, NO pactado.
+export const UMBRAL_DIA_INTERNACIONAL_PCT = 80;
+
+/**
+ * Dado un array de `ubicacion` (`{lat, lon, created_at}`) de UN chófer,
+ * agrupa por día natural (UTC) y devuelve el Set de fechas (YYYY-MM-DD) en
+ * las que el chófer estuvo fuera de España al menos `UMBRAL_DIA_INTERNACIONAL_PCT`
+ * % de los pings de ese día. Pura, sin red -- reutilizable en tests.
+ */
+export function diasInternacionalPorPings(ubicaciones) {
+  const porDia = {};
+  for (const u of ubicaciones || []) {
+    if (u.lat == null || u.lon == null || !u.created_at) continue;
+    const dia = u.created_at.slice(0, 10); // YYYY-MM-DD, UTC (created_at es timestamptz)
+    if (!porDia[dia]) porDia[dia] = { total: 0, fuera: 0 };
+    porDia[dia].total += 1;
+    if (!puntoEnEspana(u.lat, u.lon)) porDia[dia].fuera += 1;
+  }
+  const dias = new Set();
+  for (const [dia, { total, fuera }] of Object.entries(porDia)) {
+    if (total > 0 && (fuera / total) * 100 >= UMBRAL_DIA_INTERNACIONAL_PCT) dias.add(dia);
+  }
+  return dias;
+}
+
 // --- Invitaciones de equipo (ítem 9.10) — expiración explícita ---
 // Debe coincidir EXACTAMENTE con el intervalo de la función usar_invitacion()
 // (migración 0035) — es solo para mostrar el estado "Vencida" en la UI; la
@@ -170,6 +250,72 @@ function fechaNocheOperacion(fechaIso) {
   const d = new Date(Date.UTC(anio, mes - 1, dia, 12));
   if (hora < NOCHE_HORA_FIN) d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
+}
+
+// Fecha local (YYYY-MM-DD) en ZONA_HORARIA_OPERACION -- distinto de
+// fechaNocheOperacion: aquí NO hay desplazamiento de madrugada, es solo "qué
+// día natural es esto en España", para saber si cae en sábado/domingo.
+function fechaLocalOperacion(fechaIso) {
+  const { anio, mes, dia } = partesLocalOperacion(fechaIso);
+  return `${anio}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+}
+
+// --- Fin de semana con la regla de las 4,5h (Fase 23, 23.B.2) ---
+//
+// DISCOVERY.md insight 12: "Si han trabajado el fin de semana: solo medio
+// sábado, sábado entero, solo medio domingo o domingo entero. No por horas.
+// Si ha estado más de 4 horas y media trabajando, le pagas el día entero.
+// Incluyendo el descanso, se suele incluir." -- el descanso cuenta DENTRO de
+// la jornada, por eso se usa el SPAN (primer evento a último evento del día),
+// no la suma de tramos activos.
+export const UMBRAL_MEDIO_DIA_FIN_SEMANA_H = 4.5;
+
+/** 'sabado' | 'domingo' | null para una fecha YYYY-MM-DD (día de la semana en
+ * UTC puro -- una fecha-sin-hora no tiene zona horaria que ambigüe esto). */
+export function claseFinDeSemana(fechaYYYYMMDD) {
+  const [a, m, d] = fechaYYYYMMDD.split("-").map(Number);
+  const dow = new Date(Date.UTC(a, m - 1, d)).getUTCDay(); // 0=domingo, 6=sábado
+  if (dow === 6) return "sabado";
+  if (dow === 0) return "domingo";
+  return null;
+}
+
+/** 'completo' si > UMBRAL_MEDIO_DIA_FIN_SEMANA_H horas, 'medio' si hay
+ * actividad pero menos, null si no hubo nada ese día. */
+export function clasificarExtraFinDeSemana(horas) {
+  if (horas > UMBRAL_MEDIO_DIA_FIN_SEMANA_H) return "completo";
+  if (horas > 0) return "medio";
+  return null;
+}
+
+/**
+ * Dado un array de `ejecucion_evento` (`{ocurrido_en}`) de UN chófer en el
+ * mes, agrupa por día local y clasifica cada sábado/domingo con actividad.
+ * El "trabajado" es el SPAN del día (primer a último evento), no la suma de
+ * tramos -- así el descanso de en medio cuenta dentro de la jornada, tal
+ * como describió el gestor. Pura, sin red -- reutilizable en tests.
+ */
+export function extrasFinDeSemanaPorEventos(eventos) {
+  const porDia = {};
+  for (const e of eventos || []) {
+    if (!e.ocurrido_en) continue;
+    const fecha = fechaLocalOperacion(e.ocurrido_en);
+    if (!claseFinDeSemana(fecha)) continue;
+    const t = new Date(e.ocurrido_en).getTime();
+    if (!porDia[fecha]) porDia[fecha] = { min: t, max: t };
+    else {
+      porDia[fecha].min = Math.min(porDia[fecha].min, t);
+      porDia[fecha].max = Math.max(porDia[fecha].max, t);
+    }
+  }
+  let diasCompletos = 0;
+  let diasMedios = 0;
+  for (const { min, max } of Object.values(porDia)) {
+    const clase = clasificarExtraFinDeSemana((max - min) / 3600000);
+    if (clase === "completo") diasCompletos++;
+    else if (clase === "medio") diasMedios++;
+  }
+  return { diasCompletos, diasMedios };
 }
 
 // El Kanban de la home muestra planificado/en_curso/completados sin paginación de UI
@@ -2467,6 +2613,63 @@ export async function getContradiccionesAcoplamiento() {
   return contradicciones;
 }
 
+/**
+ * Fase 23, Bloque B (23.B.3) — DISCOVERY.md insight 13: "¿Cuántos euros dijo
+ * mi jefe? En palets que habían desaparecido. Miles y miles de euros." Dos
+ * contadores que el chófer ya maneja físicamente (`hito.palets_entregados`,
+ * `hito.palets_devueltos`, migración 0070) -- aquí solo se agregan por
+ * cliente para ver quién no devuelve.
+ *
+ * @returns [{clienteNombre, entregados, devueltos, pendientes}], solo
+ *          clientes con `pendientes > 0` (que es lo que hay que perseguir),
+ *          ordenado de mayor a menor deuda.
+ */
+/**
+ * Fase 23, Bloque B (23.B.4) — registra un retén: un día en que se para al
+ * chófer para que pueda salir con disco limpio al día siguiente. Un solo
+ * retén por chófer y fecha (`UNIQUE (chofer_id, fecha)` en 0071) -- volver a
+ * llamar el mismo día actualiza el motivo en vez de duplicar.
+ */
+export async function registrarReten({ choferId, fecha, motivo = null, viajeSiguienteId = null }) {
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase
+    .from("reten")
+    .upsert(
+      { empresa_id: empresaId, chofer_id: choferId, fecha, motivo, viaje_siguiente_id: viajeSiguienteId },
+      { onConflict: "chofer_id,fecha" }
+    );
+  if (error) throw error;
+}
+
+export async function getPaletsPendientesPorCliente() {
+  // Fase 19.1: acotar con .limit, nunca traer una tabla entera sin límite --
+  // igual criterio que el resto del archivo (ver getInformeNomina más arriba).
+  const { data: hitos } = await supabase
+    .from("hito")
+    .select("palets_entregados, palets_devueltos, viaje:viaje_id(cliente:cliente_id(nombre))")
+    .limit(5000);
+
+  const porCliente = {};
+  for (const h of hitos || []) {
+    if (h.palets_entregados == null && h.palets_devueltos == null) continue;
+    const nombre = h.viaje?.cliente?.nombre;
+    if (!nombre) continue; // sin cliente identificado, no se puede perseguir la deuda
+    if (!porCliente[nombre]) porCliente[nombre] = { entregados: 0, devueltos: 0 };
+    porCliente[nombre].entregados += h.palets_entregados || 0;
+    porCliente[nombre].devueltos += h.palets_devueltos || 0;
+  }
+
+  return Object.entries(porCliente)
+    .map(([clienteNombre, v]) => ({
+      clienteNombre,
+      entregados: v.entregados,
+      devueltos: v.devueltos,
+      pendientes: v.entregados - v.devueltos,
+    }))
+    .filter((c) => c.pendientes > 0)
+    .sort((a, b) => b.pendientes - a.pendientes);
+}
+
 export async function getResumenHoy() {
   const ahoraIso = new Date().toISOString();
 
@@ -2714,10 +2917,10 @@ export async function getInformeNomina(mes, anio) {
     { data: hitos, error: errorHitos },
   ] = await Promise.all([
     viajeIdsMes.length
-      ? supabase.from("viaje").select("id, referencia, chofer_id, estado").in("id", viajeIdsMes)
+      ? supabase.from("viaje").select("id, referencia, chofer_id, estado, adr").in("id", viajeIdsMes)
       : Promise.resolve({ data: [] }),
     viajeIdsMes.length
-      ? supabase.from("hito").select("id, viaje_id, orden, estado, lat, lon").in("viaje_id", viajeIdsMes)
+      ? supabase.from("hito").select("id, viaje_id, orden, estado, lat, lon, carga_descarga_chofer").in("viaje_id", viajeIdsMes)
       : Promise.resolve({ data: [] }),
   ]);
   if (errorViajes) throw errorViajes;
@@ -2732,6 +2935,59 @@ export async function getInformeNomina(mes, anio) {
   const hitoById = Object.fromEntries((hitos || []).map((h) => [h.id, h]));
   const viajeById = Object.fromEntries((viajes || []).map((v) => [v.id, v]));
 
+  // 23.B.1: días internacionales por GPS -- solo para chóferes con actividad
+  // este mes (mismo criterio de acotar por fecha+actividad que el resto del
+  // informe, ver comentario de la Fase 19.1 más arriba).
+  const idsChoferMes = [...new Set(llegadasMes.map((e) => e.chofer_id).filter(Boolean))];
+
+  // 23.B.4: retenes del mes -- entidad propia (un día de un chófer, no un
+  // viaje ni un hito), fuera del bucle de viajes/hitos de arriba.
+  let retenesPorChofer = {};
+  if (idsChoferMes.length > 0) {
+    const { data: retenesMes, error: errorRetenes } = await supabase
+      .from("reten")
+      .select("chofer_id, fecha")
+      .in("chofer_id", idsChoferMes)
+      .gte("fecha", inicioISO.slice(0, 10))
+      .lt("fecha", finISO.slice(0, 10));
+    if (errorRetenes) throw errorRetenes;
+    retenesPorChofer = {};
+    (retenesMes || []).forEach((r) => {
+      retenesPorChofer[r.chofer_id] = (retenesPorChofer[r.chofer_id] || 0) + 1;
+    });
+  }
+  let ubicacionesMesPorChofer = {};
+  if (idsChoferMes.length > 0) {
+    const { data: ubicacionesMes, error: errorUbicaciones } = await supabase
+      .from("ubicacion")
+      .select("chofer_id, lat, lon, created_at")
+      .in("chofer_id", idsChoferMes)
+      .gte("created_at", inicioISO)
+      .lt("created_at", finISO);
+    if (errorUbicaciones) throw errorUbicaciones;
+    ubicacionesMesPorChofer = {};
+    (ubicacionesMes || []).forEach((u) => {
+      (ubicacionesMesPorChofer[u.chofer_id] ||= []).push(u);
+    });
+  }
+
+  // 23.B.2: fin de semana -- necesita TODOS los eventos del mes (no solo
+  // llegadas) para medir el span real de actividad de cada sábado/domingo.
+  let eventosMesPorChofer = {};
+  if (idsChoferMes.length > 0) {
+    const { data: eventosMes, error: errorEventosMes } = await supabase
+      .from("ejecucion_evento")
+      .select("chofer_id, ocurrido_en")
+      .in("chofer_id", idsChoferMes)
+      .gte("ocurrido_en", inicioISO)
+      .lt("ocurrido_en", finISO);
+    if (errorEventosMes) throw errorEventosMes;
+    eventosMesPorChofer = {};
+    (eventosMes || []).forEach((e) => {
+      (eventosMesPorChofer[e.chofer_id] ||= []).push(e);
+    });
+  }
+
   // Inicializa el acumulador por chófer.
   const porChofer = {};
   (choferes || []).forEach((c) => {
@@ -2743,6 +2999,12 @@ export async function getInformeNomina(mes, anio) {
       // Set de fechas (YYYY-MM-DD) que ya cuentan como noche fuera (dedup).
       _nochesSet: new Set(),
       _viajes: new Set(),
+      diasInternacional: diasInternacionalPorPings(ubicacionesMesPorChofer[c.id]).size,
+      finDeSemana: extrasFinDeSemanaPorEventos(eventosMesPorChofer[c.id]),
+      // 23.B.4: extras con marca manual -- ningún sensor los da.
+      _viajesAdrSet: new Set(),
+      cargaDescargaChofer: 0,
+      retenes: retenesPorChofer[c.id] || 0,
     };
   });
 
@@ -2793,6 +3055,12 @@ export async function getInformeNomina(mes, anio) {
       if (estimado) chofer.estimado = true;
       chofer._viajes.add(viaje.referencia || viaje.id.slice(0, 8));
     }
+
+    // 23.B.4: ADR es por viaje (flag en `viaje.adr`); carga/descarga por el
+    // chófer es por hito (`hito.carga_descarga_chofer`) -- se cuentan sobre
+    // los mismos viajes/hitos con actividad este mes, sin consulta aparte.
+    if (viaje.adr) chofer._viajesAdrSet.add(viajeId);
+    chofer.cargaDescargaChofer += completados.filter((h) => h.carga_descarga_chofer).length;
   }
 
   const filas = Object.values(porChofer).map((c) => ({
@@ -2802,6 +3070,11 @@ export async function getInformeNomina(mes, anio) {
     km: Math.round(c.km),
     estimado: c.estimado,
     viajes: [...c._viajes],
+    diasInternacional: c.diasInternacional,
+    finDeSemana: c.finDeSemana,
+    viajesAdr: c._viajesAdrSet.size,
+    cargaDescargaChofer: c.cargaDescargaChofer,
+    retenes: c.retenes,
   }));
 
   filas.sort((a, b) => b.km - a.km);

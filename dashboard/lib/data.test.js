@@ -74,6 +74,29 @@ function makeBuilder(table) {
         then(resolve) { resolve({ data: inserted, error: null }); },
       };
     },
+    upsert(objOrArr, opts) {
+      // Soporta el patrón usado hoy: onConflict con 1+ columnas separadas por
+      // coma -- si ya existe una fila con esos mismos valores, se actualiza
+      // en vez de duplicarse (mismo espíritu que el UNIQUE de Postgres).
+      const arr = Array.isArray(objOrArr) ? objOrArr : [objOrArr];
+      const claves = (opts?.onConflict || "id").split(",");
+      TABLES[table] = TABLES[table] || [];
+      const resultado = arr.map((obj) => {
+        const existente = TABLES[table].find((r) => claves.every((k) => r[k] === obj[k]));
+        if (existente) {
+          Object.assign(existente, obj);
+          return existente;
+        }
+        const nueva = { id: "new-id-" + Math.random().toString(36).slice(2), ...obj };
+        TABLES[table].push(nueva);
+        return nueva;
+      });
+      return {
+        select() { return this; },
+        single() { return Promise.resolve({ data: resultado[0], error: null }); },
+        then(resolve) { resolve({ data: resultado, error: null }); },
+      };
+    },
     delete() {
       // Acumula todos los .eq() encadenados (p.ej. .delete().eq("ambito","chofer").eq("entidad_id",id))
       // y solo aplica el borrado al resolverse (thenable) -- fiel al builder real de Supabase,
@@ -173,6 +196,13 @@ const {
   getMetricasChoferes,
   getMetricasFlota,
   getInformeNomina,
+  puntoEnEspana,
+  diasInternacionalPorPings,
+  UMBRAL_DIA_INTERNACIONAL_PCT,
+  claseFinDeSemana,
+  clasificarExtraFinDeSemana,
+  extrasFinDeSemanaPorEventos,
+  UMBRAL_MEDIO_DIA_FIN_SEMANA_H,
   resolveCosteKm,
   calcularMargen,
   calcularCosteRuta,
@@ -219,6 +249,8 @@ const {
   calcularAvisoSeguroCarga,
   getSedesClientes,
   buscarAlbaranes,
+  getPaletsPendientesPorCliente,
+  registrarReten,
   calcularParkingsEnRuta,
   validarArchivoSubida,
   ARCHIVO_MAX_BYTES,
@@ -949,6 +981,117 @@ describe("getMetricasFlota", () => {
   });
 });
 
+describe("puntoEnEspana / diasInternacionalPorPings (Fase 23, 23.B.1)", () => {
+  it("Madrid está dentro de España", () => {
+    expect(puntoEnEspana(40.4168, -3.7038)).toBe(true);
+  });
+
+  it("Lisboa (Portugal) está fuera de España", () => {
+    expect(puntoEnEspana(38.7223, -9.1393)).toBe(false);
+  });
+
+  it("Perpiñán (Francia) está fuera de España", () => {
+    expect(puntoEnEspana(42.6986, 2.8954)).toBe(false);
+  });
+
+  it("Las Palmas de Gran Canaria (Canarias) está dentro de España", () => {
+    expect(puntoEnEspana(28.1235, -15.4363)).toBe(true);
+  });
+
+  it("Palma de Mallorca (Baleares) está dentro de España", () => {
+    expect(puntoEnEspana(39.5696, 2.6502)).toBe(true);
+  });
+
+  it("un punto sin coordenadas nunca se considera dentro", () => {
+    expect(puntoEnEspana(null, null)).toBe(false);
+  });
+
+  it("diasInternacionalPorPings respeta el umbral configurado (80%)", () => {
+    const dentro = { lat: 40.4168, lon: -3.7038 };
+    const fuera = { lat: 38.7223, lon: -9.1393 };
+    const pings = [
+      { ...fuera, created_at: "2026-01-10T08:00:00Z" },
+      { ...fuera, created_at: "2026-01-10T10:00:00Z" },
+      { ...fuera, created_at: "2026-01-10T12:00:00Z" },
+      { ...fuera, created_at: "2026-01-10T14:00:00Z" },
+      { ...dentro, created_at: "2026-01-10T16:00:00Z" }, // 4/5 = 80% -> justo en el umbral
+    ];
+    const dias = diasInternacionalPorPings(pings);
+    expect(dias.has("2026-01-10")).toBe(true);
+    expect(UMBRAL_DIA_INTERNACIONAL_PCT).toBe(80);
+  });
+
+  it("diasInternacionalPorPings agrupa por día natural, días distintos no se mezclan", () => {
+    const fuera = { lat: 38.7223, lon: -9.1393 };
+    const dentro = { lat: 40.4168, lon: -3.7038 };
+    const pings = [
+      { ...fuera, created_at: "2026-01-10T10:00:00Z" }, // día 10: 100% fuera
+      { ...dentro, created_at: "2026-01-11T10:00:00Z" }, // día 11: 0% fuera
+    ];
+    const dias = diasInternacionalPorPings(pings);
+    expect([...dias]).toEqual(["2026-01-10"]);
+  });
+});
+
+describe("claseFinDeSemana / clasificarExtraFinDeSemana / extrasFinDeSemanaPorEventos (Fase 23, 23.B.2)", () => {
+  it("identifica sábado, domingo, y entre semana", () => {
+    expect(claseFinDeSemana("2026-01-10")).toBe("sabado");
+    expect(claseFinDeSemana("2026-01-11")).toBe("domingo");
+    expect(claseFinDeSemana("2026-01-12")).toBeNull(); // lunes
+  });
+
+  it("clasifica >4.5h como día completo, el resto como medio, 0 como nada", () => {
+    expect(UMBRAL_MEDIO_DIA_FIN_SEMANA_H).toBe(4.5);
+    expect(clasificarExtraFinDeSemana(5)).toBe("completo");
+    expect(clasificarExtraFinDeSemana(4.5)).toBe("medio"); // el borde exacto NO cuenta como completo
+    expect(clasificarExtraFinDeSemana(1)).toBe("medio");
+    expect(clasificarExtraFinDeSemana(0)).toBeNull();
+  });
+
+  it("un sábado con más de 4.5h de span cuenta como día completo, incluyendo el descanso de en medio", () => {
+    const eventos = [
+      { ocurrido_en: "2026-01-10T07:00:00Z" }, // arranca
+      { ocurrido_en: "2026-01-10T09:00:00Z" }, // descanso en medio (cuenta igual)
+      { ocurrido_en: "2026-01-10T13:00:00Z" }, // termina, span = 6h
+    ];
+    const r = extrasFinDeSemanaPorEventos(eventos);
+    expect(r.diasCompletos).toBe(1);
+    expect(r.diasMedios).toBe(0);
+  });
+
+  it("un domingo con poca actividad (<=4.5h) cuenta como medio día", () => {
+    const eventos = [
+      { ocurrido_en: "2026-01-11T08:00:00Z" },
+      { ocurrido_en: "2026-01-11T10:00:00Z" }, // span = 2h
+    ];
+    const r = extrasFinDeSemanaPorEventos(eventos);
+    expect(r.diasCompletos).toBe(0);
+    expect(r.diasMedios).toBe(1);
+  });
+
+  it("días entre semana no cuentan aunque haya actividad", () => {
+    const eventos = [
+      { ocurrido_en: "2026-01-12T07:00:00Z" }, // lunes
+      { ocurrido_en: "2026-01-12T20:00:00Z" },
+    ];
+    const r = extrasFinDeSemanaPorEventos(eventos);
+    expect(r.diasCompletos).toBe(0);
+    expect(r.diasMedios).toBe(0);
+  });
+
+  it("suma varios fines de semana del mes por separado", () => {
+    const eventos = [
+      { ocurrido_en: "2026-01-10T07:00:00Z" },
+      { ocurrido_en: "2026-01-10T13:00:00Z" }, // sábado 10: 6h -> completo
+      { ocurrido_en: "2026-01-17T09:00:00Z" },
+      { ocurrido_en: "2026-01-17T10:00:00Z" }, // sábado 17: 1h -> medio
+    ];
+    const r = extrasFinDeSemanaPorEventos(eventos);
+    expect(r.diasCompletos).toBe(1);
+    expect(r.diasMedios).toBe(1);
+  });
+});
+
 describe("getInformeNomina", () => {
   const MADRID = { lat: 40.4168, lon: -3.7038 }; // base
   const BARCELONA = { lat: 41.3851, lon: 2.1734 }; // lejos (>50km)
@@ -1051,6 +1194,78 @@ describe("getInformeNomina", () => {
     ];
     const r = await getInformeNomina(7, 2026);
     expect(r.filas[0].nochesFuera).toBe(1);
+  });
+
+  it("23.B.1: cuenta un día internacional si >=80% de los pings del día están fuera de España", async () => {
+    setBase(MADRID);
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", estado: "en_curso" }];
+    TABLES.hito = [{ id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...MADRID }];
+    TABLES.ejecucion_evento = [
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo: "llegada", ocurrido_en: "2026-01-15T10:00:00Z" },
+    ];
+    const LISBOA = { lat: 38.72, lon: -9.14 };
+    TABLES.ubicacion = [
+      { chofer_id: "c1", ...LISBOA, created_at: "2026-01-15T08:00:00Z" },
+      { chofer_id: "c1", ...LISBOA, created_at: "2026-01-15T12:00:00Z" },
+      { chofer_id: "c1", ...LISBOA, created_at: "2026-01-15T16:00:00Z" },
+      { chofer_id: "c1", ...LISBOA, created_at: "2026-01-15T20:00:00Z" },
+      { chofer_id: "c1", ...MADRID, created_at: "2026-01-15T22:00:00Z" }, // 1 de 5 dentro -> 80% fuera
+    ];
+    const r = await getInformeNomina(1, 2026);
+    expect(r.filas[0].diasInternacional).toBe(1);
+  });
+
+  it("23.B.1: NO cuenta día internacional si está mayormente en España (<80% fuera)", async () => {
+    setBase(MADRID);
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", estado: "en_curso" }];
+    TABLES.hito = [{ id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...MADRID }];
+    TABLES.ejecucion_evento = [
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo: "llegada", ocurrido_en: "2026-01-15T10:00:00Z" },
+    ];
+    const PERPIÑAN = { lat: 42.7, lon: 2.89 };
+    TABLES.ubicacion = [
+      { chofer_id: "c1", ...MADRID, created_at: "2026-01-15T08:00:00Z" },
+      { chofer_id: "c1", ...MADRID, created_at: "2026-01-15T12:00:00Z" },
+      { chofer_id: "c1", ...PERPIÑAN, created_at: "2026-01-15T20:00:00Z" }, // 1 de 3 fuera -> 33%
+    ];
+    const r = await getInformeNomina(1, 2026);
+    expect(r.filas[0].diasInternacional).toBe(0);
+  });
+
+  it("23.B.2: integra el fin de semana en el informe de nómina", async () => {
+    setBase(MADRID);
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", estado: "en_curso" }];
+    TABLES.hito = [{ id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...MADRID }];
+    TABLES.ejecucion_evento = [
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo: "llegada", ocurrido_en: "2026-01-10T07:00:00Z" },
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo: "salida", ocurrido_en: "2026-01-10T13:00:00Z" },
+    ];
+    const r = await getInformeNomina(1, 2026);
+    expect(r.filas[0].finDeSemana).toEqual({ diasCompletos: 1, diasMedios: 0 });
+  });
+
+  it("23.B.4: cuenta viajes ADR, hitos de carga/descarga por el chófer, y retenes del mes", async () => {
+    setBase(MADRID);
+    TABLES.chofer = [{ id: "c1", nombre: "Mario" }];
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", estado: "en_curso", adr: true }];
+    TABLES.hito = [
+      { id: "h1", viaje_id: "v1", orden: 1, estado: "completado", carga_descarga_chofer: true, ...MADRID },
+      { id: "h2", viaje_id: "v1", orden: 2, estado: "completado", carga_descarga_chofer: false, ...CERCA_MADRID },
+    ];
+    TABLES.ejecucion_evento = [
+      { hito_id: "h1", viaje_id: "v1", chofer_id: "c1", tipo: "llegada", ocurrido_en: "2026-01-15T10:00:00Z" },
+    ];
+    TABLES.reten = [
+      { chofer_id: "c1", fecha: "2026-01-05" },
+      { chofer_id: "c1", fecha: "2026-01-20" },
+    ];
+    const r = await getInformeNomina(1, 2026);
+    expect(r.filas[0].viajesAdr).toBe(1);
+    expect(r.filas[0].cargaDescargaChofer).toBe(1);
+    expect(r.filas[0].retenes).toBe(2);
   });
 
   it("suma km por carretera vía OSRM entre hitos completados consecutivos", async () => {
@@ -2675,6 +2890,66 @@ describe("buscarAlbaranes (Fase 23, 23.A.3)", () => {
     TABLES.pod.push({ id: "p3", foto_url: "c.jpg", hash_sha256: "h3", created_at: "2026-07-20T10:00:00Z", hito_id: "h3", viaje: null });
     const r = await buscarAlbaranes();
     expect(r.find((a) => a.id === "p3")).toBeUndefined();
+  });
+});
+
+describe("registrarReten (Fase 23, 23.B.4)", () => {
+  beforeEach(() => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+    TABLES.reten = [];
+  });
+
+  it("crea un retén nuevo", async () => {
+    await registrarReten({ choferId: "c1", fecha: "2026-01-05", motivo: "salida temprana" });
+    expect(TABLES.reten).toHaveLength(1);
+    expect(TABLES.reten[0]).toMatchObject({ empresa_id: "e1", chofer_id: "c1", fecha: "2026-01-05" });
+  });
+
+  it("un segundo retén el mismo chófer+fecha actualiza en vez de duplicar", async () => {
+    TABLES.reten = [{ id: "r1", empresa_id: "e1", chofer_id: "c1", fecha: "2026-01-05", motivo: "viejo" }];
+    await registrarReten({ choferId: "c1", fecha: "2026-01-05", motivo: "nuevo" });
+    expect(TABLES.reten).toHaveLength(1);
+    expect(TABLES.reten[0].motivo).toBe("nuevo");
+  });
+});
+
+describe("getPaletsPendientesPorCliente (Fase 23, 23.B.3)", () => {
+  beforeEach(() => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+    TABLES.hito = [];
+  });
+
+  it("suma entregados/devueltos por cliente y calcula el pendiente", async () => {
+    TABLES.hito = [
+      { palets_entregados: 33, palets_devueltos: 10, viaje: { cliente: { nombre: "Mercadona" } } },
+      { palets_entregados: 20, palets_devueltos: 20, viaje: { cliente: { nombre: "Mercadona" } } },
+      { palets_entregados: 5, palets_devueltos: 5, viaje: { cliente: { nombre: "Carrefour" } } },
+    ];
+    const r = await getPaletsPendientesPorCliente();
+    expect(r).toEqual([{ clienteNombre: "Mercadona", entregados: 53, devueltos: 30, pendientes: 23 }]);
+  });
+
+  it("ignora hitos sin cliente identificado", async () => {
+    TABLES.hito = [{ palets_entregados: 10, palets_devueltos: 0, viaje: { cliente: null } }];
+    const r = await getPaletsPendientesPorCliente();
+    expect(r).toEqual([]);
+  });
+
+  it("ignora hitos sin ningún dato de palets", async () => {
+    TABLES.hito = [{ palets_entregados: null, palets_devueltos: null, viaje: { cliente: { nombre: "Mercadona" } } }];
+    const r = await getPaletsPendientesPorCliente();
+    expect(r).toEqual([]);
+  });
+
+  it("ordena de mayor a menor deuda pendiente", async () => {
+    TABLES.hito = [
+      { palets_entregados: 5, palets_devueltos: 0, viaje: { cliente: { nombre: "Cliente A" } } },
+      { palets_entregados: 50, palets_devueltos: 0, viaje: { cliente: { nombre: "Cliente B" } } },
+    ];
+    const r = await getPaletsPendientesPorCliente();
+    expect(r.map((c) => c.clienteNombre)).toEqual(["Cliente B", "Cliente A"]);
   });
 });
 

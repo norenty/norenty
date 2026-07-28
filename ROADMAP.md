@@ -3908,11 +3908,12 @@ independiente del modelo, y por eso puede adelantarse si 23.C se atasca.
 
 ### 23.0 — Decisiones y bloqueos previos
 
-- [ ] `[DECISIÓN] 🔴 23.0.1 Desplegar OSRM en producción` — **es el ítem 20.3, promovido aquí a
-  bloqueante de fase.** Deja de ser "precisión deseable" y pasa a ser cimiento: sin él, 23.B
-  paga nóminas con Haversine×1,3 y 23.D da ETAs falsos, que es exactamente el fallo por el que
-  el gestor dejó de mirar el semáforo de Cometweb. Detalle técnico completo en el ítem 20.3
-  (incluye el hueco del trazado del mapa). **Requiere presencia del usuario (STOP duro).**
+- [~] `[DECISIÓN] 🔴 23.0.1 Desplegar OSRM en producción` — **decisión tomada 2026-07-28: proceder.**
+  Preparado `infra/osrm/Dockerfile` para que Railway lo construya solo (sin Docker local). **No
+  verificado**: esta máquina no tiene Docker ni Railway CLI, así que el build nunca se ha
+  ejecutado. Detalle completo, riesgos de RAM/timeout y pasos manuales que faltan en `DEPLOY.md`
+  §3. Deja de ser "precisión deseable" y es cimiento: sin él, 23.B paga nóminas con Haversine×1,3
+  y 23.D da ETAs falsos — el mismo fallo que mató el semáforo de Cometweb.
 - [ ] `[DECISIÓN] 23.0.2 Validez probatoria de WhatsApp vs canal propio` — `DISCOVERY.md` insight
   17: en Marcotran obligaban a usar el sistema porque "WhatsApp no era válido a nivel de ley", y
   él cree que "ahora ya debe serlo". **Es una impresión, no un dato.** No usarlo como argumento
@@ -4021,50 +4022,57 @@ esta sesión cambió es **el tamaño del hueco**: creíamos tenerlo al 80%, est�
 completa está en `DISCOVERY.md` insight 12. Orden dentro del bloque: primero lo que es 100%
 derivable de datos que ya capturamos, después lo que necesita un flag humano.
 
-- [ ] `[LOOP]` **23.B.1 Dieta internacional (dentro/fuera de España) por GPS** — `model: sonnet`,
-  esfuerzo bajo, **spec cerrada abajo**.
-  > "Por el GPS se podía ver si ha estado el día entero fuera de España, o más del 80%, y le pagas
-  > el internacional."
-
-  Determinar, por chófer y día natural, la fracción del tiempo con posiciones fuera de España.
-  **Decisión técnica ya tomada — no improvisar:** point-in-polygon **en local** contra un GeoJSON
-  simplificado de España (peninsular + Baleares + Canarias + Ceuta/Melilla), versionado en el
-  repo. **Nada de llamar a Nominatim**: son miles de puntos al mes, la instancia pública tiene
-  límite de uso, y una nómina no puede depender de que un servicio externo esté vivo. Umbral por
-  defecto configurable (arranca en 80% del tiempo del día fuera → día internacional), documentado
-  junto a `UMBRAL_NOCHE_FUERA_KM` y con el mismo criterio: valor razonable inicial, **no pactado
-  con cliente real**. Verificación: tests con puntos conocidos (Madrid dentro, Lisboa fuera,
-  Perpiñán fuera, Las Palmas dentro, un punto en el mar fuera).
-- [ ] `[LOOP]` **23.B.2 Fin de semana: medio día / día entero con la regla de las 4,5 h** —
-  `model: sonnet`, esfuerzo bajo.
+- [x] `[LOOP]` **23.B.1 Dieta internacional (dentro/fuera de España) por GPS** — HECHO 2026-07-28.
+  `puntoEnEspana()` + `diasInternacionalPorPings()` en `dashboard/lib/data.js`: point-in-polygon
+  local (sin Nominatim ni terceros) contra un polígono simplificado a mano de España peninsular +
+  bounding boxes de Baleares/Canarias/Ceuta/Melilla. Integrado en `getInformeNomina` como campo
+  `diasInternacional` por chófer. 10 tests nuevos (484 dashboard en total, en verde), incluida la
+  calibración real de fronteras: Madrid/Canarias/Baleares dentro, Lisboa/Perpiñán fuera, umbral
+  80% verificado en el borde exacto.
+  **Limitación honesta documentada en el propio código:** el polígono es una aproximación a mano
+  (frontera con Portugal y Pirineos por tramos rectos, no la línea real) — ajustar con casos
+  reales del primer piloto si aparece un falso positivo/negativo cerca de una frontera.
+- [x] `[LOOP]` **23.B.2 Fin de semana: medio día / día entero con la regla de las 4,5 h** — HECHO
+  2026-07-28.
   > "Si han trabajado el fin de semana: solo medio sábado, sábado entero, solo medio domingo o
   > domingo entero. No por horas." · "**Si ha estado más de 4 horas y media trabajando, le pagas
   > el día entero.** Incluyendo el descanso, se suele incluir."
 
-  Derivar de los timestamps de `ejecucion_evento` las horas trabajadas en sábado y domingo, y
-  aplicar la regla de fracción (>4,5 h → día completo; >0 y ≤4,5 h → medio día; 0 → nada). Ojo al
-  detalle que dio: **el descanso cuenta dentro de la jornada**, no se resta. Verificación: tests
-  de los tres tramos y del borde exacto en 4,5 h.
-- [ ] `[LOOP]` **23.B.3 Palets entregados y devueltos + informe de pendientes** — `model: sonnet`,
-  esfuerzo bajo.
+  `claseFinDeSemana()` + `clasificarExtraFinDeSemana()` + `extrasFinDeSemanaPorEventos()` en
+  `dashboard/lib/data.js`: agrupa TODOS los `ejecucion_evento` del mes (no solo llegadas) por día
+  local, y clasifica cada sábado/domingo por el **span** (primer a último evento del día) contra
+  el umbral `UMBRAL_MEDIO_DIA_FIN_SEMANA_H = 4.5` — así el descanso de en medio cuenta dentro de
+  la jornada, tal como describió el gestor, en vez de restarse. Integrado en `getInformeNomina`
+  como campo `finDeSemana: { diasCompletos, diasMedios }` por chófer. 7 tests nuevos + 1 de
+  integración (491 dashboard en total, en verde), incluido el borde exacto en 4,5h (medio día,
+  no completo) y varios fines de semana del mismo mes contados por separado.
+- [x] `[LOOP]` **23.B.3 Palets entregados y devueltos + informe de pendientes** — HECHO
+  2026-07-28.
   > "¿Cuántos euros dijo mi jefe? En palets que habían desaparecido. **Miles y miles de euros.**"
 
-  Dos contadores por hito (`palets_entregados`, `palets_devueltos`) que el chófer ya maneja
-  físicamente, más un informe de **palets pendientes de recuperar por cliente**. Es la línea de
-  ahorro más fácil de enseñar en euros delante de un dueño, y hoy no la mide nadie bien.
-  Verificación: test del cálculo de saldo por cliente y del caso "cliente que nunca devuelve".
-- [ ] `[LOOP]` **23.B.4 Extras con marca manual: ADR, carga/descarga por el chófer, retén** —
-  `model: sonnet`, esfuerzo bajo. Los tres necesitan un dato que ningún sensor da:
-  - **ADR** (mercancía peligrosa): flag por viaje. "No lo lleva todo el mundo: tienes que tener un
-    curso, renovarlo, y poner unas chapas en el camión."
-  - **Carga/descarga por el chófer**: flag por hito ("si carga o descarga él").
-  - **Retén**: "dejar a un tío parado para hacer un viaje concreto al día siguiente" — p. ej.
-    pararlo el día antes a las 16:00 para que salga a las 5:00 con disco limpio. **Es la única
-    entidad nueva del bloque** (no es un viaje ni un hito: es un día de un chófer). Tabla mínima
-    `reten (empresa_id, chofer_id, fecha, motivo, viaje_siguiente_id)`.
-
-  Los tres entran en `getInformeNomina` como conceptos separados. Verificación: test de que cada
-  concepto aparece en el informe y que su ausencia no rompe el cálculo del resto.
+  Migración `0070_palets_hito.sql` (aplicada en dev): dos columnas nullable en `hito`
+  (`palets_entregados`, `palets_devueltos`) con `CHECK >= 0`. `getPaletsPendientesPorCliente()`
+  en `dashboard/lib/data.js` agrega por cliente y devuelve solo los que tienen deuda pendiente
+  (`entregados - devueltos > 0`), ordenados de mayor a menor. 4 tests nuevos (495 dashboard en
+  total, en verde): suma correcta, cliente sin deuda no aparece, hitos sin dato de palets se
+  ignoran, orden por deuda.
+  **Pendiente, no bloqueante:** la captura del dato en el bot (que el chófer introduzca los dos
+  números al cerrar un hito) no está construida todavía — hoy solo existe el modelo y el informe
+  de agregación. Se añade cuando 23.A.2 (anotaciones) se revise para incluir un paso numérico,
+  evitando duplicar la lógica de teclado ya construida allí.
+- [x] `[LOOP]` **23.B.4 Extras con marca manual: ADR, carga/descarga por el chófer, retén** —
+  HECHO 2026-07-28. Migración `0071_extras_nomina_manuales.sql` (aplicada en dev): `viaje.adr`
+  (boolean), `hito.carga_descarga_chofer` (boolean), y tabla nueva `reten` (único caso de entidad
+  nueva del bloque — un día de un chófer, no un viaje ni un hito, con `UNIQUE(chofer_id, fecha)`
+  para que registrar dos veces el mismo día actualice en vez de duplicar). Los tres se agregan en
+  `getInformeNomina` como `viajesAdr`, `cargaDescargaChofer`, `retenes` por chófer, reutilizando
+  las mismas consultas de viaje/hito ya acotadas por mes (sin queries nuevas para ADR/carga, solo
+  para retenes). `registrarReten()` para la escritura, con `upsert` (nuevo soporte añadido al
+  mock de tests). 3 tests nuevos (498 dashboard en total, en verde).
+  **Pendiente, no bloqueante:** el flag `viaje.adr` y `hito.carga_descarga_chofer` no tienen
+  todavía un control en la UI del dashboard para marcarlos (hoy solo son columnas escribibles vía
+  API) — se añade cuando se revise el formulario de creación de viaje, para no tocar esa pantalla
+  dos veces en la misma fase.
 - [ ] `[LOOP]` **23.B.5 Exportación del informe de nómina** — `model: sonnet`, esfuerzo bajo.
   > "Si ya usan SAP o un programa de contabilidad… al final le exportas todo y ya está."
 
