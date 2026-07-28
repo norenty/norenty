@@ -165,6 +165,40 @@ def test_build_hito_message_incluye_notas():
     assert "Llamar al timbre 2B" in msg
 
 
+# --- build_hito_message: orden de trabajo != orden de carga (Fase 23, 23.E.3) ---
+
+def test_build_hito_message_con_instruccion_muestra_la_hora_exacta_no_la_ventana():
+    msg = bot.build_hito_message(
+        {
+            "tipo": "entrega", "direccion": "X",
+            "ventana_inicio": "08:00", "ventana_fin": "18:00",
+            "hora_instruccion_chofer": "2026-07-29T11:00:00Z",
+        },
+        1, 1,
+    )
+    assert "11:00" in msg
+    # La ventana comercial completa NO se muestra a la vez -- confundiría al
+    # chófer con dos horas distintas para el mismo hito.
+    assert "08:00" not in msg
+    assert "18:00" not in msg
+
+
+def test_build_hito_message_sin_instruccion_sigue_mostrando_la_ventana_completa():
+    """Comportamiento sin cambios respecto a antes de 23.E.3 cuando no hay
+    orden de trabajo explícita."""
+    msg = bot.build_hito_message(
+        {"tipo": "entrega", "direccion": "X", "ventana_inicio": "08:00", "ventana_fin": "18:00"}, 1, 1
+    )
+    assert "08:00" in msg and "18:00" in msg
+
+
+def test_build_hito_message_instruccion_con_hora_malformada_no_rompe_el_mensaje():
+    msg = bot.build_hito_message(
+        {"tipo": "entrega", "direccion": "X", "hora_instruccion_chofer": "no-es-una-fecha"}, 1, 1
+    )
+    assert "Hito 1/1" in msg  # no lanza excepción, el mensaje se sigue construyendo
+
+
 # --- t(): helper de localización ---
 
 def test_t_espanol_por_defecto():

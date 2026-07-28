@@ -4427,26 +4427,33 @@ planificador humano sigue decidiendo; nosotros le damos los datos que hoy busca 
   y horas 561 reales; dato de prueba limpiado después.
   **Pendiente, no bloqueante:** `disponible_desde` (23.D.1) no está — sigue bloqueado por el
   despliegue de OSRM. La página lo indica explícitamente en vez de omitirlo en silencio.
-- [ ] `[LOOP]` **23.E.3 Orden de carga ≠ orden de trabajo del chófer** — `model: opus`, esfuerzo
-  medio. **Entra en `SPECS-23.md`; es modelo, no pantalla.** Distinción que hoy no tenemos y que
-  él marcó explícitamente:
+- [x] `[LOOP]` **23.E.3 Orden de carga ≠ orden de trabajo del chófer** — HECHO 2026-07-29
+  (la parte "orden de trabajo"; ver alcance real más abajo).
   > "**No es lo mismo el viaje del ordenador que el que tú le mandas al chófer.** Es orden de carga
   > y orden de trabajo. El chófer recibe la orden de trabajo, **que se la modifico yo**."
 
-  - **Viaje comercial** (lo que vendió el comercial): ventanas amplias, precio, cliente.
-  - **Orden de carga (OC)**: la ejecución concreta. **Un viaje puede llevar varias** ("puede ser
-    que un mismo viaje lleve tres órdenes de carga, si hace tres cargas"). Lleva tractora,
-    remolque, chófer, delegación a la que se imputa el coste/beneficio, tipo de plataforma,
-    temperatura y referencia.
-  - **Orden de trabajo (OT)**: lo que llega al Telegram del chófer, **modificada por el gestor**:
-    hora exacta dentro de la ventana ("te pone de 8 a 18, pues le pones a las 11 en punto"), puntos
-    de paso añadidos (la casa del chófer), y notas ("para en este parking, arranca mañana a esta
-    hora, y cuando estés vacío llámame").
+  **Alcance real construido — la distinción OT vs. ventana comercial:** migración
+  `0073_orden_trabajo_hito.sql` (aplicada en dev, 72→73) añade `hito.hora_instruccion_chofer`
+  (nullable), sin tocar `ventana_inicio`/`ventana_fin` (siguen siendo lo vendido al cliente).
+  `guardarInstruccionChofer()` en `dashboard/lib/data.js` escribe la hora exacta + reutiliza
+  `hito.notas` ya existente (no un campo nuevo) para las observaciones. `build_hito_message()` en
+  `backend/app/bot.py` muestra la instrucción exacta al chófer cuando existe, **nunca las dos
+  horas a la vez** (confundiría al chófer) — sin instrucción, sigue mostrando la ventana completa
+  exactamente como antes. UI de edición inline en `dashboard/app/viajes/[id]/page.jsx`, gateada a
+  `admin/gestor_operativo/planificador`. 5 tests JS + 10 tests Python (516 dashboard + 278 backend
+  en total, en verde). **Verificado en navegador contra dev**: guardó de verdad, persistió, y
+  mostró "Orden de trabajo: 11:00" + la nota junto a la ventana comercial intacta.
 
-  **Encaje con 23.C:** la OC es justo donde vive `hito.remolque_id` — es la pieza que dice qué
-  carga va en qué remolque. Por eso 23.C va antes. Verificación: test del caso real de tres cargas
-  en un viaje con dos remolques distintos, y test de que modificar la OT no altera el viaje
-  comercial (son objetos distintos, y esa es toda la gracia).
+  **Corrección de scope respecto al ítem original — no confundir con recorte silencioso:**
+  - **"Orden de carga" (OC) no es un objeto nuevo**: ya vive en `hito.remolque_id` desde 23.C.1
+    (a qué remolque pertenece la carga de esa parada) — no hacía falta construir nada más ahí.
+  - **Puntos de paso (waypoints)** no se construyeron aquí: son la misma pieza ya prevista en
+    23.D.1 ("la ruta real no es la óptima, esos kilómetros los tienen que llevar los parámetros")
+    — se hacen una sola vez ahí, no duplicadas en dos ítems distintos.
+  - **"Un viaje con varias órdenes de carga"** (tres cargas, dos remolques distintos) no tiene hoy
+    un caso de prueba dedicado: con `hito.remolque_id` ya por hito, el modelo lo permite sin
+    cambios adicionales, pero no se ha ejercitado con un test específico de ese escenario
+    compuesto — pendiente si aparece un caso real que lo necesite.
 - [ ] `[LOOP]` **23.E.4 Traspaso planificador ↔ gestor con trazabilidad** — `model: sonnet`,
   esfuerzo bajo. Hoy esa conversación ocurre de viva voz ("a veces se sientan en mi misma
   oficina") y por eso se pierde. Y cuando se pierde, duele:

@@ -1,0 +1,26 @@
+-- ============================================================
+-- Norenty Fase 23, Bloque E (23.E.3) — Orden de carga != orden de trabajo.
+--
+-- DISCOVERY.md insight 18: "No es lo mismo el viaje del ordenador que el
+-- que tu le mandas al chofer... te pone de 8 a 18, pues le pones a las 11
+-- en punto. Y le meto observaciones: para en este parking, arranca a esta
+-- hora, y cuando estes vacio llamame."
+--
+-- El viaje/hito COMERCIAL (ventana_inicio/ventana_fin, precio, cliente) NO
+-- se toca -- sigue siendo lo vendido, necesario para viabilidad/SLA frente
+-- al cliente. `hora_instruccion_chofer` es la ORDEN DE TRABAJO: la hora
+-- exacta que el gestor decide DENTRO de esa ventana, para el chofer. Y
+-- `hito.notas` (ya existente, hasta ahora solo se fijaba al crear el viaje)
+-- pasa a ser editable despues -- son las notas de la orden de trabajo
+-- ("para en este parking, llama cuando estes vacio"), el mismo concepto que
+-- describe el discovery, no uno nuevo.
+--
+-- Nullable, sin backfill: un hito sin instruccion especifica sigue
+-- funcionando exactamente igual que hoy (se muestra la ventana comercial
+-- completa, ver build_hito_message en backend/app/bot.py).
+--
+-- REVERSION (convencion 9.16):
+--   ALTER TABLE public.hito DROP COLUMN IF EXISTS hora_instruccion_chofer;
+-- ============================================================
+
+ALTER TABLE public.hito ADD COLUMN IF NOT EXISTS hora_instruccion_chofer timestamptz;

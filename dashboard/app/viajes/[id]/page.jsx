@@ -19,7 +19,7 @@ import {
   getViaje, getChoferes, validarCambioEstado, validarAsignacion,
   getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje, getEstado561, getPnlViaje, getPlanVsReal,
   generarTokenPublico, revocarTokenPublico, DIAS_VALIDEZ_TOKEN_PUBLICO_DEFAULT, registrarAuditoria, getAuditLog,
-  createContexto, calcularDesfasePod, calcularOcupacion,
+  createContexto, calcularDesfasePod, calcularOcupacion, guardarInstruccionChofer,
 } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
@@ -88,12 +88,44 @@ export default function ViajeDetalle() {
   const [precioInput, setPrecioInput] = useState("");
   const [motivoPrecio, setMotivoPrecio] = useState("");
   const [guardandoPrecio, setGuardandoPrecio] = useState(false);
+  // Fase 23, 23.E.3: orden de trabajo por hito (hora exacta + nota para el
+  // chófer, distinta de la ventana comercial que ve el cliente).
+  const [editandoInstruccion, setEditandoInstruccion] = useState(null); // hitoId o null
+  const [instruccionInput, setInstruccionInput] = useState({ hora: "", nota: "" });
+  const [guardandoInstruccion, setGuardandoInstruccion] = useState(false);
 
   function cargarViabilidad() {
     setErrorViabilidad(null);
     getViabilidadViaje(id)
       .then(setViabilidad)
       .catch((err) => setErrorViabilidad(err.message));
+  }
+
+  function abrirEdicionInstruccion(h) {
+    setEditandoInstruccion(h.id);
+    setInstruccionInput({
+      hora: h.hora_instruccion_chofer ? h.hora_instruccion_chofer.slice(11, 16) : "",
+      nota: h.notas || "",
+    });
+  }
+
+  async function guardarInstruccion(hitoId) {
+    setGuardandoInstruccion(true);
+    try {
+      // La hora la fija el gestor sin fecha propia -- se ancla al día de HOY
+      // en UTC; es una orden de trabajo de corto plazo ("le pones a las 11
+      // en punto"), no una fecha de calendario a futuro.
+      let horaInstruccion = null;
+      if (instruccionInput.hora) {
+        const hoy = new Date().toISOString().slice(0, 10);
+        horaInstruccion = `${hoy}T${instruccionInput.hora}:00Z`;
+      }
+      await guardarInstruccionChofer(hitoId, { horaInstruccion, nota: instruccionInput.nota || null });
+      setEditandoInstruccion(null);
+      await load();
+    } finally {
+      setGuardandoInstruccion(false);
+    }
   }
 
   const load = useCallback(async () => {
@@ -482,7 +514,54 @@ export default function ViajeDetalle() {
                         <div className="flex items-center gap-1 text-xs text-ink-secondary mt-0.5">
                           <Clock size={12} />
                           {h.ventana_inicio || "?"} – {h.ventana_fin || "?"}
+                          {h.hora_instruccion_chofer && (
+                            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-brand/10 text-brand font-medium">
+                              Orden de trabajo: {h.hora_instruccion_chofer.slice(11, 16)}
+                            </span>
+                          )}
                         </div>
+                      )}
+                      {h.notas && (
+                        <div className="text-xs text-ink-muted mt-0.5">📝 {h.notas}</div>
+                      )}
+
+                      {editandoInstruccion === h.id ? (
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                          <input
+                            type="time"
+                            value={instruccionInput.hora}
+                            onChange={(e) => setInstruccionInput({ ...instruccionInput, hora: e.target.value })}
+                            className="text-xs border border-border rounded-md px-2 py-1 focus:outline-none focus:border-brand"
+                          />
+                          <input
+                            value={instruccionInput.nota}
+                            onChange={(e) => setInstruccionInput({ ...instruccionInput, nota: e.target.value })}
+                            placeholder="Nota para el chófer (opcional)"
+                            className="text-xs border border-border rounded-md px-2 py-1 focus:outline-none focus:border-brand flex-1 min-w-[180px]"
+                          />
+                          <button
+                            onClick={() => guardarInstruccion(h.id)}
+                            disabled={guardandoInstruccion}
+                            className="text-xs px-2 py-1 rounded-md bg-brand text-white disabled:opacity-40"
+                          >
+                            {guardandoInstruccion ? "…" : "Guardar"}
+                          </button>
+                          <button
+                            onClick={() => setEditandoInstruccion(null)}
+                            className="text-xs px-2 py-1 rounded-md border border-border text-ink-secondary"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <RequireRol roles={["admin", "gestor_operativo", "planificador"]}>
+                          <button
+                            onClick={() => abrirEdicionInstruccion(h)}
+                            className="text-xs text-brand hover:underline mt-1"
+                          >
+                            {h.hora_instruccion_chofer || h.notas ? "Editar orden de trabajo" : "+ Orden de trabajo para el chófer"}
+                          </button>
+                        </RequireRol>
                       )}
                       {pvr && pvr.estado !== "sin_datos" && (
                         <div className={`text-xs mt-0.5 ${

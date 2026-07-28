@@ -2635,6 +2635,29 @@ export async function getPosicionUnidades() {
 }
 
 /**
+ * Fase 23, Bloque E (23.E.3) — orden de trabajo != orden de carga.
+ * DISCOVERY.md insight 18: "no es lo mismo el viaje del ordenador que el que
+ * le mandas al chófer... te pone de 8 a 18, pues le pones a las 11 en
+ * punto." Escribe la instrucción del gestor SIN tocar la ventana comercial
+ * (`ventana_inicio`/`ventana_fin`, que sigue siendo lo vendido al cliente) —
+ * son dos campos distintos a propósito, esa es toda la idea. `hito.notas`
+ * (ya existía) se reutiliza para las observaciones ("para en este parking,
+ * llama cuando estés vacío") en vez de crear un campo nuevo redundante.
+ *
+ * @param {string} hitoId
+ * @param {{horaInstruccion?: string|null, nota?: string|null}} cambios
+ */
+export async function guardarInstruccionChofer(hitoId, { horaInstruccion, nota } = {}) {
+  const payload = {};
+  if (horaInstruccion !== undefined) payload.hora_instruccion_chofer = horaInstruccion || null;
+  if (nota !== undefined) payload.notas = nota || null;
+  if (Object.keys(payload).length === 0) return;
+
+  const { error } = await supabase.from("hito").update(payload).eq("id", hitoId);
+  if (error) throw error;
+}
+
+/**
  * Fase 23, Bloque C (23.C.4) — Contradicciones de acoplamiento: incoherencias
  * entre lo que dice el sistema y un hito activo, sin necesitar telemetría de
  * remolque (bloqueada en ROADMAP 23.0.3). Función de LECTURA, mismo patrón

@@ -1156,13 +1156,28 @@ def nav_buttons(hito):
 
 
 def build_hito_message(hito, orden_actual, total_hitos, idioma="es"):
+    """Fase 23, 23.E.3 -- orden de carga (lo comercial: ventana_inicio/fin,
+    intacto) != orden de trabajo (lo que el gestor le manda al chófer). Si el
+    gestor fijó `hora_instruccion_chofer` (una hora exacta DENTRO de la
+    ventana comercial, DISCOVERY.md insight 18: "te pone de 8 a 18, pues le
+    pones a las 11 en punto"), esa es la que se muestra -- nunca las dos a
+    la vez, para no confundir al chófer con dos horas distintas. Sin
+    instrucción explícita, se sigue mostrando la ventana comercial completa,
+    exactamente como antes de este ítem."""
     tipo = t(idioma, "hito_recogida") if hito["tipo"] == "recogida" else t(idioma, "hito_entrega")
     direccion = hito.get("direccion") or t(idioma, "hito_sin_dir")
 
     texto = f"📍 Hito {orden_actual}/{total_hitos} — {tipo}\n"
     texto += f"📫 {direccion}\n"
 
-    if hito.get("ventana_inicio") or hito.get("ventana_fin"):
+    if hito.get("hora_instruccion_chofer"):
+        hora = hito["hora_instruccion_chofer"]
+        try:
+            hora = datetime.fromisoformat(hora.replace("Z", "+00:00")).strftime("%H:%M")
+        except (ValueError, AttributeError):
+            pass
+        texto += f"🕐 {t(idioma, 'hito_ventana')}: {hora}\n"
+    elif hito.get("ventana_inicio") or hito.get("ventana_fin"):
         inicio = hito.get("ventana_inicio", "?")
         fin = hito.get("ventana_fin", "?")
         texto += f"🕐 {t(idioma, 'hito_ventana')}: {inicio} – {fin}\n"

@@ -252,6 +252,7 @@ const {
   getPaletsPendientesPorCliente,
   registrarReten,
   getVistaPlanificadorPorBase,
+  guardarInstruccionChofer,
   calcularParkingsEnRuta,
   validarArchivoSubida,
   ARCHIVO_MAX_BYTES,
@@ -2951,6 +2952,43 @@ describe("getPaletsPendientesPorCliente (Fase 23, 23.B.3)", () => {
     ];
     const r = await getPaletsPendientesPorCliente();
     expect(r.map((c) => c.clienteNombre)).toEqual(["Cliente B", "Cliente A"]);
+  });
+});
+
+describe("guardarInstruccionChofer (Fase 23, 23.E.3)", () => {
+  beforeEach(() => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+    TABLES.hito = [{ id: "h1", ventana_inicio: "08:00", ventana_fin: "18:00", notas: null }];
+  });
+
+  it("fija la hora de instrucción sin tocar la ventana comercial", async () => {
+    await guardarInstruccionChofer("h1", { horaInstruccion: "2026-07-29T11:00:00Z" });
+    expect(TABLES.hito[0].hora_instruccion_chofer).toBe("2026-07-29T11:00:00Z");
+    expect(TABLES.hito[0].ventana_inicio).toBe("08:00"); // sin cambios
+    expect(TABLES.hito[0].ventana_fin).toBe("18:00"); // sin cambios
+  });
+
+  it("fija la nota reutilizando hito.notas, no un campo nuevo", async () => {
+    await guardarInstruccionChofer("h1", { nota: "Para en este parking, llama cuando estés vacío" });
+    expect(TABLES.hito[0].notas).toBe("Para en este parking, llama cuando estés vacío");
+  });
+
+  it("puede fijar ambos a la vez", async () => {
+    await guardarInstruccionChofer("h1", { horaInstruccion: "2026-07-29T11:00:00Z", nota: "Ojo con la barrera" });
+    expect(TABLES.hito[0].hora_instruccion_chofer).toBe("2026-07-29T11:00:00Z");
+    expect(TABLES.hito[0].notas).toBe("Ojo con la barrera");
+  });
+
+  it("quitar la instrucción (string vacío/null) la limpia explícitamente", async () => {
+    TABLES.hito[0].hora_instruccion_chofer = "2026-07-29T11:00:00Z";
+    await guardarInstruccionChofer("h1", { horaInstruccion: null });
+    expect(TABLES.hito[0].hora_instruccion_chofer).toBeNull();
+  });
+
+  it("no llamar a Supabase si no se pasa ningún cambio", async () => {
+    await expect(guardarInstruccionChofer("h1", {})).resolves.not.toThrow();
+    expect(TABLES.hito[0].hora_instruccion_chofer).toBeUndefined();
   });
 });
 
