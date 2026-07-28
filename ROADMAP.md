@@ -4405,21 +4405,28 @@ planificador humano sigue decidiendo; nosotros le damos los datos que hoy busca 
   esquema, `viaje.precio` **ya es legible por cualquier gestor autenticado de la empresa** (el
   trigger de 0032 solo bloquea la ESCRITURA a no-admins, nunca hubo restricción de lectura por
   columna). No había nada que ampliar ahí.
-- [ ] `[LOOP]` **23.E.2 Vista del planificador: la flota de una delegación, mañana** —
-  `model: sonnet`, esfuerzo bajo. **Depende de 23.D.1 (`disponible_desde`) y de 23.C.2 (posición).**
-  Reproduce lo que hoy hace filtrando a mano:
+- [x] `[LOOP]` **23.E.2 Vista del planificador: la flota de una delegación, ahora** — HECHO
+  2026-07-29 (parcial, sin `disponible_desde` — ver nota).
   > "En vez de filtrar mis camiones como yo, [filtra] todos los camiones que hay en la delegación
   > 1, que es Zaragoza. **¿Cuántos camiones hay mañana en Zaragoza?** Y hay todos estos… 34."
 
-  Columnas que él usa de verdad, y ninguna más: matrícula, tipo de plataforma, chófer, **dónde y
-  cuándo queda libre** (`disponible_desde`), **horas de conducción ya gastadas y las que le
-  quedan**, y el próximo descanso obligatorio. Ese último dato es el que le veta un viaje:
-  > "Este tío, con 5 [horas gastadas], solo puede conducir 4 o 5 horas más. **O sea que el
-  > planificador ya no lo puede coger.**"
-
-  **Delegación = reutilizar `base_empresa`** (migración `0061`, ya soporta varias bases). No
-  inventar una entidad nueva. Verificación: test del filtro por base y de que las horas restantes
-  se calculan con las reglas 561/2006 ya documentadas en `DISCOVERY.md`.
+  `getVistaPlanificadorPorBase(baseId)` en `dashboard/lib/data.js` + página `/planificador`
+  (`dashboard/app/planificador/page.jsx`, gateada a `admin`/`planificador`, enlace nuevo en el
+  Sidebar). Columnas: matrícula (de la tractora acoplada vía `acoplamiento`), chófer, horas
+  conducidas/restantes de la semana (561/2006, reutilizando `getEstado561ParaChoferes`).
+  **Corrección de diseño respecto al ítem original:** no existe `chofer.base_id`/`vehiculo.base_id`
+  — se decidió **derivar** la delegación de cada chófer de la base más cercana a su última
+  posición conocida (mismo criterio que ya usa la nómina para "noche fuera"), en vez de inventar
+  una columna de asignación fija. Es coherente con lo que pide la vista ("dónde está la flota
+  AHORA"), documentado como aproximación honesta.
+  5 tests nuevos (511 dashboard en total, en verde). **Verificado en navegador contra dev con dato
+  real sembrado** (acoplamiento + ubicación reales, cuidando que tractora/remolque/base
+  pertenecieran a la misma empresa — el primer intento sembró en la empresa equivocada y el
+  segundo violó los índices únicos de 23.C.1 contra remolques/tractoras ya acoplados en la demo,
+  ambos detectados y corregidos antes de dar el ítem por bueno): la tabla mostró matrícula, chófer
+  y horas 561 reales; dato de prueba limpiado después.
+  **Pendiente, no bloqueante:** `disponible_desde` (23.D.1) no está — sigue bloqueado por el
+  despliegue de OSRM. La página lo indica explícitamente en vez de omitirlo en silencio.
 - [ ] `[LOOP]` **23.E.3 Orden de carga ≠ orden de trabajo del chófer** — `model: opus`, esfuerzo
   medio. **Entra en `SPECS-23.md`; es modelo, no pantalla.** Distinción que hoy no tenemos y que
   él marcó explícitamente:

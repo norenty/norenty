@@ -2151,6 +2151,84 @@ export async function getEstado561ParaChoferes(choferIds, { ahora = new Date() }
   return resultado;
 }
 
+/**
+ * Fase 23, Bloque E (23.E.2) — DISCOVERY.md insight 18: "en vez de filtrar
+ * mis camiones como yo, [el planificador] filtra todos los camiones que hay
+ * en la delegación 1, que es Zaragoza." Reutiliza `base_empresa` (0061) como
+ * delegación — **no existe hoy una columna `chofer.base_id`/`vehiculo.base_id`
+ * explícita**, así que la delegación de cada chófer se DERIVA de la base más
+ * cercana a su última posición conocida (mismo criterio que ya usa la nómina
+ * para "noche fuera"), no de una asignación fija. Es una aproximación
+ * honesta: un chófer que hoy está lejos de su base habitual (de viaje) puede
+ * aparecer momentáneamente en otra delegación — encaja con la naturaleza de
+ * la vista ("dónde está la flota AHORA"), no con un organigrama fijo.
+ *
+ * Columnas: matrícula (de la tractora acoplada, vía `acoplamiento` 0069),
+ * chófer, horas conducidas/restantes de la semana (Reglamento 561/2006, ya
+ * calculado por `getEstado561ParaChoferes`). **Pendiente:** `disponible_desde`
+ * (23.D.1, todavía no construido — bloqueado por el despliegue de OSRM) no
+ * se incluye; se añade cuando exista.
+ *
+ * @returns [{choferId, choferNombre, matricula, horasConducidasSemana, horasRestantesSemana}]
+ */
+export async function getVistaPlanificadorPorBase(baseId) {
+  const empresaId = await getCurrentEmpresaId();
+
+  const { data: bases } = await supabase.from("base_empresa").select("id, lat, lon").eq("empresa_id", empresaId);
+  if (!bases || !bases.some((b) => b.id === baseId)) return [];
+
+  const { data: acoplamientos } = await supabase
+    .from("acoplamiento")
+    .select("chofer_id, tractora_id")
+    .eq("empresa_id", empresaId)
+    .is("hasta", null)
+    .not("tractora_id", "is", null);
+  const conChofer = (acoplamientos || []).filter((a) => a.chofer_id);
+  if (conChofer.length === 0) return [];
+
+  const choferIds = [...new Set(conChofer.map((a) => a.chofer_id))];
+  const tractoraIds = [...new Set(conChofer.map((a) => a.tractora_id))];
+
+  const [{ data: choferes }, { data: tractoras }, { data: ubicaciones }, estado561] = await Promise.all([
+    supabase.from("chofer").select("id, nombre").in("id", choferIds),
+    supabase.from("vehiculo").select("id, matricula").in("id", tractoraIds),
+    supabase.from("ubicacion").select("chofer_id, lat, lon, created_at").in("chofer_id", choferIds).order("created_at", { ascending: false }),
+    getEstado561ParaChoferes(choferIds),
+  ]);
+
+  const nombrePorChofer = Object.fromEntries((choferes || []).map((c) => [c.id, c.nombre]));
+  const tractoraPorId = Object.fromEntries((tractoras || []).map((v) => [v.id, v]));
+  const ultimaUbicPorChofer = {};
+  (ubicaciones || []).forEach((u) => { if (!(u.chofer_id in ultimaUbicPorChofer)) ultimaUbicPorChofer[u.chofer_id] = u; });
+
+  function baseMasCercanaId(punto) {
+    let mejorId = null;
+    let mejorDist = Infinity;
+    for (const b of bases) {
+      const d = haversineKm(punto, { lat: b.lat, lon: b.lon });
+      if (d < mejorDist) { mejorDist = d; mejorId = b.id; }
+    }
+    return mejorId;
+  }
+
+  const filas = [];
+  for (const a of conChofer) {
+    const ping = ultimaUbicPorChofer[a.chofer_id];
+    if (!ping) continue; // sin posición conocida, no se puede ubicar en ninguna delegación
+    if (baseMasCercanaId({ lat: ping.lat, lon: ping.lon }) !== baseId) continue;
+
+    const e561 = estado561[a.chofer_id] || {};
+    filas.push({
+      choferId: a.chofer_id,
+      choferNombre: nombrePorChofer[a.chofer_id] || a.chofer_id,
+      matricula: tractoraPorId[a.tractora_id]?.matricula || null,
+      horasConducidasSemana: e561.horas7 ?? null,
+      horasRestantesSemana: e561.margen7 ?? null,
+    });
+  }
+  return filas;
+}
+
 // ==========================================================================
 // Motor de asignación v1 (ítem 7A.2) — sugerencia con score explicado +
 // registro de decisiones del gestor.

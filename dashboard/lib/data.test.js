@@ -251,6 +251,7 @@ const {
   buscarAlbaranes,
   getPaletsPendientesPorCliente,
   registrarReten,
+  getVistaPlanificadorPorBase,
   calcularParkingsEnRuta,
   validarArchivoSubida,
   ARCHIVO_MAX_BYTES,
@@ -2950,6 +2951,84 @@ describe("getPaletsPendientesPorCliente (Fase 23, 23.B.3)", () => {
     ];
     const r = await getPaletsPendientesPorCliente();
     expect(r.map((c) => c.clienteNombre)).toEqual(["Cliente B", "Cliente A"]);
+  });
+});
+
+describe("getVistaPlanificadorPorBase (Fase 23, 23.E.2)", () => {
+  const MADRID = { lat: 40.4168, lon: -3.7038 };
+  const BARCELONA = { lat: 41.3851, lon: 2.1734 };
+
+  beforeEach(() => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+    TABLES.base_empresa = [
+      { id: "base-madrid", empresa_id: "e1", ...MADRID },
+      { id: "base-barcelona", empresa_id: "e1", ...BARCELONA },
+    ];
+    TABLES.acoplamiento = [];
+    TABLES.chofer = [];
+    TABLES.vehiculo = [];
+    TABLES.ubicacion = [];
+    TABLES.ejecucion_evento = [];
+  });
+
+  it("devuelve [] si la base pedida no existe en la empresa", async () => {
+    const r = await getVistaPlanificadorPorBase("base-inexistente");
+    expect(r).toEqual([]);
+  });
+
+  it("un chófer cerca de Madrid aparece en la delegación de Madrid, no en la de Barcelona", async () => {
+    TABLES.chofer = [{ id: "c1", nombre: "Mario", empresa_id: "e1" }];
+    TABLES.vehiculo = [{ id: "trac1", matricula: "1234ABC", empresa_id: "e1" }];
+    TABLES.acoplamiento = [{ empresa_id: "e1", chofer_id: "c1", tractora_id: "trac1", hasta: null }];
+    TABLES.ubicacion = [{ chofer_id: "c1", lat: 40.42, lon: -3.71, created_at: new Date().toISOString() }];
+
+    const madrid = await getVistaPlanificadorPorBase("base-madrid");
+    expect(madrid).toHaveLength(1);
+    expect(madrid[0]).toMatchObject({ choferId: "c1", choferNombre: "Mario", matricula: "1234ABC" });
+
+    const barcelona = await getVistaPlanificadorPorBase("base-barcelona");
+    expect(barcelona).toEqual([]);
+  });
+
+  it("un chófer sin ninguna posición conocida no aparece en ninguna delegación", async () => {
+    TABLES.chofer = [{ id: "c1", nombre: "Mario", empresa_id: "e1" }];
+    TABLES.vehiculo = [{ id: "trac1", matricula: "1234ABC", empresa_id: "e1" }];
+    TABLES.acoplamiento = [{ empresa_id: "e1", chofer_id: "c1", tractora_id: "trac1", hasta: null }];
+    TABLES.ubicacion = [];
+
+    const r = await getVistaPlanificadorPorBase("base-madrid");
+    expect(r).toEqual([]);
+  });
+
+  it("incluye las horas conducidas/restantes de la semana (561/2006)", async () => {
+    TABLES.chofer = [{ id: "c1", nombre: "Mario", empresa_id: "e1" }];
+    TABLES.vehiculo = [{ id: "trac1", matricula: "1234ABC", empresa_id: "e1" }];
+    TABLES.acoplamiento = [{ empresa_id: "e1", chofer_id: "c1", tractora_id: "trac1", hasta: null }];
+    TABLES.ubicacion = [{ chofer_id: "c1", lat: 40.42, lon: -3.71, created_at: new Date().toISOString() }];
+    TABLES.viaje = [{ id: "v1", chofer_id: "c1", estado: "completado" }];
+    TABLES.hito = [
+      { id: "h1", viaje_id: "v1", orden: 1, estado: "completado", ...MADRID },
+      { id: "h2", viaje_id: "v1", orden: 2, estado: "completado", ...BARCELONA },
+    ];
+    TABLES.ejecucion_evento = [
+      { chofer_id: "c1", viaje_id: "v1", hito_id: "h2", tipo: "llegada", ocurrido_en: new Date().toISOString() },
+    ];
+
+    const r = await getVistaPlanificadorPorBase("base-madrid");
+    expect(r[0].horasConducidasSemana).toBeGreaterThan(0);
+    expect(r[0].horasRestantesSemana).toBeLessThan(56); // LIMITE_561_SEMANAL_H
+  });
+
+  it("no cruza remolques con remolques sueltos: solo cuenta acoplamientos con tractora Y chófer", async () => {
+    TABLES.chofer = [{ id: "c1", nombre: "Mario", empresa_id: "e1" }];
+    TABLES.vehiculo = [{ id: "trac1", matricula: "1234ABC", empresa_id: "e1" }, { id: "rem1", matricula: "REM001", empresa_id: "e1" }];
+    // remolque suelto (sin tractora) -- no debe generar una fila "fantasma".
+    TABLES.acoplamiento = [{ empresa_id: "e1", chofer_id: "c1", tractora_id: null, remolque_id: "rem1", hasta: null }];
+    TABLES.ubicacion = [{ chofer_id: "c1", lat: 40.42, lon: -3.71, created_at: new Date().toISOString() }];
+
+    const r = await getVistaPlanificadorPorBase("base-madrid");
+    expect(r).toEqual([]);
   });
 });
 

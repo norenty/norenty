@@ -41,6 +41,9 @@ const groups = [
       { href: "/viajes", label: "Viajes", icon: Truck },
       { href: "/mapa", label: "Mapa", icon: Map },
       { href: "/incidencias", label: "Incidencias", icon: AlertTriangle },
+      // Fase 23, 23.E.2: vista propia del rol `planificador` -- no la
+      // necesita gestor_operativo (solo ve lo suyo, no reparte flota).
+      { href: "/planificador", label: "Planificador", icon: Route, rolesPermitidos: ["admin", "planificador"] },
     ],
   },
   {
@@ -206,6 +209,7 @@ export default function Sidebar() {
                 <div className="flex flex-col gap-0.5 mt-0.5">
                   {group.links
                     .filter((l) => !l.soloAdmin || rol === "admin")
+                    .filter((l) => !l.rolesPermitidos || l.rolesPermitidos.includes(rol))
                     .map(({ href, label, icon: Icon }) => (
                     <NavLink
                       key={href}
