@@ -4384,14 +4384,27 @@ con su organigrama.
 **NO** construye asignación automática de viajes — eso sigue vetado (ver la tabla de abajo). El
 planificador humano sigue decidiendo; nosotros le damos los datos que hoy busca a mano.
 
-- [ ] `[LOOP]` **23.E.1 Rol `planificador` con visibilidad de precio** — `model: opus`, esfuerzo
-  medio (toca RLS, y RLS es el backstop real de autorización — no es un cambio mecánico). Añadir
-  `planificador` al `CHECK` de `gestor.rol` (hoy `admin|gestor_operativo|solo_lectura`,
-  migración `0032`). Perfil: ve **todos** los chóferes y vehículos de la empresa (no solo los suyos,
-  a diferencia del `gestor_operativo`), **ve el precio del viaje** (lo necesita para decidir qué
-  compensa), y puede asignar viaje↔tractora↔chófer. **No** toca nómina ni datos personales.
-  Verificación: extender `isolation.test.js` con el rol nuevo, y test explícito de que un
-  `gestor_operativo` sigue **sin** poder ver/escribir precio (no relajar lo que ya está cerrado).
+- [x] `[LOOP]` **23.E.1 Rol `planificador`** — HECHO 2026-07-29. Migración
+  `0072_rol_planificador.sql` (aplicada en dev, 71→72): añadido `planificador` al `CHECK` de
+  `gestor.rol` (ya no era `admin|gestor_operativo|solo_lectura` a secas — 0063 ya había añadido
+  `comercial` antes de esta fase). Reutiliza la misma vía de escape que ya tenía `admin` en las
+  policies de F15.2/0054 (`chofer`, `viaje`, `gasto_viaje`, `decision_asignacion`): ve **todos**
+  los chóferes y viajes de la empresa, no solo los propios. Y en el trigger de 0055
+  (`gestor_id_solo_admin`): puede asignar/reasignar el gestor de un viaje — es literalmente su
+  función ("decide quién lo hace").
+  **Verificado en dos capas, ambas contra dev real, ninguna con mocks:**
+  (1) manual con `SET LOCAL ROLE authenticated` + `request.jwt.claims` (mismo mecanismo que
+  PostgREST) para confirmar el diseño antes de escribir tests permanentes;
+  (2) `dashboard/lib/roles-isolation.test.js` (suite ya existente de aislamiento por rol, 9.31)
+  extendida con un fixture `planificador` real (usuario de Auth + fila `gestor`) y 3 tests nuevos:
+  ve un chófer/viaje asignado a OTRO gestor (a diferencia de `gestor_operativo`), y puede
+  reasignar `gestor_id`. Corrigió además una aserción existente que esperaba el mensaje de error
+  viejo del trigger 0055 tras ampliarlo a `admin, planificador`. 23 tests en esa suite (antes 21),
+  506 dashboard en total, todos en verde.
+  **Corrección respecto al ítem original:** no se tocó visibilidad de precio — al verificar el
+  esquema, `viaje.precio` **ya es legible por cualquier gestor autenticado de la empresa** (el
+  trigger de 0032 solo bloquea la ESCRITURA a no-admins, nunca hubo restricción de lectura por
+  columna). No había nada que ampliar ahí.
 - [ ] `[LOOP]` **23.E.2 Vista del planificador: la flota de una delegación, mañana** —
   `model: sonnet`, esfuerzo bajo. **Depende de 23.D.1 (`disponible_desde`) y de 23.C.2 (posición).**
   Reproduce lo que hoy hace filtrando a mano:

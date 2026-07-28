@@ -40,6 +40,8 @@ const OPERATIVO_EMAIL = "roles931.operativo@norenty.com";
 const OPERATIVO_PASSWORD = "Roles931!Operativo";
 const LECTURA_EMAIL = "roles931.lectura@norenty.com";
 const LECTURA_PASSWORD = "Roles931!Lectura";
+const PLANIFICADOR_EMAIL = "roles931.planificador@norenty.com";
+const PLANIFICADOR_PASSWORD = "Roles931!Planificador";
 
 function nuevoCliente() {
   // persistSession:false — cada cliente es un actor independiente en el
@@ -129,8 +131,8 @@ async function asegurarGestorDePrueba(admin, empresaId, email, password, rolDese
 }
 
 describe.skipIf(!tieneCredenciales)("aislamiento por rol contra la BD real (9.31)", () => {
-  let admin, operativo, lectura;
-  let adminUserId, idOperativo, idLectura;
+  let admin, operativo, lectura, planificador;
+  let adminUserId, idOperativo, idLectura, idPlanificador;
   let empresaId, gestorAdmin;
   let viajeId, vehiculoId;
 
@@ -157,6 +159,9 @@ describe.skipIf(!tieneCredenciales)("aislamiento por rol contra la BD real (9.31
     ));
     ({ cliente: lectura, gestorId: idLectura } = await asegurarGestorDePrueba(
       admin, empresaId, LECTURA_EMAIL, LECTURA_PASSWORD, "solo_lectura"
+    ));
+    ({ cliente: planificador, gestorId: idPlanificador } = await asegurarGestorDePrueba(
+      admin, empresaId, PLANIFICADOR_EMAIL, PLANIFICADOR_PASSWORD, "planificador"
     ));
 
     const { data: viajeRow } = await admin.from("viaje").select("id").eq("empresa_id", empresaId).limit(1).single();
@@ -409,7 +414,9 @@ describe.skipIf(!tieneCredenciales)("aislamiento por rol contra la BD real (9.31
       // rol que no sea admin, independientemente de si la fila es visible.
       const { error } = await operativo.from("chofer").update({ gestor_id: idLectura }).eq("id", choferPropio);
       expect(error).toBeTruthy();
-      expect(error.message).toMatch(/solo un admin puede asignar/);
+      // Fase 23 (23.E.1): el mensaje ahora incluye "o planificador" -- ese rol
+      // TAMBIÉN puede reasignar gestor_id (es su función), gestor_operativo sigue sin poder.
+      expect(error.message).toMatch(/solo un admin o planificador puede asignar/);
 
       const { data: sigueIgual } = await admin.from("chofer").select("gestor_id").eq("id", choferPropio).single();
       expect(sigueIgual.gestor_id).toBe(idOperativo); // sin cambios (seguía siendo el asignado en el beforeAll)
@@ -417,6 +424,30 @@ describe.skipIf(!tieneCredenciales)("aislamiento por rol contra la BD real (9.31
 
     it("admin SÍ puede asignar/reasignar gestor_id de un chófer", async () => {
       const { error } = await admin.from("chofer").update({ gestor_id: idLectura }).eq("id", choferPropio);
+      expect(error).toBeNull();
+      const { data } = await admin.from("chofer").select("gestor_id").eq("id", choferPropio).single();
+      expect(data.gestor_id).toBe(idLectura);
+
+      await admin.from("chofer").update({ gestor_id: idOperativo }).eq("id", choferPropio); // deja el fixture como estaba
+    });
+
+    // Fase 23, 23.E.1 (2026-07-29): rol `planificador` -- ve TODO como admin
+    // (no solo lo suyo, a diferencia de gestor_operativo) y SÍ puede
+    // reasignar gestor_id (es su función: "decide quién lleva cada viaje").
+    it("(23.E.1) planificador ve un chófer asignado a OTRO gestor (a diferencia de operativo)", async () => {
+      const { data, error } = await planificador.from("chofer").select("id").eq("id", choferAjeno);
+      expect(error).toBeNull();
+      expect(data).toHaveLength(1);
+    });
+
+    it("(23.E.1) planificador ve un viaje asignado a OTRO gestor (a diferencia de operativo)", async () => {
+      const { data, error } = await planificador.from("viaje").select("id").eq("id", viajeAjeno);
+      expect(error).toBeNull();
+      expect(data).toHaveLength(1);
+    });
+
+    it("(23.E.1) planificador SÍ puede asignar/reasignar gestor_id de un chófer", async () => {
+      const { error } = await planificador.from("chofer").update({ gestor_id: idLectura }).eq("id", choferPropio);
       expect(error).toBeNull();
       const { data } = await admin.from("chofer").select("gestor_id").eq("id", choferPropio).single();
       expect(data.gestor_id).toBe(idLectura);
