@@ -2521,6 +2521,14 @@ _CONDUCCION_DIARIA_MAX_H = 9
 _DESCANSO_DIARIO_H = 11
 _EPS = 1e-9
 
+# Margen de seguridad sobre la pausa legal (Fase 23, DISCOVERY.md insight 21,
+# 2026-07-29 -- amigo del usuario, planificador real): "si la parada son 45
+# minutos, sumarle 55 o una hora por cosas que puedan pasar". No es parte del
+# Reglamento 561/2006 -- es colchón operativo para un ETA realista, no para
+# cumplir la ley. Debe coincidir EXACTAMENTE con MARGEN_SEGURIDAD_PARADA_MIN
+# de dashboard/lib/data.js (paridad, ver PLAN-561-MODULO-COMPARTIDO.md).
+_MARGEN_SEGURIDAD_PARADA_MIN = 15
+
 
 def calcular_eta_con_paradas(horas_conduccion_total):
     """Espejo en Python de calcularEtaConParadas() (dashboard/lib/data.js,
@@ -2554,7 +2562,7 @@ def calcular_eta_con_paradas(horas_conduccion_total):
             conduccion_hoy = 0.0
             desde_ultima_pausa = 0.0
         elif desde_ultima_pausa >= _PAUSA_TRAS_HORAS - _EPS:
-            horas_totales += _PAUSA_DURACION_H
+            horas_totales += _PAUSA_DURACION_H + _MARGEN_SEGURIDAD_PARADA_MIN / 60
             paradas_45min += 1
             desde_ultima_pausa = 0.0
 

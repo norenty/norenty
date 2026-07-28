@@ -4266,6 +4266,16 @@ proyecto entero.
 Sustituye el barrido manual que hoy es lo primero que hace cada mañana:
 > "Lo primero que hago es ver dónde están mis camiones. **Uno por uno, por GPS.**"
 
+- [x] `[LOOP]` **23.D.0 Margen de seguridad sobre la pausa legal** — HECHO 2026-07-29 (adelantado
+  del ítem 23.D.1, construido a petición explícita del usuario tras confirmar con su amigo
+  planificador el método exacto de cálculo: km/75 + paradas legales + colchón). *"Si la parada son
+  45 minutos, sumarle 55 o una hora por cosas que puedan pasar."* Añadido `MARGEN_SEGURIDAD_PARADA_MIN
+  = 15` (redondea 45→60 min) a `calcularEtaConParadas()` (`dashboard/lib/data.js`) y a su espejo
+  `calcular_eta_con_paradas()` (`backend/app/bot.py`), manteniendo la paridad Python↔JS ya
+  decidida (`PLAN-561-MODULO-COMPARTIDO.md`). No es parte del Reglamento 561/2006 — es colchón
+  operativo para un ETA realista, documentado como tal para no confundirlo con un requisito legal.
+  10 tests JS + 6 tests Python actualizados (los valores esperados subieron con el nuevo margen,
+  cambio deliberado, no regresión). 503 dashboard + 275 backend en total, todos en verde.
 - [ ] `[LOOP]` **23.D.1 ETA honesto: carretera real + paradas legales + servicio en muelle** —
   `model: opus`, esfuerzo medio (**produce spec antes de picar**; toca varias piezas a la vez).
   `ETA = ahora + conducción OSRM (carretera real, con waypoints) + paradas obligatorias 561/2006

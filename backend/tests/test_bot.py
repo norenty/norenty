@@ -790,31 +790,32 @@ def test_calcular_eta_por_debajo_de_4_5h_sin_paradas():
 
 
 def test_calcular_eta_5h_una_pausa():
+    # Fase 23 (2026-07-29): pausa legal 45min + margen de seguridad 15min = 1h.
     r = bot.calcular_eta_con_paradas(5)
     assert r["paradas_45min"] == 1
     assert r["descansos_11h"] == 0
-    assert round(r["horas_totales"], 5) == 5.75
+    assert round(r["horas_totales"], 5) == 6.0
 
 
 def test_calcular_eta_9h_exactas_una_pausa_sin_descanso():
     r = bot.calcular_eta_con_paradas(9)
     assert r["paradas_45min"] == 1
     assert r["descansos_11h"] == 0
-    assert round(r["horas_totales"], 5) == 9.75
+    assert round(r["horas_totales"], 5) == 10.0
 
 
 def test_calcular_eta_10h_supera_limite_diario_pausa_y_descanso():
     r = bot.calcular_eta_con_paradas(10)
     assert r["paradas_45min"] == 1
     assert r["descansos_11h"] == 1
-    assert round(r["horas_totales"], 5) == 21.75
+    assert round(r["horas_totales"], 5) == 22.0
 
 
 def test_calcular_eta_18h_dos_dias_completos():
     r = bot.calcular_eta_con_paradas(18)
     assert r["paradas_45min"] == 2
     assert r["descansos_11h"] == 1
-    assert round(r["horas_totales"], 5) == 30.5
+    assert round(r["horas_totales"], 5) == 31.0
 
 
 # --- /eta — cmd_eta: integración con el bot ---

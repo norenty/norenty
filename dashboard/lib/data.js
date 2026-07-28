@@ -124,6 +124,16 @@ const PAUSA_DURACION_H = 45 / 60;
 const CONDUCCION_DIARIA_MAX_H = 9;
 const DESCANSO_DIARIO_H = 11;
 
+// Margen de seguridad sobre la pausa legal (Fase 23, DISCOVERY.md insight 21,
+// 2026-07-29 -- amigo del usuario, planificador real): "si la parada son 45
+// minutos, sumarle 55 o una hora por cosas que puedan pasar". No es parte del
+// Reglamento 561/2006 -- es colchón operativo para que el ETA sea realista
+// (encontrar hueco de aparcamiento, arrancar de nuevo, etc.), NO para cumplir
+// la ley (eso ya lo hace PAUSA_DURACION_H tal cual). 15 min redondea 45→60
+// min, valor inicial razonable, NO pactado con cliente real -- mismo estatus
+// que el resto de umbrales del proyecto.
+export const MARGEN_SEGURIDAD_PARADA_MIN = 15;
+
 /**
  * Resuelve la velocidad de planificación a usar: la de la empresa si está
  * configurada (y es positiva), si no VELOCIDAD_PLANIFICACION_KMH por defecto.
@@ -170,7 +180,7 @@ export function calcularEtaConParadas(horasConduccionTotal) {
       conduccionHoy = 0;
       desdeUltimaPausa = 0; // un descanso largo también cubre/resetea la pausa corta
     } else if (desdeUltimaPausa >= PAUSA_TRAS_HORAS - EPS) {
-      horasTotales += PAUSA_DURACION_H;
+      horasTotales += PAUSA_DURACION_H + MARGEN_SEGURIDAD_PARADA_MIN / 60;
       paradas45min++;
       desdeUltimaPausa = 0;
     }

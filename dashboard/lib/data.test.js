@@ -1658,32 +1658,32 @@ describe("calcularEtaConParadas (ETA 5.3 — Reglamento CE 561/2006, pura)", () 
     expect(r).toEqual({ horasTotales: 3, paradas45min: 0, descansos11h: 0 });
   });
 
-  it("5h de conducción: 1 pausa de 45min, sin descanso diario", () => {
+  it("5h de conducción: 1 pausa de 45min + margen de seguridad de 15min, sin descanso diario", () => {
     const r = calcularEtaConParadas(5);
     expect(r.paradas45min).toBe(1);
     expect(r.descansos11h).toBe(0);
-    expect(r.horasTotales).toBeCloseTo(5.75, 5); // 5h conduccion + 0.75h pausa
+    expect(r.horasTotales).toBeCloseTo(6, 5); // 5h conduccion + 0.75h pausa + 0.25h margen
   });
 
-  it("9h exactas: 1 pausa, termina justo en el límite diario sin necesitar descanso", () => {
+  it("9h exactas: 1 pausa + margen, termina justo en el límite diario sin necesitar descanso", () => {
     const r = calcularEtaConParadas(9);
     expect(r.paradas45min).toBe(1);
     expect(r.descansos11h).toBe(0);
-    expect(r.horasTotales).toBeCloseTo(9.75, 5);
+    expect(r.horasTotales).toBeCloseTo(10, 5);
   });
 
-  it("10h de conducción: supera el límite diario -> 1 pausa + 1 descanso de 11h", () => {
+  it("10h de conducción: supera el límite diario -> 1 pausa + margen + 1 descanso de 11h", () => {
     const r = calcularEtaConParadas(10);
     expect(r.paradas45min).toBe(1);
     expect(r.descansos11h).toBe(1);
-    expect(r.horasTotales).toBeCloseTo(21.75, 5); // 10h + 0.75h pausa + 11h descanso
+    expect(r.horasTotales).toBeCloseTo(22, 5); // 10h + 0.75h pausa + 0.25h margen + 11h descanso
   });
 
-  it("18h de conducción (2 días completos de 9h): 2 pausas, 1 descanso", () => {
+  it("18h de conducción (2 días completos de 9h): 2 pausas + margen, 1 descanso", () => {
     const r = calcularEtaConParadas(18);
     expect(r.paradas45min).toBe(2);
     expect(r.descansos11h).toBe(1);
-    expect(r.horasTotales).toBeCloseTo(30.5, 5); // 18h + 2×0.75h + 1×11h
+    expect(r.horasTotales).toBeCloseTo(31, 5); // 18h + 2×(0.75h+0.25h) + 1×11h
   });
 });
 
