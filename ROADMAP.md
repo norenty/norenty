@@ -4454,19 +4454,39 @@ planificador humano sigue decidiendo; nosotros le damos los datos que hoy busca 
     un caso de prueba dedicado: con `hito.remolque_id` ya por hito, el modelo lo permite sin
     cambios adicionales, pero no se ha ejercitado con un test específico de ese escenario
     compuesto — pendiente si aparece un caso real que lo necesite.
-- [ ] `[LOOP]` **23.E.4 Traspaso planificador ↔ gestor con trazabilidad** — `model: sonnet`,
-  esfuerzo bajo. Hoy esa conversación ocurre de viva voz ("a veces se sientan en mi misma
-  oficina") y por eso se pierde. Y cuando se pierde, duele:
+- [x] `[LOOP]` **23.E.4 Traspaso planificador ↔ gestor con trazabilidad** — HECHO 2026-07-29
+  (la mitad "propone/reasigna" con trazabilidad real; ver alcance abajo).
   > "Me cambió el horario el de arriba y yo no me acuerdo… **usuario tal, hora: ha habido una
   > modificación de horario.**" (su jefe: *"este programa es perfecto para encontrar culpables"*)
 
-  Dos direcciones: el planificador propone (viaje→tractora) y el gestor confirma o devuelve con
-  motivo ("no llego, no hay tiempo físico" — caso que él describe discutiendo con el de arriba). Y
-  al revés: el gestor avisa de que un camión queda libre antes ("este tío está 2 horas antes") y
-  el planificador reacciona. **Reutilizar `audit_log`, que ya existe pero no se muestra en
-  ninguna parte** — el trabajo aquí es sobre todo exponerlo donde se necesita, no crear tabla.
-  Verificación: test de que un cambio de hora queda registrado con quién y cuándo, y aparece en el
-  detalle del viaje.
+  `audit_log` ya existía (8.8) pero dos acciones clave nunca se registraban ahí: (1) reasignar el
+  gestor de un viaje (`cambiarGestorViaje` en `dashboard/app/ajustes.jsx`, la pantalla real de
+  reparto, F18.C.1) y (2) cambiar la orden de trabajo de un hito (23.E.3, recién construida).
+  Ambas ahora llaman a `registrarAuditoria()` con quién estaba antes y con quién/qué queda, y
+  `describirAuditoria()` en `dashboard/app/viajes/[id]/page.jsx` las traduce a texto legible.
+  **Verificado en navegador contra dev, no solo en tests**: cambié la orden de trabajo de un hito
+  real y confirmé que apareció en el panel "Actividad" del viaje como *"Cambió la orden de trabajo
+  del hito 1... Demo · 28 jul, 22:49"* — con quién y cuándo, exactamente lo que pedía el discovery.
+  El traspaso de gestor reutiliza la misma función ya probada (`registrarAuditoria`), no se repitió
+  la verificación manual por ser el mismo circuito.
+  516 dashboard tests en total, en verde (sin tests unitarios nuevos para estas dos llamadas —
+  son efectos de página, verificados en vivo en su lugar).
+
+  **Alcance real vs. el ítem original:**
+  - **Hecho**: dirección planificador→gestor (reasignar) y gestor→sistema (orden de trabajo),
+    ambas con quién/cuándo/qué visible donde se necesita.
+  - **No construido**: el flujo de **confirmar o devolver con motivo** ("no llego, no hay tiempo
+    físico") y la dirección inversa automática (gestor avisa "este tío está 2h antes" →
+    notificación al planificador) — eso es un flujo de aprobación bidireccional con estado propio,
+    más cercano a `solicitud_aprobacion` (ya existe para otros casos) que a una simple entrada de
+    auditoría. Se aplaza hasta que un piloto real pida ese nivel de formalidad; hoy la trazabilidad
+    ya resuelve el dolor concreto citado ("no me acuerdo quién cambió qué").
+  - **Hallazgo de paso, no bloqueante**: el selector de roles en `/ajustes` (`actualizarRolGestor`)
+    no incluye `planificador` como opción visible — el rol funciona de punta a punta a nivel de
+    RLS/backend (23.E.1), pero asignarlo hoy requiere tocar la base de datos a mano en vez de un
+    clic en la UI. Pendiente de añadir el botón cuando se revise esa sección.
+
+**Bloque 23.E (roles) COMPLETO — 23.E.1 a 23.E.4, 2026-07-29.**
 
 ### Lo que NO se construye en esta fase (y por qué)
 

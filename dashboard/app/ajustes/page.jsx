@@ -11,7 +11,7 @@ import {
   guardarValorAseguradoMaximoEmpresa,
   getChoferesConGestor, guardarGestorChofer, guardarTelefonoGestor,
   getViajesConGestor, guardarGestorViaje, getIndiceGasoilNacional,
-  getSolicitudesAprobacion, resolverSolicitudAprobacion,
+  getSolicitudesAprobacion, resolverSolicitudAprobacion, registrarAuditoria,
 } from "../../lib/data";
 import RequireRol from "../components/RequireRol";
 import AjustesPerfilSection from "../components/AjustesPerfilSection";
@@ -160,7 +160,18 @@ export default function AjustesPage() {
   async function cambiarGestorViaje(viajeId, gestorId) {
     setViajeAccionandoId(viajeId);
     try {
+      // Fase 23, 23.E.4: es el traspaso planificador -> gestor real
+      // ("decide qué gestor lleva cada viaje", DISCOVERY.md insight 18) --
+      // hoy se pierde de viva voz ("a veces se sientan en mi misma
+      // oficina"), y cuando se pierde, duele: "me cambió el horario el de
+      // arriba y no me acuerdo". Se audita con quién estaba antes y con
+      // quién queda, visible luego en el detalle del viaje.
+      const anterior = viajesPool.find((v) => v.id === viajeId)?.gestor_id || null;
       await guardarGestorViaje(viajeId, gestorId);
+      registrarAuditoria({
+        entidad: "viaje", entidadId: viajeId, accion: "cambio_gestor_asignado",
+        detalle: { de: anterior, a: gestorId || null },
+      });
       setViajesPool(await getViajesConGestor());
     } catch (err) {
       flash("Error: " + err.message);

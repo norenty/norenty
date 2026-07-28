@@ -52,6 +52,12 @@ function describirAuditoria(a) {
       return "Revocó el enlace de seguimiento público";
     case "borrar_documento":
       return `Borró un documento (${d.tipo || "?"})`;
+    case "cambio_gestor_asignado":
+      // Fase 23, 23.E.4: traspaso planificador -> gestor, el que se perdía
+      // "de viva voz" ("me cambió el horario el de arriba y no me acuerdo").
+      return d.a ? "Reasignó el viaje a otro gestor" : "Quitó el viaje del reparto (vuelve al pool)";
+    case "cambio_orden_trabajo":
+      return `Cambió la orden de trabajo del hito ${d.hitoOrden ?? "?"} (hora y/o nota para el chófer)`;
     default:
       return a.accion;
   }
@@ -120,7 +126,20 @@ export default function ViajeDetalle() {
         const hoy = new Date().toISOString().slice(0, 10);
         horaInstruccion = `${hoy}T${instruccionInput.hora}:00Z`;
       }
+      const hitoAntes = hitos.find((h) => h.id === hitoId);
       await guardarInstruccionChofer(hitoId, { horaInstruccion, nota: instruccionInput.nota || null });
+      // Fase 23, 23.E.4: mismo motivo que el traspaso planificador->gestor —
+      // "me cambió el horario y no me acuerdo" es justo lo que esto evita.
+      registrarAuditoria({
+        entidad: "viaje", entidadId: id, accion: "cambio_orden_trabajo",
+        detalle: {
+          hitoOrden: hitoAntes?.orden,
+          horaAntes: hitoAntes?.hora_instruccion_chofer || null,
+          horaDespues: horaInstruccion,
+          notaAntes: hitoAntes?.notas || null,
+          notaDespues: instruccionInput.nota || null,
+        },
+      });
       setEditandoInstruccion(null);
       await load();
     } finally {
