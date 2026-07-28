@@ -4073,13 +4073,23 @@ derivable de datos que ya capturamos, después lo que necesita un flag humano.
   todavía un control en la UI del dashboard para marcarlos (hoy solo son columnas escribibles vía
   API) — se añade cuando se revise el formulario de creación de viaje, para no tocar esa pantalla
   dos veces en la misma fase.
-- [ ] `[LOOP]` **23.B.5 Exportación del informe de nómina** — `model: sonnet`, esfuerzo bajo.
+- [x] `[LOOP]` **23.B.5 Exportación del informe de nómina** — HECHO 2026-07-28.
   > "Si ya usan SAP o un programa de contabilidad… al final le exportas todo y ya está."
 
-  Sin export, **el piloto en paralelo de `ESTRATEGIA.md` §6.5 no es viable** — es requisito de
-  entrada, no un extra. Formato tabular por chófer y concepto. **Cuidado con el hallazgo de la
-  Fase 19** (truncamiento silencioso a 1000 filas): este export tiene que traer *todo* o fallar
-  ruidosamente, nunca traer 1000 filas y callarse. Verificación explícita con más de 1000 filas.
+  Ya existía un export CSV en `dashboard/app/nomina/page.jsx` pero solo cubría noches
+  fuera/km/estimado/viajes — le faltaban los 5 conceptos nuevos de este bloque. Extendido con
+  días internacional, fines de semana completos/medios, viajes ADR, cargas/descargas por el
+  chófer y retenes. La generación del CSV se extrajo a `dashboard/lib/nomina-export.js`
+  (`filasNominaACsv`), un módulo sin dependencia de Supabase — primer paso concreto hacia la
+  modularización de `data.js` que confirmó el análisis de arquitectura con graphify (la nómina ya
+  formaba un bloque cohesionado, 0.33, dentro del archivo monolítico). 5 tests nuevos, incluida
+  la verificación explícita del hallazgo de la Fase 19: 1500 filas de entrada producen 1500 filas
+  de salida, sin truncar en silencio. 503 tests dashboard en total, en verde.
+  **Verificado en navegador contra dev**: la página `/nomina` carga con el botón "Exportar CSV",
+  sin errores de consola.
+
+**Bloque 23.B (nómina) COMPLETO — 23.B.1 a 23.B.5, los cinco ítems construidos y verificados
+2026-07-28.**
 
 ### Bloque 23.C — Unidad de transporte + ubicación cruzada 🔴 EL CIMIENTO (1.º en el orden)
 

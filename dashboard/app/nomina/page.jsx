@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { Moon, Route as RouteIcon, Download, Printer, ArrowUp, ArrowDown, Search } from "lucide-react";
 import { getInformeNomina } from "../../lib/data";
+import { filasNominaACsv } from "../../lib/nomina-export";
 import RequireRol from "../components/RequireRol";
 import { fmtKm } from "../../lib/format";
 import ErrorCargaReintentar from "../components/ui/ErrorCargaReintentar";
@@ -22,18 +23,24 @@ const MESES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 
+// Fase 23, 23.B.5 -- exportación completa del informe (antes solo noches
+// fuera/km/estimado/viajes; faltaban los conceptos nuevos de la Fase 23).
+// Requisito real: "si ya usan SAP... le exportas todo y ya está" -- sin
+// export, el piloto en paralelo (ESTRATEGIA.md §6.5) no es viable.
+// Ojo Fase 19 (truncamiento silencioso a 1000 filas): `filas` viene YA
+// completo en memoria desde getInformeNomina (que a su vez usa .limit(5000)
+// en sus propias consultas, no 1000 por defecto de PostgREST) -- este export
+// itera sobre ese array completo, nunca pagina ni corta.
+// Fase 23, 23.B.5 -- exportación completa del informe (antes solo noches
+// fuera/km/estimado/viajes; faltaban los conceptos nuevos de la Fase 23).
+// Requisito real: "si ya usan SAP... le exportas todo y ya está" -- sin
+// export, el piloto en paralelo (ESTRATEGIA.md §6.5) no es viable.
+// Ojo Fase 19 (truncamiento silencioso a 1000 filas): `filas` viene YA
+// completo en memoria desde getInformeNomina (que a su vez usa .limit(5000)
+// en sus propias consultas, no 1000 por defecto de PostgREST) -- este export
+// itera sobre ese array completo vía filasNominaACsv, nunca pagina ni corta.
 function exportarCSV(filas, mes, anio) {
-  const header = "Chófer,Noches fuera,Km (carretera),Estimado,Viajes\n";
-  const rows = filas.map((f) =>
-    [
-      f.nombre,
-      f.nochesFuera ?? "n/d",
-      f.km,
-      f.estimado ? "sí" : "no",
-      f.viajes.join("; "),
-    ].map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")
-  ).join("\n");
-  const blob = new Blob(["﻿" + header + rows], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob(["﻿" + filasNominaACsv(filas)], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
