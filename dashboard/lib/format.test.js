@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fmtEur, fmtKm, fmtFecha, badgeCaducidad, badgeMargen } from "./format.js";
+import { fmtEur, fmtKm, fmtFecha, badgeCaducidad, badgeMargen, resolverFechaRelativa } from "./format.js";
 
 describe("fmtEur / fmtKm", () => {
   it("formatea euros con el sufijo correcto", () => {
@@ -66,5 +66,50 @@ describe("badgeMargen", () => {
 
   it("margen sano por encima del umbral es verde", () => {
     expect(badgeMargen(500, 30, 10)).toBe("bg-green-50 text-green-700");
+  });
+});
+
+describe("resolverFechaRelativa (Fase 23, 23.D.5)", () => {
+  const HOY = new Date("2026-07-29T15:00:00Z");
+
+  it("'.' resuelve a hoy", () => {
+    expect(resolverFechaRelativa(".", HOY)).toBe("2026-07-29");
+  });
+
+  it("'+1' resuelve a mañana", () => {
+    expect(resolverFechaRelativa("+1", HOY)).toBe("2026-07-30");
+  });
+
+  it("'+2' resuelve a pasado mañana", () => {
+    expect(resolverFechaRelativa("+2", HOY)).toBe("2026-07-31");
+  });
+
+  it("'-1' resuelve a ayer", () => {
+    expect(resolverFechaRelativa("-1", HOY)).toBe("2026-07-28");
+  });
+
+  it("'+' sin número por defecto es +1 día", () => {
+    expect(resolverFechaRelativa("+", HOY)).toBe("2026-07-30");
+  });
+
+  it("'-' sin número por defecto es -1 día", () => {
+    expect(resolverFechaRelativa("-", HOY)).toBe("2026-07-28");
+  });
+
+  it("resuelve correctamente cruzando el fin de mes", () => {
+    const finDeMes = new Date("2026-07-31T15:00:00Z");
+    expect(resolverFechaRelativa("+1", finDeMes)).toBe("2026-08-01");
+  });
+
+  it("texto que no matchea el patrón devuelve null (no confundir con 'hoy')", () => {
+    expect(resolverFechaRelativa("mañana", HOY)).toBeNull();
+    expect(resolverFechaRelativa("2026-08-01", HOY)).toBeNull();
+    expect(resolverFechaRelativa("", HOY)).toBeNull();
+  });
+
+  it("valores no-string nunca lanzan, devuelven null", () => {
+    expect(resolverFechaRelativa(null, HOY)).toBeNull();
+    expect(resolverFechaRelativa(undefined, HOY)).toBeNull();
+    expect(resolverFechaRelativa(5, HOY)).toBeNull();
   });
 });

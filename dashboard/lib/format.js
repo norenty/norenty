@@ -38,6 +38,32 @@ export function fmtFechaHora(isoStr) {
   return new Date(isoStr).toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
+/**
+ * Fase 23, 23.D.5 — notación de fecha relativa que el gestor elogió sin que
+ * se le preguntara sobre Cometweb: "si pones punto es hoy, +1/+2/-1 te pone
+ * la fecha, es mucho más cómodo" (DISCOVERY.md insight 21). Resuelve
+ * `"."` (hoy), `"+N"`/`"-N"` (hoy ± N días) a una fecha YYYY-MM-DD. Devuelve
+ * `null` si `notacion` no matchea el patrón (para poder distinguir "no
+ * reconocido" de un resultado real, en vez de devolver la fecha de hoy por
+ * defecto ante cualquier texto raro).
+ *
+ * Los campos de ventana del dashboard son `<input type="datetime-local">`
+ * nativos, que no aceptan texto libre tecleado con esta notación (el propio
+ * widget del navegador intercepta la entrada) -- por eso esta función
+ * alimenta BOTONES rápidos ("Hoy", "+1", "+2"...) en vez de un campo de
+ * texto, dando el mismo gesto de un clic sin romper el selector nativo.
+ */
+export function resolverFechaRelativa(notacion, ahora = new Date()) {
+  if (typeof notacion !== "string") return null;
+  const m = notacion.trim().match(/^([.+-])(\d*)$/);
+  if (!m) return null;
+  const [, signo, numStr] = m;
+  const dias = signo === "." ? 0 : (numStr ? parseInt(numStr, 10) : 1) * (signo === "-" ? -1 : 1);
+  const d = new Date(ahora);
+  d.setDate(d.getDate() + dias);
+  return d.toISOString().slice(0, 10);
+}
+
 /** "14:30" — solo hora, para eventos del mismo día (ej. llegada real de un hito). */
 export function fmtHora(isoStr) {
   if (!isoStr) return null;

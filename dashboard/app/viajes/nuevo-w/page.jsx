@@ -9,7 +9,7 @@ import { supabase } from "../../../lib/supabase";
 import SugerenciaChofer from "../../components/SugerenciaChofer";
 import Buscador from "../../components/ui/Buscador";
 import DireccionAutocomplete from "../../components/ui/DireccionAutocomplete";
-import { badgeMargen, fmtEur, fmtKm } from "../../../lib/format";
+import { badgeMargen, fmtEur, fmtKm, resolverFechaRelativa } from "../../../lib/format";
 import RequireRol from "../../components/RequireRol";
 
 // Wizard "Nuevo viaje" (7A.11) — promovido a flujo POR DEFECTO 2026-07-23
@@ -162,6 +162,19 @@ export default function NuevoViajeWizard() {
   function actualizarHito(i, campo, valor) {
     setHitos((hs) => hs.map((h, idx) => (idx === i ? { ...h, [campo]: valor } : h)));
     setSugerenciaOrden(null); // F13.6: cualquier edición manual invalida la sugerencia calculada
+  }
+
+  // Fase 23, 23.D.5: botones rápidos "Hoy/+1/+2" -- el `<input type="datetime-local">`
+  // nativo no acepta la notación tecleada (el propio widget del navegador
+  // intercepta la entrada), así que el mismo gesto de un clic se da con
+  // botones que solo tocan la FECHA, conservando la hora que ya hubiera (o
+  // 08:00 por defecto si el campo estaba vacío).
+  function aplicarFechaRelativa(i, campo, notacion) {
+    const fecha = resolverFechaRelativa(notacion);
+    if (!fecha) return;
+    const actual = hitos[i][campo];
+    const hora = actual && actual.includes("T") ? actual.slice(11) : "08:00";
+    actualizarHito(i, campo, `${fecha}T${hora}`);
   }
 
   // F13.6 (SUGERENCIA, no dispatch automático): usa el índice del array como
@@ -456,11 +469,24 @@ export default function NuevoViajeWizard() {
                         </div>
                       </details>
                     </div>
-                    <div className="flex items-center gap-2 pl-7 mb-2">
+                    <div className="flex items-center gap-2 pl-7 mb-1 flex-wrap">
                       <span className="text-xs text-ink-muted">Ventana:</span>
                       <input type="datetime-local" value={h.ventana_inicio} onChange={(e) => actualizarHito(i, "ventana_inicio", e.target.value)} className="text-xs border border-border rounded-md px-2 py-1 focus:outline-none focus:border-brand" />
                       <span className="text-xs text-ink-muted">–</span>
                       <input type="datetime-local" value={h.ventana_fin} onChange={(e) => actualizarHito(i, "ventana_fin", e.target.value)} className="text-xs border border-border rounded-md px-2 py-1 focus:outline-none focus:border-brand" />
+                    </div>
+                    <div className="flex items-center gap-1 pl-7 mb-2">
+                      <span className="text-xs text-ink-muted mr-1">Fecha rápida:</span>
+                      {[[".", "Hoy"], ["+1", "+1"], ["+2", "+2"]].map(([notacion, etiqueta]) => (
+                        <button
+                          key={notacion}
+                          type="button"
+                          onClick={() => { aplicarFechaRelativa(i, "ventana_inicio", notacion); aplicarFechaRelativa(i, "ventana_fin", notacion); }}
+                          className="text-[11px] px-1.5 py-0.5 rounded-full border border-border text-ink-secondary hover:bg-surface-alt"
+                        >
+                          {etiqueta}
+                        </button>
+                      ))}
                     </div>
                     <div className="flex items-center gap-2 pl-7">
                       <label className="flex items-center gap-1.5 text-xs text-ink-secondary cursor-pointer">

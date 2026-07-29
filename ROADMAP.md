@@ -4351,14 +4351,21 @@ Sustituye el barrido manual que hoy es lo primero que hace cada mañana:
   tramo en vacío sospechosamente largo. **Avisar, no bloquear**: a veces el desvío raro es
   correcto y el gestor sabe por qué. Verificación: test que reproduce su caso exacto (descarga a
   las 11:30, carga siguiente con ventana de 8 a 18, 350 km de por medio).
-- [ ] `[LOOP]` **23.D.5 Notación de fecha relativa en los formularios** — `model: sonnet`,
-  esfuerzo bajo. Elogiada espontáneamente por él sobre Cometweb (lo único que elogió):
+- [x] `[LOOP]` **23.D.5 Notación de fecha relativa en los formularios** — HECHO 2026-07-29. No
+  dependía de OSRM, así que se construyó ya aunque el resto del Bloque D siga bloqueado.
   > "Si pones punto es hoy; si pones +1, +2, -1… te pone la fecha. **Eso está de puta madre, es
   > mucho más cómodo.**"
 
-  Aceptar `.`, `+1`, `+2`, `-1`… en los campos de fecha del dashboard, resolviendo a fecha real al
-  vuelo. Es la mejora de UX más barata de toda la fase y toca el gesto que él repite decenas de
-  veces al día.
+  **Corrección de diseño respecto al ítem original:** "aceptar la notación tecleada en los campos"
+  no es viable tal cual — los campos de ventana son `<input type="datetime-local">` nativos, y el
+  propio widget del navegador intercepta la entrada de texto (no deja escribir "+1" dentro). En
+  vez de forzar texto libre (perdiendo el selector nativo), se implementó `resolverFechaRelativa()`
+  en `dashboard/lib/format.js` (pura, testeada: `.`/`+N`/`-N` → fecha) + botones rápidos ("Hoy",
+  "+1", "+2") en el asistente `nuevo-w`, que fijan la fecha conservando la hora ya introducida (u
+  8:00 por defecto). Mismo gesto de un clic que pedía, sin romper el datepicker nativo.
+  8 tests nuevos en `dashboard/lib/format.test.js` (525 dashboard en total, en verde), incluido
+  cruzar fin de mes. **Verificado en navegador contra dev**: pulsar "+1" puso ambos campos de
+  ventana en la fecha de mañana con hora 08:00, sin errores de consola.
 
 ### Bloque 23.E — Los tres roles reales: comercial → planificador → gestor (3.º)
 
