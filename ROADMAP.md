@@ -4646,11 +4646,24 @@ Alcance técnico (no ejecutado todavía):
   reescritas — el aislamiento por rol existente sigue intacto.
   **Pendiente:** aplicar en producción junto con el resto de migraciones pendientes (misma
   luz verde explícita que siempre, aún no dada para prod).
-- [ ] `[LOOP]` **23.F.2** Frontend multi-rol (`RolProvider` expone `roles` array,
-  `Sidebar.jsx` filtra con `roles.some(...)`, `AjustesEquipoSection.jsx` pasa de `<select>`
-  único a multi-select sobre `roles`) — depende de que 23.F.1 esté también en producción,
-  porque hasta entonces la UI debe seguir escribiendo `rol` (singular) para no perder el
-  colchón de compatibilidad del trigger.
+- [x] `[LOOP]` **23.F.2** — HECHO 2026-07-29 (construido en DEV; su activación real espera
+  a que 23.F.1 esté también en producción). `RolProvider.jsx` expone `roles` (array, con
+  fallback a `[rol]` si `roles` viniera vacío -- protege el propio despliegue escalonado:
+  dev ya tiene 0075, prod todavía no). `Sidebar.jsx`:
+  `roles.some(r => l.rolesPermitidos.includes(r))` en vez de `.includes(rol)`.
+  `AjustesEquipoSection.jsx`: el `<select>` de un solo valor se sustituyó por un botón +
+  desplegable de checkboxes (uno por rol), con el último rol marcado deshabilitado
+  (`title="Un gestor debe tener al menos un rol"` -- un gestor sin ningún rol no vería
+  nada ni podría hacer nada, un estado sin sentido de negocio). Nueva
+  `actualizarRolesGestor(gestorId, roles)` en `data.js`, que escribe `roles` directamente
+  sin tocar `rol`; la antigua `actualizarRolGestor` se conserva (marcada DEPRECATED) para
+  cuando 23.F.1 aún no esté en producción.
+  **Verificado en navegador contra dev de verdad**: se marcó "Planificador" además de
+  "Gestor operativo" en un gestor de prueba real, el botón resumen pasó a mostrar "Gestor
+  operativo, Planificador" sin recargar la página, y una consulta SQL directa confirmó
+  `roles = ['gestor_operativo','planificador']` en la fila -- no fue un cambio solo
+  visual. Datos de prueba restaurados a su estado original tras la verificación. 525
+  tests dashboard en verde.
 
 ### 23.G — Panel de equipo: usuarios, roles, auditoría y rendimiento por empresa
 

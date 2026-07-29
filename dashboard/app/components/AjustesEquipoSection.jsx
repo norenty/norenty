@@ -34,6 +34,7 @@ export default function AjustesEquipoSection({
   user,
   gestorAccionandoId,
   cambiarRolGestor,
+  cambiarRolesGestor,
   onDesactivarGestor,
   onReactivarGestor,
   choferes,
@@ -54,6 +55,16 @@ export default function AjustesEquipoSection({
   // a otro de golpe, no uno a uno). Filtro de texto + selección múltiple +
   // reasignación en bloque, reutilizando `cambiarGestorChofer` fila a fila
   // (misma llamada que ya existe, sin tocar `data.js`).
+  // Fase 23, 23.F.2: multi-select de roles (migración 0075) -- qué gestor tiene el
+  // desplegable de roles abierto ahora mismo (solo uno a la vez).
+  const [rolesAbiertoPara, setRolesAbiertoPara] = useState(null);
+
+  function alternarRolEnSeleccion(rolesActuales, valor) {
+    const set = new Set(rolesActuales);
+    if (set.has(valor)) set.delete(valor); else set.add(valor);
+    return Array.from(set);
+  }
+
   // 23.G.1: auditoría por gestor -- se carga bajo demanda al desplegar la fila (no de
   // entrada, para no disparar N consultas de audit_log cuando la empresa tiene muchos
   // gestores) y se cachea en memoria mientras el componente sigue montado.
@@ -211,6 +222,11 @@ export default function AjustesEquipoSection({
             const esUnoMismo = g.auth_user_id === user?.id;
             const auditoriaAbierta = gestorAuditoriaAbierta === g.id;
             const entradas = auditoriaPorGestor[g.id];
+            // Fase 23, 23.F.2: `roles` (array, migración 0075) es la fuente de verdad;
+            // fallback a `[rol]` para gestores que aún no tengan la columna poblada
+            // (no debería pasar tras el backfill, pero es gratis ser robustos).
+            const rolesGestor = g.roles?.length ? g.roles : (g.rol ? [g.rol] : []);
+            const rolesMenuAbierto = rolesAbiertoPara === g.id;
             return (
               <div key={g.id} className="rounded-md bg-surface-alt">
                 <div className="flex items-center gap-2 text-sm px-3 py-2">
@@ -226,17 +242,42 @@ export default function AjustesEquipoSection({
                     <History size={13} /> Actividad
                     <ChevronDown size={13} className={auditoriaAbierta ? "rotate-180 transition-transform" : "transition-transform"} />
                   </button>
-                  <select
-                    value={g.rol}
-                    disabled={esUnoMismo || gestorAccionandoId === g.id}
-                    onChange={(e) => cambiarRolGestor(g.id, e.target.value)}
-                    title={esUnoMismo ? "No puedes cambiar tu propio rol" : "Cambiar rol"}
-                    className="text-xs border border-border rounded-md px-2 py-1 disabled:opacity-40"
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r.value} value={r.value}>{r.label}</option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setRolesAbiertoPara(rolesMenuAbierto ? null : g.id)}
+                      disabled={esUnoMismo || gestorAccionandoId === g.id}
+                      title={esUnoMismo ? "No puedes cambiar tu propio rol" : "Cambiar roles"}
+                      className="flex items-center gap-1 text-xs border border-border rounded-md px-2 py-1 disabled:opacity-40 whitespace-nowrap"
+                    >
+                      {rolesGestor.map((r) => ROLES.find((x) => x.value === r)?.label || r).join(", ") || "Sin rol"}
+                      <ChevronDown size={12} />
+                    </button>
+                    {rolesMenuAbierto && (
+                      <div className="absolute right-0 top-full mt-1 z-10 bg-surface border border-border rounded-md shadow-lg p-2 flex flex-col gap-1 min-w-[160px]">
+                        {ROLES.map((r) => {
+                          const marcado = rolesGestor.includes(r.value);
+                          const esUltimo = marcado && rolesGestor.length === 1;
+                          return (
+                            <label
+                              key={r.value}
+                              className={`flex items-center gap-2 text-xs px-1.5 py-1 rounded hover:bg-surface-alt ${esUltimo ? "opacity-40" : ""}`}
+                              title={esUltimo ? "Un gestor debe tener al menos un rol" : undefined}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={marcado}
+                                disabled={esUltimo}
+                                onChange={() => cambiarRolesGestor(g.id, alternarRolEnSeleccion(rolesGestor, r.value))}
+                                className="rounded border-border"
+                              />
+                              {r.label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                   {g.activo ? (
                     <button
                       onClick={() => onDesactivarGestor(g)}

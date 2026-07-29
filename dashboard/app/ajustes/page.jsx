@@ -5,7 +5,7 @@ import { supabase } from "../../lib/supabase";
 import { getSession, signOut, signOutTodasLasSesiones } from "../../lib/auth";
 import {
   VELOCIDAD_PLANIFICACION_KMH, getInvitaciones, createInvitacion, deleteInvitacion, getBotHeartbeat,
-  getGestoresEmpresa, actualizarRolGestor, desactivarGestor, reactivarGestor, INVITACION_VALIDEZ_DIAS,
+  getGestoresEmpresa, actualizarRolGestor, actualizarRolesGestor, desactivarGestor, reactivarGestor, INVITACION_VALIDEZ_DIAS,
   guardarNombreEmpresa, getBasesEmpresa, crearBaseEmpresa, eliminarBaseEmpresa, guardarCosteKmEmpresa, guardarVelocidadEmpresa,
   guardarDesgloseCosteEmpresa, guardarObjetivoPuntualidadEmpresa, guardarMargenObjetivoEmpresa,
   guardarValorAseguradoMaximoEmpresa,
@@ -194,6 +194,19 @@ export default function AjustesPage() {
     setGestorAccionandoId(gestorId);
     try {
       await actualizarRolGestor(gestorId, nuevoRol);
+      await refrescarGestores();
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
+    setGestorAccionandoId(null);
+  }
+
+  // Fase 23, 23.F.2: multi-rol (migración 0075) -- escribe `roles` directamente,
+  // sin pasar por el `rol` singular.
+  async function cambiarRolesGestor(gestorId, nuevosRoles) {
+    setGestorAccionandoId(gestorId);
+    try {
+      await actualizarRolesGestor(gestorId, nuevosRoles);
       await refrescarGestores();
     } catch (err) {
       flash("Error: " + err.message);
@@ -547,6 +560,7 @@ export default function AjustesPage() {
           user={user}
           gestorAccionandoId={gestorAccionandoId}
           cambiarRolGestor={cambiarRolGestor}
+          cambiarRolesGestor={cambiarRolesGestor}
           onDesactivarGestor={onDesactivarGestor}
           onReactivarGestor={onReactivarGestor}
           choferes={choferesEquipo}

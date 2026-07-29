@@ -2,23 +2,30 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
-const RolContext = createContext({ rol: null, activo: null, cargando: true });
+// Fase 23, 23.F.2: `roles` (array, puede tener más de un valor -- ver migración 0075)
+// es la fuente de verdad nueva; `rol` (singular) se mantiene por compatibilidad con
+// cualquier sitio que aún no se haya migrado a leer `roles`. Mientras la BD de
+// producción no tenga 0075 aplicada, `roles` puede venir undefined -- de ahí el
+// fallback a `[rol]` más abajo, para que ningún gestor pierda acceso durante el
+// despliegue escalonado (dev ya migrado, prod pendiente).
+const RolContext = createContext({ rol: null, roles: [], activo: null, cargando: true });
 export const useRol = () => useContext(RolContext);
 
 export default function RolProvider({ children }) {
-  const [estado, setEstado] = useState({ rol: null, activo: null, cargando: true });
+  const [estado, setEstado] = useState({ rol: null, roles: [], activo: null, cargando: true });
 
   useEffect(() => {
     let vivo = true;
     async function cargar() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) { if (vivo) setEstado({ rol: null, activo: null, cargando: false }); return; }
+      if (!session?.user) { if (vivo) setEstado({ rol: null, roles: [], activo: null, cargando: false }); return; }
       const { data } = await supabase
         .from("gestor")
-        .select("rol, activo")
+        .select("rol, roles, activo")
         .eq("auth_user_id", session.user.id)
         .single();
-      if (vivo) setEstado({ rol: data?.rol ?? null, activo: data?.activo ?? null, cargando: false });
+      const roles = data?.roles?.length ? data.roles : (data?.rol ? [data.rol] : []);
+      if (vivo) setEstado({ rol: data?.rol ?? null, roles, activo: data?.activo ?? null, cargando: false });
     }
     cargar();
     const { data: sub } = supabase.auth.onAuthStateChange(() => cargar());

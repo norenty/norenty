@@ -1158,7 +1158,7 @@ export async function guardarCapacidadVehiculo(vehiculoId, campos) {
 export async function getGestoresEmpresa() {
   const { data } = await supabase
     .from("gestor")
-    .select("id, nombre, email, rol, activo, auth_user_id");
+    .select("id, nombre, email, rol, roles, activo, auth_user_id");
   return (data || []).slice().sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
 }
 
@@ -1166,10 +1166,29 @@ export async function getGestoresEmpresa() {
  * Cambia el rol de un gestor de la empresa. Solo admin puede escribirlo
  * (GRANT UPDATE (rol,activo) + policy gestor_update_admin de 0032); la propia
  * policy rechaza si el llamante intenta editar su propia fila.
+ * DEPRECATED tras 23.F.2 -- se mantiene solo mientras produccion no tenga la
+ * migracion 0075: escribe `rol` (singular), y el trigger `trg_sync_roles_desde_rol`
+ * de esa migracion sincroniza `roles` automaticamente. Usar `actualizarRolesGestor`
+ * en cuanto 0075 este en produccion.
  */
 export async function actualizarRolGestor(gestorId, nuevoRol) {
   const empresaId = await getCurrentEmpresaId();
   const { error } = await supabase.from("gestor").update({ rol: nuevoRol }).eq("id", gestorId).eq("empresa_id", empresaId);
+  if (error) throw error;
+}
+
+/**
+ * Fase 23, 23.F.2 -- roles combinables (migración 0075): escribe el array
+ * `roles` directamente, sin tocar `rol`. Requiere que `roles` sea NO VACÍO --
+ * la UI debe impedir deseleccionar el último rol (un gestor sin roles no vería
+ * nada ni podría hacer nada, un estado sin sentido de negocio).
+ */
+export async function actualizarRolesGestor(gestorId, nuevosRoles) {
+  if (!nuevosRoles || nuevosRoles.length === 0) {
+    throw new Error("Un gestor debe tener al menos un rol");
+  }
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("gestor").update({ roles: nuevosRoles }).eq("id", gestorId).eq("empresa_id", empresaId);
   if (error) throw error;
 }
 

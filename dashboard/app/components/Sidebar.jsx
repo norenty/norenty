@@ -117,7 +117,9 @@ function NavLink({ href, label, icon: Icon, active, onClick }) {
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { rol } = useRol();
+  // Fase 23, 23.F.2: `roles` (array) es la fuente de verdad; `rol` se mantiene para
+  // los `soloAdmin` que aún no se migraron a `rolesPermitidos`.
+  const { rol, roles } = useRol();
   const [open, setOpen] = useState(false);
   // Ítem de diseño (2026-07-13): solo "Operación" va expandido por defecto —
   // 12 destinos visibles de entrada era mucho para un usuario nuevo/no
@@ -209,7 +211,7 @@ export default function Sidebar() {
                 <div className="flex flex-col gap-0.5 mt-0.5">
                   {group.links
                     .filter((l) => !l.soloAdmin || rol === "admin")
-                    .filter((l) => !l.rolesPermitidos || l.rolesPermitidos.includes(rol))
+                    .filter((l) => !l.rolesPermitidos || l.rolesPermitidos.some((r) => roles.includes(r)))
                     .map(({ href, label, icon: Icon }) => (
                     <NavLink
                       key={href}
