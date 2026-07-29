@@ -1317,6 +1317,85 @@ async def test_cmd_remolque_lanzadera_dos_choferes_intercambian(fake_db):
     assert vigentes["rem-norte"]["tractora_id"] == "trac-barna"
 
 
+# --- /palets (Fase 23, 23.B.3) ---
+
+@pytest.mark.asyncio
+async def test_cmd_palets_sin_vincular(fake_db):
+    update = _remolque_update([])
+    ctx = SimpleNamespace(args=[])
+    await bot.cmd_palets(update, ctx)
+    texto = update.message.reply_text.call_args[0][0]
+    assert texto == bot.t("es", "no_vinculado")
+
+
+@pytest.mark.asyncio
+async def test_cmd_palets_sin_argumentos_muestra_uso(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "chat_id": "chat-1", "empresa_id": "e1"}]
+    update = _remolque_update([])
+    ctx = SimpleNamespace(args=[])
+    await bot.cmd_palets(update, ctx)
+    texto = update.message.reply_text.call_args[0][0]
+    assert "Uso: /palets" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_palets_argumentos_no_numericos_muestra_uso(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "chat_id": "chat-1", "empresa_id": "e1"}]
+    update = _remolque_update([])
+    ctx = SimpleNamespace(args=["treinta", "veinte"])
+    await bot.cmd_palets(update, ctx)
+    texto = update.message.reply_text.call_args[0][0]
+    assert "Uso: /palets" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_palets_sin_entrega_reciente(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["ejecucion_evento"] = []
+    update = _remolque_update([])
+    ctx = SimpleNamespace(args=["33", "30"])
+    await bot.cmd_palets(update, ctx)
+    texto = update.message.reply_text.call_args[0][0]
+    assert "No encuentro ninguna entrega reciente" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_palets_registra_en_el_ultimo_hito_de_salida(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["hito"] = [{"id": "h1", "palets_entregados": None, "palets_devueltos": None}]
+    fake_db.tables["ejecucion_evento"] = [
+        {"chofer_id": "c1", "hito_id": "h1", "tipo": "salida", "ocurrido_en": "2026-07-29T10:00:00Z"},
+    ]
+    update = _remolque_update([])
+    ctx = SimpleNamespace(args=["33", "30"])
+    await bot.cmd_palets(update, ctx)
+
+    hito = fake_db.tables["hito"][0]
+    assert hito["palets_entregados"] == 33
+    assert hito["palets_devueltos"] == 30
+    texto = update.message.reply_text.call_args[0][0]
+    assert "33 palets entregados, 30 devueltos" in texto
+
+
+@pytest.mark.asyncio
+async def test_cmd_palets_usa_el_hito_mas_reciente_no_el_primero(fake_db):
+    fake_db.tables["chofer"] = [{"id": "c1", "nombre": "Mario", "chat_id": "chat-1", "empresa_id": "e1"}]
+    fake_db.tables["hito"] = [
+        {"id": "h-viejo", "palets_entregados": None, "palets_devueltos": None},
+        {"id": "h-nuevo", "palets_entregados": None, "palets_devueltos": None},
+    ]
+    fake_db.tables["ejecucion_evento"] = [
+        {"chofer_id": "c1", "hito_id": "h-viejo", "tipo": "salida", "ocurrido_en": "2026-07-28T10:00:00Z"},
+        {"chofer_id": "c1", "hito_id": "h-nuevo", "tipo": "salida", "ocurrido_en": "2026-07-29T10:00:00Z"},
+    ]
+    update = _remolque_update([])
+    ctx = SimpleNamespace(args=["10", "10"])
+    await bot.cmd_palets(update, ctx)
+
+    assert fake_db.tables["hito"][1]["palets_entregados"] == 10  # h-nuevo
+    assert fake_db.tables["hito"][0]["palets_entregados"] is None  # h-viejo, sin tocar
+
+
 # --- _foto_pod_valida / _calidad_foto_pod (Fase 23, 23.A.1) ---
 # Origen: DISCOVERY.md insight 14 -- "no se lee ninguna letra de la que me ha
 # pasado". Fotos SINTÉTICAS reales (no mocks) generadas con Pillow: nítida de

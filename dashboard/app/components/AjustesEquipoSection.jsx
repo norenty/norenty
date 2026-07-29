@@ -6,6 +6,10 @@ import { Users, Send, Copy, Check, X } from "lucide-react";
 const ROLES = [
   { value: "admin", label: "Admin" },
   { value: "gestor_operativo", label: "Gestor operativo" },
+  // Fase 23, 23.E.1/23.E.4 (2026-07-29): el rol ya funcionaba de punta a
+  // punta a nivel de RLS/backend, pero faltaba aquí -- asignarlo requería
+  // tocar la base de datos a mano.
+  { value: "planificador", label: "Planificador" },
   { value: "comercial", label: "Comercial" },
   { value: "solo_lectura", label: "Solo lectura" },
 ];

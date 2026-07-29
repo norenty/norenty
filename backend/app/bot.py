@@ -1620,6 +1620,53 @@ def _buscar_remolque_por_matricula(empresa_id, matricula):
     return r.data[0] if r.data else None
 
 
+# Fase 23, Bloque B (23.B.3) -- DISCOVERY.md insight 13: "¿Cuántos euros dijo
+# mi jefe? En palets que habían desaparecido. Miles y miles de euros." Dos
+# números que el chófer ya cuenta físicamente al descargar. Comando
+# independiente (como /remolque), NO texto libre -- evita tocar la máquina de
+# estados de chat_data (incidencia_libre/contactar_pendiente) que ya tiene
+# varios flujos pendientes; añadir uno más sin revisarla junta es más riesgo
+# que valor (misma decisión que se tomó al recortar 23.A.2).
+async def cmd_palets(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """/palets ENTREGADOS DEVUELTOS -- registra los palets del último hito de
+    entrega que este chófer completó (el más reciente, de cualquier viaje)."""
+    chat_id = str(update.effective_chat.id)
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
+        await update.message.reply_text(t("es", "no_vinculado"))
+        return
+
+    args = ctx.args or []
+    if len(args) != 2 or not all(a.isdigit() for a in args):
+        await update.message.reply_text("Uso: /palets ENTREGADOS DEVUELTOS (dos números, ej. /palets 33 30)")
+        return
+    entregados, devueltos = int(args[0]), int(args[1])
+
+    ultimo_evento = ejecutar_con_reintentos(
+        lambda: supabase.table("ejecucion_evento")
+        .select("hito_id, ocurrido_en")
+        .eq("chofer_id", chofer["id"])
+        .eq("tipo", "salida")
+        .order("ocurrido_en", desc=True)
+        .limit(1)
+        .execute(),
+        contexto={"accion": "palets_buscar_ultimo_hito", "chofer_id": chofer["id"]},
+    )
+    if not ultimo_evento.data:
+        await update.message.reply_text("No encuentro ninguna entrega reciente tuya a la que apuntar estos palets.")
+        return
+    hito_id = ultimo_evento.data[0]["hito_id"]
+
+    ejecutar_con_reintentos(
+        lambda: supabase.table("hito").update({
+            "palets_entregados": entregados,
+            "palets_devueltos": devueltos,
+        }).eq("id", hito_id).execute(),
+        contexto={"accion": "guardar_palets", "hito_id": hito_id},
+    )
+    await update.message.reply_text(f"✅ Anotado: {entregados} palets entregados, {devueltos} devueltos.")
+
+
 async def cmd_remolque(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """/remolque -- muestra el estado actual (tractora + remolques acoplados).
     /remolque soltar MATRICULA -- desengancha ese remolque (queda suelto, sin
@@ -3432,6 +3479,7 @@ def create_bot_app():
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("estado", cmd_estado))
     app.add_handler(CommandHandler("remolque", cmd_remolque))
+    app.add_handler(CommandHandler("palets", cmd_palets))
     app.add_handler(CommandHandler("incidencia", cmd_incidencia))
     app.add_handler(CommandHandler("parking", cmd_parking))
     app.add_handler(CommandHandler("eta", cmd_eta))

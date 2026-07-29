@@ -4056,10 +4056,14 @@ derivable de datos que ya capturamos, después lo que necesita un flag humano.
   (`entregados - devueltos > 0`), ordenados de mayor a menor. 4 tests nuevos (495 dashboard en
   total, en verde): suma correcta, cliente sin deuda no aparece, hitos sin dato de palets se
   ignoran, orden por deuda.
-  **Pendiente, no bloqueante:** la captura del dato en el bot (que el chófer introduzca los dos
-  números al cerrar un hito) no está construida todavía — hoy solo existe el modelo y el informe
-  de agregación. Se añade cuando 23.A.2 (anotaciones) se revise para incluir un paso numérico,
-  evitando duplicar la lógica de teclado ya construida allí.
+  **Captura en el bot — HECHO 2026-07-29**, con una corrección de diseño respecto a lo previsto:
+  no se integró en el teclado de anotaciones de 23.A.2 (habría exigido tocar la máquina de
+  estados de `chat_data` que ya tiene incidencia_libre/contactar_pendiente — mismo riesgo que hizo
+  recortar el "otro + texto libre" de 23.A.2). En su lugar, comando independiente `/palets
+  ENTREGADOS DEVUELTOS` (mismo patrón que `/remolque`), que registra sobre el último hito de
+  entrega completado por ese chófer (vía el evento `salida` más reciente). 6 tests nuevos
+  (284 backend en total, en verde), incluido el caso real de dos hitos completados donde debe
+  tocar el más reciente, no el primero.
 - [x] `[LOOP]` **23.B.4 Extras con marca manual: ADR, carga/descarga por el chófer, retén** —
   HECHO 2026-07-28. Migración `0071_extras_nomina_manuales.sql` (aplicada en dev): `viaje.adr`
   (boolean), `hito.carga_descarga_chofer` (boolean), y tabla nueva `reten` (único caso de entidad
@@ -4481,10 +4485,11 @@ planificador humano sigue decidiendo; nosotros le damos los datos que hoy busca 
     más cercano a `solicitud_aprobacion` (ya existe para otros casos) que a una simple entrada de
     auditoría. Se aplaza hasta que un piloto real pida ese nivel de formalidad; hoy la trazabilidad
     ya resuelve el dolor concreto citado ("no me acuerdo quién cambió qué").
-  - **Hallazgo de paso, no bloqueante**: el selector de roles en `/ajustes` (`actualizarRolGestor`)
-    no incluye `planificador` como opción visible — el rol funciona de punta a punta a nivel de
-    RLS/backend (23.E.1), pero asignarlo hoy requiere tocar la base de datos a mano en vez de un
-    clic en la UI. Pendiente de añadir el botón cuando se revise esa sección.
+  - **Hallazgo de paso — RESUELTO 2026-07-29**: el selector de roles en `/ajustes`
+    (`AjustesEquipoSection.jsx`) no incluía `planificador` como opción. Añadido a la lista
+    `ROLES`; verificado en navegador contra dev (aparece seleccionable y correctamente
+    seleccionado para un gestor de prueba con ese rol, y en el resto de selectores de la página
+    — asignación de chóferes, adjudicación de viajes).
 
 **Bloque 23.E (roles) COMPLETO — 23.E.1 a 23.E.4, 2026-07-29.**
 
