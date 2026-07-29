@@ -1238,7 +1238,7 @@ async def test_cmd_remolque_enganchar_usa_tractora_del_viaje_en_curso(fake_db):
     fake_db.tables["viaje"] = [{"id": "v1", "chofer_id": "c1", "empresa_id": "e1", "estado": "en_curso", "vehiculo_id": "trac1"}]
     fake_db.tables["vehiculo"] = [{"id": "rem1", "matricula": "1234ABC", "tipo": "remolque", "empresa_id": "e1"}]
     update = _remolque_update([])
-    ctx = SimpleNamespace(args=["enganchar", "1234ABC"])
+    ctx = SimpleNamespace(args=["enganchar", "1234ABC"], chat_data={})
     await bot.cmd_remolque(update, ctx)
 
     acoplamientos = fake_db.tables["acoplamiento"]
@@ -1248,8 +1248,9 @@ async def test_cmd_remolque_enganchar_usa_tractora_del_viaje_en_curso(fake_db):
     assert acoplamientos[0]["posicion"] == 1
     assert acoplamientos[0]["motivo"] == "enganche"
     assert acoplamientos[0]["registrado_por"] == "bot"
-    texto = update.message.reply_text.call_args[0][0]
-    assert "enganchado" in texto
+    # Ahora hay 2 mensajes: la confirmación + la petición opcional de foto del checklist (23.C.5).
+    textos = [c.args[0] for c in update.message.reply_text.call_args_list]
+    assert any("enganchado" in t for t in textos)
 
 
 @pytest.mark.asyncio
@@ -1261,7 +1262,7 @@ async def test_cmd_remolque_enganchar_segundo_remolque_va_a_posicion_2(fake_db):
         {"id": "ac1", "empresa_id": "e1", "tractora_id": "trac1", "remolque_id": "rem1", "posicion": 1, "chofer_id": "c1", "hasta": None},
     ]
     update = _remolque_update([])
-    ctx = SimpleNamespace(args=["enganchar", "5678XYZ"])
+    ctx = SimpleNamespace(args=["enganchar", "5678XYZ"], chat_data={})
     await bot.cmd_remolque(update, ctx)
 
     nuevo = [a for a in fake_db.tables["acoplamiento"] if a["remolque_id"] == "rem2"]
@@ -1309,8 +1310,8 @@ async def test_cmd_remolque_lanzadera_dos_choferes_intercambian(fake_db):
     # En el punto de cruce: c1 suelta rem-norte y engancha rem-sur; c2 al revés.
     await bot.cmd_remolque(_remolque_update([], "chat-1"), SimpleNamespace(args=["soltar", "NORTE01"]))
     await bot.cmd_remolque(_remolque_update([], "chat-2"), SimpleNamespace(args=["soltar", "SUR01"]))
-    await bot.cmd_remolque(_remolque_update([], "chat-1"), SimpleNamespace(args=["enganchar", "SUR01"]))
-    await bot.cmd_remolque(_remolque_update([], "chat-2"), SimpleNamespace(args=["enganchar", "NORTE01"]))
+    await bot.cmd_remolque(_remolque_update([], "chat-1"), SimpleNamespace(args=["enganchar", "SUR01"], chat_data={}))
+    await bot.cmd_remolque(_remolque_update([], "chat-2"), SimpleNamespace(args=["enganchar", "NORTE01"], chat_data={}))
 
     vigentes = {a["remolque_id"]: a for a in fake_db.tables["acoplamiento"] if a.get("hasta") is None}
     assert vigentes["rem-sur"]["tractora_id"] == "trac-madrid"

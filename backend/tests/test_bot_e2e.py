@@ -334,6 +334,40 @@ async def test_e2e_anotacion_entrega_tras_pod(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_e2e_checklist_enganche_foto_se_guarda_en_el_acoplamiento(monkeypatch):
+    """Fase 23, 23.C.5: tras /remolque enganchar, el bot ofrece mandar una
+    foto del checklist (ruedas, lona); si el chófer la manda dentro de la
+    ventana, se guarda en `acoplamiento.foto_checklist_url` -- no se confunde
+    con un POD normal aunque no haya ningún viaje en curso."""
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": None,
+    }]
+    fake_db.tables["vehiculo"] = [{"id": "rem1", "matricula": "1234ABC", "tipo": "remolque", "empresa_id": "e1"}]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(command_update(app, f"/start {CHOFER_ID}"))
+        await app.process_update(command_update(app, "/remolque enganchar 1234ABC"))
+
+        assert len(fake_db.tables["acoplamiento"]) == 1
+        assert any("mándame una foto del enganche" in s.get("text", "") for s in api.sent)
+
+        await app.process_update(photo_update(app))
+
+        acoplamiento = fake_db.tables["acoplamiento"][0]
+        assert acoplamiento["foto_checklist_url"] is not None
+        assert "checklist_enganche" in acoplamiento["foto_checklist_url"]
+        assert len(fake_db.storage.uploads) == 1
+        assert any("Foto del checklist guardada" in s.get("text", "") for s in api.sent)
+        # No debió tratarse como un POD normal (no hay tabla `pod` tocada).
+        assert not fake_db.tables.get("pod")
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_e2e_anotacion_entrega_todo_bien_no_genera_evento(monkeypatch):
     """'Todo bien' es la ausencia de un dato, no un dato -- no debe crear
     ningún ejecucion_evento (ruido = la próxima anotación real se ignora)."""

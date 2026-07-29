@@ -4226,10 +4226,13 @@ evidencia: hay que diseñarlo desde el principio.
   26/7/2026, 16:38:31" aparece exactamente como se diseñó, sin errores de consola; dato de prueba
   limpiado después. 467 tests dashboard en verde (sin tests nuevos de UI — la lógica ya estaba
   cubierta por los tests de `getPosicionUnidades`; esto solo la consume).
-  **Recorte de scope deliberado:** el checklist de enganche con foto (¿ruedas?, ¿cortes en la
-  lona?) se deja pendiente — depende de 23.A.1 (validación de calidad de foto en el bot), que
-  todavía no está construida. Añadirlo ahora habría significado un flujo de foto sin la
-  validación que lo hace fiable. Se retoma cuando 23.A.1 exista.
+  **Checklist de enganche con foto — HECHO 2026-07-29**, ya sin bloqueo (23.A.1 se construyó
+  después). Migración `0074_checklist_enganche.sql` añade `acoplamiento.foto_checklist_url`
+  (nullable). Tras `/remolque enganchar`, el bot ofrece mandar una foto (ruedas, lona) dentro de
+  una ventana — mismo patrón `chat_data` que `incidencia_pendiente_foto` (independiente de la
+  máquina de estados de texto libre), misma validación de calidad de 23.A.1, mismo bucket privado
+  `pods`. 1 test E2E nuevo (285 backend en total, en verde): comando real → foto real → se guarda
+  en el acoplamiento correcto y **no** se confunde con un POD normal.
 
 ### Bloque 23.D — Adherencia al plan: ni llegar tarde ni estar parado (5.º, el de más valor)
 

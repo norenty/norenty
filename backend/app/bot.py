@@ -1756,7 +1756,7 @@ async def cmd_remolque(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     posiciones_ocupadas = {a["posicion"] for a in _acoplamientos_vigentes_de_chofer(chofer["id"]) if a.get("tractora_id") == tractora_id}
     posicion = 2 if 1 in posiciones_ocupadas else 1
 
-    ejecutar_con_reintentos(
+    nuevo = ejecutar_con_reintentos(
         lambda: supabase.table("acoplamiento").insert({
             "empresa_id": chofer["empresa_id"],
             "tractora_id": tractora_id,
@@ -1769,6 +1769,20 @@ async def cmd_remolque(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         contexto={"accion": "enganchar_remolque", "remolque_id": remolque["id"], "chofer_id": chofer["id"]},
     )
     await update.message.reply_text(f"✅ Remolque {remolque['matricula']} enganchado (posición {posicion}).")
+
+    # Fase 23, 23.C.5 -- checklist de enganche: "¿has revisado las ruedas?
+    # ¿que no haya cortes en la lona?" con foto si hay un defecto. Mismo
+    # patrón que incidencia_pendiente_foto (F14.6): un flag en chat_data que
+    # SOLO mira handle_photo al principio, independiente de la máquina de
+    # estados de texto libre -- no toca esa lógica.
+    if nuevo.data:
+        ctx.chat_data["enganche_pendiente_foto"] = {
+            "acoplamiento_id": nuevo.data[0]["id"],
+            "hasta": time.time() + INCIDENCIA_FOTO_VENTANA_S,
+        }
+        await update.message.reply_text(
+            "Si quieres, mándame una foto del enganche ahora (ruedas, lona) — opcional."
+        )
 
 
 async def cmd_estado(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -2129,6 +2143,37 @@ async def _subir_foto_incidencia(update, ctx, chofer, incidencia_id, viaje_id):
     )
 
 
+async def _subir_foto_checklist(update, ctx, chofer, acoplamiento_id):
+    """Fase 23, 23.C.5: foto del checklist de enganche (ruedas, lona) --
+    mismo bucket privado "pods" y misma validación de calidad que POD/
+    incidencia (23.A.1), sobre `acoplamiento.foto_checklist_url` en vez de
+    `pod`/`incidencia`. Protege de disputas de daños entre chóferes que se
+    intercambian un remolque."""
+    photo = update.message.photo[-1]
+    file = await ctx.bot.get_file(photo.file_id)
+    file_bytes = await file.download_as_bytearray()
+
+    valida, motivo = _foto_pod_valida(file_bytes)
+    if not valida:
+        await update.message.reply_text(t(chofer, motivo))
+        return
+
+    file_path = f"{chofer['empresa_id']}/checklist_enganche/{acoplamiento_id}/{uuid.uuid4()}.jpg"
+
+    supabase.storage.from_("pods").upload(
+        path=file_path,
+        file=bytes(file_bytes),
+        file_options={"content-type": "image/jpeg"},
+    )
+    supabase.table("acoplamiento").update({"foto_checklist_url": file_path}).eq("id", acoplamiento_id).execute()
+
+    await update.message.reply_text("✅ Foto del checklist guardada.")
+    logger.info(
+        "Foto de checklist de enganche guardada: acoplamiento %s", acoplamiento_id,
+        extra={"acoplamiento_id": acoplamiento_id, "chofer_id": chofer["id"]},
+    )
+
+
 async def handle_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Nivel 1 de la escalera de captura de conocimiento (ROADMAP Fase 11, 11.3).
 
@@ -2246,6 +2291,15 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await _subir_foto_incidencia(update, ctx, chofer, pendiente["id"], pendiente["viaje_id"])
         return
     ctx.chat_data.pop("incidencia_pendiente_foto", None)
+
+    # Fase 23, 23.C.5: foto del checklist de enganche, si la manda dentro de
+    # la ventana tras /remolque enganchar. Mismo patrón que la incidencia.
+    pendiente_enganche = ctx.chat_data.get("enganche_pendiente_foto")
+    if pendiente_enganche and pendiente_enganche.get("hasta", 0) >= time.time():
+        ctx.chat_data.pop("enganche_pendiente_foto", None)
+        await _subir_foto_checklist(update, ctx, chofer, pendiente_enganche["acoplamiento_id"])
+        return
+    ctx.chat_data.pop("enganche_pendiente_foto", None)
 
     viajes_r = (
         supabase.table("viaje")
