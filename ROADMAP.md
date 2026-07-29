@@ -4623,11 +4623,34 @@ Alcance técnico (no ejecutado todavía):
   caso válido — un array de 1 elemento — más un caso NUEVO explícito de gestor con
   `['gestor_operativo','planificador']` verificando que ve lo de ambos roles a la vez);
   `data.test.js` donde se mockea `gestor.rol`.
-- [ ] `[DECISIÓN]` **23.F.1** Ejecutar la migración 0075 + reescritura de las 5 policies/
-  funciones dependientes — bloqueado hasta luz verde explícita del usuario (toca RLS ya en
-  producción, no autónomo por el stop duro del protocolo del loop).
-- [ ] `[LOOP]` **23.F.2** Frontend multi-rol (`RolProvider`, `Sidebar`, `AjustesEquipoSection`)
-  — depende de 23.F.1.
+- [x] `[LOOP]` **23.F.1** — HECHO 2026-07-29, con luz verde explícita del usuario ("si").
+  Migración `0075_roles_combinables.sql` aplicada en DEV (74→75, sin errores). `gestor.roles
+  text[]` nuevo, backfill `roles = ARRAY[rol]` (0 discrepancias verificadas por SQL directo).
+  Trigger `trg_sync_roles_desde_rol`: mientras la UI siga siendo un solo `<select>` (hasta
+  23.F.2), cambiar `rol` sincroniza `roles` automáticamente — compatibilidad hacia atrás
+  real, no solo teórica. `current_gestor_roles()` nueva; `current_gestor_rol()` (0032) se
+  deja SIN TOCAR como red de seguridad para cualquier policy no reescrita aquí. Reescritas:
+  `rol_bloquea_columnas_sensibles`, `solo_lectura_bloquea_escritura`,
+  `rol_comercial_restringido` (con **principio aditivo**: `solo_lectura`/`comercial` solo
+  bloquean si son el ÚNICO rol — evita que un segundo rol combinado quede castrado por el
+  primero), `gestor_id_solo_admin`, las 4 policies `empresa_scoped_*` de "ver todo"
+  (admin/planificador), `gestor_update_admin`, invitaciones, y la resolución de
+  `solicitud_aprobacion` — 8 funciones/policies en total, todas con `&&`/`ANY` sobre el
+  array en vez de `=`/`IN` sobre un valor único.
+  **Verificado contra dev de verdad (no asumido)**: script SQL directo confirmó (a) 0
+  gestores con `roles != ARRAY[rol]` tras el backfill, (b) cambiar `rol` de un gestor de
+  prueba sincronizó `roles` automáticamente, (c) escribir `roles` con una combinación real
+  (`['gestor_operativo','planificador']`) sin tocar `rol` persistió tal cual, sin que el
+  trigger la pisara. 285 tests backend + 525 tests dashboard en verde, incluyendo los 23 de
+  `roles-isolation.test.js` (live contra dev) que ejercitan exactamente las policies
+  reescritas — el aislamiento por rol existente sigue intacto.
+  **Pendiente:** aplicar en producción junto con el resto de migraciones pendientes (misma
+  luz verde explícita que siempre, aún no dada para prod).
+- [ ] `[LOOP]` **23.F.2** Frontend multi-rol (`RolProvider` expone `roles` array,
+  `Sidebar.jsx` filtra con `roles.some(...)`, `AjustesEquipoSection.jsx` pasa de `<select>`
+  único a multi-select sobre `roles`) — depende de que 23.F.1 esté también en producción,
+  porque hasta entonces la UI debe seguir escribiendo `rol` (singular) para no perder el
+  colchón de compatibilidad del trigger.
 
 ### 23.G — Panel de equipo: usuarios, roles, auditoría y rendimiento por empresa
 
