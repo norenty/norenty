@@ -64,6 +64,38 @@ export function resolverFechaRelativa(notacion, ahora = new Date()) {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Etiqueta legible de una entrada de audit_log (8.8, ampliada 23.G.1). El detalle exacto de
+ * cada acción vive en `detalle` (jsonb), esto solo lo traduce a texto. Vivía duplicada en
+ * `viajes/[id]/page.jsx` — se mueve aquí para reutilizarla también en el panel de auditoría
+ * por gestor de `AjustesEquipoSection.jsx` (23.G.1), en vez de mantener dos switches iguales.
+ */
+export function describirAuditoria(a) {
+  const d = a.detalle || {};
+  switch (a.accion) {
+    case "cambio_estado":
+      return `Cambió el estado de "${d.de || "—"}" a "${d.a || "—"}"`;
+    case "asignar_chofer":
+      return d.chofer_nuevo ? "Asignó un chófer" : "Quitó la asignación de chófer";
+    case "cambio_precio":
+      return `Cambió el precio de ${d.de ?? "—"} € a ${d.a ?? "—"} €`;
+    case "generar_token_publico":
+      return "Generó el enlace de seguimiento público";
+    case "revocar_token_publico":
+      return "Revocó el enlace de seguimiento público";
+    case "borrar_documento":
+      return `Borró un documento (${d.tipo || "?"})`;
+    case "cambio_gestor_asignado":
+      // Fase 23, 23.E.4: traspaso planificador -> gestor, el que se perdía
+      // "de viva voz" ("me cambió el horario el de arriba y no me acuerdo").
+      return d.a ? "Reasignó el viaje a otro gestor" : "Quitó el viaje del reparto (vuelve al pool)";
+    case "cambio_orden_trabajo":
+      return `Cambió la orden de trabajo del hito ${d.hitoOrden ?? "?"} (hora y/o nota para el chófer)`;
+    default:
+      return a.accion;
+  }
+}
+
 /** "14:30" — solo hora, para eventos del mismo día (ej. llegada real de un hito). */
 export function fmtHora(isoStr) {
   if (!isoStr) return null;

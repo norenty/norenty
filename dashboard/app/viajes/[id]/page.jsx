@@ -31,37 +31,9 @@ import Timeline from "../../components/Timeline";
 const MapView = dynamic(() => import("../../components/MapView"), { ssr: false });
 import RatingControl from "../../components/RatingControl";
 import { ESTADO_VIAJE, ESTADO_HITO, ESTADO_POD, TIPOS_DOC_VIAJE, LABEL_CAPA } from "../../../lib/labels";
-import { badgeMargen, fmtEur, fmtKm, fmtFechaHora, fmtHora } from "../../../lib/format";
+import { badgeMargen, fmtEur, fmtKm, fmtFechaHora, fmtHora, describirAuditoria } from "../../../lib/format";
 import RequireRol from "../../components/RequireRol";
 import Ayuda from "../../components/ui/Ayuda";
-
-/** Etiqueta legible de una entrada de audit_log (8.8) — el detalle exacto de
- * cada acción vive en `detalle` (jsonb), esto solo lo traduce a texto. */
-function describirAuditoria(a) {
-  const d = a.detalle || {};
-  switch (a.accion) {
-    case "cambio_estado":
-      return `Cambió el estado de "${d.de || "—"}" a "${d.a || "—"}"`;
-    case "asignar_chofer":
-      return d.chofer_nuevo ? "Asignó un chófer" : "Quitó la asignación de chófer";
-    case "cambio_precio":
-      return `Cambió el precio de ${d.de ?? "—"} € a ${d.a ?? "—"} €`;
-    case "generar_token_publico":
-      return "Generó el enlace de seguimiento público";
-    case "revocar_token_publico":
-      return "Revocó el enlace de seguimiento público";
-    case "borrar_documento":
-      return `Borró un documento (${d.tipo || "?"})`;
-    case "cambio_gestor_asignado":
-      // Fase 23, 23.E.4: traspaso planificador -> gestor, el que se perdía
-      // "de viva voz" ("me cambió el horario el de arriba y no me acuerdo").
-      return d.a ? "Reasignó el viaje a otro gestor" : "Quitó el viaje del reparto (vuelve al pool)";
-    case "cambio_orden_trabajo":
-      return `Cambió la orden de trabajo del hito ${d.hitoOrden ?? "?"} (hora y/o nota para el chófer)`;
-    default:
-      return a.accion;
-  }
-}
 
 export default function ViajeDetalle() {
   const { id } = useParams();

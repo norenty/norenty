@@ -4399,6 +4399,24 @@ export async function getAuditLog(entidad, entidadId) {
   return data || [];
 }
 
+/**
+ * Fase 23, 23.G.1 — mismo `audit_log` de 8.8, pero filtrado por AUTOR en vez de por
+ * entidad: "qué ha cambiado esta persona", no "qué ha cambiado este viaje". Para el panel
+ * de equipo (`AjustesEquipoSection.jsx`), donde el jefe de tráfico quiere ver la actividad
+ * de un gestor concreto, no la de un viaje concreto. Se añade `entidad`/`entidad_id` al
+ * select (no solo `accion`/`detalle`) porque aquí, a diferencia de la vista por viaje, no
+ * hay contexto ya visible de a qué viaje/chófer pertenece cada entrada.
+ */
+export async function getAuditLogPorGestor(gestorId) {
+  const { data } = await supabase
+    .from("audit_log")
+    .select("id, entidad, entidad_id, accion, detalle, created_at")
+    .eq("gestor_id", gestorId)
+    .order("created_at", { ascending: false })
+    .limit(LIMITE_AUDIT_LOG);
+  return data || [];
+}
+
 // ==========================================================================
 // Parkings para camión (ítem 5.4)
 // ==========================================================================

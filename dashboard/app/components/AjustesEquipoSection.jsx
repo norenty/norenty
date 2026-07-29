@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Users, Send, Copy, Check, X } from "lucide-react";
+import { Users, Send, Copy, Check, X, History, ChevronDown } from "lucide-react";
+import { getAuditLogPorGestor } from "../../lib/data";
+import { describirAuditoria, fmtFechaHora } from "../../lib/format";
 
 const ROLES = [
   { value: "admin", label: "Admin" },
@@ -52,6 +54,27 @@ export default function AjustesEquipoSection({
   // a otro de golpe, no uno a uno). Filtro de texto + selección múltiple +
   // reasignación en bloque, reutilizando `cambiarGestorChofer` fila a fila
   // (misma llamada que ya existe, sin tocar `data.js`).
+  // 23.G.1: auditoría por gestor -- se carga bajo demanda al desplegar la fila (no de
+  // entrada, para no disparar N consultas de audit_log cuando la empresa tiene muchos
+  // gestores) y se cachea en memoria mientras el componente sigue montado.
+  const [gestorAuditoriaAbierta, setGestorAuditoriaAbierta] = useState(null);
+  const [auditoriaPorGestor, setAuditoriaPorGestor] = useState({});
+  const [cargandoAuditoria, setCargandoAuditoria] = useState(null);
+
+  async function alternarAuditoria(gestorId) {
+    if (gestorAuditoriaAbierta === gestorId) {
+      setGestorAuditoriaAbierta(null);
+      return;
+    }
+    setGestorAuditoriaAbierta(gestorId);
+    if (!auditoriaPorGestor[gestorId]) {
+      setCargandoAuditoria(gestorId);
+      const entradas = await getAuditLogPorGestor(gestorId);
+      setAuditoriaPorGestor((prev) => ({ ...prev, [gestorId]: entradas }));
+      setCargandoAuditoria(null);
+    }
+  }
+
   const [filtroChofer, setFiltroChofer] = useState("");
   const [seleccionados, setSeleccionados] = useState(new Set());
   const [gestorBulk, setGestorBulk] = useState("");
@@ -186,43 +209,73 @@ export default function AjustesEquipoSection({
         <div className="flex flex-col gap-2">
           {gestores.map((g) => {
             const esUnoMismo = g.auth_user_id === user?.id;
+            const auditoriaAbierta = gestorAuditoriaAbierta === g.id;
+            const entradas = auditoriaPorGestor[g.id];
             return (
-              <div key={g.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-md bg-surface-alt">
-                <div className="flex-1 min-w-0">
-                  <div className="text-ink truncate">{g.nombre}{esUnoMismo && <span className="text-ink-muted"> (tú)</span>}</div>
-                  <div className="text-xs text-ink-muted truncate">{g.email}</div>
-                </div>
-                <select
-                  value={g.rol}
-                  disabled={esUnoMismo || gestorAccionandoId === g.id}
-                  onChange={(e) => cambiarRolGestor(g.id, e.target.value)}
-                  title={esUnoMismo ? "No puedes cambiar tu propio rol" : "Cambiar rol"}
-                  className="text-xs border border-border rounded-md px-2 py-1 disabled:opacity-40"
-                >
-                  {ROLES.map((r) => (
-                    <option key={r.value} value={r.value}>{r.label}</option>
-                  ))}
-                </select>
-                {g.activo ? (
+              <div key={g.id} className="rounded-md bg-surface-alt">
+                <div className="flex items-center gap-2 text-sm px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-ink truncate">{g.nombre}{esUnoMismo && <span className="text-ink-muted"> (tú)</span>}</div>
+                    <div className="text-xs text-ink-muted truncate">{g.email}</div>
+                  </div>
                   <button
-                    onClick={() => onDesactivarGestor(g)}
+                    onClick={() => alternarAuditoria(g.id)}
+                    title="Ver actividad reciente"
+                    className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-border text-ink-secondary hover:bg-surface"
+                  >
+                    <History size={13} /> Actividad
+                    <ChevronDown size={13} className={auditoriaAbierta ? "rotate-180 transition-transform" : "transition-transform"} />
+                  </button>
+                  <select
+                    value={g.rol}
                     disabled={esUnoMismo || gestorAccionandoId === g.id}
-                    title={esUnoMismo ? "No puedes desactivarte a ti mismo" : "Desactivar gestor"}
-                    className="text-xs px-2 py-1 rounded-md border border-border text-estado-incidencia hover:bg-red-50 disabled:opacity-40"
+                    onChange={(e) => cambiarRolGestor(g.id, e.target.value)}
+                    title={esUnoMismo ? "No puedes cambiar tu propio rol" : "Cambiar rol"}
+                    className="text-xs border border-border rounded-md px-2 py-1 disabled:opacity-40"
                   >
-                    Desactivar
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => onReactivarGestor(g)}
-                    disabled={gestorAccionandoId === g.id}
-                    className="text-xs px-2 py-1 rounded-md border border-border text-estado-ok hover:bg-green-50 disabled:opacity-40"
-                  >
-                    Reactivar
-                  </button>
-                )}
-                {!g.activo && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-ink-muted">Desactivado</span>
+                    {ROLES.map((r) => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
+                  </select>
+                  {g.activo ? (
+                    <button
+                      onClick={() => onDesactivarGestor(g)}
+                      disabled={esUnoMismo || gestorAccionandoId === g.id}
+                      title={esUnoMismo ? "No puedes desactivarte a ti mismo" : "Desactivar gestor"}
+                      className="text-xs px-2 py-1 rounded-md border border-border text-estado-incidencia hover:bg-red-50 disabled:opacity-40"
+                    >
+                      Desactivar
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onReactivarGestor(g)}
+                      disabled={gestorAccionandoId === g.id}
+                      className="text-xs px-2 py-1 rounded-md border border-border text-estado-ok hover:bg-green-50 disabled:opacity-40"
+                    >
+                      Reactivar
+                    </button>
+                  )}
+                  {!g.activo && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-ink-muted">Desactivado</span>
+                  )}
+                </div>
+                {auditoriaAbierta && (
+                  <div className="px-3 pb-3">
+                    {cargandoAuditoria === g.id ? (
+                      <p className="text-xs text-ink-muted">Cargando actividad…</p>
+                    ) : !entradas || entradas.length === 0 ? (
+                      <p className="text-xs text-ink-muted">Sin actividad registrada todavía.</p>
+                    ) : (
+                      <div className="flex flex-col gap-1 max-h-64 overflow-y-auto border-t border-border pt-2">
+                        {entradas.map((a) => (
+                          <div key={a.id} className="text-xs text-ink-secondary flex items-start gap-2">
+                            <span className="text-ink-muted whitespace-nowrap">{fmtFechaHora(a.created_at)}</span>
+                            <span>{describirAuditoria(a)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             );

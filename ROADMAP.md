@@ -4581,3 +4581,110 @@ que hace falta escribir su SPECS-*.md antes de ejecutarlo, no de improvisar sobr
 **STOPS duros (nunca en autónomo):** desplegar, features que gastan dinero (LLM visión/voz sin
 rate-limit+presupuesto), cambios de esquema destructivos, cualquier `[DECISIÓN]`, romper algo
 a propósito para un simulacro de incidente sin ventana acordada con el usuario (9.21).
+
+---
+
+## Fase 23, Bloque F/G — Roles combinables + panel de equipo/auditoría/rendimiento (2026-07-29)
+
+> Disparador: al construir 23.E (rol `planificador`) el usuario señaló que en la práctica una
+> misma persona hace de gestor Y de planificador ("en mi cabeza el rol de planificador y el de
+> gestor tendría que estar unificado") — el modelo actual obliga a elegir UNO solo. Y pidió,
+> en el mismo hilo: (a) que los roles sean combinables sin construir un sistema de módulos
+> genérico ("tampoco tenemos tantísimos roles"), (b) un panel de administrador para ver
+> usuarios/roles/permisos/cambios/rendimiento por empresa, (c) una idea de módulo de
+> vacaciones con cobertura mínima. Los tres puntos se registran aquí como PLAN — nada de esto
+> está construido todavía, requiere luz verde explícita antes de picar código porque toca el
+> núcleo de RLS que ya está en producción con datos reales.
+
+### 23.F — Roles combinables (`gestor.rol` texto único → `gestor.roles` array)
+
+**Decisión de diseño (ya acordada con el usuario, "si"):** NO se construye un sistema de
+módulos genérico/configurable. Se mantiene el mismo vocabulario discreto ya existente
+(`admin`, `gestor_operativo`, `planificador`, `comercial`, `solo_lectura`) pero un gestor
+puede tener más de uno a la vez. Motivo: ya son solo 5 valores conocidos y con significado de
+negocio claro (cada uno con sus propias policies RLS ya probadas) — construir una matriz de
+permisos configurable sería una capa de abstracción sin necesidad real detrás, y además cada
+combinación tendría que probarse igual que hoy se prueba cada rol.
+
+Alcance técnico (no ejecutado todavía):
+- Migración `0075`: `ALTER TABLE gestor ADD COLUMN roles text[] NOT NULL DEFAULT '{}'`,
+  backfill `roles = ARRAY[rol]` para todos los existentes (cero pérdida de acceso), y dejar
+  `rol` (singular) como columna de solo lectura derivada (`rol = roles[1]`) o directamente
+  deprecada tras verificar que ningún sitio la lee ya — a decidir en la propia migración.
+- Reescribir `current_gestor_rol()` → `current_gestor_roles() RETURNS text[]`, y cada
+  `current_gestor_rol() = 'admin'` / `IN ('admin','planificador')` de 0032/0054/0055/0063/0072
+  pasa a `'admin' = ANY(current_gestor_roles())` / `roles && ARRAY['admin','planificador']`.
+  Son 5 migraciones con este patrón — mecánico una vez la primera esté verificada.
+- Frontend: `RolProvider.jsx` pasa a exponer `roles` (array) en vez de `rol`; `Sidebar.jsx` ya
+  filtra con `.includes(rol)` — cambia a `roles.some(r => l.rolesPermitidos.includes(r))`.
+  `AjustesEquipoSection.jsx`: el `<select>` de un solo valor pasa a multi-select (checkboxes)
+  sobre el mismo array `ROLES`.
+- Tests a actualizar: `roles-isolation.test.js` (fixtures con un solo rol siguen siendo un
+  caso válido — un array de 1 elemento — más un caso NUEVO explícito de gestor con
+  `['gestor_operativo','planificador']` verificando que ve lo de ambos roles a la vez);
+  `data.test.js` donde se mockea `gestor.rol`.
+- [ ] `[DECISIÓN]` **23.F.1** Ejecutar la migración 0075 + reescritura de las 5 policies/
+  funciones dependientes — bloqueado hasta luz verde explícita del usuario (toca RLS ya en
+  producción, no autónomo por el stop duro del protocolo del loop).
+- [ ] `[LOOP]` **23.F.2** Frontend multi-rol (`RolProvider`, `Sidebar`, `AjustesEquipoSection`)
+  — depende de 23.F.1.
+
+### 23.G — Panel de equipo: usuarios, roles, auditoría y rendimiento por empresa
+
+Gran parte YA EXISTE: `AjustesEquipoSection.jsx` ya lista todos los gestores de la empresa con
+su rol, estado activo/desactivado y reasignación de chóferes/viajes — es, de facto, el "panel
+de administrador" que se pide, solo que sin la vista de auditoría/rendimiento todavía.
+
+- [x] `[LOOP]` **23.G.1 Auditoría visible por usuario** — HECHO 2026-07-29.
+  `describirAuditoria()` se movió de `viajes/[id]/page.jsx` a `lib/format.js` (exportada) para
+  no duplicar el switch de textos. Nueva `getAuditLogPorGestor(gestorId)` en `data.js` (mismo
+  `audit_log`, filtrado por autor en vez de por entidad — la RLS de 0037 ya scopea por
+  empresa, no hizo falta SQL nuevo). `AjustesEquipoSection.jsx`: botón "Ver actividad
+  reciente" por gestor, carga bajo demanda (no dispara N consultas si la empresa tiene muchos
+  gestores) y se cachea en memoria mientras el componente sigue montado. **Verificado en
+  navegador contra dev**: clic en el gestor Demo disparó la consulta real y mostró "Sin
+  actividad registrada todavía." sin errores de consola (correcto — no hay audit_log para ese
+  usuario en los datos de dev). 525 tests dashboard en verde (sin tests nuevos — es UI
+  presentacional sobre una función ya cubierta por los tests existentes de `data.test.js`).
+- [ ] `[DECISIÓN]` **23.G.2 "Rendimiento" del trabajador** — deliberadamente marcado como
+  DECISIÓN, no LOOP: antes de construir esto hace falta que el usuario defina qué mide
+  "rendimiento" en concreto (¿puntualidad de sus viajes vs. adherencia 23.D? ¿nº incidencias
+  gestionadas? ¿tiempo de respuesta a incidencias?) — construir una métrica inventada sin esa
+  definición es el tipo de features especulativas que este proyecto evita a propósito.
+
+### Fase 25 — Vacaciones con cobertura mínima (idea, sin construir)
+
+Planteamiento pedido por el usuario: que el propio gestor/trabajador registre sus vacaciones
+desde el dashboard, que le salte una solicitud de aprobación al jefe de tráfico (mismo patrón
+ya construido en 18.A.2, `solicitud_aprobacion` — se le añadiría un tercer `tipo`:
+`'vacaciones'`, con `entidad = 'gestor'` y fechas de inicio/fin en vez de reutilizar `motivo`
+como texto libre), y que el sistema ayude a decidir SI se puede aprobar mirando una regla de
+cobertura mínima (ej. "de 10 gestores, mínimo 7 tienen que seguir operativos a la vez").
+
+Diseño propuesto (a validar con el usuario antes de picar código, no antes):
+1. Tabla `vacaciones_gestor` (`gestor_id`, `empresa_id`, `fecha_inicio`, `fecha_fin`, `estado`
+   pendiente/aprobada/rechazada, `solicitado_en`) — mismo patrón RLS que `reten` (0071): scoped
+   por empresa, el propio gestor crea/lee la suya, el jefe de tráfico (admin/planificador)
+   resuelve.
+2. `empresa.cobertura_minima_pct` (nuevo campo, ej. 70%) configurable por el admin en Ajustes —
+   NO hardcodear un número fijo tipo "mínimo 3 de 10", porque el tamaño de plantilla varía por
+   empresa; un porcentaje se adapta solo.
+3. Al pedir vacaciones, calcular en el momento: de los gestores ACTIVOS de la empresa, cuántos
+   tendrían una vacación aprobada+esta solicitud solapando ese rango de fechas — si el
+   resultado deja el nº de gestores operativos por debajo de `cobertura_minima_pct`, la
+   solicitud se marca automáticamente con un aviso ("por debajo del mínimo de cobertura") en
+   vez de bloquearse sola — la decisión final la sigue tomando el jefe de tráfico, el sistema
+   solo le da la cifra a la vista (mismo principio que `calcularAvisosViabilidad`: avisar, no
+   decidir por la persona).
+4. Reutilizar `getVistaPlanificadorPorBase`/`getPosicionUnidades` para, al aprobar una
+   vacación, sugerir (no ejecutar automáticamente) una redistribución de los chóferes/viajes de
+   ese gestor entre el resto — mismo flujo manual que ya existe en "Asignación de chóferes
+   (F15.3)" de `AjustesEquipoSection.jsx`, con los nombres pre-rellenados como sugerencia.
+5. Turnos/solapamiento explícito ("hago turnos y solapo") queda fuera del primer corte — se
+   resuelve solo, de forma natural, con la regla de cobertura mínima del punto 3: si ya hay
+   suficientes gestores de vacaciones esa semana, la siguiente solicitud que la haría bajar del
+   umbral sale marcada, sin necesidad de modelar turnos explícitamente todavía.
+
+- [ ] `[DECISIÓN]` **25.1** Validar este diseño (o ajustarlo) con el usuario antes de escribir
+  la migración — en concreto el % de cobertura mínima por defecto y si el aviso debe bloquear
+  la aprobación o solo advertir.
