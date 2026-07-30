@@ -4808,3 +4808,11 @@ Diseño propuesto (a validar con el usuario antes de picar código, no antes):
 
 **Fase 25 (vacaciones con cobertura mínima) COMPLETA — 25.1 a 25.5, construida y
 verificada de punta a punta 2026-07-29.**
+
+---
+
+## Ciudad de residencia del chofer + delegaciones demo (2026-07-30)
+
+Pedido por el usuario viendo el Planificador vacio en produccion: chofer.ciudad_residencia (migracion 0078, nullable) -- el primer dato hacia la restriccion real de vuelta a casa el fin de semana (DISCOVERY.md). Sembradas 4 delegaciones (Madrid, Sevilla, A Coruna, Barcelona) y los 8 choferes demo repartidos entre ellas, con acoplamiento+ubicacion reales para que el Planificador (23.E.2) muestre camiones de verdad por delegacion. Columna Reside en anadida a la tabla del Planificador.
+
+- [ ] [LOOP] **Restriccion dura de vuelta a casa** -- usar ciudad_residencia para avisar si una asignacion deja a un chofer sin poder volver a su ciudad el fin de semana. Requiere definir la regla exacta (radio/tiempo maximo desde su ciudad la noche del viernes) -- no construir sin esa definicion.

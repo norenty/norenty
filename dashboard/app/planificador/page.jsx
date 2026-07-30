@@ -82,6 +82,7 @@ function PlanificadorContenido() {
               <tr className="border-b border-border text-xs text-ink-secondary text-left">
                 <th className="px-4 py-2 font-medium">Matrícula</th>
                 <th className="px-4 py-2 font-medium">Chófer</th>
+                <th className="px-4 py-2 font-medium">Reside en</th>
                 <th className="px-4 py-2 font-medium">Horas esta semana</th>
                 <th className="px-4 py-2 font-medium">Horas restantes (561)</th>
               </tr>
@@ -91,6 +92,7 @@ function PlanificadorContenido() {
                 <tr key={f.choferId} className="border-b border-border last:border-0">
                   <td className="px-4 py-2.5 text-ink font-mono">{f.matricula || "—"}</td>
                   <td className="px-4 py-2.5 text-ink">{f.choferNombre}</td>
+                  <td className="px-4 py-2.5 text-ink-secondary">{f.ciudadResidencia || "—"}</td>
                   <td className="px-4 py-2.5 text-ink-secondary">{f.horasConducidasSemana ?? "n/d"} h</td>
                   <td className="px-4 py-2.5 text-ink-secondary">{f.horasRestantesSemana ?? "n/d"} h</td>
                 </tr>
@@ -104,6 +106,11 @@ function PlanificadorContenido() {
         Pendiente: cuándo y dónde queda libre cada tractora (23.D.1) — se añade cuando esté
         construido. Hoy solo se muestran las horas de conducción de la semana (Reglamento
         561/2006), que ya vetan o no un viaje nuevo.
+      </p>
+      <p className="text-xs text-ink-muted mt-1">
+        "Reside en" es la ciudad de origen del chófer — el dato de partida para la restricción
+        real de "vuelta a casa el fin de semana" (todavía no se calcula automáticamente, solo se
+        muestra como referencia al planificar a mano).
       </p>
     </div>
   );

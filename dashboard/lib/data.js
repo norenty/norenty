@@ -2413,13 +2413,14 @@ export async function getVistaPlanificadorPorBase(baseId) {
   const tractoraIds = [...new Set(conChofer.map((a) => a.tractora_id))];
 
   const [{ data: choferes }, { data: tractoras }, { data: ubicaciones }, estado561] = await Promise.all([
-    supabase.from("chofer").select("id, nombre").in("id", choferIds),
+    supabase.from("chofer").select("id, nombre, ciudad_residencia").in("id", choferIds),
     supabase.from("vehiculo").select("id, matricula").in("id", tractoraIds),
     supabase.from("ubicacion").select("chofer_id, lat, lon, created_at").in("chofer_id", choferIds).order("created_at", { ascending: false }),
     getEstado561ParaChoferes(choferIds),
   ]);
 
   const nombrePorChofer = Object.fromEntries((choferes || []).map((c) => [c.id, c.nombre]));
+  const ciudadPorChofer = Object.fromEntries((choferes || []).map((c) => [c.id, c.ciudad_residencia]));
   const tractoraPorId = Object.fromEntries((tractoras || []).map((v) => [v.id, v]));
   const ultimaUbicPorChofer = {};
   (ubicaciones || []).forEach((u) => { if (!(u.chofer_id in ultimaUbicPorChofer)) ultimaUbicPorChofer[u.chofer_id] = u; });
@@ -2445,6 +2446,7 @@ export async function getVistaPlanificadorPorBase(baseId) {
       choferId: a.chofer_id,
       choferNombre: nombrePorChofer[a.chofer_id] || a.chofer_id,
       matricula: tractoraPorId[a.tractora_id]?.matricula || null,
+      ciudadResidencia: ciudadPorChofer[a.chofer_id] || null,
       horasConducidasSemana: e561.horas7 ?? null,
       horasRestantesSemana: e561.margen7 ?? null,
     });
@@ -4899,6 +4901,21 @@ export async function guardarTelefonoChofer(choferId, telefonoStr) {
   if (t !== "" && !normalizado) throw new Error("el teléfono no parece válido");
   const empresaId = await getCurrentEmpresaId();
   const { error } = await supabase.from("chofer").update({ telefono: normalizado }).eq("id", choferId).eq("empresa_id", empresaId);
+  if (error) throw error;
+}
+
+/**
+ * Ciudad de residencia del chófer (migración 0078) -- el punto de partida para
+ * el "parámetro a tener en cuenta" que pidió el usuario viendo el Planificador
+ * vacío: la restricción real de "vuelta a casa el fin de semana"
+ * (DISCOVERY.md, retorno a casa como restricción dura). Solo el dato por
+ * ahora -- el algoritmo de restricción sobre él es un ítem de planificación
+ * aparte, no se improvisa aquí.
+ */
+export async function guardarCiudadResidenciaChofer(choferId, ciudadStr) {
+  const c = (ciudadStr ?? "").toString().trim();
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("chofer").update({ ciudad_residencia: c || null }).eq("id", choferId).eq("empresa_id", empresaId);
   if (error) throw error;
 }
 
