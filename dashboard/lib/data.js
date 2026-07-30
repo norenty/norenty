@@ -1299,6 +1299,59 @@ export async function guardarCapacidadVehiculo(vehiculoId, campos) {
   if (error) throw error;
 }
 
+const SUBTIPOS_REMOLQUE = ["lona", "caja_cerrada", "frigorifico", "cisterna", "portacontenedor"];
+
+/**
+ * Subtipo físico de un remolque (lona/caja cerrada/frigorífico/cisterna/
+ * portacontenedor) + rango de temperatura real si es frigorífico. Pedido por
+ * el usuario (2026-07-30): el cliente pide un tipo de remolque concreto por
+ * viaje (mercancía sensible = caja cerrada, frigo = rango de temperatura) —
+ * este es el dato del VEHÍCULO real, distinto del que pide el viaje
+ * (`viaje.remolque_requerido`, ver `guardarRequisitosRemolqueViaje`).
+ */
+export async function guardarSubtipoVehiculo(vehiculoId, { subtipo, temperaturaMin, temperaturaMax }) {
+  if (subtipo && !SUBTIPOS_REMOLQUE.includes(subtipo)) throw new Error("subtipo de remolque no válido");
+  const tMin = (temperaturaMin ?? "").toString().trim() === "" ? null : Number(temperaturaMin);
+  const tMax = (temperaturaMax ?? "").toString().trim() === "" ? null : Number(temperaturaMax);
+  if (tMin != null && Number.isNaN(tMin)) throw new Error("temperatura mínima no válida");
+  if (tMax != null && Number.isNaN(tMax)) throw new Error("temperatura máxima no válida");
+  if (tMin != null && tMax != null && tMin > tMax) throw new Error("la temperatura mínima no puede ser mayor que la máxima");
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase
+    .from("vehiculo")
+    .update({ subtipo: subtipo || null, temperatura_min: tMin, temperatura_max: tMax })
+    .eq("id", vehiculoId)
+    .eq("empresa_id", empresaId);
+  if (error) throw error;
+}
+
+/** Requisito de remolque que pidió el CLIENTE para un viaje concreto —
+ * separado del remolque real asignado a propósito (puede no cumplirlo, y
+ * detectarlo es un ítem futuro, no este). */
+export async function guardarRequisitosRemolqueViaje(viajeId, { remolqueRequerido, temperaturaMin, temperaturaMax }) {
+  if (remolqueRequerido && !SUBTIPOS_REMOLQUE.includes(remolqueRequerido)) throw new Error("tipo de remolque no válido");
+  const tMin = (temperaturaMin ?? "").toString().trim() === "" ? null : Number(temperaturaMin);
+  const tMax = (temperaturaMax ?? "").toString().trim() === "" ? null : Number(temperaturaMax);
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase
+    .from("viaje")
+    .update({ remolque_requerido: remolqueRequerido || null, temperatura_requerida_min: tMin, temperatura_requerida_max: tMax })
+    .eq("id", viajeId)
+    .eq("empresa_id", empresaId);
+  if (error) throw error;
+}
+
+/** empleado/autónomo (migración 0079) — "podemos subcontratar autónomos como
+ * chóferes" (2026-07-30). Solo el dato por ahora, sin lógica de
+ * nómina/facturación distinta todavía (un autónomo factura él, no entra en
+ * 23.B). */
+export async function guardarTipoColaboracionChofer(choferId, tipo) {
+  if (!["empleado", "autonomo"].includes(tipo)) throw new Error("tipo de colaboración no válido");
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("chofer").update({ tipo_colaboracion: tipo }).eq("id", choferId).eq("empresa_id", empresaId);
+  if (error) throw error;
+}
+
 // ==========================================================================
 // Roles de gestor + expulsión (ítem 9.29 — ver SPECS-9-ROLES.md)
 // ==========================================================================

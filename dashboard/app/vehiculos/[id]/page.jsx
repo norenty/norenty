@@ -8,7 +8,7 @@ import {
   CheckCircle2, Clock, Trash2, Siren,
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
-import { getCurrentEmpresaId, getMultasPorVehiculo, guardarCapacidadVehiculo } from "../../../lib/data";
+import { getCurrentEmpresaId, getMultasPorVehiculo, guardarCapacidadVehiculo, guardarSubtipoVehiculo } from "../../../lib/data";
 import DocumentosSection from "../../components/DocumentosSection";
 import { TIPOS_DOC_VEHICULO, TIPO_MANTENIMIENTO_LABEL, ESTADO_MANTENIMIENTO_CHIP } from "../../../lib/labels";
 import RequireRol from "../../components/RequireRol";
@@ -29,6 +29,14 @@ const TIPO_LABEL = Object.fromEntries(
 );
 
 const ESTADO_CHIP = ESTADO_MANTENIMIENTO_CHIP;
+
+const SUBTIPO_LABEL = {
+  lona: "Lona",
+  caja_cerrada: "Caja cerrada",
+  frigorifico: "Frigorífico",
+  cisterna: "Cisterna",
+  portacontenedor: "Portacontenedor",
+};
 
 const TIPOS = ["itv", "revision", "averia", "reparacion", "otro"];
 
@@ -54,6 +62,10 @@ export default function VehiculoDetalle() {
   const [capacidadKg, setCapacidadKg] = useState("");
   const [capacidadM3, setCapacidadM3] = useState("");
   const [guardandoCapacidad, setGuardandoCapacidad] = useState(false);
+  const [subtipo, setSubtipo] = useState("");
+  const [temperaturaMin, setTemperaturaMin] = useState("");
+  const [temperaturaMax, setTemperaturaMax] = useState("");
+  const [guardandoSubtipo, setGuardandoSubtipo] = useState(false);
 
   const loadRegistros = useCallback(async () => {
     const { data } = await supabase
@@ -78,6 +90,9 @@ export default function VehiculoDetalle() {
       setCapacidadLdm(v?.capacidad_ldm != null ? String(v.capacidad_ldm) : "");
       setCapacidadKg(v?.capacidad_kg != null ? String(v.capacidad_kg) : "");
       setCapacidadM3(v?.capacidad_m3 != null ? String(v.capacidad_m3) : "");
+      setSubtipo(v?.subtipo || "");
+      setTemperaturaMin(v?.temperatura_min != null ? String(v.temperatura_min) : "");
+      setTemperaturaMax(v?.temperatura_max != null ? String(v.temperatura_max) : "");
       await loadRegistros();
       setLoading(false);
       getMultasPorVehiculo(id).then(setMultas);
@@ -118,6 +133,24 @@ export default function VehiculoDetalle() {
       setError(err.message);
     } finally {
       setGuardandoCapacidad(false);
+    }
+  }
+
+  async function guardarSubtipo() {
+    setGuardandoSubtipo(true);
+    setError(null);
+    try {
+      await guardarSubtipoVehiculo(id, { subtipo, temperaturaMin, temperaturaMax });
+      setVehiculo((v) => ({
+        ...v,
+        subtipo: subtipo || null,
+        temperatura_min: temperaturaMin.trim() === "" ? null : Number(temperaturaMin),
+        temperatura_max: temperaturaMax.trim() === "" ? null : Number(temperaturaMax),
+      }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGuardandoSubtipo(false);
     }
   }
 
@@ -192,7 +225,10 @@ export default function VehiculoDetalle() {
           <div>
             <h1 className="text-lg font-medium text-ink font-mono">{vehiculo.matricula}</h1>
             <p className="text-sm text-ink-secondary">
-              {[vehiculo.marca, vehiculo.modelo, vehiculo.tipo].filter(Boolean).join(" · ")}
+              {[vehiculo.marca, vehiculo.modelo, vehiculo.tipo, SUBTIPO_LABEL[vehiculo.subtipo]].filter(Boolean).join(" · ")}
+              {vehiculo.subtipo === "frigorifico" && (vehiculo.temperatura_min != null || vehiculo.temperatura_max != null) && (
+                <> ({vehiculo.temperatura_min ?? "?"}° a {vehiculo.temperatura_max ?? "?"}°C)</>
+              )}
             </p>
             {vehiculo.notas && <p className="text-xs text-ink-muted mt-1">{vehiculo.notas}</p>}
           </div>
@@ -296,6 +332,65 @@ export default function VehiculoDetalle() {
             Para saber si una carga es camión completo o grupaje en el cotizador. Las tres son opcionales.
           </p>
         </div>
+        {vehiculo.tipo === "remolque" && (
+          <div className="mt-3 pt-3 border-t border-border flex items-end gap-3 flex-wrap">
+            <div className="flex-1 max-w-[10rem]">
+              <label htmlFor="vehiculo-subtipo" className="block text-xs text-ink-secondary mb-1">Tipo de remolque</label>
+              <select
+                id="vehiculo-subtipo"
+                value={subtipo}
+                onChange={(e) => setSubtipo(e.target.value)}
+                className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand bg-surface"
+              >
+                <option value="">Sin especificar</option>
+                <option value="lona">Lona</option>
+                <option value="caja_cerrada">Caja cerrada</option>
+                <option value="frigorifico">Frigorífico</option>
+                <option value="cisterna">Cisterna</option>
+                <option value="portacontenedor">Portacontenedor</option>
+              </select>
+            </div>
+            {subtipo === "frigorifico" && (
+              <>
+                <div className="flex-1 max-w-[8rem]">
+                  <label htmlFor="vehiculo-temp-min" className="block text-xs text-ink-secondary mb-1">Temp. mín. (°C)</label>
+                  <input
+                    id="vehiculo-temp-min"
+                    type="number"
+                    step="any"
+                    value={temperaturaMin}
+                    onChange={(e) => setTemperaturaMin(e.target.value)}
+                    placeholder="-20"
+                    className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand bg-surface"
+                  />
+                </div>
+                <div className="flex-1 max-w-[8rem]">
+                  <label htmlFor="vehiculo-temp-max" className="block text-xs text-ink-secondary mb-1">Temp. máx. (°C)</label>
+                  <input
+                    id="vehiculo-temp-max"
+                    type="number"
+                    step="any"
+                    value={temperaturaMax}
+                    onChange={(e) => setTemperaturaMax(e.target.value)}
+                    placeholder="5"
+                    className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand bg-surface"
+                  />
+                </div>
+              </>
+            )}
+            <button
+              onClick={guardarSubtipo}
+              disabled={guardandoSubtipo}
+              className="text-xs px-3 py-2 rounded-md border border-border text-ink-secondary hover:bg-surface-alt disabled:opacity-40"
+            >
+              {guardandoSubtipo ? "Guardando…" : "Guardar"}
+            </button>
+            <p className="flex-1 text-xs text-ink-muted pb-1 min-w-[12rem]">
+              El rango de temperatura real que puede mantener este frigorífico (distinto de lo que pida el
+              cliente en un viaje concreto).
+            </p>
+          </div>
+        )}
         </RequireRol>
       </div>
 

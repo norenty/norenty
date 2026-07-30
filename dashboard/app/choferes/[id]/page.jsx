@@ -190,7 +190,13 @@ export default function ChoferDetalle() {
               <span className="font-mono text-xs px-1.5 py-0.5 rounded-full bg-surface-alt text-ink-secondary">
                 {IDIOMA_LABEL[chofer.idioma] || chofer.idioma}
               </span>
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${chofer.tipo_colaboracion === "autonomo" ? "bg-purple-50 text-purple-700" : "bg-surface-alt text-ink-secondary"}`}>
+                {chofer.tipo_colaboracion === "autonomo" ? "Autónomo" : "Empleado"}
+              </span>
             </div>
+            {chofer.ciudad_residencia && (
+              <p className="text-xs text-ink-muted mb-0.5">Reside en {chofer.ciudad_residencia}</p>
+            )}
             {chofer.chat_id ? (
               <div className="flex items-center gap-1.5 text-xs text-estado-ok">
                 <MessageSquare size={13} /> Vinculado a Telegram
