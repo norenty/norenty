@@ -51,6 +51,38 @@ descarta. Pero se persigue **por capas, cada una validada con un cliente real an
    `DISCOVERY.md` insight 21 — el planificador ya evita mandar a un chófer lejos de casa un jueves).
 4. **Capa 3 (escala, §8):** aquí es donde "Bloomberg de la logística" deja de ser aspiracional.
 
+**Ampliación del North Star (2026-07-30), pedida explícitamente por el usuario ("una locura,
+que reciba todos los inputs y dé una solución top"):** se registran aquí, NO se construyen.
+Mismo principio de capas de arriba — cada una necesita el cliente real que valide que el dato
+importa antes de tocar código:
+
+- **Clima en tiempo real** cruzado con la ruta (nieve/hielo/viento que retrasa un tramo) —
+  mismo patrón que el aviso de tráfico de Capa 2 (recurrir a un proveedor externo tipo
+  AEMET/OpenWeather, no reimplementar meteorología).
+- **Depósito de gasoil por camión + red de gasolineras + acuerdos de precio con el proveedor**
+  — para sugerir dónde repostar más barato en ruta. Requiere primero saber si hay margen real
+  ahí (¿cuánto ahorra un gestor real hoy negociando gasoil?) antes de construir nada; es
+  exactamente el tipo de "dato bonito sin comprador validado" que este documento lleva
+  advirtiendo desde el §0.
+- **Machine learning sobre todos los datos que el propio sistema genera** (viajes, incidencias,
+  desviaciones estimado-vs-real, decisiones de asignación) — la tesis de 10.10/`verdad_observada`
+  ya apunta aquí, y sigue **bloqueada por falta de volumen real** (0 filas en producción hoy,
+  ver ROADMAP 10.10). Sin datos reales no hay nada que entrenar; construir esto ahora sería
+  ajustar un modelo a ruido.
+- **Minería del WhatsApp de la empresa cliente** (una vez conectado) como fuente de conocimiento
+  — ya identificado como Fase 11 ("capa de conocimiento: capturar lo que hoy se pierde") y
+  como decisión `[DECISIÓN]` explícitamente pospuesta hasta después del despliegue con volumen
+  real de conversaciones (ROADMAP, "Aprendizaje sobre conversaciones"). Además choca de frente
+  con el gate de WhatsApp ya decidido: no se migra a WhatsApp sin un cliente pagando que lo
+  pida y cubra el coste de infraestructura (Meta Business API).
+- **Vigilancia de tendencias/quejas del mercado** (gente quejándose de su TMS actual en
+  Internet, foros del sector) — señal de producto útil para discovery/ventas, no para
+  construir código; encaja en la disciplina ya existente de discovery real antes de construir
+  (12.3), no en un scraper permanente.
+
+Ninguno de estos puntos se toca en el loop autónomo ni se decide construir por iniciativa
+propia — misma regla de secuencia que el resto del North Star, ver abajo.
+
 **Regla de secuencia (no negociable, y es la misma del GATE MAESTRO):** ningún ítem de Capa 1+ se
 empieza sin haber cerrado el criterio de éxito de la Capa anterior con un cliente real. El loop
 autónomo NO decide subir de capa por iniciativa propia — eso requiere una decisión explícita del
