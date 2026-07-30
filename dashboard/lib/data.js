@@ -919,6 +919,21 @@ export async function getVacacionesPendientes() {
   return data || [];
 }
 
+/** Las propias solicitudes de vacaciones del gestor logueado, cualquier estado
+ * (a diferencia de `getVacacionesPendientes`, que es la cola de aprobación del
+ * jefe de tráfico y solo muestra las pendientes). */
+export async function getMisVacaciones() {
+  const gestorId = await gestorIdComoAutor();
+  if (!gestorId) return [];
+  const { data, error } = await supabase
+    .from("vacaciones_gestor")
+    .select("id, fecha_inicio, fecha_fin, estado, aviso_cobertura, solicitado_en")
+    .eq("gestor_id", gestorId)
+    .order("solicitado_en", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
 /** Aprueba/rechaza una solicitud de vacaciones. No reasigna nada automáticamente
  * (25.5, sugerencia de redistribución, queda para más adelante) -- el jefe de
  * tráfico sigue decidiendo qué hacer con los chóferes/viajes de ese gestor desde

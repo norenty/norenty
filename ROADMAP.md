@@ -4759,7 +4759,17 @@ Diseño propuesto (a validar con el usuario antes de picar código, no antes):
   resultado se guarda como snapshot textual en `aviso_cobertura` para que quede
   constancia de qué cifra vio el jefe de tráfico al decidir. 7 tests nuevos en
   `data.test.js` (535 dashboard en total, todos en verde).
-- [ ] `[LOOP]` **25.4** UI: formulario de solicitud (accesible a cualquier gestor, no solo
-  admin) + extender el bloque "Aprobaciones pendientes" de `AjustesEquipoSection.jsx` para
-  mostrar el tipo `vacaciones` con sus fechas y el aviso de cobertura si aplica.
+- [x] `[LOOP]` **25.4** — HECHO 2026-07-29. Formulario "Mis vacaciones" nuevo en
+  `AjustesPerfilSection.jsx` (fuera del `<RequireRol roles={["admin"]}>` de Equipo —
+  cualquier gestor logueado puede solicitar para sí mismo, no solo admin), con su
+  historial de solicitudes (`getMisVacaciones()`, cualquier estado, a diferencia de la
+  cola de aprobación que solo ve las pendientes). `AjustesEquipoSection.jsx`: nuevo
+  bloque "Vacaciones pendientes" junto al de 18.A.2, mostrando gestor/fechas/aviso de
+  cobertura con Aprobar/Rechazar. **Verificado en navegador contra dev de punta a
+  punta**: solicité vacaciones reales (01-05 sept.) desde "Mis vacaciones", apareció
+  "Pendiente" al instante; en el panel de Equipo se vio la tarjeta con el aviso real
+  "Cobertura 75% (1 de 4 de baja) — dentro del mínimo"; al pulsar "Aprobar" desapareció
+  de pendientes; una consulta SQL directa confirmó `estado='aprobada'` con
+  `resuelto_por`/`resuelto_en` grabados. Sin errores de consola en ningún paso. Datos de
+  prueba eliminados tras verificar. 535 tests dashboard en verde.
 - [ ] `[LOOP]` **25.5** Sugerencia de redistribución al aprobar (punto 4 del diseño).

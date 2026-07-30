@@ -12,6 +12,7 @@ import {
   getChoferesConGestor, guardarGestorChofer, guardarTelefonoGestor,
   getViajesConGestor, guardarGestorViaje, getIndiceGasoilNacional,
   getSolicitudesAprobacion, resolverSolicitudAprobacion, registrarAuditoria,
+  getMisVacaciones, solicitarVacaciones, getVacacionesPendientes, resolverVacacion,
 } from "../../lib/data";
 import RequireRol from "../components/RequireRol";
 import AjustesPerfilSection from "../components/AjustesPerfilSection";
@@ -60,6 +61,12 @@ export default function AjustesPage() {
   const [viajeAccionandoId, setViajeAccionandoId] = useState(null);
   const [solicitudesAprobacion, setSolicitudesAprobacion] = useState([]);
   const [solicitudAccionandoId, setSolicitudAccionandoId] = useState(null);
+  const [misVacaciones, setMisVacaciones] = useState([]);
+  const [vacacionesPendientes, setVacacionesPendientes] = useState([]);
+  const [vacacionAccionandoId, setVacacionAccionandoId] = useState(null);
+  const [fechaInicioVacaciones, setFechaInicioVacaciones] = useState("");
+  const [fechaFinVacaciones, setFechaFinVacaciones] = useState("");
+  const [solicitandoVacaciones, setSolicitandoVacaciones] = useState(false);
   const [mfaFactores, setMfaFactores] = useState([]);
   const [mfaEnrolando, setMfaEnrolando] = useState(false);
   const [mfaQr, setMfaQr] = useState(null);
@@ -136,6 +143,8 @@ export default function AjustesPage() {
           setChoferesEquipo(await getChoferesConGestor());
           setViajesPool(await getViajesConGestor());
           setSolicitudesAprobacion(await getSolicitudesAprobacion());
+          setMisVacaciones(await getMisVacaciones());
+          setVacacionesPendientes(await getVacacionesPendientes());
         }
       }
     }
@@ -144,6 +153,31 @@ export default function AjustesPage() {
 
   async function refrescarGestores() {
     setGestores(await getGestoresEmpresa());
+  }
+
+  async function onSolicitarVacaciones() {
+    setSolicitandoVacaciones(true);
+    try {
+      await solicitarVacaciones(fechaInicioVacaciones, fechaFinVacaciones);
+      setFechaInicioVacaciones("");
+      setFechaFinVacaciones("");
+      setMisVacaciones(await getMisVacaciones());
+      setVacacionesPendientes(await getVacacionesPendientes());
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
+    setSolicitandoVacaciones(false);
+  }
+
+  async function onResolverVacacion(vacacionId, aprobar) {
+    setVacacionAccionandoId(vacacionId);
+    try {
+      await resolverVacacion(vacacionId, aprobar);
+      setVacacionesPendientes(await getVacacionesPendientes());
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
+    setVacacionAccionandoId(null);
   }
 
   async function cambiarGestorChofer(choferId, gestorId) {
@@ -520,6 +554,13 @@ export default function AjustesPage() {
         setTelefonoGestor={setTelefonoGestor}
         guardandoTelefonoGestor={guardandoTelefonoGestor}
         onGuardarTelefonoGestor={onGuardarTelefonoGestor}
+        misVacaciones={misVacaciones}
+        fechaInicioVacaciones={fechaInicioVacaciones}
+        setFechaInicioVacaciones={setFechaInicioVacaciones}
+        fechaFinVacaciones={fechaFinVacaciones}
+        setFechaFinVacaciones={setFechaFinVacaciones}
+        solicitandoVacaciones={solicitandoVacaciones}
+        onSolicitarVacaciones={onSolicitarVacaciones}
       />
 
       <AjustesMfaSection
@@ -572,6 +613,9 @@ export default function AjustesPage() {
           solicitudesAprobacion={solicitudesAprobacion}
           resolverSolicitud={resolverSolicitud}
           solicitudAccionandoId={solicitudAccionandoId}
+          vacacionesPendientes={vacacionesPendientes}
+          onResolverVacacion={onResolverVacacion}
+          vacacionAccionandoId={vacacionAccionandoId}
         />
       </RequireRol>
 

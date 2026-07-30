@@ -46,6 +46,9 @@ export default function AjustesEquipoSection({
   solicitudesAprobacion,
   resolverSolicitud,
   solicitudAccionandoId,
+  vacacionesPendientes,
+  onResolverVacacion,
+  vacacionAccionandoId,
 }) {
   // 17.G.3 (auditoría de asignación, 2026-07-23): con muchos chóferes (caso
   // real: 80 en la empresa de prueba "Transportes Pepito") esta lista se
@@ -491,6 +494,44 @@ export default function AjustesEquipoSection({
               <button
                 disabled={solicitudAccionandoId === s.id}
                 onClick={() => resolverSolicitud(s.id, false)}
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-border text-ink-secondary disabled:opacity-40"
+              >
+                <X size={13} /> Rechazar
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h3 className="text-xs font-medium text-ink-secondary mb-2 mt-4">
+        Vacaciones pendientes (Fase 25)
+      </h3>
+      <p className="text-xs text-ink-secondary mb-3">
+        El aviso de cobertura es solo informativo — nunca bloquea la aprobación
+        (decisión 25.1), la decisión final es siempre tuya.
+      </p>
+      {!vacacionesPendientes || vacacionesPendientes.length === 0 ? (
+        <p className="text-xs text-ink-muted">Sin solicitudes de vacaciones pendientes.</p>
+      ) : (
+        <div className="flex flex-col gap-2 max-h-96 overflow-y-auto">
+          {vacacionesPendientes.map((v) => (
+            <div key={v.id} className="flex items-start gap-2 text-sm px-3 py-2 rounded-md bg-yellow-50 border border-yellow-200">
+              <div className="flex-1 min-w-0">
+                <div className="text-ink">
+                  {v.gestor?.nombre || "—"} · {v.fecha_inicio} → {v.fecha_fin}
+                </div>
+                {v.aviso_cobertura && <div className="text-xs text-ink-secondary mt-0.5">{v.aviso_cobertura}</div>}
+              </div>
+              <button
+                disabled={vacacionAccionandoId === v.id}
+                onClick={() => onResolverVacacion(v.id, true)}
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-brand text-white disabled:opacity-40"
+              >
+                <Check size={13} /> Aprobar
+              </button>
+              <button
+                disabled={vacacionAccionandoId === v.id}
+                onClick={() => onResolverVacacion(v.id, false)}
                 className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-border text-ink-secondary disabled:opacity-40"
               >
                 <X size={13} /> Rechazar

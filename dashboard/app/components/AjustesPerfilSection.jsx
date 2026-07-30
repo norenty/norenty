@@ -1,6 +1,13 @@
 "use client";
 
-import { Save, User, Shield, Bell } from "lucide-react";
+import { Save, User, Shield, Bell, Palmtree } from "lucide-react";
+
+const ESTADO_VACACION_ESTILO = {
+  pendiente: "bg-yellow-50 text-yellow-700",
+  aprobada: "bg-green-50 text-estado-ok",
+  rechazada: "bg-red-50 text-estado-incidencia",
+};
+const ESTADO_VACACION_LABEL = { pendiente: "Pendiente", aprobada: "Aprobada", rechazada: "Rechazada" };
 
 /** Sección "Perfil" de Ajustes (ítem 9.40): cuenta, cambio de contraseña,
  * preferencias de notificación y cierre de sesión(es). Puramente
@@ -21,6 +28,13 @@ export default function AjustesPerfilSection({
   setTelefonoGestor,
   guardandoTelefonoGestor,
   onGuardarTelefonoGestor,
+  misVacaciones,
+  fechaInicioVacaciones,
+  setFechaInicioVacaciones,
+  fechaFinVacaciones,
+  setFechaFinVacaciones,
+  solicitandoVacaciones,
+  onSolicitarVacaciones,
 }) {
   return (
     <>
@@ -142,6 +156,58 @@ export default function AjustesPerfilSection({
                 <div className="text-xs text-ink-secondary">Alerta cuando un hito se sale de su ventana horaria</div>
               </div>
             </label>
+          </div>
+        )}
+      </section>
+
+      <section id="ajustes-vacaciones" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
+        <div className="flex items-center gap-2 mb-1">
+          <Palmtree size={18} className="text-brand" />
+          <h2 className="text-sm font-medium text-ink">Mis vacaciones</h2>
+        </div>
+        <p className="text-xs text-ink-secondary mb-4">
+          Pide tus fechas y le llega una solicitud de aprobación al jefe de tráfico
+          (Fase 25) — junto con el aviso de cobertura del equipo para esas fechas.
+        </p>
+        <div className="flex items-end gap-2 mb-4">
+          <div>
+            <label className="block text-xs text-ink-secondary mb-1">Desde</label>
+            <input
+              type="date"
+              value={fechaInicioVacaciones}
+              onChange={(e) => setFechaInicioVacaciones(e.target.value)}
+              className="text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-ink-secondary mb-1">Hasta</label>
+            <input
+              type="date"
+              value={fechaFinVacaciones}
+              onChange={(e) => setFechaFinVacaciones(e.target.value)}
+              className="text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+            />
+          </div>
+          <button
+            onClick={onSolicitarVacaciones}
+            disabled={solicitandoVacaciones || !fechaInicioVacaciones || !fechaFinVacaciones}
+            className="text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
+          >
+            {solicitandoVacaciones ? "…" : "Solicitar"}
+          </button>
+        </div>
+        {!misVacaciones || misVacaciones.length === 0 ? (
+          <p className="text-xs text-ink-muted">Sin solicitudes todavía.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {misVacaciones.map((v) => (
+              <div key={v.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-md bg-surface-alt">
+                <span className="flex-1 text-ink">{v.fecha_inicio} → {v.fecha_fin}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${ESTADO_VACACION_ESTILO[v.estado] || ""}`}>
+                  {ESTADO_VACACION_LABEL[v.estado] || v.estado}
+                </span>
+              </div>
+            ))}
           </div>
         )}
       </section>
