@@ -257,6 +257,10 @@ const {
   validarArchivoSubida,
   ARCHIVO_MAX_BYTES,
   getIncidenciasAbiertasParaMapa,
+  calcularAvisoCoberturaVacaciones,
+  solicitarVacaciones,
+  getVacacionesPendientes,
+  resolverVacacion,
   getRendimientoGestores,
   getMetricasPorCliente,
   kmAproxViaje,
@@ -873,6 +877,130 @@ describe("getRendimientoGestores (12.5 — comparación de gestores para el jefe
     ];
     const r = await getRendimientoGestores(RANGO_AMPLIO);
     expect(r.map((g) => g.nombre)).toEqual(["Mucho", "Poco"]);
+  });
+
+  it("23.G.2: calcula puntualidad por gestor a partir de hitos con ventana vencida en el rango", async () => {
+    TABLES.gestor = [{ id: "g1", nombre: "Laura", activo: true }];
+    TABLES.viaje = [{ id: "v1", gestor_id: "g1", created_at: "2026-01-01T10:00:00Z" }];
+    TABLES.hito = [
+      { id: "h1", viaje_id: "v1", ventana_fin: "2026-01-01T10:00:00Z" },
+      { id: "h2", viaje_id: "v1", ventana_fin: "2026-01-01T10:00:00Z" },
+    ];
+    TABLES.incidencia = [
+      { viaje_id: "v1", tipo: "fuera_de_ventana", created_at: "2026-01-01T10:00:00Z", resuelta_en: null },
+    ];
+    const r = await getRendimientoGestores(RANGO_AMPLIO);
+    const laura = r.find((g) => g.nombre === "Laura");
+    expect(laura.pctPuntualidad).toBe(50); // 1 de 2 hitos llegó tarde
+  });
+
+  it("23.G.2: atribuye un hito/incidencia al gestor del viaje aunque el viaje sea anterior al rango", async () => {
+    // El viaje se creó fuera del rango de fechas (más viejo), pero su hito vence
+    // DENTRO del rango -- debe seguir contando para la puntualidad de su gestor.
+    TABLES.gestor = [{ id: "g1", nombre: "Laura", activo: true }];
+    TABLES.viaje = [{ id: "v1", gestor_id: "g1", created_at: "2020-01-01T10:00:00Z" }];
+    TABLES.hito = [{ id: "h1", viaje_id: "v1", ventana_fin: "2026-01-01T10:00:00Z" }];
+    const r = await getRendimientoGestores(RANGO_AMPLIO);
+    const laura = r.find((g) => g.nombre === "Laura");
+    expect(laura.pctPuntualidad).toBe(100);
+  });
+
+  it("23.G.2: calcula minutos medios de resolución solo de incidencias resueltas", async () => {
+    TABLES.gestor = [{ id: "g1", nombre: "Laura", activo: true }];
+    TABLES.viaje = [{ id: "v1", gestor_id: "g1", created_at: "2026-01-01T10:00:00Z" }];
+    TABLES.incidencia = [
+      { viaje_id: "v1", tipo: "otro", created_at: "2026-01-01T10:00:00Z", resuelta_en: "2026-01-01T10:30:00Z" },
+      { viaje_id: "v1", tipo: "otro", created_at: "2026-01-01T10:00:00Z", resuelta_en: null },
+    ];
+    const r = await getRendimientoGestores(RANGO_AMPLIO);
+    const laura = r.find((g) => g.nombre === "Laura");
+    expect(laura.minutosMediosResolucion).toBe(30);
+    expect(laura.incidencias).toBe(2);
+  });
+});
+
+describe("calcularAvisoCoberturaVacaciones (Fase 25, 25.3)", () => {
+  it("100% de cobertura si nadie más está de baja", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [
+      { auth_user_id: "u1", empresa_id: "emp1", id: "g1", activo: true },
+      { id: "g2", empresa_id: "emp1", activo: true },
+    ];
+    TABLES.empresa = [{ id: "emp1", cobertura_minima_pct: 70 }];
+    TABLES.vacaciones_gestor = [];
+    const r = await calcularAvisoCoberturaVacaciones("2026-08-01", "2026-08-10");
+    expect(r.totalActivos).toBe(2);
+    expect(r.deBajaSolapando).toBe(1); // la propia solicitud que se evalúa
+    expect(r.pctCobertura).toBe(50);
+    expect(r.avisoBajaCobertura).toBe(true); // 50% < 70% mínimo
+  });
+
+  it("cuenta vacaciones YA aprobadas que se solapan con el rango evaluado", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [
+      { auth_user_id: "u1", empresa_id: "emp1", id: "g1", activo: true },
+      { id: "g2", empresa_id: "emp1", activo: true },
+      { id: "g3", empresa_id: "emp1", activo: true },
+      { id: "g4", empresa_id: "emp1", activo: true },
+    ];
+    TABLES.empresa = [{ id: "emp1", cobertura_minima_pct: 70 }];
+    TABLES.vacaciones_gestor = [
+      { id: "v1", empresa_id: "emp1", gestor_id: "g2", estado: "aprobada", fecha_inicio: "2026-08-05", fecha_fin: "2026-08-15" },
+      // no se solapa -- no debe contar
+      { id: "v2", empresa_id: "emp1", gestor_id: "g3", estado: "aprobada", fecha_inicio: "2026-09-01", fecha_fin: "2026-09-05" },
+      // pendiente, no aprobada -- no debe contar
+      { id: "v3", empresa_id: "emp1", gestor_id: "g4", estado: "pendiente", fecha_inicio: "2026-08-05", fecha_fin: "2026-08-15" },
+    ];
+    const r = await calcularAvisoCoberturaVacaciones("2026-08-01", "2026-08-10");
+    expect(r.deBajaSolapando).toBe(2); // g2 (aprobada, solapa) + la propia solicitud
+    expect(r.pctCobertura).toBe(50); // 2 de 4
+    expect(r.avisoBajaCobertura).toBe(true);
+  });
+
+  it("no avisa si la cobertura queda por encima del mínimo configurado", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = Array.from({ length: 10 }, (_, i) => ({ id: `g${i}`, empresa_id: "emp1", activo: true, auth_user_id: i === 0 ? "u1" : undefined }));
+    TABLES.empresa = [{ id: "emp1", cobertura_minima_pct: 70 }];
+    TABLES.vacaciones_gestor = [];
+    const r = await calcularAvisoCoberturaVacaciones("2026-08-01", "2026-08-10");
+    expect(r.pctCobertura).toBe(90); // 1 de 10 de baja
+    expect(r.avisoBajaCobertura).toBe(false);
+  });
+});
+
+describe("solicitarVacaciones / getVacacionesPendientes / resolverVacacion (Fase 25)", () => {
+  it("solicitarVacaciones guarda la fila con el snapshot del aviso de cobertura", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "emp1", id: "g1", activo: true }];
+    TABLES.empresa = [{ id: "emp1", cobertura_minima_pct: 70 }];
+    TABLES.vacaciones_gestor = [];
+    await solicitarVacaciones("2026-08-01", "2026-08-10");
+    expect(TABLES.vacaciones_gestor).toHaveLength(1);
+    expect(TABLES.vacaciones_gestor[0].gestor_id).toBe("g1");
+    expect(TABLES.vacaciones_gestor[0].aviso_cobertura).toContain("Cobertura");
+  });
+
+  it("solicitarVacaciones rechaza un rango de fechas invertido", async () => {
+    await expect(solicitarVacaciones("2026-08-10", "2026-08-01")).rejects.toThrow();
+  });
+
+  it("getVacacionesPendientes solo devuelve las pendientes", async () => {
+    TABLES.vacaciones_gestor = [
+      { id: "v1", estado: "pendiente", gestor: { nombre: "Ana" }, solicitado_en: "2026-01-01" },
+      { id: "v2", estado: "aprobada", gestor: { nombre: "Ana" }, solicitado_en: "2026-01-01" },
+    ];
+    const r = await getVacacionesPendientes();
+    expect(r.map((v) => v.id)).toEqual(["v1"]);
+  });
+
+  it("resolverVacacion marca aprobada/rechazada con quién y cuándo", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "emp1", id: "g-admin" }];
+    TABLES.vacaciones_gestor = [{ id: "v1", empresa_id: "emp1", estado: "pendiente" }];
+    await resolverVacacion("v1", true);
+    expect(TABLES.vacaciones_gestor[0].estado).toBe("aprobada");
+    expect(TABLES.vacaciones_gestor[0].resuelto_por).toBe("g-admin");
+    expect(TABLES.vacaciones_gestor[0].resuelto_en).toBeTruthy();
   });
 });
 

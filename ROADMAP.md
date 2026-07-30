@@ -4682,13 +4682,34 @@ de administrador" que se pide, solo que sin la vista de auditoría/rendimiento t
   actividad registrada todavía." sin errores de consola (correcto — no hay audit_log para ese
   usuario en los datos de dev). 525 tests dashboard en verde (sin tests nuevos — es UI
   presentacional sobre una función ya cubierta por los tests existentes de `data.test.js`).
-- [ ] `[DECISIÓN]` **23.G.2 "Rendimiento" del trabajador** — deliberadamente marcado como
-  DECISIÓN, no LOOP: antes de construir esto hace falta que el usuario defina qué mide
-  "rendimiento" en concreto (¿puntualidad de sus viajes vs. adherencia 23.D? ¿nº incidencias
-  gestionadas? ¿tiempo de respuesta a incidencias?) — construir una métrica inventada sin esa
-  definición es el tipo de features especulativas que este proyecto evita a propósito.
+- [x] `[LOOP]` **23.G.2 "Rendimiento" del trabajador** — HECHO 2026-07-29, tras decisión
+  explícita del usuario: mide puntualidad de sus viajes + incidencias gestionadas (con
+  tiempo de resolución), no una métrica inventada. **Reutilizado, no reescrito**: la vista
+  "Gestores" de `/analitica` (`getRendimientoGestores`) YA existía con viajes
+  gestionados/% siguió sugerencia/incidencias totales — se le añadieron dos campos
+  (`pctPuntualidad`, `minutosMediosResolucion`) en vez de crear una función o pantalla
+  nueva. Puntualidad calculada igual que `getMetricasPuntualidad`/`getMetricasPorCliente`
+  (hitos con `ventana_fin` vencida en el rango vs. incidencias `tipo='fuera_de_ventana'`),
+  pero atribuida al `gestor_id` del viaje en vez de a toda la empresa o al cliente —
+  incluyendo el caso borde de que el viaje sea anterior al rango pero su hito venza
+  dentro (se resuelve el `gestor_id` de esos viajes "huérfanos" con una consulta acotada
+  a los IDs referenciados, mismo patrón anti-truncamiento de la Fase 19.4, nunca trayendo
+  la empresa entera). Resolución media: minutos entre `created_at` y `resuelta_en` de
+  las incidencias YA resueltas (las abiertas no cuentan, no serían "tiempo de
+  resolución"). 4 tests nuevos en `data.test.js` (528 dashboard en total, todos en
+  verde). **Verificado en navegador contra dev**: pestaña "Gestores" de `/analitica`
+  muestra las dos columnas nuevas sin errores de consola.
 
-### Fase 25 — Vacaciones con cobertura mínima (idea, sin construir)
+### Fase 25 — Vacaciones con cobertura mínima
+
+**Decisiones tomadas por el usuario (2026-07-29), 25.1 cerrado:**
+- El aviso de cobertura baja **solo advierte, nunca bloquea** — el jefe de tráfico
+  siempre puede aprobar igual; el sistema únicamente muestra la cifra.
+- % de cobertura mínima por defecto: **70%**, elegido por ser el punto medio razonable
+  (de 10 gestores, hasta 3 de baja a la vez sin aviso) — el propio usuario dijo que el
+  número real "dependerá de la empresa y de cómo de bien funcione la herramienta", así
+  que se deja **configurable por empresa** desde el primer día (no hardcodeado), para
+  ajustarlo sin tocar código cuando haya datos reales de uso.
 
 Planteamiento pedido por el usuario: que el propio gestor/trabajador registre sus vacaciones
 desde el dashboard, que le salte una solicitud de aprobación al jefe de tráfico (mismo patrón
@@ -4721,6 +4742,24 @@ Diseño propuesto (a validar con el usuario antes de picar código, no antes):
    suficientes gestores de vacaciones esa semana, la siguiente solicitud que la haría bajar del
    umbral sale marcada, sin necesidad de modelar turnos explícitamente todavía.
 
-- [ ] `[DECISIÓN]` **25.1** Validar este diseño (o ajustarlo) con el usuario antes de escribir
-  la migración — en concreto el % de cobertura mínima por defecto y si el aviso debe bloquear
-  la aprobación o solo advertir.
+- [x] `[DECISIÓN]` **25.1** — CERRADO 2026-07-29 (ver decisiones arriba). Listo para picar
+  código: 25.2 en adelante.
+- [x] `[LOOP]` **25.2** — HECHO 2026-07-29. Migración `0076_vacaciones_gestor.sql` aplicada
+  en dev (75→76, sin errores): `empresa.cobertura_minima_pct numeric DEFAULT 70` (CHECK
+  0-100), tabla `vacaciones_gestor` (mismo patrón RLS que `reten`/0071 — pero SELECT
+  abierto a toda la empresa, no solo al propio gestor, porque el cálculo de cobertura
+  necesita ver las vacaciones de todos para ser auditable). **Verificado contra dev de
+  verdad**: insert real confirmó el default de 70% ya aplicado a las empresas existentes,
+  y el CHECK `fecha_fin >= fecha_inicio` rechazó una fecha invertida con el error de
+  Postgres esperado (no fue una prueba solo en JS).
+- [x] `[LOOP]` **25.3** — HECHO 2026-07-29. `calcularAvisoCoberturaVacaciones()`,
+  `solicitarVacaciones()`, `getVacacionesPendientes()`, `resolverVacacion()` en `data.js`.
+  El cálculo de cobertura cuenta vacaciones YA aprobadas que se solapan con el rango
+  evaluado (+1 por la propia solicitud) contra el total de gestores activos; el
+  resultado se guarda como snapshot textual en `aviso_cobertura` para que quede
+  constancia de qué cifra vio el jefe de tráfico al decidir. 7 tests nuevos en
+  `data.test.js` (535 dashboard en total, todos en verde).
+- [ ] `[LOOP]` **25.4** UI: formulario de solicitud (accesible a cualquier gestor, no solo
+  admin) + extender el bloque "Aprobaciones pendientes" de `AjustesEquipoSection.jsx` para
+  mostrar el tipo `vacaciones` con sus fechas y el aviso de cobertura si aplica.
+- [ ] `[LOOP]` **25.5** Sugerencia de redistribución al aprobar (punto 4 del diseño).

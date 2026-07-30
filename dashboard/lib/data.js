@@ -829,6 +829,111 @@ export async function resolverSolicitudAprobacion(solicitudId, aprobar) {
   }
 }
 
+// ==========================================================================
+// Fase 25 — Vacaciones de gestor con aviso de cobertura mínima (25.3)
+// ==========================================================================
+
+/**
+ * Calcula el aviso de cobertura para un rango de fechas: de los gestores activos
+ * de la empresa, cuántos seguirían operativos si se aprobara una vacación en ese
+ * rango (contando las ya aprobadas que se solapen + la que se está evaluando).
+ * Decisión 25.1: esto SOLO informa -- nunca bloquea, el jefe de tráfico decide con
+ * la cifra delante (mismo principio que `calcularAvisosViabilidad`).
+ */
+export async function calcularAvisoCoberturaVacaciones(fechaInicio, fechaFin, excluirVacacionId = null) {
+  const empresaId = await getCurrentEmpresaId();
+  const [{ data: gestores, error: errGestores }, { data: empresas, error: errEmpresa }] = await Promise.all([
+    supabase.from("gestor").select("id").eq("empresa_id", empresaId).eq("activo", true),
+    supabase.from("empresa").select("cobertura_minima_pct").eq("id", empresaId).single(),
+  ]);
+  if (errGestores) throw errGestores;
+  if (errEmpresa) throw errEmpresa;
+
+  const totalActivos = (gestores || []).length;
+  const coberturaMinimaPct = Number(empresas?.cobertura_minima_pct ?? 70);
+  if (totalActivos === 0) return { totalActivos: 0, deBajaSolapando: 0, pctCobertura: null, coberturaMinimaPct, avisoBajaCobertura: false };
+
+  // Vacaciones ya aprobadas cuyo rango se solapa con [fechaInicio, fechaFin].
+  // Solape de intervalos: A.inicio <= B.fin AND A.fin >= B.inicio.
+  let query = supabase
+    .from("vacaciones_gestor")
+    .select("id, gestor_id")
+    .eq("empresa_id", empresaId)
+    .eq("estado", "aprobada")
+    .lte("fecha_inicio", fechaFin)
+    .gte("fecha_fin", fechaInicio);
+  if (excluirVacacionId) query = query.neq("id", excluirVacacionId);
+  const { data: solapadas, error: errSolapadas } = await query;
+  if (errSolapadas) throw errSolapadas;
+
+  // +1 por la propia solicitud que se está evaluando (aún no aprobada, o la que se
+  // está a punto de aprobar) -- de ahí que se sume aparte del resultado de la query.
+  const deBajaSolapando = new Set((solapadas || []).map((v) => v.gestor_id)).size + 1;
+  const pctCobertura = Math.round(((totalActivos - deBajaSolapando) / totalActivos) * 100);
+
+  return {
+    totalActivos,
+    deBajaSolapando,
+    pctCobertura,
+    coberturaMinimaPct,
+    avisoBajaCobertura: pctCobertura < coberturaMinimaPct,
+  };
+}
+
+/** El propio gestor solicita sus vacaciones (RLS: solo puede solicitar para sí
+ * mismo, ver policy "gestor solicita sus propias vacaciones" de 0076). Calcula y
+ * guarda el aviso de cobertura como snapshot textual, para que quede constancia de
+ * qué se le mostró al jefe de tráfico en el momento de decidir. */
+export async function solicitarVacaciones(fechaInicio, fechaFin) {
+  if (!fechaInicio || !fechaFin || fechaFin < fechaInicio) {
+    throw new Error("El rango de fechas no es válido");
+  }
+  const empresaId = await getCurrentEmpresaId();
+  const gestorId = await gestorIdComoAutor();
+  const aviso = await calcularAvisoCoberturaVacaciones(fechaInicio, fechaFin);
+  const aviso_cobertura = aviso.avisoBajaCobertura
+    ? `Cobertura ${aviso.pctCobertura}% (${aviso.deBajaSolapando} de ${aviso.totalActivos} de baja) — por debajo del mínimo de ${aviso.coberturaMinimaPct}%`
+    : `Cobertura ${aviso.pctCobertura}% (${aviso.deBajaSolapando} de ${aviso.totalActivos} de baja) — dentro del mínimo`;
+
+  const { error } = await supabase.from("vacaciones_gestor").insert({
+    empresa_id: empresaId,
+    gestor_id: gestorId,
+    fecha_inicio: fechaInicio,
+    fecha_fin: fechaFin,
+    aviso_cobertura,
+  });
+  if (error) throw error;
+  return aviso;
+}
+
+/** Vacaciones pendientes de aprobación (18.A.2/25 comparten el mismo patrón de
+ * "jefe de tráfico resuelve", pero es una tabla propia -- no una entidad externa a
+ * la que apuntar como `solicitud_aprobacion`). */
+export async function getVacacionesPendientes() {
+  const { data, error } = await supabase
+    .from("vacaciones_gestor")
+    .select("*, gestor:gestor_id(nombre)")
+    .eq("estado", "pendiente")
+    .order("solicitado_en", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+/** Aprueba/rechaza una solicitud de vacaciones. No reasigna nada automáticamente
+ * (25.5, sugerencia de redistribución, queda para más adelante) -- el jefe de
+ * tráfico sigue decidiendo qué hacer con los chóferes/viajes de ese gestor desde
+ * "Asignación de chóferes (F15.3)", igual que hoy con bajas/vacaciones manuales. */
+export async function resolverVacacion(vacacionId, aprobar) {
+  const empresaId = await getCurrentEmpresaId();
+  const gestorId = await gestorIdComoAutor();
+  const { error } = await supabase
+    .from("vacaciones_gestor")
+    .update({ estado: aprobar ? "aprobada" : "rechazada", resuelto_por: gestorId, resuelto_en: new Date().toISOString() })
+    .eq("id", vacacionId)
+    .eq("empresa_id", empresaId);
+  if (error) throw error;
+}
+
 export async function createCliente({ nombre, cif = null, email = null, telefono = null, notas = null }) {
   if (!nombre || !nombre.trim()) throw new Error("El nombre del cliente es obligatorio");
   const empresaId = await getCurrentEmpresaId();
@@ -1521,16 +1626,37 @@ export async function getRendimientoGestores(rango = {}) {
     { data: viajes, error: errViajes },
     { data: decisiones, error: errDecisiones },
     { data: incidencias, error: errIncidencias },
+    // Fase 23, 23.G.2: hitos con ventana vencida en el periodo -- denominador de
+    // puntualidad por gestor. Se acota por `ventana_fin` (no por `created_at` del
+    // viaje, como las consultas de arriba) porque un hito puede vencer mucho
+    // después de crearse el viaje que lo contiene.
+    { data: hitosVentana, error: errHitos },
   ] = await Promise.all([
     supabase.from("gestor").select("id, nombre").eq("activo", true),
     supabase.from("viaje").select("id, gestor_id").gte("created_at", desde).lt("created_at", hasta),
     supabase.from("decision_asignacion").select("viaje_id, siguio_sugerencia").gte("created_at", desde).lt("created_at", hasta),
-    supabase.from("incidencia").select("viaje_id").gte("created_at", desde).lt("created_at", hasta),
+    supabase.from("incidencia").select("viaje_id, tipo, created_at, resuelta_en").gte("created_at", desde).lt("created_at", hasta),
+    supabase.from("hito").select("id, viaje_id").gte("ventana_fin", desde).lt("ventana_fin", hasta).not("ventana_fin", "is", null),
   ]);
   if (errGestores) throw new Error(errGestores.message);
   if (errViajes) throw new Error(errViajes.message);
   if (errDecisiones) throw new Error(errDecisiones.message);
   if (errIncidencias) throw new Error(errIncidencias.message);
+  if (errHitos) throw new Error(errHitos.message);
+
+  // gestor_id de cada viaje referenciado por hitos/incidencias que no apareciera
+  // ya en `viajes` (un hito puede vencer -- o una incidencia abrirse -- sobre un
+  // viaje creado ANTES del rango). Mismo patrón "solo pedir lo referenciado" que
+  // getMetricasPuntualidad (Fase 19.4): nunca traer la empresa entera.
+  const gestorPorViajeConocido = Object.fromEntries((viajes || []).map((v) => [v.id, v.gestor_id]));
+  const idsFaltantes = [...new Set(
+    [...(hitosVentana || []).map((h) => h.viaje_id), ...(incidencias || []).map((i) => i.viaje_id)]
+      .filter((vid) => !(vid in gestorPorViajeConocido))
+  )];
+  const { data: viajesFaltantes } = idsFaltantes.length
+    ? await supabase.from("viaje").select("id, gestor_id").in("id", idsFaltantes)
+    : { data: [] };
+  const gestorPorViaje = { ...gestorPorViajeConocido, ...Object.fromEntries((viajesFaltantes || []).map((v) => [v.id, v.gestor_id])) };
 
   const viajesDeGestor = {};
   (viajes || []).forEach((v) => {
@@ -1546,6 +1672,23 @@ export async function getRendimientoGestores(rango = {}) {
   const decisionesPorViaje = {};
   (decisiones || []).forEach((d) => {
     (decisionesPorViaje[d.viaje_id] ||= []).push(d.siguio_sugerencia);
+  });
+
+  // 23.G.2: puntualidad e incidencias gestionadas, por gestor -- vía el
+  // gestor_id del viaje al que pertenece el hito/incidencia (mismo criterio de
+  // "de quién es" que el resto de este panel).
+  const hitosPorGestor = {};
+  (hitosVentana || []).forEach((h) => {
+    const gid = gestorPorViaje[h.viaje_id];
+    if (gid) hitosPorGestor[gid] = (hitosPorGestor[gid] || 0) + 1;
+  });
+  const tardePorGestor = {};
+  const resolucionPorGestor = {};
+  (incidencias || []).forEach((i) => {
+    const gid = gestorPorViaje[i.viaje_id];
+    if (!gid) return;
+    if (i.tipo === "fuera_de_ventana") tardePorGestor[gid] = (tardePorGestor[gid] || 0) + 1;
+    if (i.resuelta_en) (resolucionPorGestor[gid] ||= []).push((new Date(i.resuelta_en) - new Date(i.created_at)) / 60000);
   });
 
   return (gestores || [])
@@ -1565,7 +1708,20 @@ export async function getRendimientoGestores(rango = {}) {
       let incidenciasTotal = 0;
       idsViajes.forEach((vid) => { incidenciasTotal += incidenciasPorViaje[vid] || 0; });
 
-      return { id: g.id, nombre: g.nombre, viajesGestionados, pctSiguioSugerencia, incidencias: incidenciasTotal };
+      const hitosConVentana = hitosPorGestor[g.id] || 0;
+      const hitosTarde = tardePorGestor[g.id] || 0;
+      const pctPuntualidad = hitosConVentana > 0
+        ? Math.round(((hitosConVentana - hitosTarde) / hitosConVentana) * 100)
+        : null;
+      const resoluciones = resolucionPorGestor[g.id] || [];
+      const minutosMediosResolucion = resoluciones.length
+        ? Math.round(resoluciones.reduce((a, b) => a + b, 0) / resoluciones.length)
+        : null;
+
+      return {
+        id: g.id, nombre: g.nombre, viajesGestionados, pctSiguioSugerencia, incidencias: incidenciasTotal,
+        pctPuntualidad, minutosMediosResolucion,
+      };
     })
     .sort((a, b) => b.viajesGestionados - a.viajesGestionados);
 }

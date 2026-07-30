@@ -325,7 +325,8 @@ function VistaGestores({ datos }) {
     <div className="flex flex-col gap-4">
       <p className="text-xs text-ink-secondary">
         Rendimiento por gestor en los últimos 90 días: viajes que gestiona, si sigue las
-        sugerencias de asignación del sistema, e incidencias totales de sus viajes.
+        sugerencias de asignación del sistema, puntualidad de sus hitos e incidencias
+        gestionadas (23.G.2).
       </p>
       <div className="bg-surface border border-border rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
@@ -335,12 +336,14 @@ function VistaGestores({ datos }) {
               <th className="px-4 py-2 font-medium">Gestor</th>
               <th className="px-4 py-2 font-medium">Viajes gestionados</th>
               <th className="px-4 py-2 font-medium">% siguió sugerencia</th>
+              <th className="px-4 py-2 font-medium">Puntualidad</th>
               <th className="px-4 py-2 font-medium">Incidencias</th>
+              <th className="px-4 py-2 font-medium">Resolución media</th>
             </tr>
           </thead>
           <tbody>
             {datos.length === 0 ? (
-              <tr><td colSpan={4} className="px-4 py-6 text-center text-ink-secondary">Sin gestores activos.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-secondary">Sin gestores activos.</td></tr>
             ) : (
               datos.map((g) => (
                 <tr key={g.id} className="border-b border-border last:border-0">
@@ -349,7 +352,13 @@ function VistaGestores({ datos }) {
                   <td className="px-4 py-2.5 text-ink-secondary">
                     {g.pctSiguioSugerencia != null ? `${g.pctSiguioSugerencia}%` : "—"}
                   </td>
+                  <td className="px-4 py-2.5 text-ink-secondary">
+                    {g.pctPuntualidad != null ? `${g.pctPuntualidad}%` : "—"}
+                  </td>
                   <td className="px-4 py-2.5 text-ink-secondary">{g.incidencias}</td>
+                  <td className="px-4 py-2.5 text-ink-secondary">
+                    {g.minutosMediosResolucion != null ? `${g.minutosMediosResolucion} min` : "—"}
+                  </td>
                 </tr>
               ))
             )}
