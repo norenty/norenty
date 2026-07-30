@@ -280,6 +280,10 @@ TEXTOS = {
         "btn_anot_sello": "🖊️ Sello/firma ilegible",
         "btn_anot_bien": "✅ Todo bien",
         "anot_registrada": "Anotado. Gracias.",
+        "sello_pregunta": "¿El cliente ha sellado o firmado el albarán?",
+        "btn_sello_si": "✅ Sí",
+        "btn_sello_no": "❌ No",
+        "sello_registrado": "Registrado.",
         "incidencia_ayuda": "Cuéntame qué ha pasado: mándame una nota de voz 🎤 o escríbelo aquí.",
         "inc_elige": "¿Qué ha pasado?",
         "btn_inc_averia": "🔧 Avería",
@@ -366,6 +370,10 @@ TEXTOS = {
         "btn_anot_sello": "🖊️ Illegible stamp/signature",
         "btn_anot_bien": "✅ All good",
         "anot_registrada": "Noted. Thanks.",
+        "sello_pregunta": "Did the customer stamp or sign the delivery note?",
+        "btn_sello_si": "✅ Yes",
+        "btn_sello_no": "❌ No",
+        "sello_registrado": "Recorded.",
         "incidencia_ayuda": "Tell me what happened: send me a voice note 🎤 or type it here.",
         "inc_elige": "What happened?",
         "btn_inc_averia": "🔧 Breakdown",
@@ -452,6 +460,10 @@ TEXTOS = {
         "btn_anot_sello": "🖊️ Ștampilă/semnătură ilizibilă",
         "btn_anot_bien": "✅ Totul e bine",
         "anot_registrada": "Notat. Mulțumesc.",
+        "sello_pregunta": "Clientul a ștampilat sau semnat avizul de livrare?",
+        "btn_sello_si": "✅ Da",
+        "btn_sello_no": "❌ Nu",
+        "sello_registrado": "Înregistrat.",
         "incidencia_ayuda": "Spune-mi ce s-a întâmplat: trimite-mi o notă vocală 🎤 sau scrie aici.",
         "inc_elige": "Ce s-a întâmplat?",
         "btn_inc_averia": "🔧 Defecțiune",
@@ -538,6 +550,10 @@ TEXTOS = {
         "btn_anot_sello": "🖊️ Cachet/signature illisible",
         "btn_anot_bien": "✅ Tout va bien",
         "anot_registrada": "Noté. Merci.",
+        "sello_pregunta": "Le client a-t-il tamponné ou signé le bon de livraison ?",
+        "btn_sello_si": "✅ Oui",
+        "btn_sello_no": "❌ Non",
+        "sello_registrado": "Enregistré.",
         "incidencia_ayuda": "Dites-moi ce qui s'est passé : envoyez une note vocale 🎤 ou écrivez ici.",
         "inc_elige": "Que s'est-il passé ?",
         "btn_inc_averia": "🔧 Panne",
@@ -624,6 +640,10 @@ TEXTOS = {
         "btn_anot_sello": "🖊️ Timbro/firma illeggibile",
         "btn_anot_bien": "✅ Tutto bene",
         "anot_registrada": "Annotato. Grazie.",
+        "sello_pregunta": "Il cliente ha timbrato o firmato la bolla di consegna?",
+        "btn_sello_si": "✅ Sì",
+        "btn_sello_no": "❌ No",
+        "sello_registrado": "Registrato.",
         "incidencia_ayuda": "Dimmi cosa è successo: inviami una nota vocale 🎤 o scrivi qui.",
         "inc_elige": "Cosa è successo?",
         "btn_inc_averia": "🔧 Guasto",
@@ -710,6 +730,10 @@ TEXTOS = {
         "btn_anot_sello": "🖊️ Carimbo/assinatura ilegível",
         "btn_anot_bien": "✅ Tudo bem",
         "anot_registrada": "Registado. Obrigado.",
+        "sello_pregunta": "O cliente carimbou ou assinou o comprovante de entrega?",
+        "btn_sello_si": "✅ Sim",
+        "btn_sello_no": "❌ Não",
+        "sello_registrado": "Registado.",
         "incidencia_ayuda": "Diz-me o que aconteceu: envia-me uma nota de voz 🎤 ou escreve aqui.",
         "inc_elige": "O que aconteceu?",
         "btn_inc_averia": "🔧 Avaria",
@@ -796,6 +820,10 @@ TEXTOS = {
         "btn_anot_sello": "🖊️ Stempel/Unterschrift unleserlich",
         "btn_anot_bien": "✅ Alles in Ordnung",
         "anot_registrada": "Notiert. Danke.",
+        "sello_pregunta": "Hat der Kunde den Lieferschein gestempelt oder unterschrieben?",
+        "btn_sello_si": "✅ Ja",
+        "btn_sello_no": "❌ Nein",
+        "sello_registrado": "Erfasst.",
         "incidencia_ayuda": "Sag mir, was passiert ist: Schick mir eine Sprachnachricht 🎤 oder schreib hier.",
         "inc_elige": "Was ist passiert?",
         "btn_inc_averia": "🔧 Panne",
@@ -882,6 +910,10 @@ TEXTOS = {
         "btn_anot_sello": "🖊️ الختم/التوقيع غير واضح",
         "btn_anot_bien": "✅ كل شيء جيد",
         "anot_registrada": "تم التسجيل. شكرًا.",
+        "sello_pregunta": "هل ختم العميل أو وقّع على إيصال التسليم؟",
+        "btn_sello_si": "✅ نعم",
+        "btn_sello_no": "❌ لا",
+        "sello_registrado": "تم التسجيل.",
         "incidencia_ayuda": "أخبرني بما حدث: أرسل لي رسالة صوتية 🎤 أو اكتب هنا.",
         "inc_elige": "ماذا حدث؟",
         "btn_inc_averia": "🔧 عطل",
@@ -1342,6 +1374,16 @@ def anotacion_entrega_keyboard(chofer, hito_id):
     ]
     filas.append([InlineKeyboardButton(t(chofer, "btn_anot_bien"), callback_data=f"anot:bien:{hito_id}")])
     return InlineKeyboardMarkup(filas)
+
+
+# F13.7 (reformulado, 2026-07-30) -- "si no te sellan no cobras": pregunta explícita
+# de sí/no, separada de las anotaciones de mercancía (23.A.2) porque tiene una
+# consecuencia distinta (incidencia automática, no solo una nota informativa).
+def sello_keyboard(chofer, hito_id):
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton(t(chofer, "btn_sello_si"), callback_data=f"sello:si:{hito_id}"),
+        InlineKeyboardButton(t(chofer, "btn_sello_no"), callback_data=f"sello:no:{hito_id}"),
+    ]])
 
 
 def contactar_keyboard(chofer):
@@ -2400,6 +2442,11 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"📄 Albarán recibido — Viaje {ref}, hito {hito['orden']} ({dir_hito}). Chófer: {chofer['nombre']}.",
     )
 
+    # F13.7 (reformulado, 2026-07-30) -- "si no te sellan no cobras": se pregunta
+    # ANTES que las anotaciones de mercancía porque es la condición de cobro, la
+    # más básica. Si no está sellado, cb_sello dispara una incidencia automática.
+    await update.message.reply_text(t(chofer, "sello_pregunta"), reply_markup=sello_keyboard(chofer, hito["id"]))
+
     # Fase 23, Bloque A (23.A.2) -- DISCOVERY.md insight 14: "mercancía llega
     # mojada... luego a fin de mes te descuentan y nadie sabe nada". Se
     # pregunta AQUÍ, con el chófer todavía en el muelle, no días después.
@@ -2572,6 +2619,49 @@ async def cb_anotacion_entrega(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         )
 
     await query.edit_message_text(t(chofer, "anot_registrada"))
+
+
+async def cb_sello(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """F13.7 (reformulado) -- registra si el cliente selló/firmó el albarán. Si NO,
+    dispara una incidencia real (vía `alertar_gestor`, no solo una notificación
+    pasiva) el mismo día, mientras el chófer sigue en el muelle y puede volver a
+    pedirlo -- "si no te sellan no cobras" (decisión explícita del usuario,
+    2026-07-30)."""
+    query = update.callback_query
+    await query.answer()
+
+    _, respuesta, hito_id = query.data.split(":")
+    chat_id = str(query.message.chat_id)
+
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
+        await query.edit_message_text(t("es", "no_vinculado"))
+        return
+
+    hito, error = verificar_hito_pertenece_a_chofer(hito_id, chofer["id"])
+    if error:
+        await query.edit_message_text(error)
+        return
+    viaje = hito["viaje"]
+
+    sellado = respuesta == "si"
+    ejecutar_con_reintentos(
+        lambda: supabase.table("pod").update({"sellado": sellado}).eq("hito_id", hito_id).execute(),
+        contexto={"accion": "registrar_sello_pod", "hito_id": hito_id},
+    )
+
+    if not sellado:
+        ref = viaje.get("referencia") or viaje["id"][:8]
+        dir_hito = hito.get("direccion", "?")
+        await alertar_gestor(
+            chofer["empresa_id"],
+            viaje["id"],
+            "entrega_sin_sello",
+            f"⚠️ Entrega SIN sello/firma del cliente — Viaje {ref}, hito {hito['orden']} ({dir_hito}). "
+            f"Chófer: {chofer['nombre']}. Sin esto el cliente puede negarse a pagar el viaje.",
+        )
+
+    await query.edit_message_text(t(chofer, "sello_registrado"))
 
 
 TIPOS_ANOTACION_ENTREGA_DESC = {
@@ -3544,6 +3634,7 @@ def create_bot_app():
     app.add_handler(CallbackQueryHandler(cb_sin_pod, pattern=r"^sin_pod:"))
     app.add_handler(CallbackQueryHandler(cb_incidencia, pattern=r"^inc:"))
     app.add_handler(CallbackQueryHandler(cb_anotacion_entrega, pattern=r"^anot:"))
+    app.add_handler(CallbackQueryHandler(cb_sello, pattern=r"^sello:"))
     app.add_handler(CallbackQueryHandler(cb_cancelar, pattern=r"^cancelar$"))
     app.add_handler(CallbackQueryHandler(cb_cotizar_confirmar, pattern=r"^cotizar_confirmar$"))
     app.add_handler(CallbackQueryHandler(cb_cotizar_cancelar, pattern=r"^cotizar_cancelar$"))

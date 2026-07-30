@@ -1153,13 +1153,16 @@ navegador cuando aplique, commit, `[x]` aquí + línea en PROGRESS.md.
   16 claves de traducción en los 8 idiomas. `/incidencias` del dashboard muestra la miniatura
   (`PodImage.jsx` generalizado con prop `alt`). 2 tests e2e nuevos. `ci.ps1` completo verde (224
   backend, 417 vitest, build 22 páginas).
-- [ ] `[DECISIÓN]` **F14.7 — Página pública de "prueba de fiabilidad" por empresa** — pendiente de
-  hablar con más calma (2026-07-17): hay dos diseños distintos (KPIs elegidos por el cliente del
-  cliente vía negociación con tu cliente, vs. informe fijo mensual) y no está claro que "pedir un
-  resumen de viajes contratados a la empresa transportista" sea una práctica habitual del sector
-  — no se construye hasta decidir el enfoque. Pregunta añadida al guion de discovery
-  (`DISCOVERY-DUENO-GM.md` §3.4) para validarlo con un dueño/gerente real antes de construir.
-  §F14.7.
+- [ ] `[DECISIÓN]` **F14.7 — Página pública de "prueba de fiabilidad" por empresa** — parcialmente
+  decidido (2026-07-30): el usuario confirmó, por conversación con su amigo, que **no todos los
+  clientes quieren transparencia total** ("hay veces que no puedes ser 100% transparente") — así
+  que el mecanismo de activación será un **toggle en ambos niveles**: un default heredado a nivel
+  de `cliente` (¿este cliente requiere seguimiento público?) que se puede **anular puntualmente
+  por viaje** cuando un caso concreto lo necesite distinto. Esto resuelve el "cómo se activa", NO
+  el "qué contenido muestra" — sigue sin decidir entre los dos diseños de contenido (KPIs
+  negociados vs. informe fijo mensual), y esa parte sigue gated por el discovery con un
+  dueño/gerente real (`DISCOVERY-DUENO-GM.md` §3.4), que todavía no ha ocurrido. No se construye
+  el toggle en solitario sin saber qué va a mostrar la página que activa. §F14.7.
 
 ---
 
@@ -1222,8 +1225,25 @@ commit, `[x]` aquí + línea en PROGRESS.md.
   óptimo" en `/viajes/nuevo-w` (solo con >3 paradas): muestra el ahorro estimado y un botón
   "Aplicar" que reordena el formulario — el gestor decide, nunca se aplica solo. 5 tests nuevos.
   `ci.ps1` completo verde (187 backend, 376 vitest, build 21 páginas).
-- [ ] `[DECISIÓN]` **F13.7 — Firma digital en la entrega** — gated por el discovery del sábado
-  (ver cómo operan el albarán hoy antes de construir). §F13.7.
+- [x] `[LOOP]` **F13.7 — Sello/firma en la entrega (reformulado)** — HECHO 2026-07-30.
+  El discovery real (DISCOVERY.md insight 14) no validó una firma digital genérica —
+  validó que las fotos de albarán ilegibles rompen el cobro ("si no te sellan no
+  cobras", decisión explícita del usuario). Se construyó lo que el discovery y el
+  usuario señalaron, no lo originalmente escrito: tras subir el POD, el bot pregunta
+  explícitamente "¿El cliente ha sellado o firmado el albarán?" (Sí/No) — ANTES que
+  las anotaciones de mercancía de 23.A.2, por ser la condición básica de cobro.
+  `pod.sellado` (migración `0077`, nullable) guarda la respuesta; si es "No",
+  `alertar_gestor()` crea una incidencia REAL (`entrega_sin_sello`, no solo una
+  notificación pasiva) el mismo día, mientras el chófer sigue en el muelle y puede
+  volver a pedirlo. Nuevas claves `sello_pregunta`/`btn_sello_si`/`btn_sello_no`/
+  `sello_registrado` en los 8 idiomas. Etiqueta `entrega_sin_sello` (+`sin_pod`, que
+  faltaba) añadida a `TIPO_INCIDENCIA_LABEL` en el dashboard. 2 tests e2e nuevos
+  (287 backend en total). **Verificado contra dev de verdad**: sembré una incidencia
+  real con `tipo='entrega_sin_sello'` y se vio correctamente como "Entrega sin
+  sello/firma" en `/incidencias`, no como texto crudo. Dato de prueba eliminado.
+  Se decidió explícitamente NO construir un pad de firma en pantalla (más fricción,
+  no era lo que pedía el discovery) — queda anotado como opción futura si algún
+  cliente concreto lo exige.
 
 **Al cerrar F13.6:** `PushNotification` con el resumen + DETENER el loop. F13.7 no se toca sin el
 discovery.

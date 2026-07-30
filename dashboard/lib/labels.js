@@ -43,6 +43,8 @@ export const TIPO_INCIDENCIA_LABEL = {
   averia: "Avería",
   accidente: "Accidente",
   retraso: "Retraso",
+  sin_pod: "Sin foto de albarán",
+  entrega_sin_sello: "Entrega sin sello/firma",
   otro: "Otro",
 };
 

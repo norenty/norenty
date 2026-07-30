@@ -403,6 +403,93 @@ async def test_e2e_anotacion_entrega_todo_bien_no_genera_evento(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_e2e_sello_si_no_dispara_incidencia(monkeypatch):
+    """F13.7 (reformulado, 2026-07-30): tras el POD, la PRIMERA pregunta es si el
+    cliente selló/firmó (antes que las anotaciones de mercancía) -- decir que sí
+    guarda `pod.sellado = True` y no crea ninguna incidencia."""
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": None,
+    }]
+    fake_db.tables["viaje"] = [{
+        "id": "v1", "chofer_id": CHOFER_ID, "empresa_id": "e1", "estado": "en_curso", "referencia": "VJ-1",
+    }]
+    fake_db.tables["hito"] = [
+        {
+            "id": "h2", "viaje_id": "v1", "orden": 1, "tipo": "entrega", "direccion": "Destino",
+            "estado": "en_curso",
+            "viaje": {"id": "v1", "chofer_id": CHOFER_ID, "estado": "en_curso", "referencia": "VJ-1"},
+        },
+    ]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": None}]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(command_update(app, f"/start {CHOFER_ID}"))
+        await app.process_update(photo_update(app))
+
+        enviado_sello = next(s for s in api.sent if "sellado o firmado" in s.get("text", ""))
+        msg_sello = Message(
+            message_id=enviado_sello.get("message_id", _mid()), date=datetime.now(timezone.utc),
+            chat=Chat(id=CHAT_ID, type="private"), text=enviado_sello.get("text"),
+        )
+        msg_sello.set_bot(app.bot)
+
+        await app.process_update(callback_update(app, "sello:si:h2", msg_sello))
+
+        assert fake_db.tables["pod"][0]["sellado"] is True
+        assert not [i for i in fake_db.tables.get("incidencia", []) if i.get("tipo") == "entrega_sin_sello"]
+        assert any("Registrado" in e.get("text", "") for e in api.edited)
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_e2e_sello_no_dispara_incidencia_automatica(monkeypatch):
+    """Decir que NO está sellado guarda `pod.sellado = False` Y crea una
+    incidencia real (no solo una notificación pasiva) -- "si no te sellan no
+    cobras", el gestor tiene que enterarse el mismo día, no a fin de mes."""
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": None,
+    }]
+    fake_db.tables["viaje"] = [{
+        "id": "v1", "chofer_id": CHOFER_ID, "empresa_id": "e1", "estado": "en_curso", "referencia": "VJ-1",
+    }]
+    fake_db.tables["hito"] = [
+        {
+            "id": "h2", "viaje_id": "v1", "orden": 1, "tipo": "entrega", "direccion": "Destino",
+            "estado": "en_curso",
+            "viaje": {"id": "v1", "chofer_id": CHOFER_ID, "estado": "en_curso", "referencia": "VJ-1"},
+        },
+    ]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": None}]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(command_update(app, f"/start {CHOFER_ID}"))
+        await app.process_update(photo_update(app))
+
+        enviado_sello = next(s for s in api.sent if "sellado o firmado" in s.get("text", ""))
+        msg_sello = Message(
+            message_id=enviado_sello.get("message_id", _mid()), date=datetime.now(timezone.utc),
+            chat=Chat(id=CHAT_ID, type="private"), text=enviado_sello.get("text"),
+        )
+        msg_sello.set_bot(app.bot)
+
+        await app.process_update(callback_update(app, "sello:no:h2", msg_sello))
+
+        assert fake_db.tables["pod"][0]["sellado"] is False
+        incidencias_sello = [i for i in fake_db.tables.get("incidencia", []) if i.get("tipo") == "entrega_sin_sello"]
+        assert len(incidencias_sello) == 1
+        assert incidencias_sello[0]["viaje_id"] == "v1"
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_e2e_entrega_sin_pod_cuando_empresa_no_lo_requiere(monkeypatch):
     """Mismo flujo que arriba hasta el hito de ENTREGA, pero con
     `empresa.requiere_pod = False`: la entrega se completa SOLA al confirmar
