@@ -284,6 +284,10 @@ TEXTOS = {
         "btn_sello_si": "✅ Sí",
         "btn_sello_no": "❌ No",
         "sello_registrado": "Registrado.",
+        "checklist_pregunta": "Antes de arrancar: ¿neumáticos, luces y frenos en buen estado, y la carga bien asegurada?",
+        "btn_checklist_ok": "✅ Todo correcto",
+        "btn_checklist_mal": "⚠️ Hay algo mal",
+        "checklist_registrado": "Registrado. Gracias.",
         "incidencia_ayuda": "Cuéntame qué ha pasado: mándame una nota de voz 🎤 o escríbelo aquí.",
         "inc_elige": "¿Qué ha pasado?",
         "btn_inc_averia": "🔧 Avería",
@@ -374,6 +378,10 @@ TEXTOS = {
         "btn_sello_si": "✅ Yes",
         "btn_sello_no": "❌ No",
         "sello_registrado": "Recorded.",
+        "checklist_pregunta": "Before you set off: are tyres, lights and brakes OK, and the load properly secured?",
+        "btn_checklist_ok": "✅ All good",
+        "btn_checklist_mal": "⚠️ Something's wrong",
+        "checklist_registrado": "Recorded. Thanks.",
         "incidencia_ayuda": "Tell me what happened: send me a voice note 🎤 or type it here.",
         "inc_elige": "What happened?",
         "btn_inc_averia": "🔧 Breakdown",
@@ -464,6 +472,10 @@ TEXTOS = {
         "btn_sello_si": "✅ Da",
         "btn_sello_no": "❌ Nu",
         "sello_registrado": "Înregistrat.",
+        "checklist_pregunta": "Înainte de plecare: anvelopele, luminile și frânele sunt în regulă, iar marfa este bine asigurată?",
+        "btn_checklist_ok": "✅ Totul e bine",
+        "btn_checklist_mal": "⚠️ Ceva nu e în regulă",
+        "checklist_registrado": "Înregistrat. Mulțumesc.",
         "incidencia_ayuda": "Spune-mi ce s-a întâmplat: trimite-mi o notă vocală 🎤 sau scrie aici.",
         "inc_elige": "Ce s-a întâmplat?",
         "btn_inc_averia": "🔧 Defecțiune",
@@ -554,6 +566,10 @@ TEXTOS = {
         "btn_sello_si": "✅ Oui",
         "btn_sello_no": "❌ Non",
         "sello_registrado": "Enregistré.",
+        "checklist_pregunta": "Avant de partir : pneus, feux et freins sont-ils en bon état, et le chargement bien arrimé ?",
+        "btn_checklist_ok": "✅ Tout va bien",
+        "btn_checklist_mal": "⚠️ Il y a un problème",
+        "checklist_registrado": "Enregistré. Merci.",
         "incidencia_ayuda": "Dites-moi ce qui s'est passé : envoyez une note vocale 🎤 ou écrivez ici.",
         "inc_elige": "Que s'est-il passé ?",
         "btn_inc_averia": "🔧 Panne",
@@ -644,6 +660,10 @@ TEXTOS = {
         "btn_sello_si": "✅ Sì",
         "btn_sello_no": "❌ No",
         "sello_registrado": "Registrato.",
+        "checklist_pregunta": "Prima di partire: pneumatici, luci e freni sono a posto, e il carico è ben assicurato?",
+        "btn_checklist_ok": "✅ Tutto a posto",
+        "btn_checklist_mal": "⚠️ C'è un problema",
+        "checklist_registrado": "Registrato. Grazie.",
         "incidencia_ayuda": "Dimmi cosa è successo: inviami una nota vocale 🎤 o scrivi qui.",
         "inc_elige": "Cosa è successo?",
         "btn_inc_averia": "🔧 Guasto",
@@ -734,6 +754,10 @@ TEXTOS = {
         "btn_sello_si": "✅ Sim",
         "btn_sello_no": "❌ Não",
         "sello_registrado": "Registado.",
+        "checklist_pregunta": "Antes de partir: pneus, luzes e travões estão bem, e a carga está bem presa?",
+        "btn_checklist_ok": "✅ Tudo bem",
+        "btn_checklist_mal": "⚠️ Há um problema",
+        "checklist_registrado": "Registado. Obrigado.",
         "incidencia_ayuda": "Diz-me o que aconteceu: envia-me uma nota de voz 🎤 ou escreve aqui.",
         "inc_elige": "O que aconteceu?",
         "btn_inc_averia": "🔧 Avaria",
@@ -824,6 +848,10 @@ TEXTOS = {
         "btn_sello_si": "✅ Ja",
         "btn_sello_no": "❌ Nein",
         "sello_registrado": "Erfasst.",
+        "checklist_pregunta": "Vor der Abfahrt: Sind Reifen, Licht und Bremsen in Ordnung und die Ladung gut gesichert?",
+        "btn_checklist_ok": "✅ Alles in Ordnung",
+        "btn_checklist_mal": "⚠️ Es gibt ein Problem",
+        "checklist_registrado": "Erfasst. Danke.",
         "incidencia_ayuda": "Sag mir, was passiert ist: Schick mir eine Sprachnachricht 🎤 oder schreib hier.",
         "inc_elige": "Was ist passiert?",
         "btn_inc_averia": "🔧 Panne",
@@ -914,6 +942,10 @@ TEXTOS = {
         "btn_sello_si": "✅ نعم",
         "btn_sello_no": "❌ لا",
         "sello_registrado": "تم التسجيل.",
+        "checklist_pregunta": "قبل الانطلاق: هل الإطارات والأضواء والفرامل بحالة جيدة والحمولة مثبتة جيدًا؟",
+        "btn_checklist_ok": "✅ كل شيء جيد",
+        "btn_checklist_mal": "⚠️ هناك مشكلة",
+        "checklist_registrado": "تم التسجيل. شكرًا.",
         "incidencia_ayuda": "أخبرني بما حدث: أرسل لي رسالة صوتية 🎤 أو اكتب هنا.",
         "inc_elige": "ماذا حدث؟",
         "btn_inc_averia": "🔧 عطل",
@@ -1290,6 +1322,23 @@ async def send_next_hito(chat_id, chofer, bot, chat_data=None):
         await bot.send_message(chat_id=chat_id, text=texto_resumen)
         return
 
+    # Checklist de salida (2026-07-30): se pregunta UNA vez, antes del primer hito de un
+    # viaje que todavía no ha arrancado (0 hitos completados = nadie ha tocado nada
+    # todavía) -- comprobado sobre ejecucion_evento, no sobre un flag en chat_data (que se
+    # pierde si el bot se reinicia; esto es append-only y sobrevive).
+    if completados == 0:
+        ya_checklist = ejecutar_con_reintentos(
+            lambda: supabase.table("ejecucion_evento").select("id").eq("viaje_id", viaje["id"]).eq("tipo", "checklist_salida").limit(1).execute(),
+            contexto={"accion": "comprobar_checklist_salida", "viaje_id": viaje["id"]},
+        )
+        if not ya_checklist.data:
+            await bot.send_message(
+                chat_id=chat_id,
+                text=t(chofer, "checklist_pregunta"),
+                reply_markup=checklist_salida_keyboard(chofer, viaje["id"]),
+            )
+            return
+
     idioma = chofer.get("idioma", "es")
     texto = f"Viaje {ref} — {completados}/{total} hitos\n\n"
     texto += build_hito_message(pendiente, pendiente["orden"], total, idioma=idioma)
@@ -1383,6 +1432,19 @@ def sello_keyboard(chofer, hito_id):
     return InlineKeyboardMarkup([[
         InlineKeyboardButton(t(chofer, "btn_sello_si"), callback_data=f"sello:si:{hito_id}"),
         InlineKeyboardButton(t(chofer, "btn_sello_no"), callback_data=f"sello:no:{hito_id}"),
+    ]])
+
+
+# Checklist de salida (2026-07-30) -- caso real del usuario: un camión arrancó con el
+# remolque cambiado sin avisar, detectado tarde por un WhatsApp de viva voz del chófer.
+# Una sola pregunta combinada (no una lista larga) -- "la gente es vaga por naturaleza,
+# cuanto menos tenga que hacer, mejor" (decisión explícita del usuario). Distinto del
+# checklist de enganche (23.C.5, que ya existe para cuando se cambia de remolque en
+# ruta) -- este se pregunta UNA vez al arrancar el viaje, antes del primer hito.
+def checklist_salida_keyboard(chofer, viaje_id):
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton(t(chofer, "btn_checklist_ok"), callback_data=f"checklist:ok:{viaje_id}"),
+        InlineKeyboardButton(t(chofer, "btn_checklist_mal"), callback_data=f"checklist:mal:{viaje_id}"),
     ]])
 
 
@@ -2664,6 +2726,52 @@ async def cb_sello(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text(t(chofer, "sello_registrado"))
 
 
+async def cb_checklist_salida(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Registra la respuesta del checklist de salida y, si hay algo mal, crea una
+    incidencia real (no una notificación pasiva) para que el gestor lo sepa ANTES de
+    que el camión arranque -- justo el caso real que motivó este ítem (cambio de
+    remolque sin avisar, detectado tarde). Tras registrar, continúa mostrando el
+    primer hito (llama a send_next_hito), el checklist no bloquea la operativa."""
+    query = update.callback_query
+    await query.answer()
+
+    _, respuesta, viaje_id = query.data.split(":")
+    chat_id = str(query.message.chat_id)
+
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
+        await query.edit_message_text(t("es", "no_vinculado"))
+        return
+
+    ok = respuesta == "ok"
+    ejecutar_con_reintentos(
+        lambda: supabase.table("ejecucion_evento").insert({
+            "viaje_id": viaje_id,
+            "chofer_id": chofer["id"],
+            "tipo": "checklist_salida",
+            "detalle": respuesta,
+        }).execute(),
+        contexto={"accion": "registrar_checklist_salida", "viaje_id": viaje_id, "respuesta": respuesta},
+    )
+
+    if not ok:
+        v = ejecutar_con_reintentos(
+            lambda: supabase.table("viaje").select("referencia").eq("id", viaje_id).execute(),
+            contexto={"accion": "checklist_salida_buscar_viaje", "viaje_id": viaje_id},
+        )
+        ref = (v.data[0].get("referencia") if v.data else None) or viaje_id[:8]
+        await alertar_gestor(
+            chofer["empresa_id"],
+            viaje_id,
+            "checklist_salida_fallo",
+            f"⚠️ Checklist de salida con incidencia — Viaje {ref}. Chófer {chofer['nombre']} indicó "
+            f"que algo no está bien (neumáticos/luces/frenos/carga) antes de arrancar.",
+        )
+
+    await query.edit_message_text(t(chofer, "checklist_registrado"))
+    await send_next_hito(chat_id, chofer, ctx.bot, ctx.chat_data)
+
+
 TIPOS_ANOTACION_ENTREGA_DESC = {
     "mercancia_mojada": "btn_anot_mojada",
     "mercancia_danada": "btn_anot_danada",
@@ -3635,6 +3743,7 @@ def create_bot_app():
     app.add_handler(CallbackQueryHandler(cb_incidencia, pattern=r"^inc:"))
     app.add_handler(CallbackQueryHandler(cb_anotacion_entrega, pattern=r"^anot:"))
     app.add_handler(CallbackQueryHandler(cb_sello, pattern=r"^sello:"))
+    app.add_handler(CallbackQueryHandler(cb_checklist_salida, pattern=r"^checklist:"))
     app.add_handler(CallbackQueryHandler(cb_cancelar, pattern=r"^cancelar$"))
     app.add_handler(CallbackQueryHandler(cb_cotizar_confirmar, pattern=r"^cotizar_confirmar$"))
     app.add_handler(CallbackQueryHandler(cb_cotizar_cancelar, pattern=r"^cotizar_cancelar$"))

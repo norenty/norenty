@@ -242,10 +242,15 @@ async def test_e2e_flujo_completo_start_hito_llegada_pod_completar(monkeypatch):
     app, api = make_app(monkeypatch, fake_db)
     await app.initialize()
     try:
-        # 1) /start CODIGO -> vincula + envía hito 1 (recogida) con botón "pre_llegada:h1"
+        # 1) /start CODIGO -> vincula + checklist de salida (0 hitos completados) ->
+        #    tras responder, envía hito 1 (recogida) con botón "pre_llegada:h1"
         await app.process_update(command_update(app, f"/start {CHOFER_ID}"))
         assert fake_db.tables["chofer"][0]["chat_id"] == str(CHAT_ID)
         assert any("Vinculado correctamente" in s["text"] for s in api.sent)
+        assert any("sean" in s.get("text", "") or "neumáticos" in s.get("text", "") for s in api.sent)
+        msg_checklist = ultimo_mensaje_bot(app, api)
+        await app.process_update(callback_update(app, "checklist:ok:v1", msg_checklist))
+        assert fake_db.tables["ejecucion_evento"][0]["tipo"] == "checklist_salida"
         assert any("RECOGIDA" in s.get("text", "") for s in api.sent)
         msg_hito1 = ultimo_mensaje_bot(app, api)
 
@@ -490,6 +495,121 @@ async def test_e2e_sello_no_dispara_incidencia_automatica(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_e2e_checklist_salida_ok_no_dispara_incidencia(monkeypatch):
+    """Checklist de salida (2026-07-30): con 0 hitos completados, /start pregunta
+    ANTES de mostrar el hito 1. Responder 'Todo correcto' registra el evento y
+    no crea incidencia."""
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": None,
+    }]
+    fake_db.tables["viaje"] = [{
+        "id": "v1", "chofer_id": CHOFER_ID, "empresa_id": "e1", "estado": "en_curso", "referencia": "VJ-1",
+    }]
+    fake_db.tables["hito"] = [
+        {
+            "id": "h1", "viaje_id": "v1", "orden": 1, "tipo": "recogida", "direccion": "Origen",
+            "estado": "pendiente",
+            "viaje": {"id": "v1", "chofer_id": CHOFER_ID, "estado": "en_curso", "referencia": "VJ-1"},
+        },
+    ]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": None}]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(command_update(app, f"/start {CHOFER_ID}"))
+        assert any("neumáticos" in s.get("text", "") for s in api.sent)
+        assert not any("RECOGIDA" in s.get("text", "") for s in api.sent)
+        msg_checklist = ultimo_mensaje_bot(app, api)
+
+        await app.process_update(callback_update(app, "checklist:ok:v1", msg_checklist))
+
+        eventos = [e for e in fake_db.tables["ejecucion_evento"] if e.get("tipo") == "checklist_salida"]
+        assert len(eventos) == 1
+        assert eventos[0]["detalle"] == "ok"
+        assert not fake_db.tables.get("incidencia")
+        # Tras responder, SÍ se muestra el hito 1 -- el checklist no bloquea la operativa.
+        assert any("RECOGIDA" in s.get("text", "") for s in api.sent)
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_e2e_checklist_salida_mal_dispara_incidencia(monkeypatch):
+    """Responder 'Hay algo mal' crea una incidencia real (checklist_salida_fallo)
+    para que el gestor lo sepa antes de que el camión arranque."""
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": None,
+    }]
+    fake_db.tables["viaje"] = [{
+        "id": "v1", "chofer_id": CHOFER_ID, "empresa_id": "e1", "estado": "en_curso", "referencia": "VJ-1",
+    }]
+    fake_db.tables["hito"] = [
+        {
+            "id": "h1", "viaje_id": "v1", "orden": 1, "tipo": "recogida", "direccion": "Origen",
+            "estado": "pendiente",
+            "viaje": {"id": "v1", "chofer_id": CHOFER_ID, "estado": "en_curso", "referencia": "VJ-1"},
+        },
+    ]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": None}]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(command_update(app, f"/start {CHOFER_ID}"))
+        msg_checklist = ultimo_mensaje_bot(app, api)
+
+        await app.process_update(callback_update(app, "checklist:mal:v1", msg_checklist))
+
+        eventos = [e for e in fake_db.tables["ejecucion_evento"] if e.get("tipo") == "checklist_salida"]
+        assert len(eventos) == 1
+        assert eventos[0]["detalle"] == "mal"
+        incidencias = [i for i in fake_db.tables.get("incidencia", []) if i.get("tipo") == "checklist_salida_fallo"]
+        assert len(incidencias) == 1
+        assert incidencias[0]["viaje_id"] == "v1"
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_e2e_checklist_salida_no_se_repite_tras_primer_hito(monkeypatch):
+    """Una vez respondido el checklist, no se vuelve a preguntar aunque
+    send_next_hito se llame de nuevo más tarde (ya hay un ejecucion_evento
+    checklist_salida para ese viaje)."""
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": None,
+    }]
+    fake_db.tables["viaje"] = [{
+        "id": "v1", "chofer_id": CHOFER_ID, "empresa_id": "e1", "estado": "en_curso", "referencia": "VJ-1",
+    }]
+    fake_db.tables["hito"] = [
+        {
+            "id": "h1", "viaje_id": "v1", "orden": 1, "tipo": "recogida", "direccion": "Origen",
+            "estado": "pendiente",
+            "viaje": {"id": "v1", "chofer_id": CHOFER_ID, "estado": "en_curso", "referencia": "VJ-1"},
+        },
+    ]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": None}]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(command_update(app, f"/start {CHOFER_ID}"))
+        msg_checklist = ultimo_mensaje_bot(app, api)
+        await app.process_update(callback_update(app, "checklist:ok:v1", msg_checklist))
+
+        # Segunda llamada a /estado -> NO debe volver a preguntar el checklist.
+        await app.process_update(command_update(app, "/estado"))
+        assert not any("neumáticos" in s.get("text", "") for s in api.sent[-1:])
+        assert any("RECOGIDA" in s.get("text", "") for s in api.sent)
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_e2e_entrega_sin_pod_cuando_empresa_no_lo_requiere(monkeypatch):
     """Mismo flujo que arriba hasta el hito de ENTREGA, pero con
     `empresa.requiere_pod = False`: la entrega se completa SOLA al confirmar
@@ -517,6 +637,8 @@ async def test_e2e_entrega_sin_pod_cuando_empresa_no_lo_requiere(monkeypatch):
     await app.initialize()
     try:
         await app.process_update(command_update(app, f"/start {CHOFER_ID}"))
+        msg_checklist = ultimo_mensaje_bot(app, api)
+        await app.process_update(callback_update(app, "checklist:ok:v1", msg_checklist))
         assert any("ENTREGA" in s.get("text", "") for s in api.sent)
         msg_hito = ultimo_mensaje_bot(app, api)
 

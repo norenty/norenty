@@ -45,6 +45,7 @@ export const TIPO_INCIDENCIA_LABEL = {
   retraso: "Retraso",
   sin_pod: "Sin foto de albarán",
   entrega_sin_sello: "Entrega sin sello/firma",
+  checklist_salida_fallo: "Checklist de salida con incidencia",
   otro: "Otro",
 };
 
