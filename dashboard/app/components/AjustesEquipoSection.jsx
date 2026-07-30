@@ -49,6 +49,10 @@ export default function AjustesEquipoSection({
   vacacionesPendientes,
   onResolverVacacion,
   vacacionAccionandoId,
+  sugerenciaRedistribucion,
+  onAplicarSugerenciaRedistribucion,
+  onDescartarSugerenciaRedistribucion,
+  aplicandoSugerenciaId,
 }) {
   // 17.G.3 (auditoría de asignación, 2026-07-23): con muchos chóferes (caso
   // real: 80 en la empresa de prueba "Transportes Pepito") esta lista se
@@ -524,20 +528,53 @@ export default function AjustesEquipoSection({
               </div>
               <button
                 disabled={vacacionAccionandoId === v.id}
-                onClick={() => onResolverVacacion(v.id, true)}
+                onClick={() => onResolverVacacion(v, true)}
                 className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-brand text-white disabled:opacity-40"
               >
                 <Check size={13} /> Aprobar
               </button>
               <button
                 disabled={vacacionAccionandoId === v.id}
-                onClick={() => onResolverVacacion(v.id, false)}
+                onClick={() => onResolverVacacion(v, false)}
                 className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-border text-ink-secondary disabled:opacity-40"
               >
                 <X size={13} /> Rechazar
               </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {sugerenciaRedistribucion && (
+        <div className="mt-3 p-3 rounded-md bg-blue-50 border border-blue-200">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs text-ink">
+              Sugerencia de redistribución para los chóferes de {sugerenciaRedistribucion.gestorNombre || "el gestor"}{" "}
+              (25.5) — repartidos entre el resto de gestores activos según su carga actual. Aplícala chófer a chófer,
+              o descártala si prefieres decidir a mano en "Asignación de chóferes".
+            </p>
+            <button
+              onClick={onDescartarSugerenciaRedistribucion}
+              className="text-xs text-ink-muted hover:text-ink whitespace-nowrap ml-2"
+            >
+              Descartar
+            </button>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {sugerenciaRedistribucion.items.map((it) => (
+              <div key={it.choferId} className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-md bg-surface">
+                <span className="flex-1 text-ink">{it.choferNombre}</span>
+                <span className="text-xs text-ink-muted">→ {it.gestorSugeridoNombre}</span>
+                <button
+                  disabled={aplicandoSugerenciaId === it.choferId}
+                  onClick={() => onAplicarSugerenciaRedistribucion(it.choferId, it.gestorSugeridoId)}
+                  className="text-xs px-2 py-1 rounded-md bg-brand text-white disabled:opacity-40"
+                >
+                  Aplicar
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </section>

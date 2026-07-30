@@ -4772,4 +4772,19 @@ Diseño propuesto (a validar con el usuario antes de picar código, no antes):
   de pendientes; una consulta SQL directa confirmó `estado='aprobada'` con
   `resuelto_por`/`resuelto_en` grabados. Sin errores de consola en ningún paso. Datos de
   prueba eliminados tras verificar. 535 tests dashboard en verde.
-- [ ] `[LOOP]` **25.5** Sugerencia de redistribución al aprobar (punto 4 del diseño).
+- [x] `[LOOP]` **25.5** — HECHO 2026-07-29. `sugerirRedistribucionVacacion(gestorId)` en
+  `data.js`: reparte los chóferes del gestor de baja entre el resto de gestores
+  activos, priorizando (chófer a chófer, recalculando la carga cada vez) al que menos
+  tenga asignados ya — reparto equilibrado, nunca "todos al mismo". Al aprobar una
+  vacación, `AjustesEquipoSection.jsx` muestra la sugerencia con un botón "Aplicar" por
+  chófer (reutiliza `cambiarGestorChofer`, el mismo que ya usa "Asignación de chóferes"
+  F15.3 — cero código nuevo de reasignación) y un "Descartar" si se prefiere decidir a
+  mano. **Nunca automático**: cada fila requiere un clic explícito.
+  **Verificado en navegador contra dev de punta a punta**: aprobé una vacación real de
+  "Demo" (con 8 chóferes asignados), apareció la sugerencia repartiendo los 8 entre los
+  3 gestores activos; pulsé "Aplicar" en uno y una consulta SQL directa confirmó que el
+  chófer quedó reasignado de verdad al gestor sugerido. Sin errores de consola. Datos de
+  prueba restaurados. 3 tests nuevos (538 dashboard en total, en verde).
+
+**Fase 25 (vacaciones con cobertura mínima) COMPLETA — 25.1 a 25.5, construida y
+verificada de punta a punta 2026-07-29.**

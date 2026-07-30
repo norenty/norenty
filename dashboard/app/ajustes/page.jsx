@@ -13,6 +13,7 @@ import {
   getViajesConGestor, guardarGestorViaje, getIndiceGasoilNacional,
   getSolicitudesAprobacion, resolverSolicitudAprobacion, registrarAuditoria,
   getMisVacaciones, solicitarVacaciones, getVacacionesPendientes, resolverVacacion,
+  sugerirRedistribucionVacacion,
 } from "../../lib/data";
 import RequireRol from "../components/RequireRol";
 import AjustesPerfilSection from "../components/AjustesPerfilSection";
@@ -67,6 +68,8 @@ export default function AjustesPage() {
   const [fechaInicioVacaciones, setFechaInicioVacaciones] = useState("");
   const [fechaFinVacaciones, setFechaFinVacaciones] = useState("");
   const [solicitandoVacaciones, setSolicitandoVacaciones] = useState(false);
+  const [sugerenciaRedistribucion, setSugerenciaRedistribucion] = useState(null);
+  const [aplicandoSugerenciaId, setAplicandoSugerenciaId] = useState(null);
   const [mfaFactores, setMfaFactores] = useState([]);
   const [mfaEnrolando, setMfaEnrolando] = useState(false);
   const [mfaQr, setMfaQr] = useState(null);
@@ -169,15 +172,36 @@ export default function AjustesPage() {
     setSolicitandoVacaciones(false);
   }
 
-  async function onResolverVacacion(vacacionId, aprobar) {
-    setVacacionAccionandoId(vacacionId);
+  async function onResolverVacacion(vacacion, aprobar) {
+    setVacacionAccionandoId(vacacion.id);
     try {
-      await resolverVacacion(vacacionId, aprobar);
+      await resolverVacacion(vacacion.id, aprobar);
       setVacacionesPendientes(await getVacacionesPendientes());
+      // Fase 25.5: al aprobar, sugerir (nunca aplicar sola) una redistribución de
+      // los chóferes de quien se va -- mismo flujo manual de F15.3, pre-rellenado.
+      if (aprobar) {
+        const items = await sugerirRedistribucionVacacion(vacacion.gestor_id);
+        setSugerenciaRedistribucion(items.length ? { gestorNombre: vacacion.gestor?.nombre, items } : null);
+      }
     } catch (err) {
       flash("Error: " + err.message);
     }
     setVacacionAccionandoId(null);
+  }
+
+  async function onAplicarSugerenciaRedistribucion(choferId, gestorId) {
+    setAplicandoSugerenciaId(choferId);
+    try {
+      await cambiarGestorChofer(choferId, gestorId);
+      setSugerenciaRedistribucion((prev) => {
+        if (!prev) return prev;
+        const items = prev.items.filter((it) => it.choferId !== choferId);
+        return items.length ? { ...prev, items } : null;
+      });
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
+    setAplicandoSugerenciaId(null);
   }
 
   async function cambiarGestorChofer(choferId, gestorId) {
@@ -616,6 +640,10 @@ export default function AjustesPage() {
           vacacionesPendientes={vacacionesPendientes}
           onResolverVacacion={onResolverVacacion}
           vacacionAccionandoId={vacacionAccionandoId}
+          sugerenciaRedistribucion={sugerenciaRedistribucion}
+          onAplicarSugerenciaRedistribucion={onAplicarSugerenciaRedistribucion}
+          onDescartarSugerenciaRedistribucion={() => setSugerenciaRedistribucion(null)}
+          aplicandoSugerenciaId={aplicandoSugerenciaId}
         />
       </RequireRol>
 

@@ -261,6 +261,7 @@ const {
   solicitarVacaciones,
   getVacacionesPendientes,
   resolverVacacion,
+  sugerirRedistribucionVacacion,
   getRendimientoGestores,
   getMetricasPorCliente,
   kmAproxViaje,
@@ -1001,6 +1002,47 @@ describe("solicitarVacaciones / getVacacionesPendientes / resolverVacacion (Fase
     expect(TABLES.vacaciones_gestor[0].estado).toBe("aprobada");
     expect(TABLES.vacaciones_gestor[0].resuelto_por).toBe("g-admin");
     expect(TABLES.vacaciones_gestor[0].resuelto_en).toBeTruthy();
+  });
+});
+
+describe("sugerirRedistribucionVacacion (Fase 25, 25.5)", () => {
+  it("reparte los chóferes del gestor de baja al que menos carga tenga, actualizando entre chófer y chófer", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [
+      { auth_user_id: "u1", empresa_id: "emp1", id: "g-admin", activo: false },
+      { id: "g1", empresa_id: "emp1", activo: true }, // se va de vacaciones
+      { id: "g2", empresa_id: "emp1", activo: true }, // ya tiene 1 chófer
+      { id: "g3", empresa_id: "emp1", activo: true }, // 0 chóferes -- debe recibir el primero
+    ];
+    TABLES.chofer = [
+      { id: "c1", nombre: "Ana", empresa_id: "emp1", gestor_id: "g1" },
+      { id: "c2", nombre: "Bruno", empresa_id: "emp1", gestor_id: "g1" },
+      { id: "c3", nombre: "Existente", empresa_id: "emp1", gestor_id: "g2" },
+    ];
+    const r = await sugerirRedistribucionVacacion("g1");
+    expect(r).toHaveLength(2);
+    expect(r[0].gestorSugeridoId).toBe("g3"); // 0 chóferes, menos carga
+    expect(r[1].gestorSugeridoId).toBe("g2"); // tras sumarle a g3, ahora g2 (1) y g3 (1) empatan -- primero en el objeto es g2
+  });
+
+  it("devuelve vacío si el gestor de baja no tiene chóferes", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [
+      { auth_user_id: "u1", empresa_id: "emp1", id: "g-admin", activo: true },
+      { id: "g1", empresa_id: "emp1", activo: true },
+      { id: "g2", empresa_id: "emp1", activo: true },
+    ];
+    TABLES.chofer = [];
+    const r = await sugerirRedistribucionVacacion("g1");
+    expect(r).toEqual([]);
+  });
+
+  it("devuelve vacío si no queda ningún otro gestor activo para repartir", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "emp1", id: "g1", activo: true }];
+    TABLES.chofer = [{ id: "c1", nombre: "Ana", empresa_id: "emp1", gestor_id: "g1" }];
+    const r = await sugerirRedistribucionVacacion("g1");
+    expect(r).toEqual([]);
   });
 });
 

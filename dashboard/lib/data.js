@@ -949,6 +949,39 @@ export async function resolverVacacion(vacacionId, aprobar) {
   if (error) throw error;
 }
 
+/**
+ * Fase 25.5 — sugerencia (NUNCA aplicación automática) de a qué gestor activo
+ * repartir cada chófer de alguien que se va de vacaciones: al que menos chóferes
+ * tenga ya asignados en ese momento (reparto equilibrado), recalculando la carga
+ * chófer a chófer para no mandarlos todos al mismo sitio. Mismo flujo manual que ya
+ * existe en "Asignación de chóferes" (F15.3) — esto solo pre-rellena la sugerencia,
+ * el jefe de tráfico decide chófer por chófer si aplicarla.
+ */
+export async function sugerirRedistribucionVacacion(gestorId) {
+  const empresaId = await getCurrentEmpresaId();
+  const [{ data: choferesDelGestor }, { data: gestoresActivos }, { data: todosChoferes }] = await Promise.all([
+    supabase.from("chofer").select("id, nombre").eq("empresa_id", empresaId).eq("gestor_id", gestorId),
+    supabase.from("gestor").select("id, nombre").eq("empresa_id", empresaId).eq("activo", true).neq("id", gestorId),
+    supabase.from("chofer").select("gestor_id").eq("empresa_id", empresaId),
+  ]);
+  if (!choferesDelGestor?.length || !gestoresActivos?.length) return [];
+
+  const cargaPorGestor = {};
+  gestoresActivos.forEach((g) => { cargaPorGestor[g.id] = 0; });
+  (todosChoferes || []).forEach((c) => { if (c.gestor_id && c.gestor_id in cargaPorGestor) cargaPorGestor[c.gestor_id]++; });
+
+  return choferesDelGestor.map((c) => {
+    const [gestorSugeridoId] = Object.entries(cargaPorGestor).sort((a, b) => a[1] - b[1])[0];
+    cargaPorGestor[gestorSugeridoId]++;
+    return {
+      choferId: c.id,
+      choferNombre: c.nombre,
+      gestorSugeridoId,
+      gestorSugeridoNombre: gestoresActivos.find((g) => g.id === gestorSugeridoId)?.nombre,
+    };
+  });
+}
+
 export async function createCliente({ nombre, cif = null, email = null, telefono = null, notas = null }) {
   if (!nombre || !nombre.trim()) throw new Error("El nombre del cliente es obligatorio");
   const empresaId = await getCurrentEmpresaId();
