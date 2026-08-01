@@ -984,6 +984,9 @@ export async function sugerirRedistribucionVacacion(gestorId) {
 
 export async function createCliente({ nombre, cif = null, email = null, telefono = null, notas = null }) {
   if (!nombre || !nombre.trim()) throw new Error("El nombre del cliente es obligatorio");
+  if (email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    throw new Error("El email del cliente no tiene un formato válido");
+  }
   const empresaId = await getCurrentEmpresaId();
   const { data, error } = await supabase
     .from("cliente")
