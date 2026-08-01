@@ -16,10 +16,20 @@
 
 FROM ghcr.io/project-osrm/osrm-backend:latest AS builder
 
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y curl osmium-tool && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /data
-RUN curl -fL -o spain-latest.osm.pbf https://download.geofabrik.de/europe/spain-latest.osm.pbf
+RUN curl -fL -o spain-full.osm.pbf https://download.geofabrik.de/europe/spain-latest.osm.pbf
+
+# Recorte a solo carreteras principales (autopista/nacional/comarcal) — sin calles
+# residenciales, edificios ni POIs. El objetivo es solo calcular km/tiempo entre
+# ciudades para camiones, no pintar un mapa detallado; esto reduce el fichero y la
+# RAM necesaria en tiempo de ejecución (osrm-routed venía muriendo sin RAM con el
+# extracto completo de España, ver ROADMAP.md).
+RUN osmium tags-filter spain-full.osm.pbf \
+    w/highway=motorway,motorway_link,trunk,trunk_link,primary,primary_link,secondary,secondary_link,tertiary,tertiary_link \
+    -o spain-latest.osm.pbf --overwrite && rm spain-full.osm.pbf
+
 RUN osrm-extract -p /opt/car.lua spain-latest.osm.pbf
 RUN osrm-contract spain-latest.osrm
 
