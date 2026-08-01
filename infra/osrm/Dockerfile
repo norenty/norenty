@@ -21,10 +21,9 @@ RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /data
 RUN curl -fL -o spain-latest.osm.pbf https://download.geofabrik.de/europe/spain-latest.osm.pbf
 RUN osrm-extract -p /opt/car.lua spain-latest.osm.pbf
-RUN osrm-partition spain-latest.osrm
-RUN osrm-customize spain-latest.osrm
+RUN osrm-contract spain-latest.osrm
 
 FROM ghcr.io/project-osrm/osrm-backend:latest
 COPY --from=builder /data /data
 EXPOSE 5000
-CMD ["osrm-routed", "--algorithm", "mld", "/data/spain-latest.osrm"]
+CMD ["osrm-routed", "--algorithm", "ch", "/data/spain-latest.osrm"]
