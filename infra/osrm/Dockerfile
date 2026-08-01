@@ -19,7 +19,7 @@ FROM ghcr.io/project-osrm/osrm-backend:latest AS builder
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /data
-RUN curl -O https://download.geofabrik.de/europe/spain-latest.osm.pbf
+RUN curl -fL -o spain-latest.osm.pbf https://download.geofabrik.de/europe/spain-latest.osm.pbf
 RUN osrm-extract -p /opt/car.lua spain-latest.osm.pbf
 RUN osrm-partition spain-latest.osrm
 RUN osrm-customize spain-latest.osrm
