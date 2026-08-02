@@ -256,7 +256,11 @@ export default function NuevoViajeWizard() {
       }
       // 18.A.2 (caso b): la viabilidad no daba 100% -- el viaje se creó pero
       // queda pendiente de aprobación del jefe de tráfico antes de arrancar.
-      if (result.pendienteAprobacion) {
+      if (result.avisoVueltaCasa) {
+        // Decisión 2026-08-02: regla dura de vuelta a casa -- mensaje propio,
+        // más específico que el genérico de viabilidad de abajo.
+        alert(`Este viaje se ha creado como pendiente de aprobación: ${result.avisoVueltaCasa.mensaje} Un admin o gestor operativo debe aprobarlo en Ajustes → Equipo.`);
+      } else if (result.pendienteAprobacion) {
         alert("Este viaje se ha creado como pendiente de aprobación: la ventana horaria no parece viable con los descansos legales obligatorios. Un admin o gestor operativo debe aprobarlo en Ajustes → Equipo antes de que arranque.");
       }
       // ROADMAP 20.6: la carga declarada supera el seguro máximo de la empresa.

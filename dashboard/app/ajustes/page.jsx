@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { getSession, signOut, signOutTodasLasSesiones } from "../../lib/auth";
 import {
-  VELOCIDAD_PLANIFICACION_KMH, getInvitaciones, createInvitacion, deleteInvitacion, getBotHeartbeat,
+  VELOCIDAD_PLANIFICACION_KMH, UMBRAL_VUELTA_CASA_KM_DEFAULT, guardarUmbralVueltaCasaEmpresa, getInvitaciones, createInvitacion, deleteInvitacion, getBotHeartbeat,
   getGestoresEmpresa, actualizarRolGestor, actualizarRolesGestor, desactivarGestor, reactivarGestor, INVITACION_VALIDEZ_DIAS,
   guardarNombreEmpresa, getBasesEmpresa, crearBaseEmpresa, eliminarBaseEmpresa, guardarCosteKmEmpresa, guardarVelocidadEmpresa,
   guardarDesgloseCosteEmpresa, guardarObjetivoPuntualidadEmpresa, guardarMargenObjetivoEmpresa,
@@ -36,6 +36,7 @@ export default function AjustesPage() {
   const [margenObjetivo, setMargenObjetivo] = useState("");
   const [valorAseguradoMaximo, setValorAseguradoMaximo] = useState("");
   const [velocidadPlanificacion, setVelocidadPlanificacion] = useState("");
+  const [umbralVueltaCasa, setUmbralVueltaCasa] = useState("");
   const [precioGasoil, setPrecioGasoil] = useState("");
   const [costePeaje, setCostePeaje] = useState("");
   const [dietaNoche, setDietaNoche] = useState("");
@@ -132,6 +133,7 @@ export default function AjustesPage() {
           setMargenObjetivo(emp?.margen_objetivo_pct != null ? String(emp.margen_objetivo_pct) : "");
           setValorAseguradoMaximo(emp?.valor_asegurado_maximo_eur != null ? String(emp.valor_asegurado_maximo_eur) : "");
           setVelocidadPlanificacion(emp?.velocidad_planificacion_kmh != null ? String(emp.velocidad_planificacion_kmh) : "");
+          setUmbralVueltaCasa(emp?.umbral_vuelta_casa_km != null ? String(emp.umbral_vuelta_casa_km) : "");
           setPrecioGasoil(emp?.precio_gasoil_litro != null ? String(emp.precio_gasoil_litro) : "");
           setCostePeaje(emp?.coste_peaje_km != null ? String(emp.coste_peaje_km) : "");
           setDietaNoche(emp?.dieta_noche_eur != null ? String(emp.dieta_noche_eur) : "");
@@ -389,6 +391,18 @@ export default function AjustesPage() {
     try {
       await guardarVelocidadEmpresa(empresa.id, velocidadPlanificacion);
       flash("Velocidad de planificación guardada");
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
+    setGuardando(false);
+  }
+
+  async function guardarUmbralVueltaCasa() {
+    if (!empresa) return;
+    setGuardando(true);
+    try {
+      await guardarUmbralVueltaCasaEmpresa(empresa.id, umbralVueltaCasa);
+      flash("Umbral de vuelta a casa guardado");
     } catch (err) {
       flash("Error: " + err.message);
     }
@@ -686,6 +700,10 @@ export default function AjustesPage() {
         setVelocidadPlanificacion={setVelocidadPlanificacion}
         guardarVelocidad={guardarVelocidad}
         velocidadPlanificacionDefault={VELOCIDAD_PLANIFICACION_KMH}
+        umbralVueltaCasa={umbralVueltaCasa}
+        setUmbralVueltaCasa={setUmbralVueltaCasa}
+        guardarUmbralVueltaCasa={guardarUmbralVueltaCasa}
+        umbralVueltaCasaDefault={UMBRAL_VUELTA_CASA_KM_DEFAULT}
         precioGasoil={precioGasoil}
         setPrecioGasoil={setPrecioGasoil}
         costePeaje={costePeaje}

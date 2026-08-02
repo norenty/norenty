@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // --- Mock de Supabase: query builder en memoria sobre tablas fake ---
 let TABLES = {};
@@ -316,6 +316,9 @@ const {
   getEmisionesCO2,
   FACTOR_CO2_DIESEL_KG_LITRO,
   getAvisoRemolqueRequeridoViaje,
+  guardarCiudadResidenciaChofer,
+  guardarUmbralVueltaCasaEmpresa,
+  UMBRAL_VUELTA_CASA_KM_DEFAULT,
   actualizarCliente,
   desactivarCliente,
   asignarClienteAViaje,
@@ -369,6 +372,68 @@ describe("validarNifCif (auditoría 2026-08-01: dígito de control real, no solo
   });
   it("es insensible a mayúsculas/minúsculas y espacios", () => {
     expect(validarNifCif(" 12345678z ")).toBe(true);
+  });
+});
+
+describe("guardarCiudadResidenciaChofer (0084 — geocodifica una vez al guardar)", () => {
+  const realFetch = global.fetch;
+  afterEach(() => { global.fetch = realFetch; });
+
+  it("geocodifica la ciudad y guarda lat/lon junto al texto", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.chofer = [{ id: "ch1", empresa_id: "e1" }];
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ([{ lat: "40.4168", lon: "-3.7038", display_name: "Madrid, España" }]),
+    }));
+    await guardarCiudadResidenciaChofer("ch1", "Madrid");
+    expect(TABLES.chofer[0].ciudad_residencia).toBe("Madrid");
+    expect(TABLES.chofer[0].ciudad_residencia_lat).toBe(40.4168);
+    expect(TABLES.chofer[0].ciudad_residencia_lon).toBe(-3.7038);
+  });
+
+  it("si Nominatim falla, guarda igual el texto sin coordenadas (degradación segura)", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.chofer = [{ id: "ch1", empresa_id: "e1" }];
+    global.fetch = vi.fn(async () => { throw new Error("network down"); });
+    // Ciudad DISTINTA a la del test anterior -- buscarDireccion cachea por
+    // texto de búsqueda (módulo-level), "Madrid" ya devolvería el resultado
+    // cacheado sin llamar a fetch, dando un falso positivo aquí.
+    await guardarCiudadResidenciaChofer("ch1", "Valladolid");
+    expect(TABLES.chofer[0].ciudad_residencia).toBe("Valladolid");
+    expect(TABLES.chofer[0].ciudad_residencia_lat).toBeNull();
+  });
+
+  it("ciudad vacía limpia el dato sin llamar a Nominatim", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.chofer = [{ id: "ch1", empresa_id: "e1", ciudad_residencia: "Madrid", ciudad_residencia_lat: 40.4, ciudad_residencia_lon: -3.7 }];
+    global.fetch = vi.fn();
+    await guardarCiudadResidenciaChofer("ch1", "");
+    expect(TABLES.chofer[0].ciudad_residencia).toBeNull();
+    expect(TABLES.chofer[0].ciudad_residencia_lat).toBeNull();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("guardarUmbralVueltaCasaEmpresa", () => {
+  it("guarda el umbral en km", async () => {
+    TABLES.empresa = [{ id: "e1", umbral_vuelta_casa_km: 150 }];
+    await guardarUmbralVueltaCasaEmpresa("e1", "200");
+    expect(TABLES.empresa[0].umbral_vuelta_casa_km).toBe(200);
+  });
+
+  it("vacío usa el default", async () => {
+    TABLES.empresa = [{ id: "e1", umbral_vuelta_casa_km: 999 }];
+    await guardarUmbralVueltaCasaEmpresa("e1", "");
+    expect(TABLES.empresa[0].umbral_vuelta_casa_km).toBe(UMBRAL_VUELTA_CASA_KM_DEFAULT);
+  });
+
+  it("rechaza valores <= 0", async () => {
+    TABLES.empresa = [{ id: "e1" }];
+    await expect(guardarUmbralVueltaCasaEmpresa("e1", "0")).rejects.toThrow("mayor que 0");
   });
 });
 
@@ -4462,6 +4527,94 @@ describe("createViaje acepta precio (7A.11)", () => {
     expect(pendienteAprobacion).toBe(false);
     expect(viaje.estado).toBe("planificado");
     expect(TABLES.solicitud_aprobacion).toHaveLength(0);
+  });
+
+  describe("regla dura de vuelta a casa (decisión 2026-08-02)", () => {
+    const VIERNES_MEDIODIA = "2026-01-02T12:00:00Z"; // 2 enero 2026 = viernes
+    const MIERCOLES_MEDIODIA = "2026-01-07T12:00:00Z"; // 7 enero 2026 = miércoles
+
+    beforeEach(() => {
+      SESSION = { user: { id: "u1" } };
+      TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+      TABLES.viaje = [];
+      TABLES.vehiculo = [];
+      TABLES.solicitud_aprobacion = [];
+      TABLES.chofer = [{ id: "ch1", ciudad_residencia: "Madrid", ciudad_residencia_lat: 40.4, ciudad_residencia_lon: -3.7 }];
+      TABLES.empresa = [{ id: "e1", umbral_vuelta_casa_km: 150 }];
+    });
+
+    // Ventana MUY amplia (días, no horas) a propósito -- para aislar la regla de
+    // vuelta a casa de calcularAvisosViabilidad (18.A.2), que marcaría estos
+    // mismos hitos como "no viable" por horas si la ventana fuera ajustada,
+    // contaminando el resultado de pendienteAprobacion con OTRA causa.
+    const hitosViernesLejos = [
+      { direccion: "Madrid", lat: 40.4, lon: -3.7, ventana_inicio: "2025-12-20T08:00:00Z" },
+      { direccion: "Barcelona", lat: 41.4, lon: 2.2, ventana_fin: VIERNES_MEDIODIA },
+    ];
+
+    it("último hito del viernes lejos de casa -> pendiente_aprobacion con solicitud vuelta_a_casa", async () => {
+      osrmMock.mockResolvedValue(300); // muy por encima del umbral de 150 km
+      const { viaje, pendienteAprobacion, avisoVueltaCasa } = await createViaje({
+        referencia: "REF-LEJOS", choferId: "ch1", vehiculoId: null, remolqueId: null, hitos: hitosViernesLejos,
+      });
+      expect(pendienteAprobacion).toBe(true);
+      expect(viaje.estado).toBe("pendiente_aprobacion");
+      expect(avisoVueltaCasa.kmDistancia).toBe(300);
+      expect(TABLES.solicitud_aprobacion).toHaveLength(1);
+      expect(TABLES.solicitud_aprobacion[0].tipo).toBe("vuelta_a_casa");
+    });
+
+    it("dentro del umbral -> planificado, sin solicitud", async () => {
+      osrmMock.mockResolvedValue(50); // por debajo de 150 km
+      const { viaje, pendienteAprobacion } = await createViaje({
+        referencia: "REF-CERCA", choferId: "ch1", vehiculoId: null, remolqueId: null, hitos: hitosViernesLejos,
+      });
+      expect(pendienteAprobacion).toBe(false);
+      expect(viaje.estado).toBe("planificado");
+      expect(TABLES.solicitud_aprobacion).toHaveLength(0);
+    });
+
+    it("el último hito de la semana NO cae en viernes -> no se evalúa la regla", async () => {
+      osrmMock.mockResolvedValue(300);
+      const hitosMiercoles = [
+        { direccion: "Madrid", lat: 40.4, lon: -3.7, ventana_inicio: "2025-12-20T08:00:00Z" },
+        { direccion: "Barcelona", lat: 41.4, lon: 2.2, ventana_fin: MIERCOLES_MEDIODIA },
+      ];
+      const { viaje, pendienteAprobacion } = await createViaje({
+        referencia: "REF-MIERCOLES", choferId: "ch1", vehiculoId: null, remolqueId: null, hitos: hitosMiercoles,
+      });
+      expect(pendienteAprobacion).toBe(false);
+      expect(viaje.estado).toBe("planificado");
+    });
+
+    it("chófer sin ciudad de residencia geocodificada -> no bloquea (falta de dato, no se inventa)", async () => {
+      TABLES.chofer = [{ id: "ch1", ciudad_residencia: null, ciudad_residencia_lat: null, ciudad_residencia_lon: null }];
+      osrmMock.mockResolvedValue(300);
+      const { viaje, pendienteAprobacion } = await createViaje({
+        referencia: "REF-SIN-DATO", choferId: "ch1", vehiculoId: null, remolqueId: null, hitos: hitosViernesLejos,
+      });
+      expect(pendienteAprobacion).toBe(false);
+      expect(viaje.estado).toBe("planificado");
+    });
+
+    it("umbral configurado más alto por la empresa evita el bloqueo con la misma distancia", async () => {
+      TABLES.empresa = [{ id: "e1", umbral_vuelta_casa_km: 400 }];
+      osrmMock.mockResolvedValue(300); // por debajo del umbral personalizado de 400
+      const { viaje, pendienteAprobacion } = await createViaje({
+        referencia: "REF-UMBRAL-ALTO", choferId: "ch1", vehiculoId: null, remolqueId: null, hitos: hitosViernesLejos,
+      });
+      expect(pendienteAprobacion).toBe(false);
+      expect(viaje.estado).toBe("planificado");
+    });
+
+    it("sin chófer asignado -> no se evalúa (nada que comprobar)", async () => {
+      osrmMock.mockResolvedValue(300);
+      const { viaje, pendienteAprobacion } = await createViaje({
+        referencia: "REF-SIN-CHOFER", choferId: null, vehiculoId: null, remolqueId: null, hitos: hitosViernesLejos,
+      });
+      expect(pendienteAprobacion).toBe(false);
+      expect(viaje.estado).toBe("planificado");
+    });
   });
 });
 

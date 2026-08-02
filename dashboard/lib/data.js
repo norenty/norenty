@@ -5217,11 +5217,78 @@ export async function guardarTelefonoChofer(choferId, telefonoStr) {
  * ahora -- el algoritmo de restricción sobre él es un ítem de planificación
  * aparte, no se improvisa aquí.
  */
+/** Geocodifica UNA VEZ al guardar (0084) -- no en cada viaje, para no abusar
+ * de Nominatim (ver política de uso en `buscarDireccion`). Si no encuentra la
+ * ciudad o Nominatim no responde, guarda igualmente el texto sin coordenadas
+ * -- degradación segura, misma filosofía que el resto de geocoding aquí. */
 export async function guardarCiudadResidenciaChofer(choferId, ciudadStr) {
   const c = (ciudadStr ?? "").toString().trim();
   const empresaId = await getCurrentEmpresaId();
-  const { error } = await supabase.from("chofer").update({ ciudad_residencia: c || null }).eq("id", choferId).eq("empresa_id", empresaId);
+  let lat = null;
+  let lon = null;
+  if (c) {
+    const resultados = await buscarDireccion(c);
+    if (resultados[0]) {
+      lat = resultados[0].lat;
+      lon = resultados[0].lon;
+    }
+  }
+  const { error } = await supabase
+    .from("chofer")
+    .update({ ciudad_residencia: c || null, ciudad_residencia_lat: lat, ciudad_residencia_lon: lon })
+    .eq("id", choferId)
+    .eq("empresa_id", empresaId);
   if (error) throw error;
+}
+
+export async function guardarUmbralVueltaCasaEmpresa(empresaId, kmStr) {
+  const km = (kmStr ?? "").toString().trim() === "" ? 150 : Number(kmStr);
+  if (Number.isNaN(km) || km <= 0) throw new Error("el umbral debe ser un número mayor que 0");
+  const { error } = await supabase.from("empresa").update({ umbral_vuelta_casa_km: km }).eq("id", empresaId);
+  if (error) throw error;
+}
+
+export const UMBRAL_VUELTA_CASA_KM_DEFAULT = 150;
+
+/** Regla dura de "vuelta a casa el fin de semana" (decisión 2026-08-02): si el
+ * último hito con ventana_fin de la semana cae en VIERNES y queda a más de
+ * `umbral_vuelta_casa_km` (configurable por empresa, default 150) por
+ * carretera de la ciudad de residencia del chófer, el viaje no se planifica
+ * solo -- nace `pendiente_aprobacion`, igual que 18.A.2 para viabilidad. Nunca
+ * bloquea por FALTA de dato (sin chófer, sin ciudad geocodificada, sin OSRM):
+ * solo bloquea cuando hay evidencia real de que no llega.
+ */
+async function calcularAvisoVueltaCasa(choferId, hitos) {
+  if (!choferId || !hitos?.length) return null;
+  const conVentanaFin = (hitos || []).filter((h) => h.ventana_fin && h.lat != null && h.lat !== "" && h.lon != null && h.lon !== "");
+  if (!conVentanaFin.length) return null;
+
+  const ultimo = [...conVentanaFin].sort((a, b) => new Date(a.ventana_fin) - new Date(b.ventana_fin)).slice(-1)[0];
+  const dia = new Date(ultimo.ventana_fin).getDay(); // 0=domingo ... 5=viernes, 6=sábado
+  if (dia !== 5) return null; // solo evaluamos si el último hito de la semana cae en viernes
+
+  const { data: chofer } = await supabase
+    .from("chofer")
+    .select("ciudad_residencia, ciudad_residencia_lat, ciudad_residencia_lon")
+    .eq("id", choferId)
+    .single();
+  if (!chofer?.ciudad_residencia_lat || !chofer?.ciudad_residencia_lon) return null;
+
+  const { data: empresaRow } = await supabase
+    .from("empresa").select("umbral_vuelta_casa_km").eq("id", await getCurrentEmpresaId()).single();
+  const umbral = Number(empresaRow?.umbral_vuelta_casa_km ?? UMBRAL_VUELTA_CASA_KM_DEFAULT);
+
+  const km = await distanciaPorCarretera(
+    { lat: Number(ultimo.lat), lon: Number(ultimo.lon) },
+    { lat: chofer.ciudad_residencia_lat, lon: chofer.ciudad_residencia_lon }
+  );
+  if (km == null || km <= umbral) return null; // sin dato de ruta, o dentro del umbral: no se bloquea
+
+  return {
+    kmDistancia: Math.round(km),
+    umbralKm: umbral,
+    mensaje: `El último hito del viernes deja al chófer a ${Math.round(km)} km de ${chofer.ciudad_residencia} -- no podría volver a casa el fin de semana (umbral configurado: ${umbral} km).`,
+  };
 }
 
 /** 17.G.10 (2026-07-23): el gestor guarda su propio teléfono para que el bot
@@ -5444,7 +5511,9 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
   // el viaje NO se planifica solo -- nace 'pendiente_aprobacion' y se abre una
   // solicitud para el jefe de tráfico, en vez de dejarlo pasar en silencio.
   const avisosViabilidad = calcularAvisosViabilidad(hitos || []);
-  const estadoInicial = avisosViabilidad.length > 0 ? "pendiente_aprobacion" : "planificado";
+  // Decisión 2026-08-02: regla DURA de vuelta a casa -- ver calcularAvisoVueltaCasa.
+  const avisoVueltaCasa = await calcularAvisoVueltaCasa(choferId, hitos);
+  const estadoInicial = avisosViabilidad.length > 0 || avisoVueltaCasa ? "pendiente_aprobacion" : "planificado";
 
   const { data: viaje, error } = await supabase
     .from("viaje")
@@ -5485,6 +5554,16 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
       solicitado_por: await gestorIdComoAutor(),
     });
   }
+  if (avisoVueltaCasa) {
+    await supabase.from("solicitud_aprobacion").insert({
+      empresa_id,
+      tipo: "vuelta_a_casa",
+      entidad: "viaje",
+      entidad_id: viaje.id,
+      motivo: avisoVueltaCasa.mensaje,
+      solicitado_por: await gestorIdComoAutor(),
+    });
+  }
 
   const validos = (hitos || []).filter((h) => h.direccion || h.tipo);
   if (validos.length) {
@@ -5509,5 +5588,11 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
     }));
     await supabase.from("hito").insert(rows);
   }
-  return { viaje, avisos: validacion.avisos, pendienteAprobacion: avisosViabilidad.length > 0, avisoSeguro };
+  return {
+    viaje,
+    avisos: validacion.avisos,
+    pendienteAprobacion: avisosViabilidad.length > 0 || !!avisoVueltaCasa,
+    avisoSeguro,
+    avisoVueltaCasa,
+  };
 }

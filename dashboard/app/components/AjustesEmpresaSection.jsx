@@ -25,6 +25,10 @@ export default function AjustesEmpresaSection({
   setVelocidadPlanificacion,
   guardarVelocidad,
   velocidadPlanificacionDefault,
+  umbralVueltaCasa,
+  setUmbralVueltaCasa,
+  guardarUmbralVueltaCasa,
+  umbralVueltaCasaDefault,
   precioGasoil,
   setPrecioGasoil,
   costePeaje,
@@ -234,6 +238,40 @@ export default function AjustesEmpresaSection({
             className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
           >
             <Save size={16} /> Guardar velocidad
+          </button>
+        </div>
+      </section>
+
+      <section id="ajustes-vuelta-casa" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
+        <div className="flex items-center gap-2 mb-1">
+          <MapPin size={18} className="text-brand" />
+          <h2 className="text-sm font-medium text-ink">Vuelta a casa el fin de semana</h2>
+        </div>
+        <p className="text-xs text-ink-secondary mb-4">
+          Si el último hito del viernes deja al chófer a más de esta distancia (por carretera) de
+          su ciudad de residencia, el viaje se crea pendiente de aprobación en vez de planificarse
+          solo -- puede haber excepciones reales (costes, ingresos), pero por defecto no deben
+          pasar desapercibidas. Por defecto {umbralVueltaCasaDefault} km. Déjalo vacío para usar ese valor.
+        </p>
+        <div className="flex items-end gap-3">
+          <div className="flex-1 max-w-[12rem]">
+            <label className="block text-xs text-ink-secondary mb-1">Umbral (km)</label>
+            <input
+              type="number"
+              step="any"
+              min="1"
+              value={umbralVueltaCasa}
+              onChange={(e) => setUmbralVueltaCasa(e.target.value)}
+              placeholder={String(umbralVueltaCasaDefault)}
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+            />
+          </div>
+          <button
+            onClick={guardarUmbralVueltaCasa}
+            disabled={guardando}
+            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
+          >
+            <Save size={16} /> Guardar umbral
           </button>
         </div>
       </section>
