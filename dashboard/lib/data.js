@@ -4161,6 +4161,54 @@ export async function getDatosFacturacion({ desde, hasta, clienteId = null } = {
 }
 
 // ==========================================================================
+// Emisiones CO2 (Fase 26, decisión 2026-08-02: fórmula estándar sin API de
+// pago -- litros de gasoil repostado × factor oficial UE, informativo, no
+// certificado GLEC). Reutiliza `gasto_viaje.litros` (tipo='repostaje'), ya
+// existente -- ninguna tabla ni dato nuevo.
+// ==========================================================================
+
+export const FACTOR_CO2_DIESEL_KG_LITRO = 2.68; // factor oficial UE para gasóleo
+
+export async function getEmisionesCO2({ desde, hasta, vehiculoId = null } = {}) {
+  const { desde: d, hasta: h } = resolveRango({ desde, hasta });
+  let query = supabase
+    .from("gasto_viaje")
+    .select("litros, vehiculo_id, viaje_id, created_at, vehiculo(matricula)")
+    .eq("tipo", "repostaje")
+    .not("litros", "is", null)
+    .gte("created_at", d)
+    .lt("created_at", h);
+  if (vehiculoId) query = query.eq("vehiculo_id", vehiculoId);
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const litrosTotal = (data || []).reduce((s, g) => s + Number(g.litros || 0), 0);
+  const porVehiculoLitros = {};
+  const matriculaPorVehiculo = {};
+  (data || []).forEach((g) => {
+    if (!g.vehiculo_id) return;
+    porVehiculoLitros[g.vehiculo_id] = (porVehiculoLitros[g.vehiculo_id] || 0) + Number(g.litros || 0);
+    if (g.vehiculo?.matricula) matriculaPorVehiculo[g.vehiculo_id] = g.vehiculo.matricula;
+  });
+
+  const kg = (litros) => +(litros * FACTOR_CO2_DIESEL_KG_LITRO).toFixed(1);
+
+  return {
+    litrosTotal: +litrosTotal.toFixed(1),
+    co2KgTotal: kg(litrosTotal),
+    co2TonTotal: +(kg(litrosTotal) / 1000).toFixed(2),
+    porVehiculo: Object.entries(porVehiculoLitros)
+      .map(([id, litros]) => ({
+        vehiculoId: id,
+        matricula: matriculaPorVehiculo[id] || null,
+        litros: +litros.toFixed(1),
+        co2Kg: kg(litros),
+      }))
+      .sort((a, b) => b.co2Kg - a.co2Kg),
+  };
+}
+
+// ==========================================================================
 // Facturas (copiando lo que Qargo hace bien: generar la factura sola al
 // validar el POD, migración 0082) — a diferencia de getDatosFacturacion
 // (informe calculado al vuelo), esto es un registro PERSISTENTE con estado

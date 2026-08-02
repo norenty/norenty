@@ -313,6 +313,8 @@ const {
   getDireccionesGuardadas,
   createCliente,
   validarNifCif,
+  getEmisionesCO2,
+  FACTOR_CO2_DIESEL_KG_LITRO,
   actualizarCliente,
   desactivarCliente,
   asignarClienteAViaje,
@@ -4163,6 +4165,49 @@ describe("calcularOcupacion — FTL vs. grupaje (COT.4)", () => {
   it("sin carga (todo vacío): tipo desconocido", () => {
     const r = calcularOcupacion({}, { ldm: 13.6, kg: 24000, m3: 90 });
     expect(r.tipo).toBe("desconocido");
+  });
+});
+
+describe("getEmisionesCO2 (Fase 26 — fórmula estándar UE, sin API de pago)", () => {
+  const ahora = new Date().toISOString();
+
+  it("suma litros de repostaje y aplica el factor UE (2.68 kg CO2/litro)", async () => {
+    TABLES.gasto_viaje = [
+      { viaje_id: "v1", tipo: "repostaje", litros: 100, vehiculo_id: "veh1", created_at: ahora },
+      { viaje_id: "v2", tipo: "repostaje", litros: 50, vehiculo_id: "veh1", created_at: ahora },
+      { viaje_id: "v3", tipo: "peaje", litros: null, vehiculo_id: "veh1", created_at: ahora }, // no es repostaje, se ignora
+    ];
+    const r = await getEmisionesCO2({});
+    expect(r.litrosTotal).toBe(150);
+    expect(r.co2KgTotal).toBe(+(150 * FACTOR_CO2_DIESEL_KG_LITRO).toFixed(1));
+    expect(r.co2TonTotal).toBeCloseTo(r.co2KgTotal / 1000, 2);
+  });
+
+  it("desglosa por vehículo, ordenado de mayor a menor emisión", async () => {
+    TABLES.gasto_viaje = [
+      { viaje_id: "v1", tipo: "repostaje", litros: 20, vehiculo_id: "veh-poco", created_at: ahora },
+      { viaje_id: "v2", tipo: "repostaje", litros: 200, vehiculo_id: "veh-mucho", created_at: ahora },
+    ];
+    const r = await getEmisionesCO2({});
+    expect(r.porVehiculo).toHaveLength(2);
+    expect(r.porVehiculo[0].vehiculoId).toBe("veh-mucho");
+  });
+
+  it("filtra por vehiculoId cuando se pasa", async () => {
+    TABLES.gasto_viaje = [
+      { viaje_id: "v1", tipo: "repostaje", litros: 20, vehiculo_id: "veh1", created_at: ahora },
+      { viaje_id: "v2", tipo: "repostaje", litros: 200, vehiculo_id: "veh2", created_at: ahora },
+    ];
+    const r = await getEmisionesCO2({ vehiculoId: "veh1" });
+    expect(r.litrosTotal).toBe(20);
+  });
+
+  it("sin repostajes devuelve ceros, no lanza", async () => {
+    TABLES.gasto_viaje = [];
+    const r = await getEmisionesCO2({});
+    expect(r.litrosTotal).toBe(0);
+    expect(r.co2KgTotal).toBe(0);
+    expect(r.porVehiculo).toEqual([]);
   });
 });
 

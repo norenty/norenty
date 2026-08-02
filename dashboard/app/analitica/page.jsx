@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Clock, AlertTriangle, Users, CarFront, TrendingUp, History, ClipboardList } from "lucide-react";
+import { Clock, AlertTriangle, Users, CarFront, TrendingUp, History, ClipboardList, Leaf } from "lucide-react";
 import {
   getMetricasPuntualidad,
   getMetricasIncidencias,
@@ -14,6 +14,7 @@ import {
   getMetricasPorCliente,
   getTendenciaVerdadObservada,
   crearSnapshotVerdadObservada,
+  getEmisionesCO2,
 } from "../../lib/data";
 import { fmtEur } from "../../lib/format";
 import ErrorCargaReintentar from "../components/ui/ErrorCargaReintentar";
@@ -27,6 +28,9 @@ const VISTAS = [
   { id: "choferes", label: "Chóferes", icon: Users },
   { id: "flota", label: "Flota", icon: CarFront },
   { id: "rentabilidad", label: "Rentabilidad", icon: TrendingUp },
+  // Emisiones CO2 (Fase 26): informativo, fórmula estándar UE sobre litros de
+  // repostaje ya registrados -- no es un módulo de reporting certificado.
+  { id: "emisiones", label: "Emisiones", icon: Leaf },
   // Gestores (12.5): solo tiene sentido para quien compara personal, no para
   // el propio gestor consultando su día a día — se gatea por rol más abajo.
   { id: "gestores", label: "Gestores", icon: Users, soloAdmin: true },
@@ -185,6 +189,40 @@ function VistaChoferes({ datos }) {
         </tbody>
       </table>
       </div>
+    </div>
+  );
+}
+
+function VistaEmisiones({ datos }) {
+  const maxCo2 = Math.max(1, ...datos.porVehiculo.map((v) => v.co2Kg));
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-3 gap-3">
+        <Card label="Gasoil repostado" value={`${datos.litrosTotal} L`} />
+        <Card label="CO₂ emitido" value={`${datos.co2KgTotal} kg`} />
+        <Card label="CO₂ emitido (Tn)" value={`${datos.co2TonTotal} Tn`} />
+      </div>
+      <p className="text-xs text-ink-muted -mt-2">
+        Cálculo informativo: litros de gasoil repostado × 2,68 kg CO₂/litro (factor oficial UE) — no es un
+        informe certificado (ej. GLEC Framework).
+      </p>
+
+      <SectionCard title="Emisiones por vehículo" noPadding>
+        {datos.porVehiculo.length === 0 ? (
+          <p className="text-sm text-ink-secondary p-4 text-center">Sin repostajes registrados en este periodo.</p>
+        ) : (
+          <div className="p-4 flex flex-col gap-2">
+            {datos.porVehiculo.map((v) => (
+              <Barra
+                key={v.vehiculoId}
+                label={v.matricula || v.vehiculoId.slice(0, 8)}
+                count={v.co2Kg}
+                max={maxCo2}
+              />
+            ))}
+          </div>
+        )}
+      </SectionCard>
     </div>
   );
 }
@@ -519,6 +557,7 @@ export default function Analitica() {
       choferes: getMetricasChoferes,
       flota: getMetricasFlota,
       rentabilidad: getMetricasRentabilidad,
+      emisiones: getEmisionesCO2,
       gestores: getRendimientoGestores,
       clientes: getMetricasPorCliente,
       evolucion: getTendenciaVerdadObservada,
@@ -600,6 +639,7 @@ export default function Analitica() {
           {vista === "choferes" && <VistaChoferes datos={datos} />}
           {vista === "flota" && <VistaFlota datos={datos} />}
           {vista === "rentabilidad" && <VistaRentabilidad datos={datos} comparativa={comparativa} />}
+          {vista === "emisiones" && <VistaEmisiones datos={datos} />}
           {vista === "gestores" && <VistaGestores datos={datos} />}
           {vista === "clientes" && <VistaClientes datos={datos} />}
           {vista === "evolucion" && <VistaEvolucion datos={datos} />}
