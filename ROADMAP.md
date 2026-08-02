@@ -4832,3 +4832,28 @@ Pedido por el usuario, con caso real de su amigo (cambio de camiones sin avisar,
 
 - [x] [LOOP] **Checklist de salida antes de arrancar la ruta** -- HECHO 2026-07-30. Distinto del checklist de enganche (23.C.5, que sigue existiendo para cuando se cambia de remolque en ruta). Disparador real: send_next_hito, cuando 0 hitos del viaje estan completados (nadie ha tocado nada todavia) y no existe ya un ejecucion_evento tipo checklist_salida para ese viaje (comprobacion contra la BD, no un flag en memoria -- sobrevive a un reinicio del bot). Una sola pregunta combinada (neumaticos/luces/frenos/carga asegurada), no una lista larga -- decision explicita del usuario ("la gente es vaga por naturaleza, cuanto menos tenga que hacer, mejor"). Reutiliza el patron pregunta+callback+ejecucion_evento de sello_keyboard (F13.7). Si la respuesta es "Hay algo mal", alertar_gestor() crea una incidencia real (checklist_salida_fallo) -- no una notificacion pasiva -- para que el gestor lo sepa antes de que el camion arranque. Claves i18n en los 8 idiomas. Etiqueta anadida a TIPO_INCIDENCIA_LABEL. 3 tests e2e nuevos + 2 tests existentes actualizados para el nuevo paso del flujo (290 backend en total, todos en verde).
 - [ ] [LOOP] **Alerta proactiva de contradiccion de acoplamiento** -- getContradiccionesAcoplamiento() (23.C.4) ya existe pero es de lectura pasiva (alguien tiene que entrar a mirarla). Falta que dispare una alerta real al gestor (alertar_gestor o notificar_gestor_evento, via un cron/monitor igual que monitor_checkpoint_saltado.py) cuando la posicion derivada de chofer/tractora/remolque no coincide -- exactamente el caso real que describio el usuario (remolque cogido por otro camion sin registrar el cambio). Requiere decidir la frecuencia del monitor (cada cuanto revisa) antes de construir.
+
+---
+
+## FASE 26 -- Ciclo completo de operativa (peticion 2026-08-02, ambicion grande, sin construir todavia)
+
+Peticion del usuario (resumida): optimizacion de rutas, control ESG/emisiones, eficiencia energetica,
+integraciones (ERP/contabilidad/telematica), gestion de almacenes, ciclo completo comercial -> planificacion
+-> ejecucion -> documentacion -> facturacion -> RRHH -> controlling/analitica -> control de flota y
+almacenes. "Control total de la operativa de la empresa."
+
+Por que no se construye todo de golpe: cada pieza es una decision de producto por separado (que API de
+emisiones, WMS propio o integracion con uno existente, RRHH = nominas reales o solo horas/incidencias) --
+construir a ciegas sin decidir cada una seria sobre-ingenieria especulativa (YAGNI). Se deja como direccion
+estrategica.
+
+Ya hecho el mismo dia, como primer paso concreto y acotado de esta ambicion:
+- [x] Filtro completo de viajes por estado (todos/por planificar/planificado/en transporte/entregado/cancelado/bloqueado/marcado) -- 0083_viaje_bloqueado_y_marcado.sql.
+- [x] Factura automatica al validar POD sellado (copiando a Qargo, tras auditoria competitiva) -- 0082_factura_automatica_pod.sql.
+- [x] Validacion real de NIF/CIF/NIE con digito de control (algoritmo oficial, sin API de pago).
+
+- [ ] [DECISIÓN] **Optimizacion de rutas mas alla de ETA punto-a-punto** -- OSRM (ya en produccion, Railway) calcula ruta A->B. Optimizacion de verdad implica multi-parada (TSP/VRP: que orden de entregas minimiza km totales), algoritmo distinto a llamar OSRM mas veces. OSRM ya soporta el servicio "trip" (multi-waypoint con reordenamiento) -- decidir si se usa eso o una heuristica propia.
+- [ ] [DECISIÓN] **Control ESG / emisiones CO2** -- formula estandar sin API de pago: litros de gasoil x factor de emision (UE: ~2.68 kg CO2/litro diesel). El dato ya existe (gasto_viaje.litros). Falta decidir granularidad (por viaje/vehiculo-mes/empresa-año) y si debe cumplir algun estandar de reporting (ej. GLEC Framework) o es solo informativo interno.
+- [ ] [DECISIÓN] **Gestion de almacenes (WMS)** -- categoria de producto DISTINTA a un TMS (stock/ubicaciones en almacen, no viajes en carretera). Antes de construir nada: ¿los clientes de Norenty operan almacen propio, o son puramente transportistas? Si es lo segundo, esto no aplica.
+- [ ] [DECISIÓN] **RRHH real (nominas)** -- ya existe calculo de horas/dietas/extras (23.B) y vacaciones (25). Decidir: ¿Norenty calcula la nomina final o solo exporta datos a una gestoria/software externo (Nominaplus, A3...)? La segunda opcion es mucho mas barata y encaja con el patron ya existente de /facturacion (exportar, no ser el ERP).
+- [ ] [DECISIÓN] **Integraciones (ERP/contabilidad/telematica)** -- depende de que pide CADA cliente real, no hay un "ERP español estandar" unico. Decidir el primer caso real antes de programar un conector generico especulativo (mismo riesgo identificado para "email/PDF con IA" en el informe competitivo de Qargo).
