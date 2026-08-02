@@ -1627,7 +1627,7 @@ Todos `[LOOP]`: sin coste por uso, sin deploy. Construir EN ORDEN. Cada ítem: i
 - [x] `current_empresa_id()` (SECURITY DEFINER, llamable por RPC): revisado el cuerpo — sin parámetros, sin escritura, solo devuelve el propio `empresa_id` del caller, `search_path` fijado. Benigno, el linter lo marca de forma genérica pero no hay vulnerabilidad real.
 - [x] Corregido: `/db/health` usaba la service role key (salta RLS) en endpoint público y devolvía conteo de filas — se quitó el campo `rows` de la respuesta.
 - [x] Corregido: cabeceras de seguridad básicas añadidas en `next.config.js` (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, HSTS).
-- [ ] `[LOOP]` **Content-Security-Policy** — NO añadida todavía: requiere un allowlist cuidadoso de los orígenes reales en uso (Supabase, tiles de Leaflet/OpenStreetMap para el mapa, Sentry) y probarla en navegador real para no romper nada; más seguro hacerlo con tiempo dedicado que a ciegas en un tick de loop. Pendiente antes de desplegar.
+- [x] `[LOOP]` **Content-Security-Policy** — HECHO, obsoleto: ya existe `Content-Security-Policy-Report-Only` en `dashboard/next.config.js` con allowlist (Supabase, Leaflet, Sentry). Revisión 2026-08-02: este ítem quedó desactualizado tras construirse en Fase 9 -- el trabajo real pendiente es pasar de Report-Only a enforcing, ver D.6/9.3.
 - [ ] CORS del backend FastAPI: hoy no tiene `CORSMiddleware` configurado, lo cual es aceptable porque el dashboard no lo llama (habla directo a Supabase). Si en el futuro se añaden endpoints reales consumidos desde el navegador, configurar CORS scoped exactamente al origen del dashboard (nunca wildcard `*` combinado con credenciales).
 
 ---
