@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 import { FileSpreadsheet, Download, Receipt } from "lucide-react";
-import { getDatosFacturacion, getClientes } from "../../lib/data";
+import { getDatosFacturacion, getClientes, getFacturas, marcarFacturaEnviada, marcarFacturaPagada } from "../../lib/data";
 import { fmtEur, fmtKm, fmtFechaCorta } from "../../lib/format";
 import RequireRol from "../components/RequireRol";
 import ErrorCargaReintentar from "../components/ui/ErrorCargaReintentar";
@@ -56,6 +56,97 @@ function exportarExcel(datos) {
   XLSX.writeFile(wb, "facturacion.xlsx");
 }
 
+const ESTADO_FACTURA_LABEL = {
+  borrador: { t: "Borrador", c: "text-ink-secondary bg-surface-alt" },
+  enviada: { t: "Enviada", c: "text-blue-700 bg-blue-50" },
+  pagada: { t: "Pagada", c: "text-estado-ok bg-green-50" },
+};
+
+/** Facturas reales (borrador/enviada/pagada) — la borrador la crea sola el
+ * trigger `crear_factura_automatica_pod` (0082) en cuanto el POD queda válido
+ * Y sellado, copiando lo que Qargo hace bien ("crea la factura de compra sola
+ * al validar el POD"). Aquí solo se avanza el estado, nunca se crea a mano. */
+function FacturasReales() {
+  const [facturas, setFacturas] = useState(null);
+  const [error, setError] = useState(null);
+  const [actualizando, setActualizando] = useState(null);
+
+  function cargar() {
+    setError(null);
+    getFacturas().then(setFacturas).catch((err) => setError(err.message));
+  }
+
+  useEffect(cargar, []);
+
+  async function avanzar(f) {
+    setActualizando(f.id);
+    try {
+      if (f.estado === "borrador") await marcarFacturaEnviada(f.id);
+      else if (f.estado === "enviada") await marcarFacturaPagada(f.id);
+      cargar();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActualizando(null);
+    }
+  }
+
+  if (error) return <ErrorCargaReintentar mensaje="No se pudieron cargar las facturas." onReintentar={cargar} />;
+  if (!facturas) return <p className="text-xs text-ink-muted">Cargando facturas…</p>;
+  if (facturas.length === 0) return null;
+
+  return (
+    <div className="bg-surface border border-border rounded-xl overflow-hidden mb-6">
+      <div className="px-4 py-2 bg-surface-alt text-xs font-medium text-ink-secondary">
+        Facturas — {facturas.length}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-surface-alt text-ink-secondary">
+              <th className="text-left px-3 py-2 font-medium">Viaje</th>
+              <th className="text-left px-3 py-2 font-medium">Cliente</th>
+              <th className="text-left px-3 py-2 font-medium">Importe</th>
+              <th className="text-left px-3 py-2 font-medium">Estado</th>
+              <th className="text-left px-3 py-2 font-medium">Origen</th>
+              <th className="text-left px-3 py-2 font-medium"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {facturas.map((f) => {
+              const estado = ESTADO_FACTURA_LABEL[f.estado];
+              return (
+                <tr key={f.id} className="border-t border-border">
+                  <td className="px-3 py-2 font-mono">{f.referencia || f.viajeId.slice(0, 8)}</td>
+                  <td className="px-3 py-2">{f.cliente || "—"}</td>
+                  <td className="px-3 py-2">{fmtEur(f.importe)}</td>
+                  <td className="px-3 py-2">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estado.c}`}>{estado.t}</span>
+                  </td>
+                  <td className="px-3 py-2 text-ink-muted">
+                    {f.origen === "automatica_pod" ? "Automática (POD)" : "Manual"}
+                  </td>
+                  <td className="px-3 py-2">
+                    {f.estado !== "pagada" && (
+                      <button
+                        onClick={() => avanzar(f)}
+                        disabled={actualizando === f.id}
+                        className="text-xs px-2 py-1 rounded-md border border-border hover:bg-surface-alt disabled:opacity-40"
+                      >
+                        {f.estado === "borrador" ? "Marcar enviada" : "Marcar pagada"}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function FacturacionPage() {
   const [datos, setDatos] = useState(null);
   const [clientes, setClientes] = useState([]);
@@ -87,6 +178,8 @@ export default function FacturacionPage() {
           Viajes completados de los últimos 90 días, listos para exportar a tu gestoría o ERP.
           No calcula IVA ni genera factura — es un export de los datos que ya tienes.
         </p>
+
+        <FacturasReales />
 
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <select

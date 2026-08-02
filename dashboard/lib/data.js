@@ -4078,6 +4078,58 @@ export async function getDatosFacturacion({ desde, hasta, clienteId = null } = {
 }
 
 // ==========================================================================
+// Facturas (copiando lo que Qargo hace bien: generar la factura sola al
+// validar el POD, migración 0082) — a diferencia de getDatosFacturacion
+// (informe calculado al vuelo), esto es un registro PERSISTENTE con estado
+// borrador/enviada/pagada. El trigger `crear_factura_automatica_pod` ya crea
+// la fila sola; estas funciones son solo para LEER y avanzar el estado desde
+// el dashboard, nunca para crear la factura a mano por otro camino que no sea
+// el POD sellado (si un gestor necesita facturar algo sin sello, lo hace fuera
+// de este flujo automático a propósito -- ver 0077, "si no te sellan no cobras").
+// ==========================================================================
+
+export async function getFacturas({ estado = null } = {}) {
+  let query = supabase
+    .from("factura")
+    .select("id, viaje_id, importe, estado, origen, creada_en, enviada_en, pagada_en, viaje(referencia), cliente(nombre, cif)")
+    .order("creada_en", { ascending: false });
+  if (estado) query = query.eq("estado", estado);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []).map((f) => ({
+    id: f.id,
+    viajeId: f.viaje_id,
+    referencia: f.viaje?.referencia || null,
+    cliente: f.cliente?.nombre || null,
+    clienteCif: f.cliente?.cif || null,
+    importe: Number(f.importe),
+    estado: f.estado,
+    origen: f.origen,
+    creadaEn: f.creada_en,
+    enviadaEn: f.enviada_en,
+    pagadaEn: f.pagada_en,
+  }));
+}
+
+export async function marcarFacturaEnviada(id) {
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase
+    .from("factura")
+    .update({ estado: "enviada", enviada_en: new Date().toISOString() })
+    .eq("id", id).eq("empresa_id", empresaId);
+  if (error) throw error;
+}
+
+export async function marcarFacturaPagada(id) {
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase
+    .from("factura")
+    .update({ estado: "pagada", pagada_en: new Date().toISOString() })
+    .eq("id", id).eq("empresa_id", empresaId);
+  if (error) throw error;
+}
+
+// ==========================================================================
 // Verdad observada (ítem 10.8) — registro histórico del error de estimación,
 // base de datos del aprendizaje (Bloque I). Cada snapshot es una FOTO de un
 // periodo: cuánto se desvió lo real de lo estimado, en los ejes ya
