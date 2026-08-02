@@ -49,6 +49,7 @@ export const TIPO_INCIDENCIA_LABEL = {
   sin_pod: "Sin foto de albarán",
   entrega_sin_sello: "Entrega sin sello/firma",
   checklist_salida_fallo: "Checklist de salida con incidencia",
+  acoplamiento_contradiccion: "Contradicción de acoplamiento",
   otro: "Otro",
 };
 
