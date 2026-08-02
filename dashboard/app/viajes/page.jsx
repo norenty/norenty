@@ -2,17 +2,26 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Search, Upload, Download, ChevronDown, Truck } from "lucide-react";
+import { Plus, Search, Upload, Download, ChevronDown, Truck, Flag } from "lucide-react";
 import { getViajesLista } from "../../lib/data";
 import { ESTADO_VIAJE } from "../../lib/labels";
 import EmptyState from "../components/ui/EmptyState";
 
+// Ampliado (2026-08-02, petición del usuario): filtro completo por estado --
+// "por planificar" reusa pendiente_aprobacion (viabilidad <100%, aún sin
+// confirmar) en vez de inventar un estado duplicado. "Marcados" no es un
+// estado real (columna `marcado` ortogonal, ver 0083) -- se trata aparte en
+// getViajesLista, pero convive en la misma lista de filtros porque para el
+// gestor es "una forma más de ver la lista", no un detalle técnico.
 const ESTADOS = [
   { key: null, label: "Todos" },
+  { key: "pendiente_aprobacion", label: "Por planificar", c: "text-estado-riesgo" },
   { key: "planificado", label: "Planificado", c: "text-estado-planificado" },
-  { key: "en_curso", label: "En curso", c: "text-estado-en-curso" },
-  { key: "completado", label: "Completado", c: "text-estado-ok" },
+  { key: "en_curso", label: "En transporte", c: "text-estado-en-curso" },
+  { key: "completado", label: "Entregado", c: "text-estado-ok" },
   { key: "cancelado", label: "Cancelado", c: "text-ink-muted" },
+  { key: "bloqueado", label: "Bloqueado", c: "text-estado-incidencia" },
+  { key: "marcado", label: "Marcado", c: "text-yellow-600" },
 ];
 
 export default function ViajesPage() {
@@ -164,6 +173,9 @@ export default function ViajesPage() {
                   <span className="font-mono text-sm text-ink">{v.referencia}</span>
                   <div className="min-w-0">
                     <div className="text-sm text-ink truncate flex items-center gap-1.5">
+                      {v.marcado && (
+                        <Flag size={13} className="text-yellow-600 shrink-0" fill="currentColor" title={v.marcadoMotivo || "Marcado"} />
+                      )}
                       {v.chofer?.nombre || "Sin asignar"}
                       {/* 18.C.1: sin gestor_id, el viaje es del pool -- visible a
                           todo el equipo, pendiente de adjudicar. */}

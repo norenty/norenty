@@ -14,6 +14,9 @@ export const ESTADO_VIAJE = {
   cancelado: { t: "Cancelado", c: "text-ink-muted", bg: "bg-gray-100" },
   // 18.A.2 (caso b): viabilidad <100%, pendiente de aprobación del jefe de tráfico.
   pendiente_aprobacion: { t: "Pendiente de aprobación", c: "text-estado-riesgo", bg: "bg-orange-50" },
+  // 0083: el gestor lo pausa a propósito (cliente no paga, incidencia grave sin
+  // resolver) -- nadie debe tocarlo hasta que se desbloquee explícitamente.
+  bloqueado: { t: "Bloqueado", c: "text-estado-incidencia", bg: "bg-red-50" },
 };
 
 export const ESTADO_HITO = {

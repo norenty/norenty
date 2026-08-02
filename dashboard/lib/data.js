@@ -366,6 +366,8 @@ export async function getViajes() {
       id: v.id,
       referencia: v.referencia || v.id.slice(0, 8),
       estado: v.estado,
+      marcado: v.marcado || false,
+      marcadoMotivo: v.marcado_motivo || null,
       created_at: v.created_at,
       chofer: v.chofer || { nombre: "Sin asignar", idioma: "" },
       hitosCompletados: completados,
@@ -387,7 +389,10 @@ export async function getViajesLista({ offset = 0, estado = null } = {}) {
     .order("created_at", { ascending: false })
     .range(offset, offset + VIAJES_PAGE);
 
-  if (estado) query = query.eq("estado", estado);
+  // "marcado" no es un estado real de viaje (es ortogonal, un viaje en
+  // cualquier estado puede estar marcado a la vez) -- se trata aparte.
+  if (estado === "marcado") query = query.eq("marcado", true);
+  else if (estado) query = query.eq("estado", estado);
 
   const { data: viajes, error } = await query;
   if (error || !viajes) return { rows: [], hayMas: false };
@@ -416,6 +421,8 @@ export async function getViajesLista({ offset = 0, estado = null } = {}) {
       id: v.id,
       referencia: v.referencia || v.id.slice(0, 8),
       estado: v.estado,
+      marcado: v.marcado || false,
+      marcadoMotivo: v.marcado_motivo || null,
       created_at: v.created_at,
       chofer: v.chofer || { nombre: "Sin asignar", idioma: "" },
       // 18.C.1: sin gestor_id el viaje está "en el pool" (visible a todo el
@@ -431,6 +438,28 @@ export async function getViajesLista({ offset = 0, estado = null } = {}) {
   });
 
   return { rows, hayMas };
+}
+
+/** Marca/desmarca un viaje con un motivo libre (ortogonal al estado -- ver
+ * migración 0083). `motivo` obligatorio al marcar (si no, el marcado no dice
+ * nada útil al resto del equipo); se limpia solo al desmarcar. */
+export async function marcarViaje(id, motivo) {
+  if (!motivo || !motivo.trim()) throw new Error("Indica el motivo para marcar el viaje");
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase
+    .from("viaje")
+    .update({ marcado: true, marcado_motivo: motivo.trim() })
+    .eq("id", id).eq("empresa_id", empresaId);
+  if (error) throw error;
+}
+
+export async function desmarcarViaje(id) {
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase
+    .from("viaje")
+    .update({ marcado: false, marcado_motivo: null })
+    .eq("id", id).eq("empresa_id", empresaId);
+  if (error) throw error;
 }
 
 export async function getViaje(id) {

@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
-  ArrowLeft, MapPin, Package, Clock, Truck, Edit3, Check, X, AlertTriangle, Euro, Gauge, Copy, Share2, History, ChevronDown,
+  ArrowLeft, MapPin, Package, Clock, Truck, Edit3, Check, X, AlertTriangle, Euro, Gauge, Copy, Share2, History, ChevronDown, Flag,
 } from "lucide-react";
 import PodImage from "../../components/PodImage";
 import ErrorCargaReintentar from "../../components/ui/ErrorCargaReintentar";
@@ -20,6 +20,7 @@ import {
   getViabilidadViaje, UMBRAL_MARGEN_AMBAR_PCT, getEtaViaje, getEstado561, getPnlViaje, getPlanVsReal,
   generarTokenPublico, revocarTokenPublico, DIAS_VALIDEZ_TOKEN_PUBLICO_DEFAULT, registrarAuditoria, getAuditLog,
   createContexto, calcularDesfasePod, calcularOcupacion, guardarInstruccionChofer,
+  marcarViaje, desmarcarViaje,
 } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
@@ -164,6 +165,17 @@ export default function ViajeDetalle() {
     } finally {
       setGuardandoEstado(false);
     }
+  }
+
+  async function alternarMarcado() {
+    if (viaje.marcado) {
+      await desmarcarViaje(id);
+    } else {
+      const motivo = window.prompt("¿Por qué marcas este viaje? (visible para todo el equipo)");
+      if (!motivo || !motivo.trim()) return;
+      await marcarViaje(id, motivo);
+    }
+    await load();
   }
 
   async function cambiarChofer(newChoferId, { yaConfirmado = false } = {}) {
@@ -372,6 +384,17 @@ export default function ViajeDetalle() {
             {ev.t} <Edit3 size={12} />
           </button>
         )}
+
+        <button
+          onClick={alternarMarcado}
+          title={viaje.marcado ? `Marcado: ${viaje.marcado_motivo || ""}` : "Marcar viaje"}
+          className={`text-xs px-2.5 py-1 rounded-full flex items-center gap-1 hover:opacity-80 ${
+            viaje.marcado ? "bg-yellow-100 text-yellow-800" : "text-ink-muted border border-border"
+          }`}
+        >
+          <Flag size={12} fill={viaje.marcado ? "currentColor" : "none"} />
+          {viaje.marcado ? "Marcado" : "Marcar"}
+        </button>
       </div>
 
       <div className="flex items-center gap-4 mb-2 text-sm text-ink-secondary">

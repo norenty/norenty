@@ -2076,10 +2076,12 @@ describe("clientes (11.1 — cliente como entidad de primera clase)", () => {
   });
 
   it("createCliente inserta con la empresa del gestor y recorta espacios", async () => {
-    const r = await createCliente({ nombre: "  Mercadona  ", cif: " B123 ", email: "", telefono: "600111222" });
+    // B00000000 -- CIF con dígito de control válido (verificado con validarNifCif),
+    // no un placeholder cualquiera: desde la auditoría de 2026-08-01 se valida de verdad.
+    const r = await createCliente({ nombre: "  Mercadona  ", cif: " B00000000 ", email: "", telefono: "600111222" });
     expect(r.empresa_id).toBe("emp1");
     expect(r.nombre).toBe("Mercadona");
-    expect(r.cif).toBe("B123");
+    expect(r.cif).toBe("B00000000");
     expect(r.email).toBeNull(); // string vacío -> null
     expect(r.telefono).toBe("600111222");
   });
