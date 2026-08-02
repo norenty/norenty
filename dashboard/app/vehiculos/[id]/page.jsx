@@ -10,7 +10,7 @@ import {
 import { supabase } from "../../../lib/supabase";
 import { getCurrentEmpresaId, getMultasPorVehiculo, guardarCapacidadVehiculo, guardarSubtipoVehiculo } from "../../../lib/data";
 import DocumentosSection from "../../components/DocumentosSection";
-import { TIPOS_DOC_VEHICULO, TIPO_MANTENIMIENTO_LABEL, ESTADO_MANTENIMIENTO_CHIP } from "../../../lib/labels";
+import { TIPOS_DOC_VEHICULO, TIPO_MANTENIMIENTO_LABEL, ESTADO_MANTENIMIENTO_CHIP, SUBTIPO_LABEL } from "../../../lib/labels";
 import RequireRol from "../../components/RequireRol";
 import SectionCard from "../../components/ui/SectionCard";
 import { fmtEur, fmtKm, fmtFecha, fmtFechaLarga } from "../../../lib/format";
@@ -29,14 +29,6 @@ const TIPO_LABEL = Object.fromEntries(
 );
 
 const ESTADO_CHIP = ESTADO_MANTENIMIENTO_CHIP;
-
-const SUBTIPO_LABEL = {
-  lona: "Lona",
-  caja_cerrada: "Caja cerrada",
-  frigorifico: "Frigorífico",
-  cisterna: "Cisterna",
-  portacontenedor: "Portacontenedor",
-};
 
 const TIPOS = ["itv", "revision", "averia", "reparacion", "otro"];
 

@@ -114,6 +114,18 @@ export const TIPOS_VEHICULO = [
   { value: "furgoneta", label: "Furgoneta" },
 ];
 
+// Subtipo de remolque (0079): lo que ES físicamente el vehículo (vehiculos/[id])
+// Y lo que el CLIENTE pide para un viaje concreto (viaje.remolque_requerido,
+// nuevo-w) -- mismo diccionario, dos usos, movido aquí (2026-08-02) para no
+// duplicarlo como ya pasó antes con ESTADO_VIAJE/TIPO_DOC_LABEL (ver cabecera).
+export const SUBTIPO_LABEL = {
+  lona: "Lona",
+  caja_cerrada: "Caja cerrada",
+  frigorifico: "Frigorífico",
+  cisterna: "Cisterna",
+  portacontenedor: "Portacontenedor",
+};
+
 export const TIPO_MANTENIMIENTO_LABEL = {
   itv: { label: "ITV", color: "text-blue-600", bg: "bg-blue-50" },
   revision: { label: "Revisión", color: "text-indigo-600", bg: "bg-indigo-50" },

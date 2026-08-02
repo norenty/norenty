@@ -4,7 +4,8 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2, AlertTriangle, Check, ChevronRight, ChevronUp, ChevronDown, Package, Route } from "lucide-react";
-import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561, UMBRAL_MARGEN_AMBAR_PCT, getClientes, calcularOcupacion, sugerirOrdenParadas, getDireccionesGuardadas, getReferenciaSugerida, calcularAvisosViabilidad, getPlantillasRuta, getPlantillaHitos } from "../../../lib/data";
+import { getChoferes, createViaje, validarAsignacion, calcularPanelViaje, getEstado561, UMBRAL_MARGEN_AMBAR_PCT, getClientes, calcularOcupacion, sugerirOrdenParadas, getDireccionesGuardadas, getReferenciaSugerida, calcularAvisosViabilidad, getPlantillasRuta, getPlantillaHitos, guardarRequisitosRemolqueViaje } from "../../../lib/data";
+import { SUBTIPO_LABEL } from "../../../lib/labels";
 import { supabase } from "../../../lib/supabase";
 import SugerenciaChofer from "../../components/SugerenciaChofer";
 import Buscador from "../../components/ui/Buscador";
@@ -79,6 +80,13 @@ export default function NuevoViajeWizard() {
   const [avisoAsignacion, setAvisoAsignacion] = useState(null);
   const [aviso561, setAviso561] = useState(null);
   const [carga, setCarga] = useState({ ldm: "", kg: "", m3: "", valorMercancia: "" });
+  // ROADMAP: viaje.remolque_requerido en el wizard (el campo ya existía en el
+  // esquema desde 0079, pero no se pedía aquí todavía) -- lo que el CLIENTE
+  // pide para ESTE viaje, deliberadamente aparte del remolque real asignado
+  // arriba (que puede no cumplirlo -- eso es un aviso futuro, no este).
+  const [remolqueRequerido, setRemolqueRequerido] = useState("");
+  const [temperaturaRequeridaMin, setTemperaturaRequeridaMin] = useState("");
+  const [temperaturaRequeridaMax, setTemperaturaRequeridaMax] = useState("");
   const [sugerenciaOrden, setSugerenciaOrden] = useState(null);
   const [plantillas, setPlantillas] = useState([]);
   const [plantillaId, setPlantillaId] = useState("");
@@ -239,6 +247,13 @@ export default function NuevoViajeWizard() {
         precio: precio !== "" ? Number(precio) : null,
         carga,
       });
+      if (remolqueRequerido) {
+        await guardarRequisitosRemolqueViaje(result.viaje.id, {
+          remolqueRequerido,
+          temperaturaMin: temperaturaRequeridaMin,
+          temperaturaMax: temperaturaRequeridaMax,
+        });
+      }
       // 18.A.2 (caso b): la viabilidad no daba 100% -- el viaje se creó pero
       // queda pendiente de aprobación del jefe de tráfico antes de arrancar.
       if (result.pendienteAprobacion) {
@@ -644,6 +659,31 @@ export default function NuevoViajeWizard() {
               onChange={(e) => setCarga((c) => ({ ...c, valorMercancia: e.target.value }))}
               placeholder="Para avisar si supera el seguro de la empresa"
               className="w-full max-w-xs text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand" />
+          </div>
+
+          <div>
+            <label htmlFor="w-remolque-requerido" className="block text-xs text-ink-secondary mb-1">Tipo de remolque que pide el cliente (opcional)</label>
+            <select id="w-remolque-requerido" value={remolqueRequerido}
+              onChange={(e) => setRemolqueRequerido(e.target.value)}
+              className="w-full max-w-xs text-sm border border-border rounded-md px-3 py-2 bg-surface focus:outline-none focus:border-brand">
+              <option value="">Sin requisito específico</option>
+              {Object.entries(SUBTIPO_LABEL).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            {remolqueRequerido === "frigorifico" && (
+              <div className="flex items-center gap-2 mt-2 max-w-xs">
+                <input type="number" step="any" value={temperaturaRequeridaMin}
+                  onChange={(e) => setTemperaturaRequeridaMin(e.target.value)}
+                  placeholder="Mín °C"
+                  className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand" />
+                <span className="text-ink-muted text-xs">a</span>
+                <input type="number" step="any" value={temperaturaRequeridaMax}
+                  onChange={(e) => setTemperaturaRequeridaMax(e.target.value)}
+                  placeholder="Máx °C"
+                  className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand" />
+              </div>
+            )}
           </div>
 
           {vehiculoId && (
