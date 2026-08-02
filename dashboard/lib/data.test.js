@@ -312,6 +312,7 @@ const {
   getClientes,
   getDireccionesGuardadas,
   createCliente,
+  validarNifCif,
   actualizarCliente,
   desactivarCliente,
   asignarClienteAViaje,
@@ -334,6 +335,38 @@ beforeEach(() => {
   UPDATE_ERRORS = {};
   SELECT_ERRORS = {};
   _limpiarCacheKmCarreteraParaTests();
+});
+
+describe("validarNifCif (auditoría 2026-08-01: dígito de control real, no solo presencia)", () => {
+  it("valida NIF con letra de control correcta", () => {
+    expect(validarNifCif("12345678Z")).toBe(true);
+  });
+  it("rechaza NIF con letra de control incorrecta", () => {
+    expect(validarNifCif("12345678A")).toBe(false);
+  });
+  it("valida NIE con letra de control correcta", () => {
+    // X1234567L -- mismo cálculo que NIF sustituyendo X por 0.
+    expect(validarNifCif("X1234567L")).toBe(true);
+  });
+  it("rechaza NIE con letra de control incorrecta", () => {
+    expect(validarNifCif("X1234567Z")).toBe(false);
+  });
+  it("valida CIF con dígito de control correcto (letra A, ejemplo real conocido: A58818501)", () => {
+    expect(validarNifCif("A58818501")).toBe(true);
+  });
+  it("rechaza CIF con dígito de control incorrecto", () => {
+    expect(validarNifCif("A58818500")).toBe(false);
+  });
+  it("rechaza formato irreconocible", () => {
+    expect(validarNifCif("no-es-un-cif")).toBe(false);
+  });
+  it("acepta vacío (campo opcional, la obligatoriedad la decide el caller)", () => {
+    expect(validarNifCif("")).toBe(true);
+    expect(validarNifCif(null)).toBe(true);
+  });
+  it("es insensible a mayúsculas/minúsculas y espacios", () => {
+    expect(validarNifCif(" 12345678z ")).toBe(true);
+  });
 });
 
 describe("18.A.2 (caso a): crearPlantillaRuta + aprobación", () => {

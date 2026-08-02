@@ -982,10 +982,58 @@ export async function sugerirRedistribucionVacacion(gestorId) {
   });
 }
 
+const LETRAS_CONTROL_NIF = "TRWAGMYFPDXBNJZSQVHLCKE";
+
+/** Valida NIF (persona física), NIE (extranjero) o CIF (empresa) español con
+ * su dígito/letra de control real -- auditoría de seguridad (2026-08-01)
+ * detectó que `createCliente` solo comprobaba que hubiera texto, no que el
+ * CIF fuera plausible. Algoritmos oficiales (módulo 23 para NIF/NIE, módulo
+ * 10 con suma de dígitos pares/impares para CIF) -- sin llamar a ninguna API
+ * externa de pago. Devuelve true también para cadena vacía (campo opcional;
+ * la obligatoriedad la decide el caller). */
+export function validarNifCif(valor) {
+  if (!valor || !valor.trim()) return true;
+  const v = valor.trim().toUpperCase().replace(/[^0-9A-Z]/g, "");
+
+  const nif = v.match(/^(\d{8})([A-Z])$/);
+  if (nif) return LETRAS_CONTROL_NIF[Number(nif[1]) % 23] === nif[2];
+
+  const nie = v.match(/^([XYZ])(\d{7})([A-Z])$/);
+  if (nie) {
+    const prefijo = { X: "0", Y: "1", Z: "2" }[nie[1]];
+    return LETRAS_CONTROL_NIF[Number(prefijo + nie[2]) % 23] === nie[3];
+  }
+
+  const cif = v.match(/^([ABCDEFGHJKLMNPQRSUVW])(\d{7})([0-9A-J])$/);
+  if (cif) {
+    const digitos = cif[2];
+    let sumaPar = 0;
+    let sumaImpar = 0;
+    for (let i = 0; i < digitos.length; i++) {
+      const d = Number(digitos[i]);
+      if (i % 2 === 0) {
+        const doble = d * 2;
+        sumaImpar += doble > 9 ? doble - 9 : doble;
+      } else {
+        sumaPar += d;
+      }
+    }
+    const digitoControl = (10 - ((sumaPar + sumaImpar) % 10)) % 10;
+    const control = cif[3];
+    if (/[0-9]/.test(control)) return Number(control) === digitoControl;
+    return control === "JABCDEFGHI"[digitoControl];
+  }
+
+  return false;
+}
+
 export async function createCliente({ nombre, cif = null, email = null, telefono = null, notas = null }) {
   if (!nombre || !nombre.trim()) throw new Error("El nombre del cliente es obligatorio");
   if (email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
     throw new Error("El email del cliente no tiene un formato válido");
+  }
+  if (cif?.trim() && !validarNifCif(cif)) {
+    throw new Error("El CIF/NIF del cliente no es válido");
   }
   const empresaId = await getCurrentEmpresaId();
   const { data, error } = await supabase
@@ -1009,6 +1057,12 @@ export async function actualizarCliente(id, campos) {
   if (campos.nombre !== undefined) {
     if (!campos.nombre || !campos.nombre.trim()) throw new Error("El nombre del cliente es obligatorio");
     payload.nombre = campos.nombre.trim();
+  }
+  if (campos.email !== undefined && campos.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(campos.email.trim())) {
+    throw new Error("El email del cliente no tiene un formato válido");
+  }
+  if (campos.cif !== undefined && campos.cif?.trim() && !validarNifCif(campos.cif)) {
+    throw new Error("El CIF/NIF del cliente no es válido");
   }
   for (const k of ["cif", "email", "telefono", "notas"]) {
     if (campos[k] !== undefined) payload[k] = campos[k]?.trim() || null;
