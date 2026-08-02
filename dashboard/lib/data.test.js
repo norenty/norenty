@@ -315,6 +315,7 @@ const {
   validarNifCif,
   getEmisionesCO2,
   FACTOR_CO2_DIESEL_KG_LITRO,
+  getAvisoRemolqueRequeridoViaje,
   actualizarCliente,
   desactivarCliente,
   asignarClienteAViaje,
@@ -4165,6 +4166,51 @@ describe("calcularOcupacion — FTL vs. grupaje (COT.4)", () => {
   it("sin carga (todo vacío): tipo desconocido", () => {
     const r = calcularOcupacion({}, { ldm: 13.6, kg: 24000, m3: 90 });
     expect(r.tipo).toBe("desconocido");
+  });
+});
+
+describe("getAvisoRemolqueRequeridoViaje (ROADMAP — remolque asignado no cumple lo que pide el cliente)", () => {
+  it("avisa si el subtipo del remolque asignado no coincide con lo pedido", async () => {
+    TABLES.viaje = [{
+      id: "v1", referencia: "VJ-1", remolque_requerido: "frigorifico",
+      temperatura_requerida_min: null, temperatura_requerida_max: null,
+      remolque: { id: "r1", matricula: "1234-ABC", subtipo: "lona", temperatura_min: null, temperatura_max: null },
+    }];
+    const aviso = await getAvisoRemolqueRequeridoViaje("v1");
+    expect(aviso.tipo).toBe("subtipo_no_coincide");
+    expect(aviso.remolqueMatricula).toBe("1234-ABC");
+  });
+
+  it("avisa si el rango de temperatura del remolque no cubre lo pedido", async () => {
+    TABLES.viaje = [{
+      id: "v1", referencia: "VJ-1", remolque_requerido: "frigorifico",
+      temperatura_requerida_min: -18, temperatura_requerida_max: -10,
+      remolque: { id: "r1", matricula: "1234-ABC", subtipo: "frigorifico", temperatura_min: -5, temperatura_max: 5 },
+    }];
+    const aviso = await getAvisoRemolqueRequeridoViaje("v1");
+    expect(aviso.tipo).toBe("temperatura_no_cumple");
+  });
+
+  it("no avisa si el remolque cumple subtipo y temperatura (rango del remolque cubre el pedido)", async () => {
+    TABLES.viaje = [{
+      id: "v1", referencia: "VJ-1", remolque_requerido: "frigorifico",
+      temperatura_requerida_min: -18, temperatura_requerida_max: -10,
+      remolque: { id: "r1", matricula: "1234-ABC", subtipo: "frigorifico", temperatura_min: -20, temperatura_max: -8 },
+    }];
+    const aviso = await getAvisoRemolqueRequeridoViaje("v1");
+    expect(aviso).toBeNull();
+  });
+
+  it("no avisa si el cliente no pidió nada concreto", async () => {
+    TABLES.viaje = [{ id: "v1", referencia: "VJ-1", remolque_requerido: null, remolque: { matricula: "X", subtipo: "lona" } }];
+    const aviso = await getAvisoRemolqueRequeridoViaje("v1");
+    expect(aviso).toBeNull();
+  });
+
+  it("no avisa (ni lanza) si el viaje todavía no tiene remolque asignado", async () => {
+    TABLES.viaje = [{ id: "v1", referencia: "VJ-1", remolque_requerido: "frigorifico", remolque: null }];
+    const aviso = await getAvisoRemolqueRequeridoViaje("v1");
+    expect(aviso).toBeNull();
   });
 });
 

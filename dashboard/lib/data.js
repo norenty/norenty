@@ -3039,6 +3039,72 @@ export async function guardarInstruccionChofer(hitoId, { horaInstruccion, nota }
  * `pendiente` sin remolque acoplado todavía es normal (el viaje no ha
  * arrancado), no una contradicción.
  */
+/**
+ * Aviso si el remolque REALMENTE asignado a un viaje no cumple lo que el
+ * cliente pidió (`viaje.remolque_requerido`/`temperatura_requerida_*`, 0079 +
+ * wizard nuevo-w 2026-08-02). Solo tiene sentido para viajes activos
+ * (planificado/en_curso) con AMBOS datos presentes -- si el cliente no pidió
+ * nada concreto, o el viaje no tiene remolque todavía, no hay nada que avisar.
+ * Mismo patrón de solo-lectura que `getContradiccionesAcoplamiento`: el
+ * gestor decide, esto no reasigna nada solo.
+ */
+/** Lógica pura (testeable sin BD): compara lo pedido por el cliente contra el
+ * remolque real `r` (con subtipo/temperatura_min/max). `null` si cumple. */
+function evaluarAvisoRemolque(v, r) {
+  if (!r) return null;
+  if (r.subtipo !== v.remolque_requerido) {
+    return {
+      tipo: "subtipo_no_coincide",
+      viajeId: v.id,
+      viajeReferencia: v.referencia,
+      remolqueMatricula: r.matricula,
+      detalle: `El cliente pidió "${v.remolque_requerido}" pero el remolque asignado (${r.matricula}) es "${r.subtipo || "sin subtipo definido"}".`,
+    };
+  }
+  const pideMin = v.temperatura_requerida_min;
+  const pideMax = v.temperatura_requerida_max;
+  if (pideMin != null || pideMax != null) {
+    const cumpleMin = pideMin == null || (r.temperatura_min != null && r.temperatura_min <= pideMin);
+    const cumpleMax = pideMax == null || (r.temperatura_max != null && r.temperatura_max >= pideMax);
+    if (!cumpleMin || !cumpleMax) {
+      return {
+        tipo: "temperatura_no_cumple",
+        viajeId: v.id,
+        viajeReferencia: v.referencia,
+        remolqueMatricula: r.matricula,
+        detalle: `El cliente pidió ${pideMin ?? "?"}°C a ${pideMax ?? "?"}°C, pero el remolque asignado (${r.matricula}) solo cubre ${r.temperatura_min ?? "?"}°C a ${r.temperatura_max ?? "?"}°C.`,
+      };
+    }
+  }
+  return null;
+}
+
+export async function getAvisosRemolqueRequerido() {
+  const empresaId = await getCurrentEmpresaId();
+  const { data: viajes, error } = await supabase
+    .from("viaje")
+    .select("id, referencia, remolque_requerido, temperatura_requerida_min, temperatura_requerida_max, remolque:remolque_id(id, matricula, subtipo, temperatura_min, temperatura_max)")
+    .eq("empresa_id", empresaId)
+    .not("remolque_requerido", "is", null)
+    .not("remolque_id", "is", null)
+    .in("estado", ["planificado", "en_curso"]);
+  if (error) throw error;
+  return (viajes || []).map((v) => evaluarAvisoRemolque(v, v.remolque)).filter(Boolean);
+}
+
+/** Versión de un solo viaje (para el detalle, `viajes/[id]`) -- evita traer
+ * todos los viajes de la empresa solo para mirar uno. `null` si cumple, no
+ * tiene remolque asignado, o el cliente no pidió nada concreto. */
+export async function getAvisoRemolqueRequeridoViaje(viajeId) {
+  const { data: v, error } = await supabase
+    .from("viaje")
+    .select("id, referencia, remolque_requerido, temperatura_requerida_min, temperatura_requerida_max, remolque:remolque_id(id, matricula, subtipo, temperatura_min, temperatura_max)")
+    .eq("id", viajeId)
+    .single();
+  if (error || !v || !v.remolque_requerido) return null;
+  return evaluarAvisoRemolque(v, v.remolque);
+}
+
 export async function getContradiccionesAcoplamiento() {
   const empresaId = await getCurrentEmpresaId();
 
