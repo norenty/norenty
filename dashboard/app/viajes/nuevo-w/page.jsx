@@ -256,6 +256,11 @@ export default function NuevoViajeWizard() {
       }
       // 18.A.2 (caso b): la viabilidad no daba 100% -- el viaje se creó pero
       // queda pendiente de aprobación del jefe de tráfico antes de arrancar.
+      // Fase 27: precio manual por debajo de la tarifa pactada con el cliente
+      // -- solo informativo, no bloquea (a diferencia de vuelta a casa).
+      if (result.avisoTarifaBaja) {
+        alert(result.avisoTarifaBaja.mensaje);
+      }
       if (result.avisoVueltaCasa) {
         // Decisión 2026-08-02: regla dura de vuelta a casa -- mensaje propio,
         // más específico que el genérico de viabilidad de abajo.

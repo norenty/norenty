@@ -316,6 +316,9 @@ const {
   getEmisionesCO2,
   FACTOR_CO2_DIESEL_KG_LITRO,
   getAvisoRemolqueRequeridoViaje,
+  getTarifaCliente,
+  guardarTarifaCliente,
+  eliminarTarifaCliente,
   guardarCiudadResidenciaChofer,
   guardarUmbralVueltaCasaEmpresa,
   UMBRAL_VUELTA_CASA_KM_DEFAULT,
@@ -4527,6 +4530,85 @@ describe("createViaje acepta precio (7A.11)", () => {
     expect(pendienteAprobacion).toBe(false);
     expect(viaje.estado).toBe("planificado");
     expect(TABLES.solicitud_aprobacion).toHaveLength(0);
+  });
+
+  describe("tarifa_cliente (Fase 27 — informe TMS tradicionales 2026-08-02)", () => {
+    beforeEach(() => {
+      SESSION = { user: { id: "u1" } };
+      TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+      TABLES.viaje = [];
+      TABLES.chofer = [];
+      TABLES.vehiculo = [];
+      TABLES.solicitud_aprobacion = [];
+      TABLES.tarifa_cliente = [];
+    });
+
+    it("guardarTarifaCliente + getTarifaCliente redondtrip", async () => {
+      await guardarTarifaCliente("cli1", { tipo: "fijo", valor: 500 });
+      const t = await getTarifaCliente("cli1");
+      expect(t.tipo).toBe("fijo");
+      expect(t.valor).toBe(500);
+    });
+
+    it("guardar dos veces para el mismo cliente actualiza, no duplica", async () => {
+      await guardarTarifaCliente("cli1", { tipo: "fijo", valor: 500 });
+      await guardarTarifaCliente("cli1", { tipo: "por_km", valor: 1.2 });
+      expect(TABLES.tarifa_cliente).toHaveLength(1);
+      const t = await getTarifaCliente("cli1");
+      expect(t.tipo).toBe("por_km");
+      expect(t.valor).toBe(1.2);
+    });
+
+    it("rechaza tipo inválido", async () => {
+      await expect(guardarTarifaCliente("cli1", { tipo: "otro", valor: 1 })).rejects.toThrow("tipo de tarifa");
+    });
+
+    it("rechaza valor negativo", async () => {
+      await expect(guardarTarifaCliente("cli1", { tipo: "fijo", valor: -1 })).rejects.toThrow(">= 0");
+    });
+
+    it("eliminarTarifaCliente borra la tarifa", async () => {
+      await guardarTarifaCliente("cli1", { tipo: "fijo", valor: 500 });
+      await eliminarTarifaCliente("cli1");
+      expect(await getTarifaCliente("cli1")).toBeNull();
+    });
+
+    it("createViaje autorellena el precio con tarifa fija cuando no se pasa precio", async () => {
+      TABLES.tarifa_cliente = [{ cliente_id: "cli1", tipo: "fijo", valor: 777 }];
+      const { viaje } = await createViaje({
+        referencia: "REF-TARIFA-FIJA", choferId: null, vehiculoId: null, remolqueId: null, clienteId: "cli1", hitos: [],
+      });
+      expect(viaje.precio).toBe(777);
+    });
+
+    it("createViaje autorellena con tarifa por_km usando los km estimados de los hitos", async () => {
+      TABLES.tarifa_cliente = [{ cliente_id: "cli1", tipo: "por_km", valor: 1 }];
+      const hitos = [
+        { direccion: "Madrid", tipo: "recogida", lat: 40, lon: 0 },
+        { direccion: "Destino", tipo: "entrega", lat: 41, lon: 0 }, // 1 grado de lat ~ 111 km
+      ];
+      const { viaje } = await createViaje({
+        referencia: "REF-TARIFA-KM", choferId: null, vehiculoId: null, remolqueId: null, clienteId: "cli1", hitos,
+      });
+      expect(viaje.precio).toBeGreaterThan(100); // 111km * sinuosidad * 1€/km, bastante por encima de 100
+    });
+
+    it("createViaje avisa (sin bloquear) si el precio manual queda por debajo de la tarifa pactada", async () => {
+      TABLES.tarifa_cliente = [{ cliente_id: "cli1", tipo: "fijo", valor: 1000 }];
+      const { viaje, avisoTarifaBaja } = await createViaje({
+        referencia: "REF-TARIFA-BAJA", choferId: null, vehiculoId: null, remolqueId: null, clienteId: "cli1", hitos: [], precio: 600,
+      });
+      expect(viaje.precio).toBe(600); // no se sobreescribe, solo se avisa
+      expect(avisoTarifaBaja.precioTarifa).toBe(1000);
+    });
+
+    it("sin tarifa para el cliente, createViaje funciona igual que antes (retrocompatible)", async () => {
+      const { viaje, avisoTarifaBaja } = await createViaje({
+        referencia: "REF-SIN-TARIFA", choferId: null, vehiculoId: null, remolqueId: null, clienteId: "cli-sin-tarifa", hitos: [], precio: 300,
+      });
+      expect(viaje.precio).toBe(300);
+      expect(avisoTarifaBaja).toBeNull();
+    });
   });
 
   describe("regla dura de vuelta a casa (decisión 2026-08-02)", () => {

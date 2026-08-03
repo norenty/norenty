@@ -1109,6 +1109,48 @@ export async function desactivarCliente(id) {
   if (error) throw error;
 }
 
+/**
+ * Tarifa pactada por cliente (Fase 27, informe TMS tradicionales 2026-08-02):
+ * "fijo" (precio cerrado por viaje) o "por_km" (€/km, se multiplica por los
+ * km estimados del viaje). Una sola tarifa vigente por cliente -- sin
+ * historial de versiones (YAGNI hasta que alguien necesite "qué tarifa regía
+ * en marzo").
+ */
+export async function getTarifaCliente(clienteId) {
+  const { data, error } = await supabase
+    .from("tarifa_cliente").select("*").eq("cliente_id", clienteId).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function guardarTarifaCliente(clienteId, { tipo, valor, notas = null }) {
+  if (!["fijo", "por_km"].includes(tipo)) throw new Error("tipo de tarifa no válido");
+  const v = Number(valor);
+  if (Number.isNaN(v) || v < 0) throw new Error("el valor de la tarifa debe ser un número >= 0");
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase
+    .from("tarifa_cliente")
+    .upsert({ empresa_id: empresaId, cliente_id: clienteId, tipo, valor: v, notas }, { onConflict: "cliente_id" });
+  if (error) throw error;
+}
+
+export async function eliminarTarifaCliente(clienteId) {
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("tarifa_cliente").delete().eq("cliente_id", clienteId).eq("empresa_id", empresaId);
+  if (error) throw error;
+}
+
+/** Calcula el precio sugerido por la tarifa pactada del cliente para un viaje
+ * con `kmEstimados` -- null si el cliente no tiene tarifa. Lógica pura,
+ * separada para poder testearla sin BD y para reutilizarla en el aviso de
+ * "precio por debajo de lo pactado". */
+function calcularPrecioTarifa(tarifa, kmEstimados) {
+  if (!tarifa) return null;
+  if (tarifa.tipo === "fijo") return Number(tarifa.valor);
+  if (kmEstimados == null) return null;
+  return +(Number(tarifa.valor) * kmEstimados).toFixed(2);
+}
+
 /** Asocia (o desasocia, con clienteId=null) un cliente a un viaje. No toca `referencia`. */
 export async function asignarClienteAViaje(viajeId, clienteId) {
   const empresaId = await getCurrentEmpresaId();
@@ -5515,6 +5557,30 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
   const avisoVueltaCasa = await calcularAvisoVueltaCasa(choferId, hitos);
   const estadoInicial = avisosViabilidad.length > 0 || avisoVueltaCasa ? "pendiente_aprobacion" : "planificado";
 
+  // Fase 27 (informe TMS tradicionales 2026-08-02): tarifa pactada por
+  // cliente -- autorellena el precio si viene vacío, o avisa (sin bloquear,
+  // es solo informativo) si el precio manual queda por debajo de lo pactado.
+  let precioFinal = precio != null && precio !== "" ? Number(precio) : null;
+  let avisoTarifaBaja = null;
+  if (clienteId) {
+    const tarifa = await getTarifaCliente(clienteId);
+    if (tarifa) {
+      const conCoords = (hitos || []).filter((h) => h.lat != null && h.lat !== "" && h.lon != null && h.lon !== "");
+      const kmEstimados = conCoords.length >= 2
+        ? distanciaTotalPuntos(conCoords.map((h) => ({ lat: Number(h.lat), lon: Number(h.lon) })))
+        : null;
+      const precioTarifa = calcularPrecioTarifa(tarifa, kmEstimados);
+      if (precioFinal == null) {
+        precioFinal = precioTarifa;
+      } else if (precioTarifa != null && precioFinal < precioTarifa) {
+        avisoTarifaBaja = {
+          precioFinal, precioTarifa,
+          mensaje: `El precio (${precioFinal.toLocaleString("es-ES")} €) queda por debajo de la tarifa pactada con este cliente (${precioTarifa.toLocaleString("es-ES")} €).`,
+        };
+      }
+    }
+  }
+
   const { data: viaje, error } = await supabase
     .from("viaje")
     .insert({
@@ -5526,7 +5592,7 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
       empresa_id,
       gestor_id,
       estado: estadoInicial,
-      precio: precio != null ? precio : null,
+      precio: precioFinal,
       carga_ldm: num(carga?.ldm),
       carga_kg: num(carga?.kg),
       carga_m3: num(carga?.m3),
@@ -5594,5 +5660,6 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
     pendienteAprobacion: avisosViabilidad.length > 0 || !!avisoVueltaCasa,
     avisoSeguro,
     avisoVueltaCasa,
+    avisoTarifaBaja,
   };
 }

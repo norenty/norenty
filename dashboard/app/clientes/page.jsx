@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Plus, Building2, Check, X, Pencil } from "lucide-react";
-import { getClientes, createCliente, actualizarCliente, desactivarCliente } from "../../lib/data";
+import {
+  getClientes, createCliente, actualizarCliente, desactivarCliente,
+  getTarifaCliente, guardarTarifaCliente, eliminarTarifaCliente,
+} from "../../lib/data";
 import EmptyState from "../components/ui/EmptyState";
 
 function formVacio() {
-  return { nombre: "", cif: "", email: "", telefono: "", notas: "" };
+  return { nombre: "", cif: "", email: "", telefono: "", notas: "", tarifaTipo: "", tarifaValor: "" };
 }
 
 export default function ClientesPage() {
@@ -38,11 +41,13 @@ export default function ClientesPage() {
     setGuardando(false);
   }
 
-  function empezarEdicion(c) {
+  async function empezarEdicion(c) {
     setEditandoId(c.id);
+    const tarifa = await getTarifaCliente(c.id).catch(() => null);
     setFormEdicion({
       nombre: c.nombre || "", cif: c.cif || "", email: c.email || "",
       telefono: c.telefono || "", notas: c.notas || "",
+      tarifaTipo: tarifa?.tipo || "", tarifaValor: tarifa?.valor != null ? String(tarifa.valor) : "",
     });
   }
 
@@ -50,7 +55,15 @@ export default function ClientesPage() {
     setError(null);
     setProcesandoId(id);
     try {
-      await actualizarCliente(id, formEdicion);
+      const { tarifaTipo, tarifaValor, ...campos } = formEdicion;
+      await actualizarCliente(id, campos);
+      // Fase 27: tarifa pactada, aparte de los datos de contacto -- vacío quita
+      // la tarifa (vuelve a precio manual en cada viaje).
+      if (tarifaTipo && tarifaValor !== "") {
+        await guardarTarifaCliente(id, { tipo: tarifaTipo, valor: tarifaValor });
+      } else {
+        await eliminarTarifaCliente(id);
+      }
       setEditandoId(null);
       await load();
     } catch (err) {
@@ -184,6 +197,31 @@ export default function ClientesPage() {
                   rows={2}
                   className="text-sm border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-brand"
                 />
+                <div className="border-t border-border pt-2 mt-1">
+                  <label className="block text-xs text-ink-secondary mb-1">
+                    Tarifa pactada (opcional — autorellena el precio al crear un viaje con este cliente)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={formEdicion.tarifaTipo}
+                      onChange={(e) => setFormEdicion({ ...formEdicion, tarifaTipo: e.target.value })}
+                      className="text-sm border border-border rounded-md px-2 py-1.5 bg-surface focus:outline-none focus:border-brand"
+                    >
+                      <option value="">Sin tarifa pactada</option>
+                      <option value="fijo">Precio fijo (€)</option>
+                      <option value="por_km">€ / km</option>
+                    </select>
+                    {formEdicion.tarifaTipo && (
+                      <input
+                        type="number" step="any" min="0"
+                        value={formEdicion.tarifaValor}
+                        onChange={(e) => setFormEdicion({ ...formEdicion, tarifaValor: e.target.value })}
+                        placeholder={formEdicion.tarifaTipo === "fijo" ? "Ej. 500" : "Ej. 1.20"}
+                        className="text-sm border border-border rounded-md px-2 py-1.5 w-28 focus:outline-none focus:border-brand"
+                      />
+                    )}
+                  </div>
+                </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => guardarEdicion(c.id)}
