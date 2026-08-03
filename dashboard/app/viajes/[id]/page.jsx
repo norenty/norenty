@@ -21,6 +21,7 @@ import {
   generarTokenPublico, revocarTokenPublico, DIAS_VALIDEZ_TOKEN_PUBLICO_DEFAULT, registrarAuditoria, getAuditLog,
   createContexto, calcularDesfasePod, calcularOcupacion, guardarInstruccionChofer,
   marcarViaje, desmarcarViaje, getAvisoRemolqueRequeridoViaje,
+  getSubcontratistas, asignarSubcontratistaAViaje,
 } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
@@ -73,6 +74,10 @@ export default function ViajeDetalle() {
   const [editandoInstruccion, setEditandoInstruccion] = useState(null); // hitoId o null
   const [instruccionInput, setInstruccionInput] = useState({ hora: "", nota: "" });
   const [guardandoInstruccion, setGuardandoInstruccion] = useState(false);
+  // Fase 27.3: subcontratista como ejecutor alternativo a chofer+vehículo propios.
+  const [subcontratistas, setSubcontratistas] = useState([]);
+  const [editandoSubcontratista, setEditandoSubcontratista] = useState(false);
+  const [guardandoSubcontratista, setGuardandoSubcontratista] = useState(false);
 
   function cargarViabilidad() {
     setErrorViabilidad(null);
@@ -289,6 +294,26 @@ export default function ViajeDetalle() {
     }
   }
 
+  async function abrirEditSubcontratista() {
+    setSubcontratistas(await getSubcontratistas());
+    setEditandoSubcontratista(true);
+  }
+
+  async function cambiarSubcontratista(newId) {
+    if (guardandoSubcontratista) return;
+    setGuardandoSubcontratista(true);
+    setError(null);
+    try {
+      await asignarSubcontratistaAViaje(id, newId || null);
+      setEditandoSubcontratista(false);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGuardandoSubcontratista(false);
+    }
+  }
+
   async function guardarPrecio() {
     if (guardandoPrecio) return;
     const precio = precioInput.trim() === "" ? null : Number(precioInput);
@@ -400,7 +425,27 @@ export default function ViajeDetalle() {
       </div>
 
       <div className="flex items-center gap-4 mb-2 text-sm text-ink-secondary">
-        {editandoChofer ? (
+        {viaje.subcontratista ? (
+          editandoSubcontratista ? (
+            <div className="flex items-center gap-2 w-64">
+              <Buscador
+                opciones={subcontratistas.map((s) => ({ value: s.id, label: s.nombre, sublabel: s.tarifa_km_pactada != null ? `${s.tarifa_km_pactada} €/km` : "" }))}
+                value={viaje.subcontratista.id}
+                onChange={cambiarSubcontratista}
+                placeholder="Buscar subcontratista..."
+                vacioLabel="Quitar (vuelve a flota propia)"
+              />
+              <button onClick={() => setEditandoSubcontratista(false)} disabled={guardandoSubcontratista} className="p-1 text-ink-muted disabled:opacity-40"><X size={14} /></button>
+            </div>
+          ) : (
+            <button onClick={abrirEditSubcontratista} className="flex items-center gap-1 hover:text-ink">
+              <Truck size={14} />
+              {viaje.subcontratista.nombre}
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-orange-50 text-accent-ink ml-1">Subcontratado</span>
+              <Edit3 size={12} />
+            </button>
+          )
+        ) : editandoChofer ? (
           <div className="flex items-center gap-2 w-64">
             <Buscador
               opciones={choferes.map((c) => ({ value: c.id, label: c.nombre, sublabel: c.idioma?.toUpperCase() }))}
@@ -436,6 +481,23 @@ export default function ViajeDetalle() {
             )}
             <Edit3 size={12} />
           </button>
+        )}
+
+        {!viaje.subcontratista && !editandoSubcontratista && (
+          <button onClick={abrirEditSubcontratista} className="text-xs px-2 py-1 rounded-full border border-border text-ink-muted hover:bg-surface-alt">
+            Subcontratar
+          </button>
+        )}
+        {!viaje.subcontratista && editandoSubcontratista && (
+          <div className="flex items-center gap-2 w-64">
+            <Buscador
+              opciones={subcontratistas.map((s) => ({ value: s.id, label: s.nombre, sublabel: s.tarifa_km_pactada != null ? `${s.tarifa_km_pactada} €/km` : "" }))}
+              value=""
+              onChange={cambiarSubcontratista}
+              placeholder="Buscar subcontratista..."
+            />
+            <button onClick={() => setEditandoSubcontratista(false)} disabled={guardandoSubcontratista} className="p-1 text-ink-muted disabled:opacity-40"><X size={14} /></button>
+          </div>
         )}
 
         {editandoVehiculo ? (

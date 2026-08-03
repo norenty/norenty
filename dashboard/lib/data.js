@@ -465,7 +465,7 @@ export async function desmarcarViaje(id) {
 export async function getViaje(id) {
   const { data: viaje } = await supabase
     .from("viaje")
-    .select("*, chofer(id, nombre, idioma)")
+    .select("*, chofer(id, nombre, idioma), subcontratista(id, nombre, tarifa_km_pactada)")
     .eq("id", id)
     .single();
 
@@ -1149,6 +1149,101 @@ function calcularPrecioTarifa(tarifa, kmEstimados) {
   if (tarifa.tipo === "fijo") return Number(tarifa.valor);
   if (kmEstimados == null) return null;
   return +(Number(tarifa.valor) * kmEstimados).toFixed(2);
+}
+
+// ==========================================================================
+// Subcontratistas (Fase 27.3, informe TMS tradicionales 2026-08-02):
+// transportista EXTERNO -- distinto de `chofer` (que es de tu propia
+// operación, aunque sea autónomo). Un viaje se ejecuta con tu flota O con un
+// subcontratista, nunca ambos (viaje_ejecutor_check en 0087).
+// ==========================================================================
+
+export async function getSubcontratistas({ incluirInactivos = false } = {}) {
+  let query = supabase.from("subcontratista").select("*").order("nombre");
+  if (!incluirInactivos) query = query.eq("activo", true);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createSubcontratista({ nombre, cif = null, telefono = null, email = null, tarifaKmPactada = null, notas = null }) {
+  if (!nombre || !nombre.trim()) throw new Error("El nombre del subcontratista es obligatorio");
+  if (cif?.trim() && !validarNifCif(cif)) throw new Error("El CIF/NIF del subcontratista no es válido");
+  const empresaId = await getCurrentEmpresaId();
+  const { data, error } = await supabase
+    .from("subcontratista")
+    .insert({
+      empresa_id: empresaId,
+      nombre: nombre.trim(),
+      cif: cif?.trim() || null,
+      telefono: telefono?.trim() || null,
+      email: email?.trim() || null,
+      tarifa_km_pactada: tarifaKmPactada !== "" && tarifaKmPactada != null ? Number(tarifaKmPactada) : null,
+      notas: notas?.trim() || null,
+      activo: true,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function actualizarSubcontratista(id, campos) {
+  const payload = {};
+  if (campos.nombre !== undefined) {
+    if (!campos.nombre || !campos.nombre.trim()) throw new Error("El nombre del subcontratista es obligatorio");
+    payload.nombre = campos.nombre.trim();
+  }
+  if (campos.cif !== undefined) {
+    if (campos.cif?.trim() && !validarNifCif(campos.cif)) throw new Error("El CIF/NIF del subcontratista no es válido");
+    payload.cif = campos.cif?.trim() || null;
+  }
+  for (const k of ["telefono", "email", "notas"]) {
+    if (campos[k] !== undefined) payload[k] = campos[k]?.trim() || null;
+  }
+  if (campos.tarifaKmPactada !== undefined) {
+    payload.tarifa_km_pactada = campos.tarifaKmPactada !== "" && campos.tarifaKmPactada != null ? Number(campos.tarifaKmPactada) : null;
+  }
+  if (campos.telegramChatId !== undefined) payload.telegram_chat_id = campos.telegramChatId?.trim() || null;
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("subcontratista").update(payload).eq("id", id).eq("empresa_id", empresaId);
+  if (error) throw error;
+}
+
+export async function desactivarSubcontratista(id) {
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("subcontratista").update({ activo: false }).eq("id", id).eq("empresa_id", empresaId);
+  if (error) throw error;
+}
+
+/** Asigna un viaje a un subcontratista -- limpia chofer/vehículo/remolque
+ * propios a la vez (viaje_ejecutor_check exige que sean excluyentes). Pasar
+ * `null` desasigna y deja el viaje sin ejecutor (vuelve al pool). */
+export async function asignarSubcontratistaAViaje(viajeId, subcontratistaId) {
+  const empresaId = await getCurrentEmpresaId();
+  const payload = subcontratistaId
+    ? { subcontratista_id: subcontratistaId, chofer_id: null, vehiculo_id: null, remolque_id: null }
+    : { subcontratista_id: null };
+  const { error } = await supabase.from("viaje").update(payload).eq("id", viajeId).eq("empresa_id", empresaId);
+  if (error) throw error;
+}
+
+/** Valoración 1-5 de un subcontratista (reutiliza la tabla `valoracion` ya
+ * existente para chóferes -- mismo concepto, sujeto distinto). */
+export async function valorarSubcontratista(subcontratistaId, { puntuacion, nota = null, viajeId = null }) {
+  if (!(puntuacion >= 1 && puntuacion <= 5)) throw new Error("la puntuación debe estar entre 1 y 5");
+  const gestorId = await gestorIdComoAutor();
+  const { error } = await supabase.from("valoracion").insert({
+    subcontratista_id: subcontratistaId, viaje_id: viajeId, gestor_id: gestorId, puntuacion, nota,
+  });
+  if (error) throw error;
+}
+
+export async function getValoracionesSubcontratista(subcontratistaId) {
+  const { data, error } = await supabase
+    .from("valoracion").select("*").eq("subcontratista_id", subcontratistaId).order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
 }
 
 /** Asocia (o desasocia, con clienteId=null) un cliente a un viaje. No toca `referencia`. */

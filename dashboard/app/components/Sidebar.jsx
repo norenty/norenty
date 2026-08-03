@@ -57,6 +57,7 @@ const groups = [
       { href: "/vehiculos", label: "Vehículos", icon: CarFront },
       { href: "/choferes", label: "Chóferes", icon: Users },
       { href: "/clientes", label: "Clientes", icon: Building2 },
+      { href: "/subcontratistas", label: "Subcontratistas", icon: Truck },
       { href: "/plantillas", label: "Plantillas de ruta", icon: Route },
       { href: "/importar", label: "Importar", icon: Upload },
     ],

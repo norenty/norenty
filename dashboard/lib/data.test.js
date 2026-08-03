@@ -320,6 +320,13 @@ const {
   guardarTarifaCliente,
   eliminarTarifaCliente,
   guardarTarifaEsperaEmpresa,
+  getSubcontratistas,
+  createSubcontratista,
+  actualizarSubcontratista,
+  desactivarSubcontratista,
+  asignarSubcontratistaAViaje,
+  valorarSubcontratista,
+  getValoracionesSubcontratista,
   guardarCiudadResidenciaChofer,
   guardarUmbralVueltaCasaEmpresa,
   UMBRAL_VUELTA_CASA_KM_DEFAULT,
@@ -4612,7 +4619,65 @@ describe("createViaje acepta precio (7A.11)", () => {
     });
   });
 
-  describe("guardarTarifaEsperaEmpresa (Fase 27.2 — cargos accesorios)", () => {
+  describe("subcontratista (Fase 27.3 — informe TMS tradicionales 2026-08-02)", () => {
+  beforeEach(() => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+    TABLES.subcontratista = [];
+    TABLES.viaje = [{ id: "v1", empresa_id: "e1", chofer_id: "ch1", vehiculo_id: "veh1", remolque_id: "rem1" }];
+    TABLES.valoracion = [];
+  });
+
+  it("createSubcontratista + getSubcontratistas", async () => {
+    await createSubcontratista({ nombre: "Transportes García", cif: "B00000000" });
+    const lista = await getSubcontratistas();
+    expect(lista).toHaveLength(1);
+    expect(lista[0].nombre).toBe("Transportes García");
+  });
+
+  it("rechaza CIF inválido", async () => {
+    await expect(createSubcontratista({ nombre: "X", cif: "B99999999" })).rejects.toThrow("no es válido");
+  });
+
+  it("exige nombre", async () => {
+    await expect(createSubcontratista({ nombre: "  " })).rejects.toThrow("obligatorio");
+  });
+
+  it("desactivarSubcontratista lo oculta de la lista activa", async () => {
+    const s = await createSubcontratista({ nombre: "X" });
+    await desactivarSubcontratista(s.id);
+    expect(await getSubcontratistas()).toHaveLength(0);
+    expect(await getSubcontratistas({ incluirInactivos: true })).toHaveLength(1);
+  });
+
+  it("asignarSubcontratistaAViaje limpia chofer/vehículo/remolque propios", async () => {
+    await asignarSubcontratistaAViaje("v1", "sub1");
+    const v = TABLES.viaje[0];
+    expect(v.subcontratista_id).toBe("sub1");
+    expect(v.chofer_id).toBeNull();
+    expect(v.vehiculo_id).toBeNull();
+    expect(v.remolque_id).toBeNull();
+  });
+
+  it("desasignar (null) deja el viaje sin subcontratista", async () => {
+    await asignarSubcontratistaAViaje("v1", "sub1");
+    await asignarSubcontratistaAViaje("v1", null);
+    expect(TABLES.viaje[0].subcontratista_id).toBeNull();
+  });
+
+  it("valorarSubcontratista + getValoracionesSubcontratista", async () => {
+    await valorarSubcontratista("sub1", { puntuacion: 4, nota: "Puntual" });
+    const vals = await getValoracionesSubcontratista("sub1");
+    expect(vals).toHaveLength(1);
+    expect(vals[0].puntuacion).toBe(4);
+  });
+
+  it("rechaza puntuación fuera de rango", async () => {
+    await expect(valorarSubcontratista("sub1", { puntuacion: 6 })).rejects.toThrow("entre 1 y 5");
+  });
+});
+
+describe("guardarTarifaEsperaEmpresa (Fase 27.2 — cargos accesorios)", () => {
     it("guarda tarifa y franquicia", async () => {
       TABLES.empresa = [{ id: "e1" }];
       await guardarTarifaEsperaEmpresa("e1", "25", "2");
