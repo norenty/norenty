@@ -329,6 +329,7 @@ const {
   valorarSubcontratista,
   getValoracionesSubcontratista,
   getAvisoFacturaSubcontratista,
+  construirEnlaceOfertaWhatsapp,
   guardarCiudadResidenciaChofer,
   guardarUmbralVueltaCasaEmpresa,
   UMBRAL_VUELTA_CASA_KM_DEFAULT,
@@ -4676,6 +4677,33 @@ describe("createViaje acepta precio (7A.11)", () => {
 
   it("rechaza puntuación fuera de rango", async () => {
     await expect(valorarSubcontratista("sub1", { puntuacion: 6 })).rejects.toThrow("entre 1 y 5");
+  });
+});
+
+describe("construirEnlaceOfertaWhatsapp (Fase 27.5 — licitación ligera)", () => {
+  it("construye la URL wa.me con el mensaje completo", () => {
+    const url = construirEnlaceOfertaWhatsapp(
+      { nombre: "Transportes García", telefono: "+34600111222", tarifa_km_pactada: 1.2 },
+      { referencia: "VJ-1", origen: "Madrid", destino: "Barcelona", fecha: "2026-08-10", enlacePublico: "https://norenty.com/t/abc" }
+    );
+    expect(url).toMatch(/^https:\/\/wa\.me\/34600111222\?text=/);
+    const texto = decodeURIComponent(url.split("text=")[1]);
+    expect(texto).toContain("Transportes García");
+    expect(texto).toContain("VJ-1");
+    expect(texto).toContain("Madrid");
+    expect(texto).toContain("Barcelona");
+    expect(texto).toContain("1.2 €/km");
+    expect(texto).toContain("https://norenty.com/t/abc");
+  });
+
+  it("devuelve null si el subcontratista no tiene teléfono", () => {
+    const url = construirEnlaceOfertaWhatsapp({ nombre: "X", telefono: null }, { referencia: "VJ-1" });
+    expect(url).toBeNull();
+  });
+
+  it("omite líneas opcionales ausentes sin romper", () => {
+    const url = construirEnlaceOfertaWhatsapp({ nombre: "X", telefono: "+34600111222" }, { referencia: "VJ-1" });
+    expect(url).toContain("wa.me/34600111222");
   });
 });
 

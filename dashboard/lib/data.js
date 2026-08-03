@@ -1169,6 +1169,11 @@ export async function getSubcontratistas({ incluirInactivos = false } = {}) {
 export async function createSubcontratista({ nombre, cif = null, telefono = null, email = null, tarifaKmPactada = null, notas = null }) {
   if (!nombre || !nombre.trim()) throw new Error("El nombre del subcontratista es obligatorio");
   if (cif?.trim() && !validarNifCif(cif)) throw new Error("El CIF/NIF del subcontratista no es válido");
+  let telefonoNormalizado = null;
+  if (telefono?.trim()) {
+    telefonoNormalizado = normalizarTelefonoE164(telefono);
+    if (!telefonoNormalizado) throw new Error("el teléfono no parece válido");
+  }
   const empresaId = await getCurrentEmpresaId();
   const { data, error } = await supabase
     .from("subcontratista")
@@ -1176,7 +1181,7 @@ export async function createSubcontratista({ nombre, cif = null, telefono = null
       empresa_id: empresaId,
       nombre: nombre.trim(),
       cif: cif?.trim() || null,
-      telefono: telefono?.trim() || null,
+      telefono: telefonoNormalizado,
       email: email?.trim() || null,
       tarifa_km_pactada: tarifaKmPactada !== "" && tarifaKmPactada != null ? Number(tarifaKmPactada) : null,
       notas: notas?.trim() || null,
@@ -1198,7 +1203,16 @@ export async function actualizarSubcontratista(id, campos) {
     if (campos.cif?.trim() && !validarNifCif(campos.cif)) throw new Error("El CIF/NIF del subcontratista no es válido");
     payload.cif = campos.cif?.trim() || null;
   }
-  for (const k of ["telefono", "email", "notas"]) {
+  if (campos.telefono !== undefined) {
+    if (campos.telefono?.trim()) {
+      const norm = normalizarTelefonoE164(campos.telefono);
+      if (!norm) throw new Error("el teléfono no parece válido");
+      payload.telefono = norm;
+    } else {
+      payload.telefono = null;
+    }
+  }
+  for (const k of ["email", "notas"]) {
     if (campos[k] !== undefined) payload[k] = campos[k]?.trim() || null;
   }
   if (campos.tarifaKmPactada !== undefined) {
@@ -1237,6 +1251,39 @@ export async function valorarSubcontratista(subcontratistaId, { puntuacion, nota
     subcontratista_id: subcontratistaId, viaje_id: viajeId, gestor_id: gestorId, puntuacion, nota,
   });
   if (error) throw error;
+}
+
+/**
+ * Licitación ligera a subcontratistas (Fase 27.5, informe TMS tradicionales
+ * 2026-08-02): SAP TM/OTM tienen un flujo formal de "tendering" (RFQ a varios
+ * transportistas, el primero que acepta se lo queda). Norenty no tiene infra
+ * de mensajería propia hacia subcontratistas externos (el bot de Telegram es
+ * de la app, no algo que ellos usen) -- en vez de construir un backend nuevo
+ * (requeriría meter TELEGRAM_BOT_TOKEN en el dashboard, un secreto que hoy
+ * solo vive en el backend Python), se reutiliza el canal que YA usan de
+ * verdad: WhatsApp del propio gestor, con el mensaje ya redactado. El
+ * "aceptar" sigue siendo manual (el gestor marca quién se lo queda) -- la
+ * primera vuelta de esto, ver ROADMAP para automatizar más si se usa de verdad.
+ *
+ * Devuelve la URL `wa.me` lista para abrir en pestaña nueva, o `null` si el
+ * subcontratista no tiene teléfono guardado.
+ */
+export function construirEnlaceOfertaWhatsapp(subcontratista, { referencia, origen, destino, fecha, enlacePublico }) {
+  if (!subcontratista?.telefono) return null;
+  const telefonoWa = subcontratista.telefono.replace(/^\+/, "");
+  const lineas = [
+    `Hola ${subcontratista.nombre}, ¿te interesa este viaje?`,
+    "",
+    `Referencia: ${referencia || "—"}`,
+    `Origen: ${origen || "—"}`,
+    `Destino: ${destino || "—"}`,
+    fecha ? `Fecha: ${fecha}` : null,
+    subcontratista.tarifa_km_pactada != null ? `Tarifa pactada: ${subcontratista.tarifa_km_pactada} €/km` : null,
+    enlacePublico ? `Seguimiento: ${enlacePublico}` : null,
+    "",
+    "Responde por aquí si lo coges.",
+  ].filter(Boolean);
+  return `https://wa.me/${telefonoWa}?text=${encodeURIComponent(lineas.join("\n"))}`;
 }
 
 /**

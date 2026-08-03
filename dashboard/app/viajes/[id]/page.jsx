@@ -22,6 +22,7 @@ import {
   createContexto, calcularDesfasePod, calcularOcupacion, guardarInstruccionChofer,
   marcarViaje, desmarcarViaje, getAvisoRemolqueRequeridoViaje,
   getSubcontratistas, asignarSubcontratistaAViaje, getAvisoFacturaSubcontratista,
+  construirEnlaceOfertaWhatsapp,
 } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
@@ -79,6 +80,7 @@ export default function ViajeDetalle() {
   const [subcontratistas, setSubcontratistas] = useState([]);
   const [editandoSubcontratista, setEditandoSubcontratista] = useState(false);
   const [guardandoSubcontratista, setGuardandoSubcontratista] = useState(false);
+  const [subcontratistasOferta, setSubcontratistasOferta] = useState(null);
 
   function cargarViabilidad() {
     setErrorViabilidad(null);
@@ -314,6 +316,11 @@ export default function ViajeDetalle() {
     } finally {
       setGuardandoSubcontratista(false);
     }
+  }
+
+  async function cargarSubcontratistasOferta() {
+    const todos = await getSubcontratistas();
+    setSubcontratistasOferta(todos.filter((s) => s.telefono));
   }
 
   async function guardarPrecio() {
@@ -1081,6 +1088,50 @@ export default function ViajeDetalle() {
               </button>
             )}
           </section>
+
+          {!viaje.subcontratista && (
+            <section className="bg-surface border border-border rounded-xl p-4">
+              <h2 className="text-sm font-medium text-ink mb-3 flex items-center gap-1.5">
+                <Truck size={15} /> Ofrecer a subcontratistas
+              </h2>
+              {subcontratistasOferta === null ? (
+                <button
+                  onClick={cargarSubcontratistasOferta}
+                  className="text-xs px-3 py-2 rounded-md border border-border text-ink-secondary hover:bg-surface-alt"
+                >
+                  Ver subcontratistas disponibles
+                </button>
+              ) : subcontratistasOferta.length === 0 ? (
+                <p className="text-xs text-ink-secondary">
+                  No hay subcontratistas activos con teléfono guardado — <Link href="/subcontratistas" className="underline">añade uno</Link>.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {subcontratistasOferta.map((s) => {
+                    const url = construirEnlaceOfertaWhatsapp(s, {
+                      referencia: ref,
+                      origen: hitos[0]?.direccion,
+                      destino: hitos[hitos.length - 1]?.direccion,
+                      fecha: hitos[0]?.ventana_inicio ? fmtFechaHora(hitos[0].ventana_inicio) : null,
+                      enlacePublico: viaje.token_publico && typeof window !== "undefined" ? `${window.location.origin}/t/${viaje.token_publico}` : null,
+                    });
+                    return (
+                      <a
+                        key={s.id}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between text-xs px-3 py-2 rounded-md border border-border hover:bg-surface-alt no-underline text-ink"
+                      >
+                        <span>{s.nombre} {s.tarifa_km_pactada != null && <span className="text-ink-muted">· {s.tarifa_km_pactada} €/km</span>}</span>
+                        <span className="text-estado-ok">WhatsApp →</span>
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
 
           {viaje.chofer?.id && (
             <Link
