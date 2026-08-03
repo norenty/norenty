@@ -1239,6 +1239,42 @@ export async function valorarSubcontratista(subcontratistaId, { puntuacion, nota
   if (error) throw error;
 }
 
+/**
+ * Auditoría de factura de subcontratista (Fase 27.4): compara lo que ha
+ * facturado (suma de gasto_viaje tipo='subcontratacion' para ese viaje)
+ * contra lo pactado (tarifa_km_pactada × km estimados del viaje). `null` si
+ * no hay subcontratista, no tiene tarifa pactada, o todavía no se ha
+ * registrado ningún gasto de subcontratación -- no hay nada que auditar.
+ */
+export async function getAvisoFacturaSubcontratista(viajeId) {
+  const { data: viaje } = await supabase
+    .from("viaje")
+    .select("subcontratista_id, subcontratista(nombre, tarifa_km_pactada)")
+    .eq("id", viajeId)
+    .single();
+  if (!viaje?.subcontratista_id || viaje.subcontratista?.tarifa_km_pactada == null) return null;
+
+  const { data: gastos } = await supabase
+    .from("gasto_viaje").select("importe").eq("viaje_id", viajeId).eq("tipo", "subcontratacion");
+  const facturado = (gastos || []).reduce((s, g) => s + Number(g.importe), 0);
+  if (facturado <= 0) return null;
+
+  const { data: hitos } = await supabase
+    .from("hito").select("lat, lon, orden").eq("viaje_id", viajeId).order("orden");
+  const conCoords = (hitos || []).filter((h) => h.lat != null && h.lon != null);
+  if (conCoords.length < 2) return null;
+  const km = distanciaTotalPuntos(conCoords.map((h) => ({ lat: Number(h.lat), lon: Number(h.lon) })));
+
+  const pactado = +(viaje.subcontratista.tarifa_km_pactada * km).toFixed(2);
+  if (facturado <= pactado) return null;
+
+  return {
+    facturado, pactado, km: Math.round(km),
+    exceso: +(facturado - pactado).toFixed(2),
+    mensaje: `${viaje.subcontratista.nombre} ha facturado ${facturado.toLocaleString("es-ES")} € por este viaje, por encima de lo pactado (${pactado.toLocaleString("es-ES")} € = ${viaje.subcontratista.tarifa_km_pactada} €/km × ${Math.round(km)} km).`,
+  };
+}
+
 export async function getValoracionesSubcontratista(subcontratistaId) {
   const { data, error } = await supabase
     .from("valoracion").select("*").eq("subcontratista_id", subcontratistaId).order("created_at", { ascending: false });

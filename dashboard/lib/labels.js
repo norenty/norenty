@@ -105,7 +105,7 @@ export const TIPO_PARKING_LABEL = {
 };
 
 export const TIPO_GASTO_LABEL = {
-  repostaje: "Repostaje", peaje: "Peaje", multa: "Multa", dieta: "Dieta", otro: "Otro",
+  repostaje: "Repostaje", peaje: "Peaje", multa: "Multa", dieta: "Dieta", subcontratacion: "Subcontratación", otro: "Otro",
 };
 
 export const TIPOS_VEHICULO = [

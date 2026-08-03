@@ -315,6 +315,7 @@ const {
   validarNifCif,
   getEmisionesCO2,
   FACTOR_CO2_DIESEL_KG_LITRO,
+  FACTOR_SINUOSIDAD_FALLBACK,
   getAvisoRemolqueRequeridoViaje,
   getTarifaCliente,
   guardarTarifaCliente,
@@ -327,6 +328,7 @@ const {
   asignarSubcontratistaAViaje,
   valorarSubcontratista,
   getValoracionesSubcontratista,
+  getAvisoFacturaSubcontratista,
   guardarCiudadResidenciaChofer,
   guardarUmbralVueltaCasaEmpresa,
   UMBRAL_VUELTA_CASA_KM_DEFAULT,
@@ -4674,6 +4676,50 @@ describe("createViaje acepta precio (7A.11)", () => {
 
   it("rechaza puntuación fuera de rango", async () => {
     await expect(valorarSubcontratista("sub1", { puntuacion: 6 })).rejects.toThrow("entre 1 y 5");
+  });
+});
+
+describe("getAvisoFacturaSubcontratista (Fase 27.4 — auditoría de factura)", () => {
+  // 1 grado de latitud ~ 111.19 km; × FACTOR_SINUOSIDAD_FALLBACK (1.3) ~ 144.5 km
+  const KM_ESTIMADO = 111.19 * FACTOR_SINUOSIDAD_FALLBACK;
+
+  beforeEach(() => {
+    TABLES.hito = [
+      { viaje_id: "v1", orden: 1, lat: 40, lon: 0 },
+      { viaje_id: "v1", orden: 2, lat: 41, lon: 0 },
+    ];
+  });
+
+  it("avisa si lo facturado supera lo pactado", async () => {
+    TABLES.viaje = [{ id: "v1", subcontratista_id: "s1", subcontratista: { nombre: "Transportes X", tarifa_km_pactada: 1 } }];
+    TABLES.gasto_viaje = [{ viaje_id: "v1", tipo: "subcontratacion", importe: 200 }];
+    const aviso = await getAvisoFacturaSubcontratista("v1");
+    expect(aviso.facturado).toBe(200);
+    expect(aviso.pactado).toBeCloseTo(KM_ESTIMADO, 0);
+  });
+
+  it("no avisa si lo facturado está dentro de lo pactado", async () => {
+    TABLES.viaje = [{ id: "v1", subcontratista_id: "s1", subcontratista: { nombre: "Transportes X", tarifa_km_pactada: 1 } }];
+    TABLES.gasto_viaje = [{ viaje_id: "v1", tipo: "subcontratacion", importe: 100 }];
+    expect(await getAvisoFacturaSubcontratista("v1")).toBeNull();
+  });
+
+  it("no avisa si el viaje no tiene subcontratista", async () => {
+    TABLES.viaje = [{ id: "v1", subcontratista_id: null }];
+    TABLES.gasto_viaje = [];
+    expect(await getAvisoFacturaSubcontratista("v1")).toBeNull();
+  });
+
+  it("no avisa si el subcontratista no tiene tarifa pactada", async () => {
+    TABLES.viaje = [{ id: "v1", subcontratista_id: "s1", subcontratista: { nombre: "X", tarifa_km_pactada: null } }];
+    TABLES.gasto_viaje = [{ viaje_id: "v1", tipo: "subcontratacion", importe: 9999 }];
+    expect(await getAvisoFacturaSubcontratista("v1")).toBeNull();
+  });
+
+  it("no avisa si todavía no hay ningún gasto de subcontratación registrado", async () => {
+    TABLES.viaje = [{ id: "v1", subcontratista_id: "s1", subcontratista: { nombre: "X", tarifa_km_pactada: 1 } }];
+    TABLES.gasto_viaje = [];
+    expect(await getAvisoFacturaSubcontratista("v1")).toBeNull();
   });
 });
 

@@ -21,7 +21,7 @@ import {
   generarTokenPublico, revocarTokenPublico, DIAS_VALIDEZ_TOKEN_PUBLICO_DEFAULT, registrarAuditoria, getAuditLog,
   createContexto, calcularDesfasePod, calcularOcupacion, guardarInstruccionChofer,
   marcarViaje, desmarcarViaje, getAvisoRemolqueRequeridoViaje,
-  getSubcontratistas, asignarSubcontratistaAViaje,
+  getSubcontratistas, asignarSubcontratistaAViaje, getAvisoFacturaSubcontratista,
 } from "../../../lib/data";
 import { supabase } from "../../../lib/supabase";
 import { useRealtimeRefresh } from "../../../lib/realtime";
@@ -51,6 +51,7 @@ export default function ViajeDetalle() {
   const [choferes, setChoferes] = useState([]);
   const [aviso561, setAviso561] = useState(null);
   const [avisoRemolque, setAvisoRemolque] = useState(null);
+  const [avisoFacturaSubcontratista, setAvisoFacturaSubcontratista] = useState(null);
   const [incidencias, setIncidencias] = useState([]);
   const [error, setError] = useState(null);
   const [guardandoEstado, setGuardandoEstado] = useState(false);
@@ -136,6 +137,7 @@ export default function ViajeDetalle() {
     getPlanVsReal(id).then(setPlanVsReal);
     getAuditLog("viaje", id).then(setActividad);
     getAvisoRemolqueRequeridoViaje(id).then(setAvisoRemolque).catch(() => setAvisoRemolque(null));
+    getAvisoFacturaSubcontratista(id).then(setAvisoFacturaSubcontratista).catch(() => setAvisoFacturaSubcontratista(null));
 
     if (d?.viaje) {
       if (d.viaje.vehiculo_id) {
@@ -561,6 +563,14 @@ export default function ViajeDetalle() {
           <AlertTriangle size={14} className="shrink-0 mt-0.5" />
           {avisoRemolque.detalle}
           <button onClick={() => setAvisoRemolque(null)} className="ml-auto shrink-0"><X size={14} /></button>
+        </div>
+      )}
+
+      {avisoFacturaSubcontratista && (
+        <div className="flex items-start gap-2 mb-4 px-3 py-2 rounded-lg bg-orange-50 border border-orange-200 text-xs text-estado-riesgo">
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+          {avisoFacturaSubcontratista.mensaje}
+          <button onClick={() => setAvisoFacturaSubcontratista(null)} className="ml-auto shrink-0"><X size={14} /></button>
         </div>
       )}
 

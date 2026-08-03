@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Fuel, ParkingSquare, Siren, Bed, Receipt, Image as ImageIcon } from "lucide-react";
+import { Plus, Trash2, Fuel, ParkingSquare, Siren, Bed, Receipt, Truck, Image as ImageIcon } from "lucide-react";
 import { getGastosViaje, createGastoViaje, deleteGastoViaje, getCurrentEmpresaId, validarArchivoSubida } from "../../lib/data";
 import { supabase } from "../../lib/supabase";
 import { TIPO_GASTO_LABEL as TIPO_LABEL } from "../../lib/labels";
@@ -9,9 +9,9 @@ import RequireRol from "./RequireRol";
 import SectionCard from "./ui/SectionCard";
 import { fmtEur } from "../../lib/format";
 
-const TIPOS = ["repostaje", "peaje", "multa", "dieta", "otro"];
+const TIPOS = ["repostaje", "peaje", "multa", "dieta", "subcontratacion", "otro"];
 const TIPO_ICON = {
-  repostaje: Fuel, peaje: ParkingSquare, multa: Siren, dieta: Bed, otro: Receipt,
+  repostaje: Fuel, peaje: ParkingSquare, multa: Siren, dieta: Bed, subcontratacion: Truck, otro: Receipt,
 };
 const SIGNED_URL_TTL = 60; // segundos, mismo criterio que DocumentosSection
 
