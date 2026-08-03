@@ -4330,7 +4330,7 @@ export async function getEmisionesCO2({ desde, hasta, vehiculoId = null } = {}) 
 export async function getFacturas({ estado = null } = {}) {
   let query = supabase
     .from("factura")
-    .select("id, viaje_id, importe, estado, origen, creada_en, enviada_en, pagada_en, viaje(referencia), cliente(nombre, cif)")
+    .select("id, viaje_id, importe, importe_accesorios, estado, origen, creada_en, enviada_en, pagada_en, viaje(referencia), cliente(nombre, cif)")
     .order("creada_en", { ascending: false });
   if (estado) query = query.eq("estado", estado);
   const { data, error } = await query;
@@ -4342,12 +4342,29 @@ export async function getFacturas({ estado = null } = {}) {
     cliente: f.cliente?.nombre || null,
     clienteCif: f.cliente?.cif || null,
     importe: Number(f.importe),
+    importeAccesorios: Number(f.importe_accesorios || 0),
     estado: f.estado,
     origen: f.origen,
     creadaEn: f.creada_en,
     enviadaEn: f.enviada_en,
     pagadaEn: f.pagada_en,
   }));
+}
+
+/** Cargos accesorios por espera (Fase 27.2): tarifa por hora + franquicia
+ * antes de empezar a cobrar. `tarifaStr` vacío desactiva la función (no cobra
+ * nada, retrocompatible) -- coherente con `coste_km` nullable en el resto del
+ * cálculo de coste. */
+export async function guardarTarifaEsperaEmpresa(empresaId, tarifaStr, franquiciaStr) {
+  const tarifa = (tarifaStr ?? "").toString().trim() === "" ? null : Number(tarifaStr);
+  if (tarifa != null && (Number.isNaN(tarifa) || tarifa < 0)) throw new Error("la tarifa de espera debe ser un número >= 0");
+  const franquicia = (franquiciaStr ?? "").toString().trim() === "" ? 1 : Number(franquiciaStr);
+  if (Number.isNaN(franquicia) || franquicia < 0) throw new Error("la franquicia debe ser un número >= 0");
+  const { error } = await supabase
+    .from("empresa")
+    .update({ tarifa_hora_espera_eur: tarifa, franquicia_espera_horas: franquicia })
+    .eq("id", empresaId);
+  if (error) throw error;
 }
 
 export async function marcarFacturaEnviada(id) {

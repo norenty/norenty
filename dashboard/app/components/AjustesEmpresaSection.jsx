@@ -29,6 +29,11 @@ export default function AjustesEmpresaSection({
   setUmbralVueltaCasa,
   guardarUmbralVueltaCasa,
   umbralVueltaCasaDefault,
+  tarifaEspera,
+  setTarifaEspera,
+  franquiciaEspera,
+  setFranquiciaEspera,
+  guardarTarifaEspera,
   precioGasoil,
   setPrecioGasoil,
   costePeaje,
@@ -272,6 +277,47 @@ export default function AjustesEmpresaSection({
             className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
           >
             <Save size={16} /> Guardar umbral
+          </button>
+        </div>
+      </section>
+
+      <section id="ajustes-espera" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
+        <div className="flex items-center gap-2 mb-1">
+          <Euro size={18} className="text-brand" />
+          <h2 className="text-sm font-medium text-ink">Cargos por espera/paralización</h2>
+        </div>
+        <p className="text-xs text-ink-secondary mb-4">
+          Cuando el chófer espera en el muelle más de la franquicia, esas horas se cobran al
+          cliente automáticamente como accesorio de la factura al validar el POD. Deja la tarifa
+          vacía para desactivar esta función (no se cobra nada).
+        </p>
+        <div className="flex items-end gap-3">
+          <div>
+            <label className="block text-xs text-ink-secondary mb-1">Tarifa (€/hora)</label>
+            <input
+              type="number" step="any" min="0"
+              value={tarifaEspera}
+              onChange={(e) => setTarifaEspera(e.target.value)}
+              placeholder="Desactivado"
+              className="w-28 text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-ink-secondary mb-1">Franquicia (horas)</label>
+            <input
+              type="number" step="any" min="0"
+              value={franquiciaEspera}
+              onChange={(e) => setFranquiciaEspera(e.target.value)}
+              placeholder="1"
+              className="w-28 text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand"
+            />
+          </div>
+          <button
+            onClick={guardarTarifaEspera}
+            disabled={guardando}
+            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md bg-brand text-white font-medium disabled:opacity-40"
+          >
+            <Save size={16} /> Guardar
           </button>
         </div>
       </section>

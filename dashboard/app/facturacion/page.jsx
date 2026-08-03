@@ -119,7 +119,14 @@ function FacturasReales() {
                 <tr key={f.id} className="border-t border-border">
                   <td className="px-3 py-2 font-mono">{f.referencia || f.viajeId.slice(0, 8)}</td>
                   <td className="px-3 py-2">{f.cliente || "—"}</td>
-                  <td className="px-3 py-2">{fmtEur(f.importe)}</td>
+                  <td className="px-3 py-2">
+                    {fmtEur(f.importe + f.importeAccesorios)}
+                    {f.importeAccesorios > 0 && (
+                      <div className="text-[10px] text-ink-muted">
+                        {fmtEur(f.importe)} + {fmtEur(f.importeAccesorios)} espera
+                      </div>
+                    )}
+                  </td>
                   <td className="px-3 py-2">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estado.c}`}>{estado.t}</span>
                   </td>

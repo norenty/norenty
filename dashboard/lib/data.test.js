@@ -319,6 +319,7 @@ const {
   getTarifaCliente,
   guardarTarifaCliente,
   eliminarTarifaCliente,
+  guardarTarifaEsperaEmpresa,
   guardarCiudadResidenciaChofer,
   guardarUmbralVueltaCasaEmpresa,
   UMBRAL_VUELTA_CASA_KM_DEFAULT,
@@ -4608,6 +4609,32 @@ describe("createViaje acepta precio (7A.11)", () => {
       });
       expect(viaje.precio).toBe(300);
       expect(avisoTarifaBaja).toBeNull();
+    });
+  });
+
+  describe("guardarTarifaEsperaEmpresa (Fase 27.2 — cargos accesorios)", () => {
+    it("guarda tarifa y franquicia", async () => {
+      TABLES.empresa = [{ id: "e1" }];
+      await guardarTarifaEsperaEmpresa("e1", "25", "2");
+      expect(TABLES.empresa[0].tarifa_hora_espera_eur).toBe(25);
+      expect(TABLES.empresa[0].franquicia_espera_horas).toBe(2);
+    });
+
+    it("tarifa vacía desactiva la función (null, no 0)", async () => {
+      TABLES.empresa = [{ id: "e1", tarifa_hora_espera_eur: 25 }];
+      await guardarTarifaEsperaEmpresa("e1", "", "1");
+      expect(TABLES.empresa[0].tarifa_hora_espera_eur).toBeNull();
+    });
+
+    it("franquicia vacía usa el default de 1h", async () => {
+      TABLES.empresa = [{ id: "e1" }];
+      await guardarTarifaEsperaEmpresa("e1", "20", "");
+      expect(TABLES.empresa[0].franquicia_espera_horas).toBe(1);
+    });
+
+    it("rechaza tarifa negativa", async () => {
+      TABLES.empresa = [{ id: "e1" }];
+      await expect(guardarTarifaEsperaEmpresa("e1", "-5", "1")).rejects.toThrow(">= 0");
     });
   });
 
