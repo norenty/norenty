@@ -126,7 +126,7 @@ export default function MapView({ hitos, ubicaciones, parkings, clientes, rutaHi
                 <br />
                 {h.direccion || "—"}
                 <br />
-                <span style={{ color: "#64748B" }}>{h.estado}</span>
+                <span className="text-ink-secondary">{h.estado}</span>
               </div>
             </Popup>
           </Marker>
@@ -144,19 +144,19 @@ export default function MapView({ hitos, ubicaciones, parkings, clientes, rutaHi
               <br />
               {p.fuente === "empresa" ? "Parking propio de la empresa" : "Dataset abierto (Fraunhofer/OSM)"}
               <br />
-              <span style={{ color: p.vigilado === true ? "#16A34A" : "#64748B" }}>
+              <span className={p.vigilado === true ? "text-estado-ok" : "text-ink-secondary"}>
                 {p.vigilado === true ? "🛡️ Vigilado" : p.vigilado === false ? "Sin vigilancia" : "Vigilancia: desconocida"}
               </span>
               {p.confianza && (
                 <>
                   <br />
-                  <span style={{ color: "#64748B" }}>Confianza: {p.confianza}</span>
+                  <span className="text-ink-secondary">Confianza: {p.confianza}</span>
                 </>
               )}
               {p.notas && (
                 <>
                   <br />
-                  <span style={{ color: "#64748B" }}>{p.notas}</span>
+                  <span className="text-ink-secondary">{p.notas}</span>
                 </>
               )}
               {p.fuente === "empresa" && onBorrarParking && (
@@ -164,7 +164,8 @@ export default function MapView({ hitos, ubicaciones, parkings, clientes, rutaHi
                   <br />
                   <button
                     onClick={() => onBorrarParking(p.id)}
-                    style={{ marginTop: 6, fontSize: 12, color: "#DC2626", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                    className="text-estado-incidencia underline bg-transparent border-0 cursor-pointer p-0"
+                    style={{ marginTop: 6, fontSize: 12 }}
                   >
                     Eliminar
                   </button>
@@ -183,17 +184,17 @@ export default function MapView({ hitos, ubicaciones, parkings, clientes, rutaHi
               <br />
               {u.velocidad != null && `${Math.round(u.velocidad)} km/h`}
               <br />
-              <span style={{ color: "#64748B" }}>
+              <span className="text-ink-secondary">
                 {new Date(u.created_at).toLocaleTimeString("es-ES")}
               </span>
               {u.incidencia && (
                 <>
                   <br />
-                  <span style={{ color: "#DC2626", fontWeight: 600 }}>
+                  <span className="text-estado-incidencia font-semibold">
                     ⚠ Incidencia: {u.incidencia.tipo}
                   </span>
                   <br />
-                  <Link href={`/viajes/${u.incidencia.viajeId}`} style={{ color: "#2563EB", textDecoration: "underline" }}>
+                  <Link href={`/viajes/${u.incidencia.viajeId}`} className="text-brand underline">
                     Ver viaje {u.incidencia.viajeReferencia || ""} (reasignar chófer/vehículo)
                   </Link>
                 </>

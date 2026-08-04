@@ -78,6 +78,17 @@ body {
   background: var(--color-surface-alt);
 }
 
+/* Accesibilidad (audit hallmark, 2026-08-04): ningún botón/enlace/input de la
+   app tenía anillo de foco visible al navegar con teclado -- ni un reset
+   propio que lo quitara, simplemente nunca se definió. Centralizado aquí en
+   vez de tocar cada botón/input de decenas de páginas, mismo criterio que la
+   sombra de tarjeta de arriba. `:focus-visible` (no `:focus`) para que solo
+   aparezca con teclado, nunca al hacer clic con ratón. */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
 /* Mapa en vivo (/mapa): anillo pulsante tras el icono de chófer, sensación
    de posición en tiempo real sin depender de que la ubicación cambie. */
 @keyframes pulso-chofer {

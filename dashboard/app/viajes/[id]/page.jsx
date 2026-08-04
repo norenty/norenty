@@ -695,7 +695,7 @@ export default function ViajeDetalle() {
           {hitos.filter((h) => h.lat != null && h.lon != null).length > 1 && (
             <section>
               <h2 className="text-sm font-medium text-ink mb-3">Ruta (ROADMAP 21.5)</h2>
-              <div style={{ height: "16rem" }}>
+              <div className="h-64">
                 <MapView
                   hitos={hitos.filter((h) => h.lat != null && h.lon != null)}
                   ubicaciones={[]}
