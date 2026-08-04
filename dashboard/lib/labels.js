@@ -143,4 +143,7 @@ export const ESTADO_MANTENIMIENTO_CHIP = {
 export const IDIOMA_LABEL = { es: "ES", ro: "RO", ar: "AR", fr: "FR", it: "IT", en: "EN", pt: "PT", de: "DE" };
 
 // Capas de coste desglosado (7A.5/7A.6/7A.8)
-export const LABEL_CAPA = { combustible: "Combustible", conductor: "Conductor", peajes: "Peajes", dietas: "Dietas" };
+export const LABEL_CAPA = {
+  combustible: "Combustible", conductor: "Conductor", peajes: "Peajes", dietas: "Dietas",
+  leasing: "Leasing del camión", desgaste: "Desgaste",
+};

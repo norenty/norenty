@@ -44,6 +44,8 @@ export default function AjustesPage() {
   const [costePeaje, setCostePeaje] = useState("");
   const [dietaNoche, setDietaNoche] = useState("");
   const [costeConductor, setCosteConductor] = useState("");
+  const [costeLeasing, setCosteLeasing] = useState("");
+  const [costeDesgaste, setCosteDesgaste] = useState("");
   const [indiceGasoil, setIndiceGasoil] = useState(null);
   const [gestor, setGestor] = useState(null);
   const [prefs, setPrefs] = useState({ notif_incidencias: true, notif_entregas: true, notif_fuera_ventana: false });
@@ -143,6 +145,8 @@ export default function AjustesPage() {
           setCostePeaje(emp?.coste_peaje_km != null ? String(emp.coste_peaje_km) : "");
           setDietaNoche(emp?.dieta_noche_eur != null ? String(emp.dieta_noche_eur) : "");
           setCosteConductor(emp?.coste_conductor_km != null ? String(emp.coste_conductor_km) : "");
+          setCosteLeasing(emp?.coste_leasing_km != null ? String(emp.coste_leasing_km) : "");
+          setCosteDesgaste(emp?.coste_desgaste_km != null ? String(emp.coste_desgaste_km) : "");
           try {
             setIndiceGasoil(await getIndiceGasoilNacional());
           } catch {
@@ -433,6 +437,7 @@ export default function AjustesPage() {
       await guardarDesgloseCosteEmpresa(empresa.id, {
         precio_gasoil_litro: precioGasoil, coste_peaje_km: costePeaje,
         dieta_noche_eur: dietaNoche, coste_conductor_km: costeConductor,
+        coste_leasing_km: costeLeasing, coste_desgaste_km: costeDesgaste,
       });
       flash("Coste desglosado guardado");
     } catch (err) {
@@ -733,6 +738,11 @@ export default function AjustesPage() {
         dietaNoche={dietaNoche}
         setDietaNoche={setDietaNoche}
         costeConductor={costeConductor}
+        setCosteConductor={setCosteConductor}
+        costeLeasing={costeLeasing}
+        setCosteLeasing={setCosteLeasing}
+        costeDesgaste={costeDesgaste}
+        setCosteDesgaste={setCosteDesgaste}
         setCosteConductor={setCosteConductor}
         guardarDesglose={guardarDesglose}
         indiceGasoil={indiceGasoil}

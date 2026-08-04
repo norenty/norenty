@@ -457,7 +457,7 @@ export default function PresupuestoPage() {
           {resultado.coste.total != null && (
             <div className="text-xs text-ink-muted space-y-1 border-t border-border pt-3">
               {resultado.coste.modo === "desglosado" ? (
-                ["combustible", "conductor", "peajes", "dietas"].map((capa) => {
+                ["combustible", "conductor", "peajes", "dietas", "leasing", "desgaste"].map((capa) => {
                   const excluido = conceptosExcluidos.has(capa);
                   return (
                     <div key={capa} className="flex items-center justify-between gap-2">

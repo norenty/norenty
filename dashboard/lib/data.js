@@ -1634,6 +1634,21 @@ export async function guardarSubtipoVehiculo(vehiculoId, { subtipo, temperaturaM
 /** Requisito de remolque que pidió el CLIENTE para un viaje concreto —
  * separado del remolque real asignado a propósito (puede no cumplirlo, y
  * detectarlo es un ítem futuro, no este). */
+/** Bitrén/megatráiler (0089): atributo de la TRACTORA (va matriculada/
+ * autorizada para tirar de dos remolques enganchados), no del remolque en sí
+ * -- distinto de "dos chóferes" (viaje.chofer2_id), confirmado con el
+ * usuario. Solo el dato por ahora; el cálculo de coste extra (más consumo,
+ * peajes distintos) es un ítem aparte cuando haya un caso real que lo pida. */
+export async function guardarBitrenVehiculo(vehiculoId, esBitren) {
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase
+    .from("vehiculo")
+    .update({ es_bitren: !!esBitren })
+    .eq("id", vehiculoId)
+    .eq("empresa_id", empresaId);
+  if (error) throw error;
+}
+
 export async function guardarRequisitosRemolqueViaje(viajeId, { remolqueRequerido, temperaturaMin, temperaturaMax }) {
   if (remolqueRequerido && !SUBTIPOS_REMOLQUE.includes(remolqueRequerido)) throw new Error("tipo de remolque no válido");
   const tMin = (temperaturaMin ?? "").toString().trim() === "" ? null : Number(temperaturaMin);
@@ -3893,6 +3908,8 @@ export function calcularCosteRuta({ km, noches = 0, vehiculo, empresa, excluirCo
       conductor: null,
       peajes: null,
       dietas: null,
+      leasing: null,
+      desgaste: null,
       total,
       capasFaltantes: [],
       excluidos: [],
@@ -3903,19 +3920,27 @@ export function calcularCosteRuta({ km, noches = 0, vehiculo, empresa, excluirCo
   const conductor = empresa?.coste_conductor_km != null ? +(km * empresa.coste_conductor_km).toFixed(2) : null;
   const peajes = empresa?.coste_peaje_km != null ? +(km * empresa.coste_peaje_km).toFixed(2) : null;
   const dietas = noches === 0 ? 0 : (empresa?.dieta_noche_eur != null ? +(noches * empresa.dieta_noche_eur).toFixed(2) : null);
+  // Capas nuevas (2026-08-02, pedido del usuario): leasing y desgaste del
+  // camión -- mismo patrón exacto que peajes/dietas, €/km configurable por
+  // empresa, opcional (si no está configurado, no cuenta como "faltante"
+  // hasta que la empresa decida rellenarlo -- igual que las demás).
+  const leasing = empresa?.coste_leasing_km != null ? +(km * empresa.coste_leasing_km).toFixed(2) : null;
+  const desgaste = empresa?.coste_desgaste_km != null ? +(km * empresa.coste_desgaste_km).toFixed(2) : null;
 
   const capasFaltantes = [];
   if (conductor == null) capasFaltantes.push("conductor");
   if (peajes == null) capasFaltantes.push("peajes");
   if (dietas == null) capasFaltantes.push("dietas");
+  if (leasing == null) capasFaltantes.push("leasing");
+  if (desgaste == null) capasFaltantes.push("desgaste");
 
-  const sumables = { combustible, conductor, peajes, dietas };
+  const sumables = { combustible, conductor, peajes, dietas, leasing, desgaste };
   const total = +Object.entries(sumables)
     .filter(([nombre, v]) => v != null && !excluir.has(nombre))
     .reduce((s, [, v]) => s + v, 0)
     .toFixed(2);
 
-  return { modo: "desglosado", combustible, conductor, peajes, dietas, total, capasFaltantes, excluidos: [...excluir] };
+  return { modo: "desglosado", combustible, conductor, peajes, dietas, leasing, desgaste, total, capasFaltantes, excluidos: [...excluir] };
 }
 
 // COT.4 — Camión completo (FTL) vs. grupaje: el estándar del sector mide la
@@ -4056,7 +4081,7 @@ export async function getViabilidadViaje(viajeId) {
 
   const [{ data: hitos, error: errorHitos }, { data: empresas, error: errorEmpresas }, vehiculoRes] = await Promise.all([
     supabase.from("hito").select("orden, lat, lon").eq("viaje_id", viajeId),
-    supabase.from("empresa").select("coste_km, velocidad_planificacion_kmh, precio_gasoil_litro, coste_peaje_km, dieta_noche_eur, coste_conductor_km"),
+    supabase.from("empresa").select("coste_km, velocidad_planificacion_kmh, precio_gasoil_litro, coste_peaje_km, dieta_noche_eur, coste_conductor_km, coste_leasing_km, coste_desgaste_km"),
     viaje.vehiculo_id
       ? supabase.from("vehiculo").select("coste_km, consumo_l_100km").eq("id", viaje.vehiculo_id).single()
       : Promise.resolve({ data: null }),
@@ -4122,6 +4147,8 @@ export function aplicarOverridesPresupuesto(empresa, vehiculo, overrides) {
   setE("coste_conductor_km", overrides.costeConductorKm);
   setE("coste_peaje_km", overrides.costePeajeKm);
   setE("dieta_noche_eur", overrides.dietaNocheEur);
+  setE("coste_leasing_km", overrides.costeLeasingKm);
+  setE("coste_desgaste_km", overrides.costeDesgasteKm);
   setE("margen_objetivo_pct", overrides.margenObjetivoPct);
   if (v && overrides.consumoL100km != null) v.consumo_l_100km = overrides.consumoL100km;
   return { empresa: e, vehiculo: v };
@@ -4141,7 +4168,7 @@ export async function calcularPresupuesto({ puntos, vehiculoId = null, overrides
   const { km, estimado } = await kmCarreteraViaje(hitosFalsos);
 
   const [{ data: empresas, error: errorEmpresas }, vehiculoRes] = await Promise.all([
-    supabase.from("empresa").select("velocidad_planificacion_kmh, coste_km, precio_gasoil_litro, coste_peaje_km, dieta_noche_eur, coste_conductor_km, margen_objetivo_pct"),
+    supabase.from("empresa").select("velocidad_planificacion_kmh, coste_km, precio_gasoil_litro, coste_peaje_km, dieta_noche_eur, coste_conductor_km, coste_leasing_km, coste_desgaste_km, margen_objetivo_pct"),
     vehiculoId
       ? supabase.from("vehiculo").select("coste_km, consumo_l_100km").eq("id", vehiculoId).single()
       : Promise.resolve({ data: null }),
@@ -5485,6 +5512,57 @@ export async function guardarUmbralVueltaCasaEmpresa(empresaId, kmStr) {
   if (error) throw error;
 }
 
+// ==========================================================================
+// Pernocta del chófer (0089, pedido 2026-08-02): dónde ha dormido y si todo
+// bien -- hueco real que no existía (el catálogo `parking` de 0016 es solo
+// un directorio de sitios conocidos, no un registro de uso real). Solo
+// lectura/escritura desde el dashboard por ahora; la pregunta proactiva del
+// bot ("¿dónde vas a parar esta noche? ¿todo bien?") es el siguiente paso,
+// spec pendiente de decidir el disparador exacto (después de N horas de
+// conducción, o al detectar parada larga vía GPS) antes de tocar bot.py.
+// ==========================================================================
+
+export async function registrarPernoctaChofer({ choferId, viajeId = null, parkingId = null, lat = null, lon = null, todoOk = null, comentario = null }) {
+  const empresaId = await getCurrentEmpresaId();
+  const { data, error } = await supabase
+    .from("pernocta_chofer")
+    .insert({
+      empresa_id: empresaId,
+      chofer_id: choferId,
+      viaje_id: viajeId,
+      parking_id: parkingId,
+      lat: lat !== "" && lat != null ? Number(lat) : null,
+      lon: lon !== "" && lon != null ? Number(lon) : null,
+      todo_ok: todoOk,
+      comentario,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function getPernoctasPorViaje(viajeId) {
+  const { data, error } = await supabase
+    .from("pernocta_chofer")
+    .select("*, parking(nombre), chofer(nombre)")
+    .eq("viaje_id", viajeId)
+    .order("ocurrido_en", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getPernoctasPorChofer(choferId, { limite = 20 } = {}) {
+  const { data, error } = await supabase
+    .from("pernocta_chofer")
+    .select("*, parking(nombre)")
+    .eq("chofer_id", choferId)
+    .order("ocurrido_en", { ascending: false })
+    .limit(limite);
+  if (error) throw error;
+  return data || [];
+}
+
 export const UMBRAL_VUELTA_CASA_KM_DEFAULT = 150;
 
 /** Regla dura de "vuelta a casa el fin de semana" (decisión 2026-08-02): si el
@@ -5730,7 +5808,7 @@ export async function validarCambioEstado(viajeId, nuevoEstado) {
   return { errores, ok: errores.length === 0 };
 }
 
-export async function createViaje({ referencia, choferId, vehiculoId, remolqueId, hitos, precio = null, clienteId = null, carga = null }) {
+export async function createViaje({ referencia, choferId, chofer2Id = null, vehiculoId, remolqueId, hitos, precio = null, clienteId = null, carga = null }) {
   const validacion = await validarAsignacion({ choferId, vehiculoId, remolqueId, referencia });
   if (!validacion.ok) {
     throw new Error(validacion.errores.join(". "));
@@ -5781,6 +5859,7 @@ export async function createViaje({ referencia, choferId, vehiculoId, remolqueId
     .insert({
       referencia: referencia || null,
       chofer_id: choferId || null,
+      chofer2_id: chofer2Id || null,
       vehiculo_id: vehiculoId || null,
       remolque_id: remolqueId || null,
       cliente_id: clienteId || null,

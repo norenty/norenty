@@ -837,7 +837,7 @@ export default function ViajeDetalle() {
                   <div className="text-xs text-ink-muted space-y-0.5">
                     {desglose?.modo === "desglosado" ? (
                       <div className="space-y-0.5">
-                        {["combustible", "conductor", "peajes", "dietas"].map((capa) => (
+                        {["combustible", "conductor", "peajes", "dietas", "leasing", "desgaste"].map((capa) => (
                           <div key={capa} className="flex justify-between">
                             <span>{LABEL_CAPA[capa]}</span>
                             <span>

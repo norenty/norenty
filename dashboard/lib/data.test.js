@@ -333,6 +333,10 @@ const {
   guardarCiudadResidenciaChofer,
   guardarUmbralVueltaCasaEmpresa,
   UMBRAL_VUELTA_CASA_KM_DEFAULT,
+  guardarBitrenVehiculo,
+  registrarPernoctaChofer,
+  getPernoctasPorViaje,
+  getPernoctasPorChofer,
   actualizarCliente,
   desactivarCliente,
   asignarClienteAViaje,
@@ -429,6 +433,49 @@ describe("guardarCiudadResidenciaChofer (0084 — geocodifica una vez al guardar
     expect(TABLES.chofer[0].ciudad_residencia).toBeNull();
     expect(TABLES.chofer[0].ciudad_residencia_lat).toBeNull();
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("guardarBitrenVehiculo (bitrén/megatráiler, atributo de la tractora)", () => {
+  it("guarda el flag scoped por empresa", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.vehiculo = [{ id: "v1", empresa_id: "e1", es_bitren: false }];
+    await guardarBitrenVehiculo("v1", true);
+    expect(TABLES.vehiculo[0].es_bitren).toBe(true);
+  });
+});
+
+describe("pernocta_chofer (dónde ha dormido el chófer, ROADMAP 2026-08-02)", () => {
+  it("registrarPernoctaChofer guarda con la empresa del gestor logueado", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.pernocta_chofer = [];
+    const r = await registrarPernoctaChofer({ choferId: "ch1", viajeId: "v1", todoOk: true, lat: "40.4", lon: "-3.7" });
+    expect(r.empresa_id).toBe("e1");
+    expect(r.chofer_id).toBe("ch1");
+    expect(r.todo_ok).toBe(true);
+    expect(r.lat).toBe(40.4);
+  });
+
+  it("getPernoctasPorViaje filtra por viaje, más reciente primero", async () => {
+    TABLES.pernocta_chofer = [
+      { id: "p1", viaje_id: "v1", ocurrido_en: "2026-01-01T00:00:00Z" },
+      { id: "p2", viaje_id: "v1", ocurrido_en: "2026-01-02T00:00:00Z" },
+      { id: "p3", viaje_id: "v2", ocurrido_en: "2026-01-03T00:00:00Z" },
+    ];
+    const r = await getPernoctasPorViaje("v1");
+    expect(r.map((p) => p.id)).toEqual(["p2", "p1"]);
+  });
+
+  it("getPernoctasPorChofer filtra por chófer", async () => {
+    TABLES.pernocta_chofer = [
+      { id: "p1", chofer_id: "ch1", ocurrido_en: "2026-01-01T00:00:00Z" },
+      { id: "p2", chofer_id: "ch2", ocurrido_en: "2026-01-01T00:00:00Z" },
+    ];
+    const r = await getPernoctasPorChofer("ch1");
+    expect(r).toHaveLength(1);
+    expect(r[0].id).toBe("p1");
   });
 });
 
@@ -1661,6 +1708,7 @@ describe("calcularCosteRuta (7A.5 — desglose por capas)", () => {
   const vehiculo = { consumo_l_100km: 30, coste_km: 1.2 };
   const empresaCompleta = {
     precio_gasoil_litro: 1.5, coste_peaje_km: 0.1, dieta_noche_eur: 40, coste_conductor_km: 0.3, coste_km: 1.2,
+    coste_leasing_km: 0.12, coste_desgaste_km: 0.05,
   };
 
   it("modo desglosado: calcula cada capa y el total", () => {
@@ -1670,19 +1718,23 @@ describe("calcularCosteRuta (7A.5 — desglose por capas)", () => {
     expect(r.conductor).toBeCloseTo(500 * 0.3, 2); // 150
     expect(r.peajes).toBeCloseTo(500 * 0.1, 2); // 50
     expect(r.dietas).toBe(40);
+    expect(r.leasing).toBeCloseTo(500 * 0.12, 2); // 60
+    expect(r.desgaste).toBeCloseTo(500 * 0.05, 2); // 25
     expect(r.capasFaltantes).toEqual([]);
-    expect(r.total).toBeCloseTo(225 + 150 + 50 + 40, 2);
+    expect(r.total).toBeCloseTo(225 + 150 + 50 + 40 + 60 + 25, 2);
   });
 
   it("cada capa faltante da null y se lista en capasFaltantes", () => {
     const r = calcularCosteRuta({
       km: 500, noches: 1, vehiculo,
-      empresa: { precio_gasoil_litro: 1.5 }, // sin peaje/dieta/conductor
+      empresa: { precio_gasoil_litro: 1.5 }, // sin peaje/dieta/conductor/leasing/desgaste
     });
     expect(r.conductor).toBeNull();
     expect(r.peajes).toBeNull();
     expect(r.dietas).toBeNull();
-    expect(r.capasFaltantes.sort()).toEqual(["conductor", "dietas", "peajes"]);
+    expect(r.leasing).toBeNull();
+    expect(r.desgaste).toBeNull();
+    expect(r.capasFaltantes.sort()).toEqual(["conductor", "desgaste", "dietas", "leasing", "peajes"]);
     expect(r.total).toBeCloseTo(r.combustible, 2); // solo suma lo no-null
   });
 
@@ -4481,6 +4533,16 @@ describe("createViaje acepta precio (7A.11)", () => {
     TABLES.vehiculo = [];
     const { viaje } = await createViaje({ referencia: "REF1", choferId: null, vehiculoId: null, remolqueId: null, hitos: [], precio: 1234 });
     expect(viaje.precio).toBe(1234);
+  });
+
+  it("guarda chofer2_id (conducción en pareja/relevo, ROADMAP 2026-08-02)", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.viaje = [];
+    TABLES.chofer = [];
+    TABLES.vehiculo = [];
+    const { viaje } = await createViaje({ referencia: "REF-DUO", choferId: null, chofer2Id: "ch2", vehiculoId: null, remolqueId: null, hitos: [] });
+    expect(viaje.chofer2_id).toBe("ch2");
   });
 
   it("creado por un gestor no-admin se auto-asigna su gestor_id (hallazgo post-F15.2)", async () => {

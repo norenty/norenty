@@ -42,6 +42,10 @@ export default function AjustesEmpresaSection({
   setDietaNoche,
   costeConductor,
   setCosteConductor,
+  costeLeasing,
+  setCosteLeasing,
+  costeDesgaste,
+  setCosteDesgaste,
   guardarDesglose,
   objetivoPuntualidad,
   setObjetivoPuntualidad,
@@ -472,6 +476,22 @@ export default function AjustesEmpresaSection({
             <input
               id="ajustes-conductor" type="number" step="any" min="0"
               value={costeConductor} onChange={(e) => setCosteConductor(e.target.value)} placeholder="0.30"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+            />
+          </div>
+          <div>
+            <label htmlFor="ajustes-leasing" className="block text-xs text-ink-secondary mb-1">Leasing camión (€/km)</label>
+            <input
+              id="ajustes-leasing" type="number" step="any" min="0"
+              value={costeLeasing} onChange={(e) => setCosteLeasing(e.target.value)} placeholder="0.12"
+              className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+            />
+          </div>
+          <div>
+            <label htmlFor="ajustes-desgaste" className="block text-xs text-ink-secondary mb-1">Desgaste (€/km)</label>
+            <input
+              id="ajustes-desgaste" type="number" step="any" min="0"
+              value={costeDesgaste} onChange={(e) => setCosteDesgaste(e.target.value)} placeholder="0.05"
               className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
             />
           </div>

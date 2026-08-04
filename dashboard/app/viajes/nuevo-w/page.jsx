@@ -68,6 +68,10 @@ export default function NuevoViajeWizard() {
   const [hitos, setHitos] = useState(() => prefillHitosDesdeUrl(searchParams) || [nuevoHito("recogida"), nuevoHito("entrega")]);
   const [choferId, setChoferId] = useState("");
   const [choferNombre, setChoferNombre] = useState("");
+  // Conducción en pareja/relevo (2026-08-02, pedido del usuario): segundo
+  // chófer opcional, distinto de bitrén (que es del vehículo). Solo el dato
+  // por ahora -- ajustar horas legales para conducción en pareja es aparte.
+  const [chofer2Id, setChofer2Id] = useState("");
   const [vehiculoId, setVehiculoId] = useState(() => searchParams.get("vehiculoId") || "");
   const [remolqueId, setRemolqueId] = useState("");
   const [vehiculos, setVehiculos] = useState([]);
@@ -240,6 +244,7 @@ export default function NuevoViajeWizard() {
       const result = await createViaje({
         referencia: referencia.trim() || null,
         choferId: choferId || null,
+        chofer2Id: chofer2Id || null,
         vehiculoId: vehiculoId || null,
         remolqueId: remolqueId || null,
         clienteId: clienteId || null,
@@ -634,6 +639,20 @@ export default function NuevoViajeWizard() {
               placeholder="Buscar chófer por nombre..."
             />
           </div>
+          {choferId && (
+            <div>
+              <label className="block text-xs text-ink-secondary mb-1">
+                Segundo chófer (opcional — conducción en pareja/relevo, largo recorrido)
+              </label>
+              <Buscador
+                opciones={choferes.filter((c) => c.id !== choferId).map((c) => ({ value: c.id, label: c.nombre, sublabel: c.idioma?.toUpperCase() }))}
+                value={chofer2Id}
+                onChange={setChofer2Id}
+                placeholder="Buscar segundo chófer..."
+                vacioLabel="Sin segundo chófer"
+              />
+            </div>
+          )}
           {choferId && (
             <div className="text-sm text-ink bg-surface border border-border rounded-xl p-3">
               Asignado: <strong>{choferNombre}</strong>

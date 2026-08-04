@@ -8,7 +8,7 @@ import {
   CheckCircle2, Clock, Trash2, Siren,
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
-import { getCurrentEmpresaId, getMultasPorVehiculo, guardarCapacidadVehiculo, guardarSubtipoVehiculo } from "../../../lib/data";
+import { getCurrentEmpresaId, getMultasPorVehiculo, guardarCapacidadVehiculo, guardarSubtipoVehiculo, guardarBitrenVehiculo } from "../../../lib/data";
 import DocumentosSection from "../../components/DocumentosSection";
 import { TIPOS_DOC_VEHICULO, TIPO_MANTENIMIENTO_LABEL, ESTADO_MANTENIMIENTO_CHIP, SUBTIPO_LABEL } from "../../../lib/labels";
 import RequireRol from "../../components/RequireRol";
@@ -146,6 +146,17 @@ export default function VehiculoDetalle() {
     }
   }
 
+  async function alternarBitren() {
+    const nuevo = !vehiculo.es_bitren;
+    setVehiculo((v) => ({ ...v, es_bitren: nuevo })); // optimista, se revierte si falla
+    try {
+      await guardarBitrenVehiculo(id, nuevo);
+    } catch (err) {
+      setVehiculo((v) => ({ ...v, es_bitren: !nuevo }));
+      setError(err.message);
+    }
+  }
+
   async function guardar(e) {
     e.preventDefault();
     if (!form.tipo) return;
@@ -224,9 +235,19 @@ export default function VehiculoDetalle() {
             </p>
             {vehiculo.notas && <p className="text-xs text-ink-muted mt-1">{vehiculo.notas}</p>}
           </div>
-          <span className={`text-xs px-2 py-0.5 rounded-full ${vehiculo.activo ? "bg-green-50 text-estado-ok" : "bg-gray-100 text-ink-muted"}`}>
-            {vehiculo.activo ? "Activo" : "Inactivo"}
-          </span>
+          <div className="flex flex-col items-end gap-2">
+            <span className={`text-xs px-2 py-0.5 rounded-full ${vehiculo.activo ? "bg-green-50 text-estado-ok" : "bg-gray-100 text-ink-muted"}`}>
+              {vehiculo.activo ? "Activo" : "Inactivo"}
+            </span>
+            {vehiculo.tipo === "tractora" && (
+              <RequireRol roles={["admin"]}>
+                <label className="flex items-center gap-1.5 text-xs text-ink-secondary cursor-pointer">
+                  <input type="checkbox" checked={!!vehiculo.es_bitren} onChange={alternarBitren} className="rounded border-border" />
+                  Bitrén / megatráiler (tira de dos remolques)
+                </label>
+              </RequireRol>
+            )}
+          </div>
         </div>
         {proxITV && (
           <div className="mt-3 flex items-center gap-2 text-xs text-yellow-700 bg-yellow-50 px-3 py-2 rounded-lg">
