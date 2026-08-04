@@ -50,6 +50,7 @@ export const TIPO_INCIDENCIA_LABEL = {
   entrega_sin_sello: "Entrega sin sello/firma",
   checklist_salida_fallo: "Checklist de salida con incidencia",
   acoplamiento_contradiccion: "Contradicción de acoplamiento",
+  pernocta_insegura: "Pernocta insegura",
   otro: "Otro",
 };
 

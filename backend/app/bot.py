@@ -288,6 +288,10 @@ TEXTOS = {
         "btn_checklist_ok": "✅ Todo correcto",
         "btn_checklist_mal": "⚠️ Hay algo mal",
         "checklist_registrado": "Registrado. Gracias.",
+        "btn_pernocta": "🅿️ Dónde paro esta noche",
+        "pernocta_prompt": "¿Dónde vas a parar esta noche? Escribe el nombre del sitio o la ciudad.",
+        "pernocta_pregunta_seguro": "¿Todo bien, sitio seguro?",
+        "pernocta_ok": "Anotado. Buen descanso.",
         "incidencia_ayuda": "Cuéntame qué ha pasado: mándame una nota de voz 🎤 o escríbelo aquí.",
         "inc_elige": "¿Qué ha pasado?",
         "btn_inc_averia": "🔧 Avería",
@@ -382,6 +386,10 @@ TEXTOS = {
         "btn_checklist_ok": "✅ All good",
         "btn_checklist_mal": "⚠️ Something's wrong",
         "checklist_registrado": "Recorded. Thanks.",
+        "btn_pernocta": "🅿️ Where I'm stopping tonight",
+        "pernocta_prompt": "Where are you stopping tonight? Type the place or city name.",
+        "pernocta_pregunta_seguro": "All good, safe place?",
+        "pernocta_ok": "Noted. Rest well.",
         "incidencia_ayuda": "Tell me what happened: send me a voice note 🎤 or type it here.",
         "inc_elige": "What happened?",
         "btn_inc_averia": "🔧 Breakdown",
@@ -476,6 +484,10 @@ TEXTOS = {
         "btn_checklist_ok": "✅ Totul e bine",
         "btn_checklist_mal": "⚠️ Ceva nu e în regulă",
         "checklist_registrado": "Înregistrat. Mulțumesc.",
+        "btn_pernocta": "🅿️ Unde opresc diseară",
+        "pernocta_prompt": "Unde te oprești diseară? Scrie numele locului sau al orașului.",
+        "pernocta_pregunta_seguro": "Totul bine, loc sigur?",
+        "pernocta_ok": "Notat. Odihnă plăcută.",
         "incidencia_ayuda": "Spune-mi ce s-a întâmplat: trimite-mi o notă vocală 🎤 sau scrie aici.",
         "inc_elige": "Ce s-a întâmplat?",
         "btn_inc_averia": "🔧 Defecțiune",
@@ -570,6 +582,10 @@ TEXTOS = {
         "btn_checklist_ok": "✅ Tout va bien",
         "btn_checklist_mal": "⚠️ Il y a un problème",
         "checklist_registrado": "Enregistré. Merci.",
+        "btn_pernocta": "🅿️ Où je m'arrête ce soir",
+        "pernocta_prompt": "Où t'arrêtes-tu ce soir ? Écris le nom du lieu ou de la ville.",
+        "pernocta_pregunta_seguro": "Tout va bien, endroit sûr ?",
+        "pernocta_ok": "Noté. Bon repos.",
         "incidencia_ayuda": "Dites-moi ce qui s'est passé : envoyez une note vocale 🎤 ou écrivez ici.",
         "inc_elige": "Que s'est-il passé ?",
         "btn_inc_averia": "🔧 Panne",
@@ -664,6 +680,10 @@ TEXTOS = {
         "btn_checklist_ok": "✅ Tutto a posto",
         "btn_checklist_mal": "⚠️ C'è un problema",
         "checklist_registrado": "Registrato. Grazie.",
+        "btn_pernocta": "🅿️ Dove mi fermo stanotte",
+        "pernocta_prompt": "Dove ti fermi stanotte? Scrivi il nome del posto o della città.",
+        "pernocta_pregunta_seguro": "Tutto bene, posto sicuro?",
+        "pernocta_ok": "Annotato. Buon riposo.",
         "incidencia_ayuda": "Dimmi cosa è successo: inviami una nota vocale 🎤 o scrivi qui.",
         "inc_elige": "Cosa è successo?",
         "btn_inc_averia": "🔧 Guasto",
@@ -758,6 +778,10 @@ TEXTOS = {
         "btn_checklist_ok": "✅ Tudo bem",
         "btn_checklist_mal": "⚠️ Há um problema",
         "checklist_registrado": "Registado. Obrigado.",
+        "btn_pernocta": "🅿️ Onde paro esta noite",
+        "pernocta_prompt": "Onde vais parar esta noite? Escreve o nome do sítio ou da cidade.",
+        "pernocta_pregunta_seguro": "Tudo bem, sítio seguro?",
+        "pernocta_ok": "Registado. Bom descanso.",
         "incidencia_ayuda": "Diz-me o que aconteceu: envia-me uma nota de voz 🎤 ou escreve aqui.",
         "inc_elige": "O que aconteceu?",
         "btn_inc_averia": "🔧 Avaria",
@@ -852,6 +876,10 @@ TEXTOS = {
         "btn_checklist_ok": "✅ Alles in Ordnung",
         "btn_checklist_mal": "⚠️ Es gibt ein Problem",
         "checklist_registrado": "Erfasst. Danke.",
+        "btn_pernocta": "🅿️ Wo ich heute Nacht halte",
+        "pernocta_prompt": "Wo hältst du heute Nacht? Schreib den Ort oder die Stadt.",
+        "pernocta_pregunta_seguro": "Alles gut, sicherer Ort?",
+        "pernocta_ok": "Notiert. Gute Erholung.",
         "incidencia_ayuda": "Sag mir, was passiert ist: Schick mir eine Sprachnachricht 🎤 oder schreib hier.",
         "inc_elige": "Was ist passiert?",
         "btn_inc_averia": "🔧 Panne",
@@ -946,6 +974,10 @@ TEXTOS = {
         "btn_checklist_ok": "✅ كل شيء جيد",
         "btn_checklist_mal": "⚠️ هناك مشكلة",
         "checklist_registrado": "تم التسجيل. شكرًا.",
+        "btn_pernocta": "🅿️ أين سأتوقف الليلة",
+        "pernocta_prompt": "أين ستتوقف الليلة؟ اكتب اسم المكان أو المدينة.",
+        "pernocta_pregunta_seguro": "كل شيء بخير، مكان آمن؟",
+        "pernocta_ok": "تم التسجيل. ليلة هانئة.",
         "incidencia_ayuda": "أخبرني بما حدث: أرسل لي رسالة صوتية 🎤 أو اكتب هنا.",
         "inc_elige": "ماذا حدث؟",
         "btn_inc_averia": "🔧 عطل",
@@ -1002,6 +1034,7 @@ TEXTOS = {
 BOTONES_INCIDENCIA = {textos["btn_incidencia"] for textos in TEXTOS.values()}
 BOTONES_MI_VIAJE = {textos["btn_mi_viaje"] for textos in TEXTOS.values()}
 BOTONES_CONTACTAR = {textos["btn_contactar"] for textos in TEXTOS.values()}
+BOTONES_PERNOCTA = {textos["btn_pernocta"] for textos in TEXTOS.values()}
 
 
 def t(chofer_or_idioma, key, **kwargs):
@@ -1376,9 +1409,23 @@ def menu_keyboard(chofer):
     Una fila por botón -- cada uno ocupa el ancho completo, más fácil de
     pulsar con el móvil en la mano/conduciendo, y ningún texto se corta."""
     return ReplyKeyboardMarkup(
-        [[t(chofer, "btn_mi_viaje")], [t(chofer, "btn_incidencia")], [t(chofer, "btn_contactar")]],
+        [[t(chofer, "btn_mi_viaje")], [t(chofer, "btn_incidencia")], [t(chofer, "btn_contactar")], [t(chofer, "btn_pernocta")]],
         resize_keyboard=True,
     )
+
+
+# Pernocta del chófer (2026-08-02, ROADMAP): dónde ha dormido y si el sitio es
+# seguro. Iniciado por el CHÓFER (botón del menú), no por un disparador
+# automático de "fin de jornada" -- detectar eso de forma fiable (¿es el
+# último hito del día? ¿hay más paradas mañana?) es un problema mucho más
+# complejo y con más falsos positivos que dejar que el propio chófer lo
+# marque cuando de verdad para -- mismo principio que "Contactar gestor" y
+# el checklist de salida: menos que adivinar automáticamente, más fiable.
+def pernocta_keyboard(chofer):
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton(t(chofer, "btn_sello_si"), callback_data="pernocta:si"),
+        InlineKeyboardButton(t(chofer, "btn_sello_no"), callback_data="pernocta:no"),
+    ]])
 
 
 # Tipos de incidencia de UN TOQUE (2026-07-23, rediseño para que el chófer no
@@ -1510,7 +1557,10 @@ async def handle_menu_texto(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     texto = update.message.text
-    es_boton_menu = texto in BOTONES_INCIDENCIA or texto in BOTONES_MI_VIAJE or texto in BOTONES_CONTACTAR
+    es_boton_menu = (
+        texto in BOTONES_INCIDENCIA or texto in BOTONES_MI_VIAJE
+        or texto in BOTONES_CONTACTAR or texto in BOTONES_PERNOCTA
+    )
 
     # Si el chófer pulsó "otra" en el selector de incidencia, el SIGUIENTE texto
     # (que no sea un botón del menú) es la descripción de esa incidencia. Se
@@ -1533,6 +1583,17 @@ async def handle_menu_texto(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
     ctx.chat_data.pop("contactar_pendiente", None)
 
+    # Pernocta (2026-08-02): el texto tras pulsar el botón es DÓNDE para --
+    # se guarda en chat_data (no en el callback_data del teclado inline
+    # siguiente, que tiene límite de tamaño) hasta que conteste Sí/No.
+    pend_pernocta = ctx.chat_data.get("pernocta_pendiente_texto")
+    if pend_pernocta and pend_pernocta.get("hasta", 0) >= time.time() and not es_boton_menu:
+        ctx.chat_data.pop("pernocta_pendiente_texto", None)
+        ctx.chat_data["pernocta_comentario"] = texto
+        await update.message.reply_text(t(chofer, "pernocta_pregunta_seguro"), reply_markup=pernocta_keyboard(chofer))
+        return
+    ctx.chat_data.pop("pernocta_pendiente_texto", None)
+
     if texto in BOTONES_INCIDENCIA:
         await update.message.reply_text(t(chofer, "inc_elige"), reply_markup=incidencia_keyboard(chofer))
     elif texto in BOTONES_MI_VIAJE:
@@ -1542,6 +1603,9 @@ async def handle_menu_texto(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         viaje_id = viaje_r.data[0]["id"] if viaje_r.data else None
         ctx.chat_data["contactar_pendiente"] = {"hasta": time.time() + INCIDENCIA_FOTO_VENTANA_S, "viaje_id": viaje_id}
         await update.message.reply_text(t(chofer, "contactar_prompt"), reply_markup=contactar_keyboard(chofer))
+    elif texto in BOTONES_PERNOCTA:
+        ctx.chat_data["pernocta_pendiente_texto"] = {"hasta": time.time() + INCIDENCIA_FOTO_VENTANA_S}
+        await update.message.reply_text(t(chofer, "pernocta_prompt"))
 
 
 async def vincular_gestor(update: Update, gestor_id: str, chat_id: str):
@@ -2772,6 +2836,52 @@ async def cb_checklist_salida(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await send_next_hito(chat_id, chofer, ctx.bot, ctx.chat_data)
 
 
+async def cb_pernocta(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Registra dónde ha parado el chófer a pasar la noche y si el sitio es
+    seguro (0089, ROADMAP 2026-08-02) -- si NO, incidencia real (mismo patrón
+    que sello/checklist_salida), no solo una nota pasiva. `comentario` viene
+    de chat_data (lo dejó el mensaje de texto anterior, ver handle_menu_texto)."""
+    query = update.callback_query
+    await query.answer()
+
+    _, respuesta = query.data.split(":")
+    chat_id = str(query.message.chat_id)
+
+    chofer = get_chofer_by_chat(chat_id)
+    if not chofer:
+        await query.edit_message_text(t("es", "no_vinculado"))
+        return
+
+    comentario = ctx.chat_data.pop("pernocta_comentario", None)
+    todo_ok = respuesta == "si"
+
+    viaje_r = supabase.table("viaje").select("id, referencia").eq("chofer_id", chofer["id"]).eq("estado", "en_curso").execute()
+    viaje = viaje_r.data[0] if viaje_r.data else None
+
+    ejecutar_con_reintentos(
+        lambda: supabase.table("pernocta_chofer").insert({
+            "empresa_id": chofer["empresa_id"],
+            "viaje_id": viaje["id"] if viaje else None,
+            "chofer_id": chofer["id"],
+            "todo_ok": todo_ok,
+            "comentario": comentario,
+        }).execute(),
+        contexto={"accion": "registrar_pernocta", "chofer_id": chofer["id"]},
+    )
+
+    if not todo_ok:
+        ref = (viaje.get("referencia") if viaje else None) or (viaje["id"][:8] if viaje else chofer["id"][:8])
+        await alertar_gestor(
+            chofer["empresa_id"],
+            viaje["id"] if viaje else None,
+            "pernocta_insegura",
+            f"⚠️ Pernocta insegura — {chofer['nombre']} indica que el sitio donde para esta noche "
+            f"({comentario or 'sin especificar'}) NO está bien. Viaje {ref}.",
+        )
+
+    await query.edit_message_text(t(chofer, "pernocta_ok"))
+
+
 TIPOS_ANOTACION_ENTREGA_DESC = {
     "mercancia_mojada": "btn_anot_mojada",
     "mercancia_danada": "btn_anot_danada",
@@ -3744,6 +3854,7 @@ def create_bot_app():
     app.add_handler(CallbackQueryHandler(cb_anotacion_entrega, pattern=r"^anot:"))
     app.add_handler(CallbackQueryHandler(cb_sello, pattern=r"^sello:"))
     app.add_handler(CallbackQueryHandler(cb_checklist_salida, pattern=r"^checklist:"))
+    app.add_handler(CallbackQueryHandler(cb_pernocta, pattern=r"^pernocta:"))
     app.add_handler(CallbackQueryHandler(cb_cancelar, pattern=r"^cancelar$"))
     app.add_handler(CallbackQueryHandler(cb_cotizar_confirmar, pattern=r"^cotizar_confirmar$"))
     app.add_handler(CallbackQueryHandler(cb_cotizar_cancelar, pattern=r"^cotizar_cancelar$"))

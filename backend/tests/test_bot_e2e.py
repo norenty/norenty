@@ -495,6 +495,89 @@ async def test_e2e_sello_no_dispara_incidencia_automatica(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_e2e_pernocta_segura_no_dispara_incidencia(monkeypatch):
+    """Flujo completo: botón del menú -> texto (dónde para) -> Sí/No -> se
+    guarda en pernocta_chofer. "Todo bien" no debe crear ninguna incidencia."""
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": None,
+    }]
+    fake_db.tables["viaje"] = [{
+        "id": "v1", "chofer_id": CHOFER_ID, "empresa_id": "e1", "estado": "en_curso", "referencia": "VJ-1",
+    }]
+    fake_db.tables["hito"] = [
+        {"id": "h1", "viaje_id": "v1", "orden": 1, "tipo": "entrega", "direccion": "Destino", "estado": "en_curso"},
+    ]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": None}]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(command_update(app, f"/start {CHOFER_ID}"))
+        await app.process_update(text_update(app, "🅿️ Dónde paro esta noche"))
+        await app.process_update(text_update(app, "Área de servicio A-2, Guadalajara"))
+
+        enviado_pregunta = next(s for s in api.sent if "sitio seguro" in s.get("text", ""))
+        msg_pregunta = Message(
+            message_id=enviado_pregunta.get("message_id", _mid()), date=datetime.now(timezone.utc),
+            chat=Chat(id=CHAT_ID, type="private"), text=enviado_pregunta.get("text"),
+        )
+        msg_pregunta.set_bot(app.bot)
+
+        await app.process_update(callback_update(app, "pernocta:si", msg_pregunta))
+
+        assert len(fake_db.tables["pernocta_chofer"]) == 1
+        p = fake_db.tables["pernocta_chofer"][0]
+        assert p["todo_ok"] is True
+        assert p["comentario"] == "Área de servicio A-2, Guadalajara"
+        assert p["viaje_id"] == "v1"
+        assert fake_db.tables.get("incidencia", []) == []
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_e2e_pernocta_insegura_dispara_incidencia(monkeypatch):
+    """Decir que el sitio NO es seguro guarda `todo_ok=False` Y crea una
+    incidencia real (mismo patrón que sello/checklist_salida)."""
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": None,
+    }]
+    fake_db.tables["viaje"] = [{
+        "id": "v1", "chofer_id": CHOFER_ID, "empresa_id": "e1", "estado": "en_curso", "referencia": "VJ-1",
+    }]
+    fake_db.tables["hito"] = [
+        {"id": "h1", "viaje_id": "v1", "orden": 1, "tipo": "entrega", "direccion": "Destino", "estado": "en_curso"},
+    ]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": None}]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(command_update(app, f"/start {CHOFER_ID}"))
+        await app.process_update(text_update(app, "🅿️ Dónde paro esta noche"))
+        await app.process_update(text_update(app, "Polígono sin vigilancia"))
+
+        enviado_pregunta = next(s for s in api.sent if "sitio seguro" in s.get("text", ""))
+        msg_pregunta = Message(
+            message_id=enviado_pregunta.get("message_id", _mid()), date=datetime.now(timezone.utc),
+            chat=Chat(id=CHAT_ID, type="private"), text=enviado_pregunta.get("text"),
+        )
+        msg_pregunta.set_bot(app.bot)
+
+        await app.process_update(callback_update(app, "pernocta:no", msg_pregunta))
+
+        p = fake_db.tables["pernocta_chofer"][0]
+        assert p["todo_ok"] is False
+        incidencias = [i for i in fake_db.tables.get("incidencia", []) if i.get("tipo") == "pernocta_insegura"]
+        assert len(incidencias) == 1
+        assert incidencias[0]["viaje_id"] == "v1"
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_e2e_checklist_salida_ok_no_dispara_incidencia(monkeypatch):
     """Checklist de salida (2026-07-30): con 0 hitos completados, /start pregunta
     ANTES de mostrar el hito 1. Responder 'Todo correcto' registra el evento y
