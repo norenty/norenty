@@ -4,17 +4,9 @@ import { useMemo, useState } from "react";
 import { Users, Send, Copy, Check, X, History, ChevronDown } from "lucide-react";
 import { getAuditLogPorGestor } from "../../lib/data";
 import { describirAuditoria, fmtFechaHora } from "../../lib/format";
+import { ROL_LABEL } from "../../lib/labels";
 
-const ROLES = [
-  { value: "admin", label: "Admin" },
-  { value: "gestor_operativo", label: "Gestor operativo" },
-  // Fase 23, 23.E.1/23.E.4 (2026-07-29): el rol ya funcionaba de punta a
-  // punta a nivel de RLS/backend, pero faltaba aquí -- asignarlo requería
-  // tocar la base de datos a mano.
-  { value: "planificador", label: "Planificador" },
-  { value: "comercial", label: "Comercial" },
-  { value: "solo_lectura", label: "Solo lectura" },
-];
+const ROLES = Object.entries(ROL_LABEL).map(([value, label]) => ({ value, label }));
 
 /** Sección "Equipo" de Ajustes (ítem 9.40): invitar gestores y gestionar
  * roles/expulsión del equipo (ítem 9.29). El llamador debe envolver este

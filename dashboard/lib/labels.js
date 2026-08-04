@@ -91,6 +91,15 @@ export const TIPO_DOC_LABEL = {
 
 export const AMBITO_LABEL = { viaje: "Viaje", vehiculo: "Vehículo", chofer: "Chófer" };
 
+// Roles de gestor (0075, combinables) — fuente única para Topbar y Ajustes/Equipo.
+export const ROL_LABEL = {
+  admin: "Admin",
+  gestor_operativo: "Gestor operativo",
+  planificador: "Planificador",
+  comercial: "Comercial",
+  solo_lectura: "Solo lectura",
+};
+
 export const TIPOS_PARKING = [
   { value: "parking", label: "Parking" },
   { value: "fueling", label: "Gasolinera / Truck stop" },

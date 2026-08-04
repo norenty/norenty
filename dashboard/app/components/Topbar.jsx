@@ -4,9 +4,12 @@ import { usePathname } from "next/navigation";
 import { Search, LogOut } from "lucide-react";
 import { signOut } from "../../lib/auth";
 import NotificationCenter from "./NotificationCenter";
+import { useRol } from "./RolProvider";
+import { ROL_LABEL } from "../../lib/labels";
 
 export default function Topbar() {
   const pathname = usePathname();
+  const { nombre, roles } = useRol();
 
   // Portal de cliente (7A.14): /t/[token] es público, sin topbar interna.
   if (pathname?.startsWith("/t/")) return null;
@@ -23,6 +26,17 @@ export default function Topbar() {
       </button>
 
       <NotificationCenter />
+
+      {nombre && (
+        <div className="hidden sm:flex items-center gap-1.5 text-sm text-ink-secondary shrink-0" title={roles.map((r) => ROL_LABEL[r] || r).join(", ")}>
+          <span className="text-ink font-medium">{nombre}</span>
+          {roles.length > 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-surface-alt border border-border text-ink-muted">
+              {ROL_LABEL[roles[0]] || roles[0]}{roles.length > 1 ? ` +${roles.length - 1}` : ""}
+            </span>
+          )}
+        </div>
+      )}
 
       <button
         onClick={() => signOut()}
