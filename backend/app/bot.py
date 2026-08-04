@@ -3827,7 +3827,17 @@ async def procesar_cola(ctx):
 
 
 def create_bot_app():
-    app = ApplicationBuilder().token(TOKEN).build()
+    # concurrent_updates=True (2026-08-04, hallazgo de auditoría): por defecto
+    # PTB procesa TODOS los updates en serie, de cualquier chat -- si un
+    # chofer está subiendo una foto de POD (unos segundos con la validación
+    # de Claude Vision) mientras otro escribe, el segundo queda en cola hasta
+    # que termine el primero. Con esto, updates de CHATS DISTINTOS se
+    # procesan en paralelo; PTB sigue serializando los de un MISMO chat entre
+    # sí (nunca dos updates del mismo chofer a la vez), así que no hay
+    # condición de carrera nueva -- no hay estado mutable a nivel de módulo
+    # en este archivo, todo vive en `ctx.chat_data` (ya aislado por chat) o
+    # en Supabase (statelesss por request).
+    app = ApplicationBuilder().token(TOKEN).concurrent_updates(True).build()
     app.add_error_handler(manejar_error)
     # ítem 9.9: guardas de perímetro, cada una en su PROPIO grupo negativo —
     # corren ANTES que cualquier handler "de verdad" (group 0, por defecto).
