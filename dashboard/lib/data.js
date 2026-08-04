@@ -4231,6 +4231,57 @@ export async function getGastosViaje(viajeId) {
   return (data || []).sort((a, b) => (a.fecha || a.created_at) < (b.fecha || b.created_at) ? 1 : -1);
 }
 
+// ==========================================================================
+// Gastos generales de empresa (0090, 2026-08-02): lo que no está atado a un
+// viaje ni a un vehículo -- leasing, seguro, nómina, alquiler, etc. Ver
+// migración para el porqué (no hay conector de contabilidad genérico, hay
+// CSV que cualquier gestoría importa).
+// ==========================================================================
+
+export const CATEGORIAS_GASTO_EMPRESA = ["leasing", "seguro", "nomina", "alquiler", "suministros", "software", "asesoria", "marketing", "otro"];
+
+export async function createGastoEmpresa({ categoria, importe, proveedor = null, descripcion = null, fecha = null }) {
+  if (!CATEGORIAS_GASTO_EMPRESA.includes(categoria)) throw new Error("categoría de gasto no válida");
+  const num = Number(importe);
+  if (Number.isNaN(num) || num < 0) throw new Error("el importe debe ser un número mayor o igual que 0");
+  const empresaId = await getCurrentEmpresaId();
+  const { data, error } = await supabase
+    .from("gasto_empresa")
+    .insert({
+      empresa_id: empresaId,
+      categoria,
+      importe: num,
+      proveedor: proveedor?.trim() || null,
+      descripcion: descripcion?.trim() || null,
+      fecha: fecha || undefined, // undefined -> usa el default current_date de la tabla
+      creado_por: await gestorIdComoAutor(),
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function getGastosEmpresa({ desde, hasta, categoria = null } = {}) {
+  const { desde: d, hasta: h } = resolveRango({ desde, hasta });
+  let query = supabase
+    .from("gasto_empresa")
+    .select("*")
+    .gte("fecha", d.slice(0, 10))
+    .lte("fecha", h.slice(0, 10)) // "fecha" es date (sin hora) -- lt() excluiría los gastos de HOY mismo
+    .order("fecha", { ascending: false });
+  if (categoria) query = query.eq("categoria", categoria);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+export async function deleteGastoEmpresa(id) {
+  const empresaId = await getCurrentEmpresaId();
+  const { error } = await supabase.from("gasto_empresa").delete().eq("id", id).eq("empresa_id", empresaId);
+  if (error) throw error;
+}
+
 export async function createGastoViaje({ viajeId, tipo, importe, litros = null, descripcion = null, fecha = null, choferId = null, vehiculoId = null, fotoUrl = null, fotoHash = null }) {
   const empresaId = await getCurrentEmpresaId();
   const { data, error } = await supabase

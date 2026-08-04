@@ -24,6 +24,7 @@ import {
   ChevronDown,
   Building2,
   Receipt,
+  Landmark,
 } from "lucide-react";
 
 // Ítem 9.30: enlace suelto (fuera de cualquier grupo, siempre visible/expandido).
@@ -74,6 +75,9 @@ const groups = [
       // por rol, no eliminado: admin sigue viéndolo.
       { href: "/facturacion", label: "Facturación", icon: Receipt, soloAdmin: true },
       { href: "/presupuesto", label: "Presupuesto", icon: Calculator },
+      // Gastos generales (0090, 2026-08-02): leasing/seguro/nómina, no atados
+      // a un viaje ni vehículo -- mismo gate de admin que Facturación.
+      { href: "/gastos", label: "Gastos", icon: Landmark, soloAdmin: true },
     ],
   },
   {

@@ -109,6 +109,14 @@ export const TIPO_GASTO_LABEL = {
   repostaje: "Repostaje", peaje: "Peaje", multa: "Multa", dieta: "Dieta", subcontratacion: "Subcontratación", otro: "Otro",
 };
 
+// Gastos GENERALES de empresa (0090) — distinto de TIPO_GASTO_LABEL (gastos
+// por viaje, arriba): leasing/seguro/nómina no son "peaje" ni "dieta".
+export const CATEGORIA_GASTO_EMPRESA_LABEL = {
+  leasing: "Leasing", seguro: "Seguro", nomina: "Nómina", alquiler: "Alquiler",
+  suministros: "Suministros", software: "Software", asesoria: "Asesoría/gestoría",
+  marketing: "Marketing", otro: "Otro",
+};
+
 export const TIPOS_VEHICULO = [
   { value: "tractora", label: "Tractora" },
   { value: "remolque", label: "Remolque" },

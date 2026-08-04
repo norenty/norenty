@@ -334,6 +334,10 @@ const {
   guardarUmbralVueltaCasaEmpresa,
   UMBRAL_VUELTA_CASA_KM_DEFAULT,
   guardarBitrenVehiculo,
+  createGastoEmpresa,
+  getGastosEmpresa,
+  deleteGastoEmpresa,
+  CATEGORIAS_GASTO_EMPRESA,
   registrarPernoctaChofer,
   getPernoctasPorViaje,
   getPernoctasPorChofer,
@@ -433,6 +437,57 @@ describe("guardarCiudadResidenciaChofer (0084 — geocodifica una vez al guardar
     expect(TABLES.chofer[0].ciudad_residencia).toBeNull();
     expect(TABLES.chofer[0].ciudad_residencia_lat).toBeNull();
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("gasto_empresa (gastos generales, 0090 — no atados a viaje ni vehículo)", () => {
+  it("createGastoEmpresa valida categoría y guarda con la empresa del gestor", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1", id: "g1" }];
+    TABLES.gasto_empresa = [];
+    const g = await createGastoEmpresa({ categoria: "leasing", importe: "1200", proveedor: " Renault Leasing " });
+    expect(g.empresa_id).toBe("e1");
+    expect(g.categoria).toBe("leasing");
+    expect(g.importe).toBe(1200);
+    expect(g.proveedor).toBe("Renault Leasing");
+    expect(g.creado_por).toBe("g1");
+  });
+
+  it("rechaza categoría no reconocida", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    await expect(createGastoEmpresa({ categoria: "inventada", importe: "100" })).rejects.toThrow("categoría");
+  });
+
+  it("rechaza importe negativo", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    await expect(createGastoEmpresa({ categoria: "otro", importe: "-5" })).rejects.toThrow("importe");
+  });
+
+  it("getGastosEmpresa filtra por categoría cuando se pasa", async () => {
+    const hoy = new Date().toISOString().slice(0, 10);
+    TABLES.gasto_empresa = [
+      { id: "g1", categoria: "leasing", importe: 100, fecha: hoy },
+      { id: "g2", categoria: "seguro", importe: 200, fecha: hoy },
+    ];
+    const r = await getGastosEmpresa({ categoria: "leasing" });
+    expect(r).toHaveLength(1);
+    expect(r[0].id).toBe("g1");
+  });
+
+  it("deleteGastoEmpresa borra scoped por empresa", async () => {
+    SESSION = { user: { id: "u1" } };
+    TABLES.gestor = [{ auth_user_id: "u1", empresa_id: "e1" }];
+    TABLES.gasto_empresa = [{ id: "g1", empresa_id: "e1" }];
+    await deleteGastoEmpresa("g1");
+    expect(TABLES.gasto_empresa).toHaveLength(0);
+  });
+
+  it("CATEGORIAS_GASTO_EMPRESA incluye las categorías clave pedidas", () => {
+    expect(CATEGORIAS_GASTO_EMPRESA).toEqual(
+      expect.arrayContaining(["leasing", "seguro", "nomina", "alquiler"])
+    );
   });
 });
 
