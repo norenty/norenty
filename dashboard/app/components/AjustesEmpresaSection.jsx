@@ -437,6 +437,20 @@ export default function AjustesEmpresaSection({
           falta por configurar. El consumo del camión (l/100km) se configura en la ficha de cada
           vehículo.
         </p>
+        {precioGasoil === "" && costePeaje === "" && dietaNoche === "" && costeConductor === "" && (
+          <button
+            type="button"
+            onClick={() => {
+              setPrecioGasoil(String(indiceGasoil?.precio_medio_eur ?? 1.55));
+              setCostePeaje("0.15");
+              setDietaNoche("30");
+              setCosteConductor("0.35");
+            }}
+            className="mb-3 text-xs text-brand hover:underline"
+          >
+            Rellenar los 4 con una estimación de mercado (España) -- ajústalos luego a los tuyos reales
+          </button>
+        )}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
           <div>
             <label htmlFor="ajustes-gasoil" className="block text-xs text-ink-secondary mb-1">Gasoil (€/l)</label>

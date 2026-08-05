@@ -2312,7 +2312,8 @@ export async function getMetricasPorCliente(rango = {}) {
   });
 
   const viajesConPrecio = (viajes || []).filter((v) => v.precio != null);
-  const pnls = await Promise.all(viajesConPrecio.map((v) => getPnlViaje(v.id)));
+  const gastosBatch = await getGastosPorViajesBatch(viajesConPrecio.map((v) => v.id));
+  const pnls = await Promise.all(viajesConPrecio.map((v) => getPnlViaje(v.id, gastosBatch[v.id] || [])));
   const margenesPorCliente = {};
   viajesConPrecio.forEach((v, idx) => {
     const clienteId = v.cliente_id || null;
@@ -4231,6 +4232,33 @@ export async function getGastosViaje(viajeId) {
   return (data || []).sort((a, b) => (a.fecha || a.created_at) < (b.fecha || b.created_at) ? 1 : -1);
 }
 
+// Auditoría 2026-08-04 (hallazgo #3, N+1): getMetricasPorCliente/
+// getMetricasRentabilidad/getDatosFacturacion llamaban getPnlViaje ->
+// getGastosViaje UNA VEZ POR VIAJE (mismo patrón ya diagnosticado y arreglado
+// en getAlertaMargen, ver su comentario arriba). Esta función trae los gastos
+// de TODOS los viajes del lote en una sola consulta .in(); getPnlViaje acepta
+// el resultado ya indexado por viaje_id para no repetir el round-trip. La
+// mitad "viabilidad" (ruta/OSRM) de getPnlViaje sigue siendo por-viaje a
+// propósito -- depende de la geometría de cada ruta, no es agregable.
+export async function getGastosPorViajesBatch(viajeIds) {
+  const ids = [...new Set((viajeIds || []).filter(Boolean))];
+  if (!ids.length) return {};
+  // Hallazgo real de /ultrareview (2026-08-05): PostgREST corta CUALQUIER
+  // select() a 1000 filas por defecto -- con muchos viajes en el rango, sus
+  // gastos combinados pueden superar eso fácilmente, y el corte es SILENCIOSO
+  // (sin error), lo que habría subestimado el margen sin avisar. Se pagina
+  // con .range() hasta que una página vuelva incompleta.
+  const PAGINA = 1000;
+  const porViaje = {};
+  for (let desde = 0; ; desde += PAGINA) {
+    const { data, error } = await supabase.from("gasto_viaje").select("*").in("viaje_id", ids).range(desde, desde + PAGINA - 1);
+    if (error) throw error;
+    (data || []).forEach((g) => { (porViaje[g.viaje_id] ||= []).push(g); });
+    if (!data || data.length < PAGINA) break;
+  }
+  return porViaje;
+}
+
 // ==========================================================================
 // Gastos generales de empresa (0090, 2026-08-02): lo que no está atado a un
 // viaje ni a un vehículo -- leasing, seguro, nómina, alquiler, etc. Ver
@@ -4329,10 +4357,10 @@ export async function getMultasPorVehiculo(vehiculoId) {
 // costes (7A.5) acierta o no.
 // ==========================================================================
 
-export async function getPnlViaje(viajeId) {
+export async function getPnlViaje(viajeId, gastosPrefetched = null) {
   const [viabilidad, gastos] = await Promise.all([
     getViabilidadViaje(viajeId),
-    getGastosViaje(viajeId),
+    gastosPrefetched ? Promise.resolve(gastosPrefetched) : getGastosViaje(viajeId),
   ]);
 
   const precio = viabilidad?.precio ?? null;
@@ -4375,9 +4403,10 @@ export async function getMetricasRentabilidad(rango = {}) {
 
   const conPrecio = (viajes || []).filter((v) => v.precio != null);
 
+  const gastosBatch = await getGastosPorViajesBatch(conPrecio.map((v) => v.id));
   const filas = await Promise.all(
     conPrecio.map(async (v) => {
-      const pnl = await getPnlViaje(v.id);
+      const pnl = await getPnlViaje(v.id, gastosBatch[v.id] || []);
       return { id: v.id, referencia: v.referencia || v.id.slice(0, 8), mes: (v.created_at || "").slice(0, 7), ...pnl };
     })
   );
@@ -4496,10 +4525,11 @@ export async function getDatosFacturacion({ desde, hasta, clienteId = null } = {
   const { data: viajes, error } = await query;
   if (error) throw error;
 
+  const gastosBatch = await getGastosPorViajesBatch((viajes || []).map((v) => v.id));
   return Promise.all((viajes || []).map(async (v) => {
     const [viabilidad, gastos] = await Promise.all([
       getViabilidadViaje(v.id),
-      getGastosViaje(v.id),
+      Promise.resolve(gastosBatch[v.id] || []),
     ]);
     const gastosPorTipo = {};
     for (const g of gastos) {

@@ -213,7 +213,12 @@ def _calidad_foto_pod(datos: bytes):
             bordes = gris.filter(ImageFilter.FIND_EDGES)
             nitidez = ImageStat.Stat(bordes).stddev[0]
             return {"ancho": ancho, "alto": alto, "luminosidad": luminosidad, "nitidez": nitidez}
-    except Exception:
+    except Exception as e:
+        # Auditoría 2026-08-04 (hallazgo #10): único except del archivo sin
+        # logging -- silencioso a propósito en el resultado (ver docstring,
+        # se acepta la foto), pero un fallo real de Pillow debe quedar
+        # registrado para poder distinguirlo de "imagen simplemente rara".
+        logger.warning("_calidad_foto_pod: no se pudo analizar la imagen (%s)", e)
         return None
 
 
@@ -3829,9 +3834,10 @@ async def procesar_cola(ctx):
 def create_bot_app():
     # concurrent_updates=True (2026-08-04, hallazgo de auditoría): por defecto
     # PTB procesa TODOS los updates en serie, de cualquier chat -- si un
-    # chofer está subiendo una foto de POD (unos segundos con la validación
-    # de Claude Vision) mientras otro escribe, el segundo queda en cola hasta
-    # que termine el primero. Con esto, updates de CHATS DISTINTOS se
+    # chofer está subiendo una foto de POD (unos segundos de validación local
+    # con Pillow, ver _calidad_foto_pod -- NO hay Claude Vision ni ningún otro
+    # LLM en este proyecto) mientras otro escribe, el segundo queda en cola
+    # hasta que termine el primero. Con esto, updates de CHATS DISTINTOS se
     # procesan en paralelo; PTB sigue serializando los de un MISMO chat entre
     # sí (nunca dos updates del mismo chofer a la vez), así que no hay
     # condición de carrera nueva -- no hay estado mutable a nivel de módulo

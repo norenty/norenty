@@ -278,6 +278,7 @@ const {
   getNotasRecientes,
   createNotaGestor,
   getGastosViaje,
+  getGastosPorViajesBatch,
   createGastoViaje,
   deleteGastoViaje,
   getMultasPorChofer,
@@ -5288,3 +5289,35 @@ describe("9.35 — las funciones financieras LANZAN ante un fallo real de lectur
     await expect(getMetricasRentabilidad()).rejects.toThrow("fallo real");
   });
 });
+
+describe("getGastosPorViajesBatch (hallazgo /ultrareview 2026-08-05: paginación, PostgREST corta a 1000 filas)", () => {
+  beforeEach(() => { TABLES.gasto_viaje = []; });
+
+  it("sin ids: no consulta nada, devuelve objeto vacío", async () => {
+    expect(await getGastosPorViajesBatch([])).toEqual({});
+  });
+
+  it("agrupa correctamente por viaje_id con pocas filas (caso normal)", async () => {
+    TABLES.gasto_viaje = [
+      { viaje_id: "v1", tipo: "peaje", importe: 10 },
+      { viaje_id: "v1", tipo: "dieta", importe: 20 },
+      { viaje_id: "v2", tipo: "peaje", importe: 5 },
+    ];
+    const r = await getGastosPorViajesBatch(["v1", "v2"]);
+    expect(r.v1).toHaveLength(2);
+    expect(r.v2).toHaveLength(1);
+  });
+
+  it("con más de 1000 filas NO trunca -- pagina hasta traerlas todas", async () => {
+    TABLES.gasto_viaje = Array.from({ length: 1234 }, (_, i) => ({ viaje_id: "v1", tipo: "peaje", importe: 1 }));
+    const r = await getGastosPorViajesBatch(["v1"]);
+    expect(r.v1).toHaveLength(1234);
+  });
+
+  it("exactamente 1000 filas (borde de la página): también las trae todas", async () => {
+    TABLES.gasto_viaje = Array.from({ length: 1000 }, () => ({ viaje_id: "v1", tipo: "peaje", importe: 1 }));
+    const r = await getGastosPorViajesBatch(["v1"]);
+    expect(r.v1).toHaveLength(1000);
+  });
+});
+
