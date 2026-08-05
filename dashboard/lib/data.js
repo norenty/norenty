@@ -1449,6 +1449,15 @@ export async function guardarCosteKmEmpresa(empresaId, costeKmStr) {
   if (error) throw error;
 }
 
+// Validación de POD con IA (0096, 2026-08-05): apagado por defecto en toda
+// empresa. El toggle en sí es solo la primera de dos puertas -- sin
+// ANTHROPIC_API_KEY configurada en el servidor del bot, activarlo desde aquí
+// tampoco dispara ninguna llamada real (ver validar_pod_con_ia en bot.py).
+export async function guardarValidacionPodIaEmpresa(empresaId, activa) {
+  const { error } = await supabase.from("empresa").update({ validacion_pod_ia_activa: !!activa }).eq("id", empresaId);
+  if (error) throw error;
+}
+
 export async function guardarMargenObjetivoEmpresa(empresaId, margenStr) {
   const margen = margenStr.trim() === "" ? null : Number(margenStr);
   if (margen != null && (Number.isNaN(margen) || margen < 0 || margen >= 100)) {

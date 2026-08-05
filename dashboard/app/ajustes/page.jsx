@@ -9,7 +9,7 @@ import {
   getGestoresEmpresa, actualizarRolGestor, actualizarRolesGestor, desactivarGestor, reactivarGestor, INVITACION_VALIDEZ_DIAS,
   guardarNombreEmpresa, getBasesEmpresa, crearBaseEmpresa, eliminarBaseEmpresa, guardarCosteKmEmpresa, guardarVelocidadEmpresa,
   guardarDesgloseCosteEmpresa, guardarObjetivoPuntualidadEmpresa, guardarMargenObjetivoEmpresa,
-  guardarValorAseguradoMaximoEmpresa,
+  guardarValorAseguradoMaximoEmpresa, guardarValidacionPodIaEmpresa,
   getChoferesConGestor, guardarGestorChofer, guardarTelefonoGestor,
   getViajesConGestor, guardarGestorViaje, getIndiceGasoilNacional,
   getSolicitudesAprobacion, resolverSolicitudAprobacion, registrarAuditoria,
@@ -36,6 +36,7 @@ export default function AjustesPage() {
   const [objetivoPuntualidad, setObjetivoPuntualidad] = useState("");
   const [margenObjetivo, setMargenObjetivo] = useState("");
   const [valorAseguradoMaximo, setValorAseguradoMaximo] = useState("");
+  const [validacionPodIaActiva, setValidacionPodIaActiva] = useState(false);
   const [velocidadPlanificacion, setVelocidadPlanificacion] = useState("");
   const [umbralVueltaCasa, setUmbralVueltaCasa] = useState("");
   const [tarifaEspera, setTarifaEspera] = useState("");
@@ -137,6 +138,7 @@ export default function AjustesPage() {
           setObjetivoPuntualidad(emp?.objetivo_puntualidad_pct != null ? String(emp.objetivo_puntualidad_pct) : "");
           setMargenObjetivo(emp?.margen_objetivo_pct != null ? String(emp.margen_objetivo_pct) : "");
           setValorAseguradoMaximo(emp?.valor_asegurado_maximo_eur != null ? String(emp.valor_asegurado_maximo_eur) : "");
+          setValidacionPodIaActiva(!!emp?.validacion_pod_ia_activa);
           setVelocidadPlanificacion(emp?.velocidad_planificacion_kmh != null ? String(emp.velocidad_planificacion_kmh) : "");
           setUmbralVueltaCasa(emp?.umbral_vuelta_casa_km != null ? String(emp.umbral_vuelta_casa_km) : "");
           setTarifaEspera(emp?.tarifa_hora_espera_eur != null ? String(emp.tarifa_hora_espera_eur) : "");
@@ -352,6 +354,19 @@ export default function AjustesPage() {
     try {
       await guardarCosteKmEmpresa(empresa.id, costeKm);
       flash("Coste por km guardado");
+    } catch (err) {
+      flash("Error: " + err.message);
+    }
+    setGuardando(false);
+  }
+
+  async function alternarValidacionPodIa(activa) {
+    if (!empresa) return;
+    setGuardando(true);
+    try {
+      await guardarValidacionPodIaEmpresa(empresa.id, activa);
+      setValidacionPodIaActiva(activa);
+      flash(activa ? "Validación con IA activada" : "Validación con IA desactivada");
     } catch (err) {
       flash("Error: " + err.message);
     }
@@ -717,6 +732,8 @@ export default function AjustesPage() {
         guardarMargen={guardarMargen}
         valorAseguradoMaximo={valorAseguradoMaximo}
         setValorAseguradoMaximo={setValorAseguradoMaximo}
+        validacionPodIaActiva={validacionPodIaActiva}
+        alternarValidacionPodIa={alternarValidacionPodIa}
         guardarValorAseguradoMaximo={guardarValorAseguradoMaximo}
         velocidadPlanificacion={velocidadPlanificacion}
         setVelocidadPlanificacion={setVelocidadPlanificacion}

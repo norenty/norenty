@@ -7,3 +7,4 @@ python-telegram-bot[job-queue,webhooks]
 sentry-sdk
 psycopg2-binary
 Pillow
+anthropic

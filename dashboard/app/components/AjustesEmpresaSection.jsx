@@ -56,6 +56,8 @@ export default function AjustesEmpresaSection({
   valorAseguradoMaximo,
   setValorAseguradoMaximo,
   guardarValorAseguradoMaximo,
+  validacionPodIaActiva,
+  alternarValidacionPodIa,
   indiceGasoil,
   guardando,
 }) {
@@ -420,6 +422,35 @@ export default function AjustesEmpresaSection({
         <label className="flex items-center gap-2 text-sm text-ink-secondary w-fit">
           <input type="checkbox" checked disabled className="rounded border-border" />
           Pedir foto de albarán en cada entrega (obligatorio)
+        </label>
+      </section>
+      </RequireRol>
+
+      <RequireRol roles={["admin"]}>
+      <section id="ajustes-validacion-pod-ia" className="bg-surface border border-border rounded-xl p-5 mb-4 scroll-mt-20">
+        <div className="flex items-center gap-2 mb-1">
+          <Camera size={18} className="text-brand" />
+          <h2 className="text-sm font-medium text-ink">Validación de albarán con IA (opcional)</h2>
+        </div>
+        <p className="text-xs text-ink-secondary mb-2">
+          Cuando el chófer sube la foto del albarán, se analiza automáticamente si está sellado y si la
+          fecha se puede leer, sin depender de que el chófer lo confirme a mano. Coste aproximado: ~0,2
+          céntimos por foto (con volumen bajo/medio, unos pocos euros al mes) -- desactivado por defecto.
+        </p>
+        <p className="text-xs text-ink-muted mb-4">
+          Aunque actives esto, no se hará ninguna llamada ni se generará ningún coste hasta que además
+          se configure la clave de la API de Anthropic en el servidor del bot (paso técnico aparte,
+          fuera del dashboard) -- este interruptor por sí solo no puede disparar gasto.
+        </p>
+        <label className="flex items-center gap-2 text-sm text-ink-secondary w-fit cursor-pointer">
+          <input
+            type="checkbox"
+            checked={validacionPodIaActiva}
+            onChange={(e) => alternarValidacionPodIa(e.target.checked)}
+            disabled={guardando}
+            className="rounded border-border"
+          />
+          Activar validación automática con IA
         </label>
       </section>
       </RequireRol>

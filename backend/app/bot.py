@@ -246,6 +246,69 @@ def _foto_pod_valida(datos: bytes):
     return True, None
 
 
+# ==========================================================================
+# Validación de POD con IA de visión (2026-08-05, decisión del usuario:
+# "constrúyelo pero déjalo apagado con cero riesgo de gasto"). Complementa
+# _foto_pod_valida (calidad técnica) con contenido: ¿está sellado?, ¿la
+# fecha se puede leer? Coste real por foto con Haiku 4.5 (el modelo elegido
+# a propósito, es el más barato de los que sirven para esto): ~1.500 tokens
+# de imagen + ~100 de respuesta ≈ 0,2 céntimos/foto.
+#
+# GUARDARRAÍL: empresa.validacion_pod_ia_activa (migración 0096) es la ÚNICA
+# puerta, y es la PRIMERA línea de la función -- si es false (el valor por
+# defecto de toda empresa, incluidas las ya existentes), se devuelve None
+# antes de importar el SDK de Anthropic o tocar la red. Cero llamadas, cero
+# coste, hasta que un admin lo active a mano en Ajustes.
+# ==========================================================================
+
+def validar_pod_con_ia(datos: bytes, empresa: dict | None) -> dict | None:
+    """None si la empresa no activó el flag, si falta la API key, o si la
+    llamada falla por cualquier motivo (nunca bloquea el flujo del chófer --
+    mismo criterio que _calidad_foto_pod). Si devuelve dict, siempre trae
+    las tres claves."""
+    if not empresa or not empresa.get("validacion_pod_ia_activa"):
+        return None  # apagado -- ver guardarraíl arriba, no tocar sin activar el flag
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        logger.warning("validacion_pod_ia_activa=true pero falta ANTHROPIC_API_KEY -- validación omitida")
+        return None
+
+    try:
+        import anthropic
+        import base64
+
+        client = anthropic.Anthropic(api_key=api_key)
+        img_b64 = base64.standard_b64encode(bytes(datos)).decode("utf-8")
+        response = client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=200,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": img_b64}},
+                    {"type": "text", "text": (
+                        "Esta es una foto de un albarán/CMR de transporte de mercancías. "
+                        "Responde SOLO con un JSON exacto, sin texto adicional, con este formato: "
+                        '{"sellado": true|false, "fecha_legible": true|false, "notas": "breve, en español"}. '
+                        "sellado=true si ves un sello o firma de conformidad de la entrega. "
+                        "fecha_legible=true si hay una fecha escrita a mano o impresa que se puede leer con claridad."
+                    )},
+                ],
+            }],
+        )
+        texto = next((b.text for b in response.content if b.type == "text"), "")
+        resultado = json.loads(texto)
+        return {
+            "sellado": bool(resultado.get("sellado")),
+            "fecha_legible": bool(resultado.get("fecha_legible")),
+            "notas": str(resultado.get("notas") or "")[:500],
+        }
+    except Exception as e:
+        logger.warning("validar_pod_con_ia: fallo al llamar a la API, se omite (%s)", e)
+        return None
+
+
 # --- i18n ---
 TEXTOS = {
     "es": {
@@ -2534,13 +2597,30 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         file_options={"content-type": "image/jpeg"},
     )
 
-    supabase.table("pod").insert({
+    pod_insert = supabase.table("pod").insert({
         "hito_id": hito["id"],
         "viaje_id": viaje["id"],
         "foto_url": file_path,
         "estado_validacion": "pendiente",
         "hash_sha256": hash_sha256,
     }).execute()
+
+    # Validación con IA de visión (0096, apagada por defecto -- ver guardarraíl
+    # en validar_pod_con_ia). Envuelto aparte y con su propio try/except: si algo
+    # falla aquí, la entrega del chófer ya está registrada y no debe verse afectada.
+    try:
+        pod_id = pod_insert.data[0]["id"] if pod_insert.data else None
+        if pod_id:
+            empresa_r = supabase.table("empresa").select("validacion_pod_ia_activa").eq("id", chofer["empresa_id"]).single().execute()
+            resultado_ia = validar_pod_con_ia(file_bytes, empresa_r.data)
+            if resultado_ia:
+                supabase.table("pod").update({
+                    "validacion_ia_sellado": resultado_ia["sellado"],
+                    "validacion_ia_fecha_legible": resultado_ia["fecha_legible"],
+                    "validacion_ia_notas": resultado_ia["notas"],
+                }).eq("id", pod_id).execute()
+    except Exception as e:
+        logger.warning("Validación IA de POD: fallo no bloqueante (%s)", e)
 
     supabase.table("hito").update({"estado": "completado"}).eq("id", hito["id"]).execute()
 

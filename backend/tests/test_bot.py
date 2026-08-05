@@ -811,6 +811,35 @@ async def test_cmd_parking_en_ingles(fake_db):
     assert "Directions" in reply_markup.inline_keyboard[0][0].text
 
 
+# --- validar_pod_con_ia (0096, 2026-08-05): apagada por defecto -- estos tests
+# verifican el guardarraíl de coste cero, no la validez del análisis de imagen. ---
+
+def test_validar_pod_con_ia_flag_apagado_no_intenta_nada(monkeypatch):
+    # Si algo intentara importar el SDK de Anthropic con el flag apagado, esto
+    # lanzaría -- el guardarraíl real es que ni siquiera se llega a intentarlo.
+    import builtins
+    real_import = builtins.__import__
+
+    def import_que_falla_si_es_anthropic(name, *args, **kwargs):
+        if name == "anthropic":
+            raise AssertionError("no debería intentar importar anthropic con el flag apagado")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", import_que_falla_si_es_anthropic)
+    resultado = bot.validar_pod_con_ia(b"foto-falsa", {"validacion_pod_ia_activa": False})
+    assert resultado is None
+
+
+def test_validar_pod_con_ia_sin_empresa_no_intenta_nada():
+    assert bot.validar_pod_con_ia(b"foto-falsa", None) is None
+
+
+def test_validar_pod_con_ia_flag_activo_pero_sin_api_key(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    resultado = bot.validar_pod_con_ia(b"foto-falsa", {"validacion_pod_ia_activa": True})
+    assert resultado is None
+
+
 # --- /eta (ítem 6.8) — calcular_eta_con_paradas: mismos casos que el JS (5.3) ---
 
 def test_calcular_eta_0h_sin_paradas():
