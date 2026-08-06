@@ -2624,11 +2624,18 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     supabase.table("hito").update({"estado": "completado"}).eq("id", hito["id"]).execute()
 
+    # Revisión de arquitectura 2026-08-05 (hallazgo #4): el hash de la foto se
+    # guardaba solo en `pod.hash_sha256`, fuera de la cadena de evidencia
+    # firmada -- así la cadena probaba "hubo una subida" pero no "qué foto
+    # concreta fue", justo el eslabón que importa en una disputa con cliente.
+    # `detalle` ya es texto libre firmado (ver hito/direccion arriba), así que
+    # meter el hash aquí lo mete en la firma sin tocar el esquema.
     supabase.table("ejecucion_evento").insert({
         "viaje_id": viaje["id"],
         "hito_id": hito["id"],
         "chofer_id": chofer_id,
         "tipo": "pod_subido",
+        "detalle": hash_sha256,
     }).execute()
 
     supabase.table("ejecucion_evento").insert({
