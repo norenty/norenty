@@ -292,6 +292,47 @@ async def test_e2e_flujo_completo_start_hito_llegada_pod_completar(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_e2e_mi_viaje_con_hito_en_curso_no_duplica_llegada(monkeypatch):
+    """Revisión de arquitectura 2026-08-05 (hallazgo #9): chófer confirma
+    llegada a una entrega (hito queda 'en_curso', esperando POD) y, ANTES de
+    mandar la foto, pulsa "Mi viaje" otra vez (mensaje perdido, reinicio de
+    Telegram...). Antes volvía a mostrar "He llegado"; pulsarlo habría creado
+    una SEGUNDA fila 'llegada' en la cadena de evidencia para el mismo hito.
+    Ahora debe reenviar la petición de foto, sin tocar la cadena."""
+    fake_db = FakeSupabase()
+    fake_db.tables["chofer"] = [{
+        "id": CHOFER_ID, "nombre": "Mario", "empresa_id": "e1", "idioma": "es", "chat_id": str(CHAT_ID),
+    }]
+    fake_db.tables["viaje"] = [{
+        "id": "v1", "chofer_id": CHOFER_ID, "empresa_id": "e1", "estado": "en_curso", "referencia": "VJ-1",
+    }]
+    fake_db.tables["hito"] = [{
+        "id": "h1", "viaje_id": "v1", "orden": 1, "tipo": "entrega", "direccion": "Destino",
+        "estado": "en_curso",
+        "viaje": {"id": "v1", "chofer_id": CHOFER_ID, "estado": "en_curso", "referencia": "VJ-1"},
+    }]
+    fake_db.tables["ejecucion_evento"] = [
+        {"id": "ev0", "viaje_id": "v1", "hito_id": None, "chofer_id": CHOFER_ID, "tipo": "checklist_salida"},
+        {"id": "ev1", "viaje_id": "v1", "hito_id": "h1", "chofer_id": CHOFER_ID, "tipo": "llegada"},
+    ]
+    fake_db.tables["gestor"] = [{"id": "g1", "empresa_id": "e1", "telegram_chat_id": None}]
+
+    app, api = make_app(monkeypatch, fake_db)
+    await app.initialize()
+    try:
+        await app.process_update(text_update(app, "📋 Mi viaje"))
+
+        assert any("FOTO DEL ALBARÁN" in s.get("text", "") for s in api.sent)
+        assert not any("¿Has llegado" in s.get("text", "") or "pulsa_llegada" in s.get("text", "") for s in api.sent)
+        # ni una segunda 'llegada' de más, ni cambio de estado del hito
+        eventos_llegada = [e for e in fake_db.tables["ejecucion_evento"] if e["tipo"] == "llegada"]
+        assert len(eventos_llegada) == 1
+        assert fake_db.tables["hito"][0]["estado"] == "en_curso"
+    finally:
+        await app.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_e2e_anotacion_entrega_tras_pod(monkeypatch):
     """Fase 23, 23.A.2: tras subir el POD, el bot pregunta por el estado de la
     mercancía; pulsar 'Llega mojada' registra un ejecucion_evento con el

@@ -1440,6 +1440,26 @@ async def send_next_hito(chat_id, chofer, bot, chat_data=None):
             )
             return
 
+    # Revisión de arquitectura 2026-08-05 (hallazgo #9): si el hito pendiente
+    # ya está 'en_curso' (el chófer ya pulsó "He llegado" pero se quedó a
+    # medias esperando la foto -- mensaje perdido en el scroll, reinicio de
+    # Telegram, batería...), "Mi viaje" volvía a mostrar el botón "He
+    # llegado" -- pulsarlo insertaba una SEGUNDA fila 'llegada' en la cadena
+    # de evidencia para el mismo hito, sin forma de saber cuál es la buena.
+    # Se reenvía la petición de foto (con su botón de escape "no la tengo"),
+    # que es el estado real en el que está el chófer, en vez de repetir la
+    # pregunta de llegada.
+    if pendiente["estado"] == "en_curso" and pendiente["tipo"] == "entrega":
+        dir_hito = pendiente.get("direccion", "?")
+        await bot.send_message(
+            chat_id=chat_id,
+            text=t(chofer, "pedir_foto", dir=dir_hito),
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton(t(chofer, "btn_sin_foto"), callback_data=f"sin_pod:{pendiente['id']}"),
+            ]]),
+        )
+        return
+
     idioma = chofer.get("idioma", "es")
     texto = f"Viaje {ref} — {completados}/{total} hitos\n\n"
     texto += build_hito_message(pendiente, pendiente["orden"], total, idioma=idioma)
