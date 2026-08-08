@@ -37,7 +37,16 @@ if __name__ == "__main__":
             print("ERROR: BOT_WEBHOOK_URL definida pero falta BOT_WEBHOOK_SECRET.")
             sys.exit(1)
 
-        port = int(os.environ.get("BOT_WEBHOOK_PORT", "8443"))
+        # Diagnóstico 2026-08-08 (smoke test): Railway asigna el puerto real de
+        # forma dinámica vía $PORT y su proxy solo enruta ahí -- si el proceso
+        # escuchaba en BOT_WEBHOOK_PORT (por defecto 8443) sin coincidir con
+        # $PORT, Railway devuelve "Application failed to respond"/502 a
+        # Telegram aunque el proceso esté perfectamente vivo por dentro (el
+        # job_queue seguía corriendo y el heartbeat seguía llegando -- eso fue
+        # lo que lo delató). $PORT manda siempre que exista; BOT_WEBHOOK_PORT
+        # sigue disponible como override explícito para quien no esté en
+        # Railway.
+        port = int(os.environ.get("PORT") or os.environ.get("BOT_WEBHOOK_PORT", "8443"))
         listen = os.environ.get("BOT_LISTEN", "0.0.0.0")
 
         print(f"Norenty Bot arrancando en modo webhook ({webhook_url}) ...")
